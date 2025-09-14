@@ -11,8 +11,11 @@ COPY target/vehicle-management-api-0.0.1-SNAPSHOT.jar app.jar
 # Create non-root user
 RUN groupadd -g 1001 spring && useradd -r -u 1001 -g spring spring
 
+# Create directories for file operations
+RUN mkdir -p /app/temp /app/csv
+
 # Change ownership to spring user
-RUN chown spring:spring app.jar
+RUN chown -R spring:spring /app
 
 USER spring
 

@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowDown, ArrowUp } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Search, Filter, Download, MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, Clock } from "lucide-react"
-import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
-import { ImportDialog } from "@/components/reports/import-dialog"
+import { Search, Filter, Download, MoreHorizontal, Edit, Trash2, Eye, CheckCircle, XCircle, Clock, Image } from "lucide-react"
+import { EntryExitExportDialog } from "@/components/vehicles/entry-exit-export-dialog"
+import { EntryExitImportDialog } from "@/components/vehicles/entry-exit-import-dialog"
+import { RequestImagesDialog } from "@/components/vehicles/request-images-dialog"
 
 interface VehicleRequestsTableProps {
   requests: EntryExitRequest[]
@@ -44,8 +46,10 @@ export function VehicleRequestsTable({
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
-  const [showAdvancedExport, setShowAdvancedExport] = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showImagesDialog, setShowImagesDialog] = useState(false)
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
 
   const filteredRequests = requests.filter((request) => {
     const matchesSearch =
@@ -116,7 +120,7 @@ export function VehicleRequestsTable({
 
   const getVehicleType = (licensePlate: string) => {
     const vehicle = vehicles.find(v => v.licensePlate === licensePlate)
-    return vehicle?.vehicleType || "unknown"
+    return vehicle?.vehicleType || ""
   }
 
   const getVehicleTypeIcon = (type: string) => {
@@ -148,6 +152,11 @@ export function VehicleRequestsTable({
     return new Date(dateString).toLocaleDateString("vi-VN")
   }
 
+  const handleViewImages = (requestId: string) => {
+    setSelectedRequestId(requestId)
+    setShowImagesDialog(true)
+  }
+
   return (
     <div className="space-y-4">
       {/* Search and Filter Bar */}
@@ -163,20 +172,29 @@ export function VehicleRequestsTable({
             />
           </div>
           <div className="relative">
-            <Input
-              placeholder="Trạng thái"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-32"
-            />
+            <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-full sm:w-36">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="pending">Chờ xử lý</SelectItem>
+                <SelectItem value="approved">Đã duyệt</SelectItem>
+                <SelectItem value="rejected">Đã từ chối</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="relative">
-            <Input
-              placeholder="Loại yêu cầu"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full sm:w-32"
-            />
+            <Select value={typeFilter || "all"} onValueChange={(value) => setTypeFilter(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-full sm:w-36">
+                <SelectValue placeholder="Loại yêu cầu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="entry">Vào</SelectItem>
+                <SelectItem value="exit">Ra</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -184,10 +202,6 @@ export function VehicleRequestsTable({
           <Button variant="outline" size="sm">
             <Filter className="h-4 w-4 mr-2" />
             Bộ lọc
-          </Button>
-          <Button variant="outline" size="sm">
-            <Search className="h-4 w-4 mr-2" />
-            Tìm kiếm
           </Button>
         </div>
       </div>
@@ -242,10 +256,11 @@ export function VehicleRequestsTable({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowAdvancedExport(true)}
+            onClick={() => setShowExport(true)}
             className="border-border hover:bg-muted text-card-foreground"
           >
-            Xuất
+            <Download className="h-4 w-4 mr-2" />
+            Xuất Excel
           </Button>
           <Button
             variant="outline"
@@ -253,7 +268,8 @@ export function VehicleRequestsTable({
             onClick={() => setShowImport(true)}
             className="border-border hover:bg-muted text-card-foreground"
           >
-            Nhập
+            <Download className="h-4 w-4 mr-2" />
+            Nhập Excel
           </Button>
         </div>
       </div>
@@ -360,6 +376,10 @@ export function VehicleRequestsTable({
                           <Eye className="h-4 w-4 mr-2" />
                           Xem
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleViewImages(request.id)}>
+                          <Image className="h-4 w-4 mr-2" />
+                          Xem hình ảnh
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onEdit(request)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Chỉnh sửa
@@ -423,23 +443,31 @@ export function VehicleRequestsTable({
         </div>
       </div>
 
-      {showAdvancedExport && (
-        <AdvancedExportDialog
-          isOpen={showAdvancedExport}
-          onClose={() => setShowAdvancedExport(false)}
-          onExport={(options) => {
-            console.log("Export options:", options)
-          }}
+      {showExport && (
+        <EntryExitExportDialog
+          isOpen={showExport}
+          onClose={() => setShowExport(false)}
         />
       )}
 
       {showImport && (
-        <ImportDialog
+        <EntryExitImportDialog
           isOpen={showImport}
           onClose={() => setShowImport(false)}
-          onImport={(options) => {
-            console.log("Import options:", options)
+          onImportComplete={() => {
+            onRefresh?.()
           }}
+        />
+      )}
+
+      {showImagesDialog && (
+        <RequestImagesDialog
+          isOpen={showImagesDialog}
+          onClose={() => {
+            setShowImagesDialog(false)
+            setSelectedRequestId(null)
+          }}
+          requestId={selectedRequestId}
         />
       )}
     </div>

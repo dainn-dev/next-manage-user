@@ -48,6 +48,12 @@ public class EntryExitRequest {
     
     private String notes;
     
+    @Column(name = "entry_image_path")
+    private String entryImagePath;
+    
+    @Column(name = "exit_image_path")
+    private String exitImagePath;
+    
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
@@ -142,6 +148,22 @@ public class EntryExitRequest {
         this.createdAt = createdAt;
     }
     
+    public String getEntryImagePath() {
+        return entryImagePath;
+    }
+    
+    public void setEntryImagePath(String entryImagePath) {
+        this.entryImagePath = entryImagePath;
+    }
+    
+    public String getExitImagePath() {
+        return exitImagePath;
+    }
+    
+    public void setExitImagePath(String exitImagePath) {
+        this.exitImagePath = exitImagePath;
+    }
+    
     // Business methods
     public void approve(String approvedBy) {
         this.status = RequestStatus.approved;
@@ -155,12 +177,16 @@ public class EntryExitRequest {
         this.approvedAt = LocalDateTime.now();
     }
     
+    public void complete() {
+        this.status = RequestStatus.completed;
+    }
+    
     // Enums
     public enum RequestType {
         entry, exit
     }
     
     public enum RequestStatus {
-        pending, approved, rejected
+        pending, approved, rejected, completed
     }
 }

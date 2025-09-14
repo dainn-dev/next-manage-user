@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Filter, Download, Car as CarIcon } from "lucide-react"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
@@ -52,7 +53,7 @@ export function VehicleTable({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedVehicles(vehicles.map((vehicle) => vehicle.id))
+      setSelectedVehicles(filteredVehicles.map((vehicle) => vehicle.id))
     } else {
       setSelectedVehicles([])
     }
@@ -65,6 +66,19 @@ export function VehicleTable({
       setSelectedVehicles((prev) => prev.filter((id) => id !== vehicleId))
     }
   }
+
+  // Client-side filtering for current page
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const matchesSearch = !searchTerm || 
+      vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesType = !typeFilter || vehicle.vehicleType === typeFilter
+    const matchesStatus = !statusFilter || vehicle.status === statusFilter
+
+    return matchesSearch && matchesType && matchesStatus
+  })
 
   const getStatusBadge = (status: Vehicle["status"]) => {
     switch (status) {
@@ -133,24 +147,22 @@ export function VehicleTable({
             />
           </div>
           <div className="relative">
-            <Input
-              placeholder="Trạng thái"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-48"
-            />
+            <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="active">Hoạt động</SelectItem>
+                <SelectItem value="inactive">Không hoạt động</SelectItem>
+                <SelectItem value="maintenance">Bảo trì</SelectItem>
+                <SelectItem value="retired">Nghỉ hưu</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            Bộ lọc
-          </Button>
-          <Button variant="outline" size="sm">
-            <Search className="h-4 w-4 mr-2" />
-            Tìm kiếm
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowAdvancedExport(true)}>
             <Download className="h-4 w-4 mr-2" />
             Xuất
@@ -212,7 +224,7 @@ export function VehicleTable({
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={selectedVehicles.length === vehicles.length && vehicles.length > 0}
+                  checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
@@ -225,19 +237,21 @@ export function VehicleTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {vehicles.length === 0 ? (
+            {filteredVehicles.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
                       <CarIcon className="h-8 w-8 text-muted-foreground" />
                     </div>
-                    <p className="text-muted-foreground">Không có dữ liệu</p>
+                    <p className="text-muted-foreground">
+                      {vehicles.length === 0 ? "Không có dữ liệu" : "Không tìm thấy kết quả phù hợp"}
+                    </p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              vehicles.map((vehicle) => (
+              filteredVehicles.map((vehicle) => (
                 <TableRow key={vehicle.id}>
                   <TableCell>
                     <Checkbox

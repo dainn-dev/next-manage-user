@@ -2,19 +2,23 @@ package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
+import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Vehicle;
+import com.vehiclemanagement.entity.EntryExitRequest;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.repository.EntryExitRequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.time.temporal.WeekFields;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +30,9 @@ public class VehicleService {
     
     @Autowired
     private EmployeeRepository employeeRepository;
+    
+    @Autowired
+    private EntryExitRequestRepository entryExitRequestRepository;
     
     public List<VehicleDto> getAllVehicles() {
         return vehicleRepository.findAll().stream()
@@ -169,5 +176,195 @@ public class VehicleService {
     
     public List<Object[]> getVehicleCountByFuelType() {
         return vehicleRepository.countByFuelType();
+    }
+    
+    public VehicleStatisticsDto getVehicleStatistics() {
+        List<Vehicle> vehicles = vehicleRepository.findAll();
+        List<EntryExitRequest> requests = entryExitRequestRepository.findAll();
+        
+        // Basic vehicle stats
+        long totalVehicles = vehicles.size();
+        long activeVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.active).count();
+        long inactiveVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.inactive).count();
+        long maintenanceVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.maintenance).count();
+        long retiredVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.retired).count();
+        
+        // Vehicle type stats
+        Map<String, Long> vehicleTypeStats = vehicles.stream()
+                .filter(v -> v.getVehicleType() != null)
+                .collect(Collectors.groupingBy(v -> v.getVehicleType().toString(), Collectors.counting()));
+        
+        // Fuel type stats
+        Map<String, Long> fuelTypeStats = vehicles.stream()
+                .filter(v -> v.getFuelType() != null)
+                .collect(Collectors.groupingBy(v -> v.getFuelType().toString(), Collectors.counting()));
+        
+        // Entry/Exit stats
+        VehicleStatisticsDto.EntryExitStatsDto entryExitStats = new VehicleStatisticsDto.EntryExitStatsDto(
+                requests.size(),
+                requests.stream().filter(r -> r.getStatus() == EntryExitRequest.RequestStatus.approved).count(),
+                requests.stream().filter(r -> r.getStatus() == EntryExitRequest.RequestStatus.pending).count(),
+                requests.stream().filter(r -> r.getStatus() == EntryExitRequest.RequestStatus.rejected).count(),
+                requests.stream().filter(r -> r.getRequestType() == EntryExitRequest.RequestType.entry).count(),
+                requests.stream().filter(r -> r.getRequestType() == EntryExitRequest.RequestType.exit).count()
+        );
+        
+        // Generate time-based stats
+        List<VehicleStatisticsDto.VehicleDailyStatsDto> dailyStats = generateDailyStats(requests);
+        List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats = generateWeeklyStats(requests);
+        List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats = generateMonthlyStats(requests);
+        
+        return new VehicleStatisticsDto(
+                totalVehicles, activeVehicles, inactiveVehicles, maintenanceVehicles, retiredVehicles,
+                vehicleTypeStats, fuelTypeStats, entryExitStats, dailyStats, weeklyStats, monthlyStats
+        );
+    }
+    
+    private List<VehicleStatisticsDto.VehicleDailyStatsDto> generateDailyStats(List<EntryExitRequest> requests) {
+        Map<LocalDate, VehicleStatisticsDto.VehicleDailyStatsDto> dailyMap = new HashMap<>();
+        Map<LocalDate, Set<String>> uniqueVehiclesPerDay = new HashMap<>();
+        
+        for (EntryExitRequest request : requests) {
+            LocalDate date = request.getRequestTime().toLocalDate();
+            
+            dailyMap.computeIfAbsent(date, d -> new VehicleStatisticsDto.VehicleDailyStatsDto(
+                    d, 0, 0, 0, 0, 0, 0, 0
+            ));
+            uniqueVehiclesPerDay.computeIfAbsent(date, d -> new HashSet<>());
+            
+            VehicleStatisticsDto.VehicleDailyStatsDto dayStats = dailyMap.get(date);
+            uniqueVehiclesPerDay.get(date).add(request.getVehicle().getId().toString());
+            
+            dayStats.setTotalRequests(dayStats.getTotalRequests() + 1);
+            if (request.getRequestType() == EntryExitRequest.RequestType.entry) {
+                dayStats.setEntryCount(dayStats.getEntryCount() + 1);
+            } else {
+                dayStats.setExitCount(dayStats.getExitCount() + 1);
+            }
+            
+            switch (request.getStatus()) {
+                case approved:
+                    dayStats.setApprovedCount(dayStats.getApprovedCount() + 1);
+                    break;
+                case pending:
+                    dayStats.setPendingCount(dayStats.getPendingCount() + 1);
+                    break;
+                case rejected:
+                    dayStats.setRejectedCount(dayStats.getRejectedCount() + 1);
+                    break;
+            }
+        }
+        
+        // Set unique vehicles count
+        dailyMap.forEach((date, stats) -> {
+            stats.setUniqueVehicles(uniqueVehiclesPerDay.get(date).size());
+        });
+        
+        return dailyMap.values().stream()
+                .sorted(Comparator.comparing(VehicleStatisticsDto.VehicleDailyStatsDto::getDate))
+                .collect(Collectors.toList());
+    }
+    
+    private List<VehicleStatisticsDto.VehicleWeeklyStatsDto> generateWeeklyStats(List<EntryExitRequest> requests) {
+        Map<String, VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyMap = new HashMap<>();
+        Map<String, Set<String>> uniqueVehiclesPerWeek = new HashMap<>();
+        
+        WeekFields weekFields = WeekFields.of(Locale.getDefault());
+        
+        for (EntryExitRequest request : requests) {
+            LocalDate requestDate = request.getRequestTime().toLocalDate();
+            int week = requestDate.get(weekFields.weekOfYear());
+            int year = requestDate.getYear();
+            String weekKey = year + "-W" + week;
+            
+            // Calculate start and end dates of the week
+            LocalDate startDate = requestDate.with(weekFields.dayOfWeek(), 1);
+            LocalDate endDate = startDate.plusDays(6);
+            
+            weeklyMap.computeIfAbsent(weekKey, k -> new VehicleStatisticsDto.VehicleWeeklyStatsDto(
+                    week, startDate, endDate, 0, 0, 0, 0, 0, 0, 0
+            ));
+            uniqueVehiclesPerWeek.computeIfAbsent(weekKey, k -> new HashSet<>());
+            
+            VehicleStatisticsDto.VehicleWeeklyStatsDto weekStats = weeklyMap.get(weekKey);
+            uniqueVehiclesPerWeek.get(weekKey).add(request.getVehicle().getId().toString());
+            
+            weekStats.setTotalRequests(weekStats.getTotalRequests() + 1);
+            if (request.getRequestType() == EntryExitRequest.RequestType.entry) {
+                weekStats.setEntryCount(weekStats.getEntryCount() + 1);
+            } else {
+                weekStats.setExitCount(weekStats.getExitCount() + 1);
+            }
+            
+            switch (request.getStatus()) {
+                case approved:
+                    weekStats.setApprovedCount(weekStats.getApprovedCount() + 1);
+                    break;
+                case pending:
+                    weekStats.setPendingCount(weekStats.getPendingCount() + 1);
+                    break;
+                case rejected:
+                    weekStats.setRejectedCount(weekStats.getRejectedCount() + 1);
+                    break;
+            }
+        }
+        
+        // Set unique vehicles count
+        weeklyMap.forEach((weekKey, stats) -> {
+            stats.setUniqueVehicles(uniqueVehiclesPerWeek.get(weekKey).size());
+        });
+        
+        return weeklyMap.values().stream()
+                .sorted(Comparator.comparing(VehicleStatisticsDto.VehicleWeeklyStatsDto::getStartDate))
+                .collect(Collectors.toList());
+    }
+    
+    private List<VehicleStatisticsDto.VehicleMonthlyStatsDto> generateMonthlyStats(List<EntryExitRequest> requests) {
+        Map<String, VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyMap = new HashMap<>();
+        Map<String, Set<String>> uniqueVehiclesPerMonth = new HashMap<>();
+        
+        for (EntryExitRequest request : requests) {
+            LocalDate requestDate = request.getRequestTime().toLocalDate();
+            int month = requestDate.getMonthValue();
+            int year = requestDate.getYear();
+            String monthKey = year + "-" + month;
+            
+            monthlyMap.computeIfAbsent(monthKey, k -> new VehicleStatisticsDto.VehicleMonthlyStatsDto(
+                    month, year, 0, 0, 0, 0, 0, 0, 0
+            ));
+            uniqueVehiclesPerMonth.computeIfAbsent(monthKey, k -> new HashSet<>());
+            
+            VehicleStatisticsDto.VehicleMonthlyStatsDto monthStats = monthlyMap.get(monthKey);
+            uniqueVehiclesPerMonth.get(monthKey).add(request.getVehicle().getId().toString());
+            
+            monthStats.setTotalRequests(monthStats.getTotalRequests() + 1);
+            if (request.getRequestType() == EntryExitRequest.RequestType.entry) {
+                monthStats.setEntryCount(monthStats.getEntryCount() + 1);
+            } else {
+                monthStats.setExitCount(monthStats.getExitCount() + 1);
+            }
+            
+            switch (request.getStatus()) {
+                case approved:
+                    monthStats.setApprovedCount(monthStats.getApprovedCount() + 1);
+                    break;
+                case pending:
+                    monthStats.setPendingCount(monthStats.getPendingCount() + 1);
+                    break;
+                case rejected:
+                    monthStats.setRejectedCount(monthStats.getRejectedCount() + 1);
+                    break;
+            }
+        }
+        
+        // Set unique vehicles count
+        monthlyMap.forEach((monthKey, stats) -> {
+            stats.setUniqueVehicles(uniqueVehiclesPerMonth.get(monthKey).size());
+        });
+        
+        return monthlyMap.values().stream()
+                .sorted(Comparator.comparing(VehicleStatisticsDto.VehicleMonthlyStatsDto::getYear)
+                        .thenComparing(VehicleStatisticsDto.VehicleMonthlyStatsDto::getMonth))
+                .collect(Collectors.toList());
     }
 }

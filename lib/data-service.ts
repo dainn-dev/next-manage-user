@@ -16,6 +16,7 @@ import { customFieldsApi } from "./api/custom-fields-api"
 import { vehicleApi } from "./api/vehicle-api"
 import { entryExitRequestApi } from "./api/entry-exit-request-api"
 import { employeeApi } from "./api/employee-api"
+import { vehicleStatisticsApi } from "./api/vehicle-statistics-api"
 
 class DataService {
   private employees: Employee[] = [...mockEmployees]
@@ -611,20 +612,28 @@ class DataService {
 
   async updateEntryExitRequest(id: string, updates: Partial<EntryExitRequest>): Promise<EntryExitRequest | null> {
     try {
-      const existingRequest = await entryExitRequestApi.getRequestById(id)
-      const updatedData = {
-        employeeId: updates.employeeId || existingRequest.employeeId,
-        employeeName: updates.employeeName || existingRequest.employeeName,
-        vehicleId: updates.vehicleId || existingRequest.vehicleId,
-        licensePlate: updates.licensePlate || existingRequest.licensePlate,
-        requestType: updates.requestType || existingRequest.requestType,
-        requestTime: updates.requestTime || existingRequest.requestTime,
-        approvedBy: updates.approvedBy || existingRequest.approvedBy,
-        approvedAt: updates.approvedAt || existingRequest.approvedAt,
-        status: updates.status || existingRequest.status,
-        notes: updates.notes || existingRequest.notes,
+      // Use dedicated approve/reject endpoints if available
+      if (updates.status === "approved" && updates.approvedBy) {
+        return await entryExitRequestApi.approveRequest(id, updates.approvedBy)
+      } else if (updates.status === "rejected" && updates.approvedBy) {
+        return await entryExitRequestApi.rejectRequest(id, updates.approvedBy)
+      } else {
+        // Fallback to general update for other fields
+        const existingRequest = await entryExitRequestApi.getRequestById(id)
+        const updatedData = {
+          employeeId: updates.employeeId || existingRequest.employeeId,
+          employeeName: updates.employeeName || existingRequest.employeeName,
+          vehicleId: updates.vehicleId || existingRequest.vehicleId,
+          licensePlate: updates.licensePlate || existingRequest.licensePlate,
+          requestType: updates.requestType || existingRequest.requestType,
+          requestTime: updates.requestTime || existingRequest.requestTime,
+          approvedBy: updates.approvedBy || existingRequest.approvedBy,
+          approvedAt: updates.approvedAt || existingRequest.approvedAt,
+          status: updates.status || existingRequest.status,
+          notes: updates.notes || existingRequest.notes,
+        }
+        return await entryExitRequestApi.updateRequest(id, updatedData)
       }
-      return await entryExitRequestApi.updateRequest(id, updatedData)
     } catch (error) {
       console.error('Failed to update entry/exit request via API, falling back to mock data:', error)
       const index = this.entryExitRequests.findIndex((request) => request.id === id)
@@ -653,7 +662,12 @@ class DataService {
   }
 
   // Vehicle Statistics operations
-  getVehicleStatistics(): VehicleStatistics {
+  async getVehicleStatistics(): Promise<VehicleStatistics> {
+    return await vehicleStatisticsApi.getVehicleStatistics()
+  }
+
+  // Legacy method - keeping for backward compatibility but should not be used
+  getVehicleStatisticsSync(): VehicleStatistics {
     const vehicles = this.vehicles
     const requests = this.entryExitRequests
 

@@ -19,9 +19,10 @@ interface EmployeeTableProps {
   onEdit: (employee: Employee) => void
   onDelete: (employeeId: string) => void
   onView: (employee: Employee) => void
+  onAdd: () => void
 }
 
-export function EmployeeTable({ employees, onEdit, onDelete, onView }: EmployeeTableProps) {
+export function EmployeeTable({ employees, onEdit, onDelete, onView, onAdd }: EmployeeTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
   const [departmentFilter, setDepartmentFilter] = useState("")
@@ -137,6 +138,7 @@ export function EmployeeTable({ employees, onEdit, onDelete, onView }: EmployeeT
             variant="outline"
             size="sm"
             className="border-border hover:bg-muted text-card-foreground bg-transparent"
+            onClick={onAdd}
           >
             Thêm mới
           </Button>

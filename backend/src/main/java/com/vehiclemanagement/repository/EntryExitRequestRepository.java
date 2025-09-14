@@ -83,4 +83,10 @@ public interface EntryExitRequestRepository extends JpaRepository<EntryExitReque
            "ORDER BY r.requestTime DESC")
     List<EntryExitRequest> findByDateRange(@Param("startDate") LocalDateTime startDate,
                                            @Param("endDate") LocalDateTime endDate);
+    
+    List<EntryExitRequest> findByRequestTimeBetween(LocalDateTime startDate, LocalDateTime endDate);
+    
+    List<EntryExitRequest> findByVehicleAndRequestTypeAndStatus(com.vehiclemanagement.entity.Vehicle vehicle, 
+                                                               EntryExitRequest.RequestType requestType, 
+                                                               EntryExitRequest.RequestStatus status);
 }

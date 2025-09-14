@@ -7,6 +7,14 @@ spring:
   application:
     name: vehicle-management-api
   
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
+      file-size-threshold: 2KB
+      location: /app/temp
+  
   datasource:
     url: jdbc:postgresql://localhost:5432/vehicle_management
     username: postgres

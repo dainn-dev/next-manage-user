@@ -1,6 +1,10 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.EntryExitRequestDto;
+import com.vehiclemanagement.dto.ImportResultDto;
+import com.vehiclemanagement.dto.VehicleCheckRequest;
+import com.vehiclemanagement.dto.VehicleCheckResponse;
+import com.vehiclemanagement.dto.RequestImagesDto;
 import com.vehiclemanagement.entity.EntryExitRequest;
 import com.vehiclemanagement.service.EntryExitRequestService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,10 +17,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -50,6 +58,27 @@ public class EntryExitRequestController {
     public ResponseEntity<List<EntryExitRequestDto>> getAllRequestsList() {
         List<EntryExitRequestDto> requests = requestService.getAllRequests();
         return ResponseEntity.ok(requests);
+    }
+    
+    @PostMapping(value = "/check-vehicle", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Check if a vehicle is approved for entry/exit", 
+               description = "Check if a vehicle with the specified license plate has an approved entry or exit request. Uploads image if approved.")
+    public ResponseEntity<VehicleCheckResponse> checkVehiclePermission(
+            @Parameter(description = "License plate number") @RequestParam("licensePlateNumber") String licensePlateNumber,
+            @Parameter(description = "Type of request: entry or exit") @RequestParam("type") String type,
+            @Parameter(description = "Image file to upload if approved") @RequestParam(value = "image", required = false) MultipartFile imageFile) {
+        
+        VehicleCheckRequest request = new VehicleCheckRequest(type, licensePlateNumber);
+        VehicleCheckResponse response = requestService.checkVehiclePermission(request, imageFile);
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/{id}/images")
+    @Operation(summary = "Get images for a specific entry/exit request", 
+               description = "Retrieve entry and exit images associated with a specific request")
+    public ResponseEntity<RequestImagesDto> getRequestImages(@PathVariable UUID id) {
+        RequestImagesDto images = requestService.getRequestImages(id);
+        return ResponseEntity.ok(images);
     }
     
     @GetMapping("/{id}")
@@ -240,5 +269,119 @@ public class EntryExitRequestController {
         
         List<Object[]> stats = requestService.getDailyStats(startDate, endDate);
         return ResponseEntity.ok(stats);
+    }
+    
+    // Excel Import/Export Endpoints
+    
+    @PostMapping("/export/excel")
+    @Operation(summary = "Export all entry/exit requests to Excel", description = "Exports all entry/exit requests to an Excel file")
+    public ResponseEntity<byte[]> exportToExcel() {
+        try {
+            byte[] excelData = requestService.exportToExcel();
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "entry_exit_requests.xlsx");
+            headers.setContentLength(excelData.length);
+            
+            return new ResponseEntity<>(excelData, headers, HttpStatus.OK);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    @PostMapping("/export/excel/status/{status}")
+    @Operation(summary = "Export entry/exit requests by status to Excel", description = "Exports entry/exit requests filtered by status to an Excel file")
+    public ResponseEntity<byte[]> exportToExcelByStatus(
+            @Parameter(description = "Request status to filter by") @PathVariable EntryExitRequest.RequestStatus status) {
+        try {
+            byte[] excelData = requestService.exportToExcelByStatus(status);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "entry_exit_requests_" + status.toString().toLowerCase() + ".xlsx");
+            headers.setContentLength(excelData.length);
+            
+            return new ResponseEntity<>(excelData, headers, HttpStatus.OK);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    @PostMapping("/export/excel/date-range")
+    @Operation(summary = "Export entry/exit requests by date range to Excel", description = "Exports entry/exit requests within a date range to an Excel file")
+    public ResponseEntity<byte[]> exportToExcelByDateRange(
+            @Parameter(description = "Start date (yyyy-MM-dd HH:mm:ss)") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startDate,
+            @Parameter(description = "End date (yyyy-MM-dd HH:mm:ss)") @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endDate) {
+        try {
+            byte[] excelData = requestService.exportToExcelByDateRange(startDate, endDate);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "entry_exit_requests_" + startDate.toLocalDate() + "_to_" + endDate.toLocalDate() + ".xlsx");
+            headers.setContentLength(excelData.length);
+            
+            return new ResponseEntity<>(excelData, headers, HttpStatus.OK);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    @PostMapping(value = "/import/excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Import entry/exit requests from Excel", description = "Imports entry/exit requests from an Excel file")
+    public ResponseEntity<ImportResultDto> importFromExcel(
+            @Parameter(description = "Excel file to import") @RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            if (!file.getOriginalFilename().endsWith(".xlsx") && !file.getOriginalFilename().endsWith(".xls")) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            ImportResultDto result = requestService.importFromExcel(file);
+            return ResponseEntity.ok(result);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    @PostMapping(value = "/import/csv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Import entry/exit requests from CSV", description = "Imports entry/exit requests from a CSV file")
+    public ResponseEntity<ImportResultDto> importFromCsv(
+            @Parameter(description = "CSV file to import") @RequestParam("file") MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            if (!file.getOriginalFilename().toLowerCase().endsWith(".csv")) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            ImportResultDto result = requestService.importFromCsv(file);
+            return ResponseEntity.ok(result);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    @GetMapping("/template/excel")
+    @Operation(summary = "Download Excel template", description = "Downloads an Excel template for importing entry/exit requests")
+    public ResponseEntity<byte[]> downloadExcelTemplate() {
+        try {
+            // Create a template with headers only
+            byte[] templateData = requestService.createExcelTemplate();
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "entry_exit_requests_template.xlsx");
+            headers.setContentLength(templateData.length);
+            
+            return new ResponseEntity<>(templateData, headers, HttpStatus.OK);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }

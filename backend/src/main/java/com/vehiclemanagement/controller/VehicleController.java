@@ -2,6 +2,7 @@ package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
+import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.service.VehicleService;
 import io.swagger.v3.oas.annotations.Operation;

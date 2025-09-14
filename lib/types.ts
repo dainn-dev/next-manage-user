@@ -121,18 +121,8 @@ export interface VehicleStatistics {
   inactiveVehicles: number
   maintenanceVehicles: number
   retiredVehicles: number
-  vehicleTypeStats: {
-    car: number
-    motorbike: number
-    truck: number
-    bus: number
-  }
-  fuelTypeStats: {
-    gasoline: number
-    diesel: number
-    electric: number
-    hybrid: number
-  }
+  vehicleTypeStats: Record<string, number>
+  fuelTypeStats: Record<string, number>
   entryExitStats: {
     totalRequests: number
     approvedRequests: number
@@ -158,7 +148,7 @@ export interface VehicleDailyStats {
 }
 
 export interface VehicleWeeklyStats {
-  week: string
+  week: number
   startDate: string
   endDate: string
   entryCount: number
@@ -168,11 +158,10 @@ export interface VehicleWeeklyStats {
   pendingCount: number
   rejectedCount: number
   uniqueVehicles: number
-  averageDailyRequests: number
 }
 
 export interface VehicleMonthlyStats {
-  month: string
+  month: number
   year: number
   entryCount: number
   exitCount: number
@@ -181,9 +170,4 @@ export interface VehicleMonthlyStats {
   pendingCount: number
   rejectedCount: number
   uniqueVehicles: number
-  averageDailyRequests: number
-  peakDay: {
-    date: string
-    requestCount: number
-  }
 }

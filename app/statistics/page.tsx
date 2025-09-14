@@ -29,7 +29,7 @@ export default function StatisticsPage() {
       const [employeesData, departmentsData, vehicleStats] = await Promise.all([
         dataService.getEmployees(),
         Promise.resolve(dataService.getDepartments()),
-        Promise.resolve(dataService.getVehicleStatistics())
+        dataService.getVehicleStatistics()
       ])
       setEmployees(employeesData)
       setDepartments(departmentsData)

@@ -1,0 +1,11 @@
+ID,Employee ID,Employee Name,Vehicle ID,License Plate,Request Type,Request Time,Status,Approved By,Approved At,Notes,Created At
+(Auto-generated),1,Nguyễn Văn An,1,30A-12345,entry,2024-01-15 08:30:00,pending,,,Sample entry request,(Auto-generated)
+(Auto-generated),2,Trần Thị Bình,2,29B-67890,exit,2024-01-15 09:15:00,approved,admin,2024-01-15 09:20:00,Approved exit request,(Auto-generated)
+(Auto-generated),3,Lê Văn Cường,3,51C-11111,entry,2024-01-15 10:00:00,pending,,,Morning entry,(Auto-generated)
+(Auto-generated),1,Nguyễn Văn An,1,30A-12345,exit,2024-01-15 17:30:00,approved,admin,2024-01-15 17:35:00,End of day exit,(Auto-generated)
+(Auto-generated),4,Phạm Thị Dung,4,43D-22222,entry,2024-01-16 08:45:00,pending,,,Late morning entry,(Auto-generated)
+(Auto-generated),2,Trần Thị Bình,2,29B-67890,entry,2024-01-16 09:00:00,approved,admin,2024-01-16 09:05:00,Approved entry,(Auto-generated)
+(Auto-generated),5,Hoàng Văn Em,5,92E-33333,exit,2024-01-16 16:45:00,rejected,admin,2024-01-16 16:50:00,Rejected - incomplete documentation,(Auto-generated)
+(Auto-generated),3,Lê Văn Cường,3,51C-11111,exit,2024-01-16 18:00:00,pending,,,End of day exit,(Auto-generated)
+(Auto-generated),6,Võ Thị Phương,6,75F-44444,entry,2024-01-17 07:30:00,approved,admin,2024-01-17 07:35:00,Early morning entry,(Auto-generated)
+(Auto-generated),4,Phạm Thị Dung,4,43D-22222,exit,2024-01-17 17:15:00,pending,,,Regular exit time,(Auto-generated)

@@ -33,14 +33,25 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_PROFILES_ACTIVE: docker
+      # File upload configuration
+      SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE: 10MB
+      SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE: 10MB
+      SPRING_SERVLET_MULTIPART_ENABLED: true
     ports:
       - "8080:8080"
+    volumes:
+      # Volume for temporary file storage (imports/exports)
+      - file_storage:/app/temp
+      # Volume for CSV templates and exports
+      - csv_storage:/app/csv
     networks:
       - vehicle-management-network
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  file_storage:
+  csv_storage:
 
 networks:
   vehicle-management-network:
