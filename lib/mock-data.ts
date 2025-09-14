@@ -77,7 +77,7 @@ export const mockDepartments: Department[] = [
 
 export const mockEmployees: Employee[] = [
   {
-    id: "248",
+    id: "836fd592-b411-4bc2-8bc2-d20bb7b65d73",
     employeeId: "248",
     name: "Nguyễn Duy Linh",
     firstName: "Duy Linh",
@@ -94,7 +94,7 @@ export const mockEmployees: Employee[] = [
     updatedAt: "2025-01-15T00:00:00Z",
   },
   {
-    id: "247",
+    id: "9eb71868-eb4f-4dbf-b734-74e65f6384d1",
     employeeId: "247",
     name: "Đoàn Đình Độ",
     firstName: "Đình Độ",
@@ -111,7 +111,7 @@ export const mockEmployees: Employee[] = [
     updatedAt: "2024-12-01T00:00:00Z",
   },
   {
-    id: "246",
+    id: "f6799dc3-4cc8-4014-b3d7-91753751ceac",
     employeeId: "246",
     name: "Võ Hữu Trường",
     firstName: "Hữu Trường",
@@ -128,7 +128,7 @@ export const mockEmployees: Employee[] = [
     updatedAt: "2024-11-15T00:00:00Z",
   },
   {
-    id: "245",
+    id: "cbf559e6-09aa-43b7-96fa-6a24e98a8976",
     employeeId: "245",
     name: "Phạm Thị Thảo",
     firstName: "Thị Thảo",

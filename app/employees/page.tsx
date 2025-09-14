@@ -57,13 +57,6 @@ export default function EmployeesPage() {
           <h1 className="text-3xl font-bold text-foreground">Quản lý nhân sự</h1>
           <p className="text-muted-foreground text-lg">Nhân sự được xem xét</p>
         </div>
-        <button
-          onClick={handleAddNew}
-          className="bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 transition-all duration-200 flex items-center gap-3 font-medium shadow-md hover:shadow-lg"
-        >
-          <span className="text-lg">➕</span>
-          Thêm nhân viên
-        </button>
       </div>
 
       <EmployeeTable employees={employees} onEdit={handleEdit} onDelete={handleDelete} onView={handleView} />

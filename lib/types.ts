@@ -81,12 +81,21 @@ export interface Vehicle {
   employeeId: string
   employeeName: string
   licensePlate: string
-  vehicleType: "car" | "motorbike"
+  vehicleType: "car" | "motorbike" | "truck" | "bus"
   brand?: string
   model?: string
   color?: string
+  year?: number
+  engineNumber?: string
+  chassisNumber?: string
   registrationDate: string
-  status: "active" | "inactive"
+  expiryDate?: string
+  insuranceNumber?: string
+  insuranceExpiry?: string
+  status: "active" | "inactive" | "maintenance" | "retired"
+  fuelType?: "gasoline" | "diesel" | "electric" | "hybrid"
+  capacity?: number
+  notes?: string
   createdAt: string
   updatedAt: string
 }
@@ -104,4 +113,77 @@ export interface EntryExitRequest {
   status: "pending" | "approved" | "rejected"
   notes?: string
   createdAt: string
+}
+
+export interface VehicleStatistics {
+  totalVehicles: number
+  activeVehicles: number
+  inactiveVehicles: number
+  maintenanceVehicles: number
+  retiredVehicles: number
+  vehicleTypeStats: {
+    car: number
+    motorbike: number
+    truck: number
+    bus: number
+  }
+  fuelTypeStats: {
+    gasoline: number
+    diesel: number
+    electric: number
+    hybrid: number
+  }
+  entryExitStats: {
+    totalRequests: number
+    approvedRequests: number
+    pendingRequests: number
+    rejectedRequests: number
+    entryRequests: number
+    exitRequests: number
+  }
+  dailyStats: VehicleDailyStats[]
+  weeklyStats: VehicleWeeklyStats[]
+  monthlyStats: VehicleMonthlyStats[]
+}
+
+export interface VehicleDailyStats {
+  date: string
+  entryCount: number
+  exitCount: number
+  totalRequests: number
+  approvedCount: number
+  pendingCount: number
+  rejectedCount: number
+  uniqueVehicles: number
+}
+
+export interface VehicleWeeklyStats {
+  week: string
+  startDate: string
+  endDate: string
+  entryCount: number
+  exitCount: number
+  totalRequests: number
+  approvedCount: number
+  pendingCount: number
+  rejectedCount: number
+  uniqueVehicles: number
+  averageDailyRequests: number
+}
+
+export interface VehicleMonthlyStats {
+  month: string
+  year: number
+  entryCount: number
+  exitCount: number
+  totalRequests: number
+  approvedCount: number
+  pendingCount: number
+  rejectedCount: number
+  uniqueVehicles: number
+  averageDailyRequests: number
+  peakDay: {
+    date: string
+    requestCount: number
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import Image from "next/image"
 
 const navigationItems = [
   {
@@ -60,21 +61,39 @@ export function Sidebar() {
     >
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center text-sidebar-primary-foreground font-semibold text-lg">
-            Z
+          <div className={`${collapsed ? "w-10 h-10" : "w-12 h-12"} rounded-xl overflow-hidden flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}>
+            <Image
+              src="/logo.jpg"
+              alt="CVS Entry & Exit Management"
+              width={collapsed ? 40 : 48}
+              height={collapsed ? 40 : 48}
+              className="object-contain p-1"
+              priority
+            />
           </div>
           {!collapsed && (
-            <div>
-              <h4 className="font-semibold text-sidebar-foreground text-base">ZKBio CVSecurity</h4>
-              <p className="text-sm text-muted-foreground">Quản lý nhân sự</p>
+            <div className="flex flex-col">
+              <h4 className="font-bold text-sidebar-foreground text-lg tracking-tight">CVS</h4>
+              <p className="text-xs text-muted-foreground font-medium">Entry & Exit Management</p>
             </div>
           )}
         </div>
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="mt-4 p-2 hover:bg-muted rounded-md transition-colors duration-200 text-muted-foreground hover:text-sidebar-foreground"
+          className="mt-4 p-2 hover:bg-muted rounded-lg transition-all duration-200 text-muted-foreground hover:text-sidebar-foreground hover:scale-105 active:scale-95"
+          title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
         >
-          {collapsed ? "→" : "←"}
+          <div className="flex items-center justify-center w-5 h-5">
+            {collapsed ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            )}
+          </div>
         </button>
       </div>
 

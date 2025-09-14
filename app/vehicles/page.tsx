@@ -1,10 +1,14 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
-import { dataService } from "@/lib/data-service"
 import type { Vehicle, EntryExitRequest, Employee } from "@/lib/types"
+import { dataService } from "@/lib/data-service"
+import { VehicleTable } from "@/components/vehicles/vehicle-table"
+import { VehicleForm } from "@/components/vehicles/vehicle-form"
+import { VehicleRequestsTable } from "@/components/vehicles/vehicle-requests-table"
+import { VehicleRequestForm } from "@/components/vehicles/vehicle-request-form"
+import { BulkOperationsDialog } from "@/components/vehicles/bulk-operations-dialog"
+import { RequestsBulkOperationsDialog } from "@/components/vehicles/requests-bulk-operations-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,136 +18,235 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [entryExitRequests, setEntryExitRequests] = useState<EntryExitRequest[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [isVehicleDialogOpen, setIsVehicleDialogOpen] = useState(false)
-  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false)
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
-  const [editingRequest, setEditingRequest] = useState<EntryExitRequest | null>(null)
-
-  const [vehicleForm, setVehicleForm] = useState({
-    employeeId: "",
-    licensePlate: "",
-    vehicleType: "car" as "car" | "motorbike",
-    brand: "",
-    model: "",
-    color: "",
-    registrationDate: "",
-    status: "active" as "active" | "inactive",
-  })
-
-  const [requestForm, setRequestForm] = useState({
-    employeeId: "",
-    vehicleId: "",
-    requestType: "entry" as "entry" | "exit",
-    requestTime: "",
-    notes: "",
-  })
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | undefined>()
+  const [selectedRequest, setSelectedRequest] = useState<EntryExitRequest | undefined>()
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false)
+  const [showBulkOperations, setShowBulkOperations] = useState(false)
+  const [showRequestsBulkOperations, setShowRequestsBulkOperations] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [sortBy, setSortBy] = useState('createdAt')
+  const [sortDir, setSortDir] = useState('desc')
+  
+  const { toast } = useToast()
 
   useEffect(() => {
     loadData()
   }, [])
 
-  const loadData = () => {
-    setVehicles(dataService.getVehicles())
-    setEntryExitRequests(dataService.getEntryExitRequests())
-    setEmployees(dataService.getEmployees())
-  }
-
-  const resetVehicleForm = () => {
-    setVehicleForm({
-      employeeId: "",
-      licensePlate: "",
-      vehicleType: "car",
-      brand: "",
-      model: "",
-      color: "",
-      registrationDate: "",
-      status: "active",
-    })
-    setEditingVehicle(null)
-  }
-
-  const resetRequestForm = () => {
-    setRequestForm({
-      employeeId: "",
-      vehicleId: "",
-      requestType: "entry",
-      requestTime: "",
-      notes: "",
-    })
-    setEditingRequest(null)
-  }
-
-  const handleVehicleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const employee = employees.find((emp) => emp.id === vehicleForm.employeeId)
-    if (!employee) return
-
-    const vehicleData = {
-      ...vehicleForm,
-      employeeName: employee.name,
+  const loadData = async (page: number = currentPage, size: number = pageSize, sort: string = sortBy, direction: string = sortDir) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const [vehiclesResponse, requestsData, employeesData] = await Promise.all([
+        dataService.getVehicles(page, size, sort, direction),
+        dataService.getEntryExitRequests(),
+        dataService.getEmployees()
+      ])
+      setVehicles(vehiclesResponse.vehicles)
+      setTotalElements(vehiclesResponse.totalElements)
+      setTotalPages(vehiclesResponse.totalPages)
+      setCurrentPage(vehiclesResponse.currentPage)
+      setEntryExitRequests(requestsData)
+      setEmployees(employeesData)
+    } catch (err) {
+      setError('Không thể tải dữ liệu')
+      console.error('Error loading data:', err)
+      toast({
+        variant: "destructive",
+        title: "Lỗi tải dữ liệu",
+        description: "Không thể tải dữ liệu. Vui lòng thử lại sau.",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    if (editingVehicle) {
-      dataService.updateVehicle(editingVehicle.id, vehicleData)
-    } else {
-      dataService.createVehicle(vehicleData)
-    }
-
-    loadData()
-    setIsVehicleDialogOpen(false)
-    resetVehicleForm()
   }
 
-  const handleRequestSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const employee = employees.find((emp) => emp.id === requestForm.employeeId)
-    const vehicle = vehicles.find((v) => v.id === requestForm.vehicleId)
-    if (!employee || !vehicle) return
-
-    const requestData = {
-      ...requestForm,
-      employeeName: employee.name,
-      licensePlate: vehicle.licensePlate,
-      status: "pending" as const,
-    }
-
-    if (editingRequest) {
-      dataService.updateEntryExitRequest(editingRequest.id, requestData)
-    } else {
-      dataService.createEntryExitRequest(requestData)
-    }
-
-    loadData()
-    setIsRequestDialogOpen(false)
-    resetRequestForm()
+  // Pagination handlers
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
+    loadData(newPage, pageSize, sortBy, sortDir)
   }
 
-  const handleEditVehicle = (vehicle: Vehicle) => {
-    setEditingVehicle(vehicle)
-    setVehicleForm({
-      employeeId: vehicle.employeeId,
-      licensePlate: vehicle.licensePlate,
-      vehicleType: vehicle.vehicleType,
-      brand: vehicle.brand || "",
-      model: vehicle.model || "",
-      color: vehicle.color || "",
-      registrationDate: vehicle.registrationDate,
-      status: vehicle.status,
-    })
-    setIsVehicleDialogOpen(true)
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize)
+    setCurrentPage(0) // Reset to first page
+    loadData(0, newPageSize, sortBy, sortDir)
   }
 
-  const handleDeleteVehicle = (id: string) => {
+  const handleSortChange = (newSortBy: string, newSortDir: string) => {
+    setSortBy(newSortBy)
+    setSortDir(newSortDir)
+    setCurrentPage(0) // Reset to first page
+    loadData(0, pageSize, newSortBy, newSortDir)
+  }
+
+  const handleEdit = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle)
+    setIsFormOpen(true)
+  }
+
+  const handleDelete = async (vehicleId: string) => {
     if (confirm("Bạn có chắc chắn muốn xóa xe này?")) {
-      dataService.deleteVehicle(id)
-      loadData()
+      try {
+        await dataService.deleteVehicle(vehicleId)
+        await loadData() // Reload the data
+        toast({
+          variant: "success",
+          title: "Xóa thành công",
+          description: "Xe đã được xóa khỏi hệ thống.",
+        })
+      } catch (err) {
+        setError('Không thể xóa xe')
+        console.error('Error deleting vehicle:', err)
+        toast({
+          variant: "destructive",
+          title: "Lỗi xóa xe",
+          description: "Không thể xóa xe. Vui lòng thử lại sau.",
+        })
+      }
+    }
+  }
+
+  const handleView = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle)
+    setIsFormOpen(true)
+  }
+
+  const handleSave = async (vehicleData: Omit<Vehicle, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      if (selectedVehicle) {
+        await dataService.updateVehicle(selectedVehicle.id, vehicleData)
+        toast({
+          variant: "success",
+          title: "Cập nhật thành công",
+          description: "Thông tin xe đã được cập nhật thành công.",
+        })
+      } else {
+        const response = await dataService.createVehicleWithResponse(vehicleData)
+        
+        if (response.alreadyExists) {
+          toast({
+            variant: "warning",
+            title: "Cảnh báo",
+            description: response.message,
+          })
+        } else {
+          toast({
+            variant: "success",
+            title: "Tạo mới thành công",
+            description: "Xe mới đã được tạo thành công.",
+          })
+        }
+      }
+      await loadData() // Reload the data
+      setIsFormOpen(false)
+      setSelectedVehicle(undefined)
+    } catch (err) {
+      setError('Không thể lưu thông tin xe')
+      console.error('Error saving vehicle:', err)
+      
+      // Check if it's a duplicate license plate error
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      if (errorMessage.includes('duplicate key') || errorMessage.includes('license_plate')) {
+        toast({
+          variant: "destructive",
+          title: "Biển số xe đã tồn tại",
+          description: "Biển số xe này đã được sử dụng. Vui lòng chọn biển số khác.",
+        })
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Lỗi lưu thông tin",
+          description: "Không thể lưu thông tin xe. Vui lòng thử lại sau.",
+        })
+      }
+    }
+  }
+
+  const handleAddNew = () => {
+    setSelectedVehicle(undefined)
+    setIsFormOpen(true)
+  }
+
+  const handleEditRequest = (request: EntryExitRequest) => {
+    setSelectedRequest(request)
+    setIsRequestFormOpen(true)
+  }
+
+  const handleDeleteRequest = async (requestId: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa yêu cầu này?")) {
+      try {
+        await dataService.deleteEntryExitRequest(requestId)
+        await loadData() // Reload the data
+      } catch (err) {
+        setError('Không thể xóa yêu cầu')
+        console.error('Error deleting request:', err)
+      }
+    }
+  }
+
+  const handleViewRequest = (request: EntryExitRequest) => {
+    setSelectedRequest(request)
+    setIsRequestFormOpen(true)
+  }
+
+  const handleSaveRequest = async (requestData: Omit<EntryExitRequest, "id" | "createdAt">) => {
+    try {
+      if (selectedRequest) {
+        await dataService.updateEntryExitRequest(selectedRequest.id, requestData)
+        toast({
+          variant: "success",
+          title: "Cập nhật thành công",
+          description: "Yêu cầu ra vào đã được cập nhật thành công.",
+        })
+      } else {
+        await dataService.createEntryExitRequest(requestData)
+        toast({
+          variant: "success",
+          title: "Tạo mới thành công",
+          description: "Yêu cầu ra vào mới đã được tạo thành công.",
+        })
+      }
+      await loadData() // Reload the data
+      setIsRequestFormOpen(false)
+      setSelectedRequest(undefined)
+    } catch (err) {
+      setError('Không thể lưu yêu cầu')
+      console.error('Error saving request:', err)
+      toast({
+        variant: "destructive",
+        title: "Lỗi lưu yêu cầu",
+        description: "Không thể lưu yêu cầu ra vào. Vui lòng thử lại sau.",
+      })
+    }
+  }
+
+  const handleAddNewRequest = () => {
+    setSelectedRequest(undefined)
+    setIsRequestFormOpen(true)
+  }
+
+  const handleUpdateVehicle = (vehicleIds: string[]) => {
+    if (vehicleIds.length !== 1) return
+    
+    // Only allow single vehicle update
+    const vehicle = vehicles.find(v => v.id === vehicleIds[0])
+    if (vehicle) {
+      handleEdit(vehicle)
     }
   }
 
@@ -165,6 +268,64 @@ export default function VehiclesPage() {
     loadData()
   }
 
+  const handleBulkApproveRequests = async (requestIds: string[]) => {
+    if (confirm(`Bạn có chắc chắn muốn duyệt ${requestIds.length} yêu cầu đã chọn?`)) {
+      try {
+        const updatePromises = requestIds.map(id => 
+          dataService.updateEntryExitRequest(id, {
+            status: "approved",
+            approvedBy: "admin",
+            approvedAt: new Date().toISOString(),
+          })
+        )
+        await Promise.all(updatePromises)
+        await loadData()
+        toast({
+          variant: "success",
+          title: "Duyệt thành công",
+          description: `${requestIds.length} yêu cầu đã được duyệt.`,
+        })
+      } catch (err) {
+        setError('Không thể duyệt yêu cầu')
+        console.error('Error approving requests:', err)
+        toast({
+          variant: "destructive",
+          title: "Lỗi duyệt yêu cầu",
+          description: "Không thể duyệt yêu cầu. Vui lòng thử lại sau.",
+        })
+      }
+    }
+  }
+
+  const handleBulkRejectRequests = async (requestIds: string[]) => {
+    if (confirm(`Bạn có chắc chắn muốn từ chối ${requestIds.length} yêu cầu đã chọn?`)) {
+      try {
+        const updatePromises = requestIds.map(id => 
+          dataService.updateEntryExitRequest(id, {
+            status: "rejected",
+            approvedBy: "admin",
+            approvedAt: new Date().toISOString(),
+          })
+        )
+        await Promise.all(updatePromises)
+        await loadData()
+        toast({
+          variant: "success",
+          title: "Từ chối thành công",
+          description: `${requestIds.length} yêu cầu đã được từ chối.`,
+        })
+      } catch (err) {
+        setError('Không thể từ chối yêu cầu')
+        console.error('Error rejecting requests:', err)
+        toast({
+          variant: "destructive",
+          title: "Lỗi từ chối yêu cầu",
+          description: "Không thể từ chối yêu cầu. Vui lòng thử lại sau.",
+        })
+      }
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const variants = {
       active: "bg-accent/20 text-accent-foreground border-accent/30",
@@ -177,18 +338,62 @@ export default function VehiclesPage() {
   }
 
   const getVehicleTypeLabel = (type: string) => {
-    return type === "car" ? "Ô tô" : "Xe máy"
+    const labels = {
+      car: "Ô tô",
+      motorbike: "Xe máy",
+      truck: "Xe tải",
+      bus: "Xe bus"
+    }
+    return labels[type as keyof typeof labels] || type
   }
 
   const getRequestTypeLabel = (type: string) => {
     return type === "entry" ? "Vào" : "Ra"
   }
 
+  if (loading) {
+    return (
+      <div className="p-8 bg-background min-h-screen">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-muted-foreground">Đang tải dữ liệu...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 bg-background min-h-screen">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
+              <span className="text-red-600 text-2xl">⚠️</span>
+            </div>
+            <div>
+              <p className="text-red-600 font-medium">{error}</p>
+              <button 
+                onClick={() => loadData()}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+              >
+                Thử lại
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="border-b border-border pb-6">
+    <div className="p-8 bg-background min-h-screen">
+      <div className="flex items-center justify-between mb-8">
+        <div>
         <h1 className="text-3xl font-bold text-foreground">Quản lý xe</h1>
-        <p className="text-muted-foreground mt-2">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
+          <p className="text-muted-foreground text-lg">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
+        </div>
       </div>
 
       <Tabs defaultValue="vehicles" className="space-y-6">
@@ -198,196 +403,41 @@ export default function VehiclesPage() {
         </TabsList>
 
         <TabsContent value="vehicles" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Danh sách xe</h2>
-              <p className="text-sm text-muted-foreground">Tổng cộng: {vehicles.length} xe</p>
-            </div>
-            <Dialog open={isVehicleDialogOpen} onOpenChange={setIsVehicleDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={resetVehicleForm} className="btn-primary">
-                  Thêm xe mới
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{editingVehicle ? "Chỉnh sửa xe" : "Thêm xe mới"}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleVehicleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="employeeId">Nhân viên</Label>
-                    <Select
-                      value={vehicleForm.employeeId}
-                      onValueChange={(value) => setVehicleForm({ ...vehicleForm, employeeId: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn nhân viên" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="licensePlate">Biển số xe</Label>
-                    <Input
-                      id="licensePlate"
-                      value={vehicleForm.licensePlate}
-                      onChange={(e) => setVehicleForm({ ...vehicleForm, licensePlate: e.target.value })}
-                      placeholder="30A-12345"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vehicleType">Loại xe</Label>
-                    <Select
-                      value={vehicleForm.vehicleType}
-                      onValueChange={(value: "car" | "motorbike") =>
-                        setVehicleForm({ ...vehicleForm, vehicleType: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="car">Ô tô</SelectItem>
-                        <SelectItem value="motorbike">Xe máy</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="brand">Hãng xe</Label>
-                      <Input
-                        id="brand"
-                        value={vehicleForm.brand}
-                        onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })}
-                        placeholder="Toyota, Honda..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="model">Mẫu xe</Label>
-                      <Input
-                        id="model"
-                        value={vehicleForm.model}
-                        onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
-                        placeholder="Camry, Wave..."
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="color">Màu sắc</Label>
-                      <Input
-                        id="color"
-                        value={vehicleForm.color}
-                        onChange={(e) => setVehicleForm({ ...vehicleForm, color: e.target.value })}
-                        placeholder="Trắng, Đỏ..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="registrationDate">Ngày đăng ký</Label>
-                      <Input
-                        id="registrationDate"
-                        type="date"
-                        value={vehicleForm.registrationDate}
-                        onChange={(e) => setVehicleForm({ ...vehicleForm, registrationDate: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Trạng thái</Label>
-                    <Select
-                      value={vehicleForm.status}
-                      onValueChange={(value: "active" | "inactive") =>
-                        setVehicleForm({ ...vehicleForm, status: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Hoạt động</SelectItem>
-                        <SelectItem value="inactive">Không hoạt động</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex gap-3 pt-4">
-                    <Button type="submit" className="flex-1 btn-primary">
-                      {editingVehicle ? "Cập nhật" : "Thêm mới"}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setIsVehicleDialogOpen(false)}>
-                      Hủy
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <VehicleTable 
+            vehicles={vehicles} 
+            onEdit={handleEdit} 
+            onDelete={handleDelete} 
+            onView={handleView} 
+            onAddNew={handleAddNew} 
+            onBulkUpdate={handleUpdateVehicle}
+            onRefresh={() => loadData()}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
 
-          <div className="grid gap-4">
-            {vehicles.map((vehicle) => (
-              <Card key={vehicle.id} className="card-modern-hover">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center text-lg">
-                          {vehicle.vehicleType === "car" ? "🚗" : "🏍️"}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-lg text-foreground">{vehicle.licensePlate}</h3>
-                          <Badge variant={vehicle.status === "active" ? "default" : "secondary"}>
-                            {vehicle.status === "active" ? "Hoạt động" : "Không hoạt động"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p>
-                          <span className="font-medium">Chủ xe:</span> {vehicle.employeeName}
-                        </p>
-                        <p>
-                          <span className="font-medium">Loại xe:</span> {getVehicleTypeLabel(vehicle.vehicleType)}
-                        </p>
-                        {vehicle.brand && vehicle.model && (
-                          <p>
-                            <span className="font-medium">Xe:</span> {vehicle.brand} {vehicle.model}
-                          </p>
-                        )}
-                        {vehicle.color && (
-                          <p>
-                            <span className="font-medium">Màu:</span> {vehicle.color}
-                          </p>
-                        )}
-                        <p>
-                          <span className="font-medium">Đăng ký:</span>{" "}
-                          {new Date(vehicle.registrationDate).toLocaleDateString("vi-VN")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEditVehicle(vehicle)}>
-                        Sửa
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteVehicle(vehicle.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        Xóa
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <VehicleForm
+            vehicle={selectedVehicle}
+            employees={employees}
+            isOpen={isFormOpen}
+            onClose={() => {
+              setIsFormOpen(false)
+              setSelectedVehicle(undefined)
+            }}
+            onSave={handleSave}
+          />
+
+          <BulkOperationsDialog
+            isOpen={showBulkOperations}
+            onClose={() => setShowBulkOperations(false)}
+            selectedCount={0}
+            onApply={(operation) => {
+              console.log("Bulk operation:", operation)
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="requests" className="space-y-6">
@@ -396,182 +446,42 @@ export default function VehiclesPage() {
               <h2 className="text-xl font-semibold text-foreground">Yêu cầu ra vào</h2>
               <p className="text-sm text-muted-foreground">Tổng cộng: {entryExitRequests.length} yêu cầu</p>
             </div>
-            <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={resetRequestForm} className="btn-primary">
-                  Tạo yêu cầu mới
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Tạo yêu cầu ra vào</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleRequestSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="employeeId">Nhân viên</Label>
-                    <Select
-                      value={requestForm.employeeId}
-                      onValueChange={(value) => setRequestForm({ ...requestForm, employeeId: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn nhân viên" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vehicleId">Xe</Label>
-                    <Select
-                      value={requestForm.vehicleId}
-                      onValueChange={(value) => setRequestForm({ ...requestForm, vehicleId: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn xe" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vehicles
-                          .filter((v) => v.employeeId === requestForm.employeeId)
-                          .map((vehicle) => (
-                            <SelectItem key={vehicle.id} value={vehicle.id}>
-                              {vehicle.licensePlate} - {getVehicleTypeLabel(vehicle.vehicleType)}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="requestType">Loại yêu cầu</Label>
-                    <Select
-                      value={requestForm.requestType}
-                      onValueChange={(value: "entry" | "exit") =>
-                        setRequestForm({ ...requestForm, requestType: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="entry">Vào</SelectItem>
-                        <SelectItem value="exit">Ra</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="requestTime">Thời gian yêu cầu</Label>
-                    <Input
-                      id="requestTime"
-                      type="datetime-local"
-                      value={requestForm.requestTime}
-                      onChange={(e) => setRequestForm({ ...requestForm, requestTime: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Ghi chú</Label>
-                    <Textarea
-                      id="notes"
-                      value={requestForm.notes}
-                      onChange={(e) => setRequestForm({ ...requestForm, notes: e.target.value })}
-                      placeholder="Ghi chú thêm..."
-                    />
-                  </div>
-                  <div className="flex gap-3 pt-4">
-                    <Button type="submit" className="flex-1 btn-primary">
-                      Tạo yêu cầu
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setIsRequestDialogOpen(false)}>
-                      Hủy
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
           </div>
 
-          <div className="grid gap-4">
-            {entryExitRequests.map((request) => (
-              <Card key={request.id} className="card-modern-hover">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center text-lg">
-                          {request.requestType === "entry" ? "🔽" : "🔼"}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-lg text-foreground">{request.employeeName}</h3>
-                          <Badge
-                            variant={
-                              request.status === "pending"
-                                ? "secondary"
-                                : request.status === "approved"
-                                  ? "default"
-                                  : "destructive"
-                            }
-                          >
-                            {request.status === "pending"
-                              ? "Chờ duyệt"
-                              : request.status === "approved"
-                                ? "Đã duyệt"
-                                : "Từ chối"}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <p>
-                          <span className="font-medium">Loại:</span> {getRequestTypeLabel(request.requestType)}
-                        </p>
-                        <p>
-                          <span className="font-medium">Xe:</span> {request.licensePlate}
-                        </p>
-                        <p>
-                          <span className="font-medium">Thời gian:</span>{" "}
-                          {new Date(request.requestTime).toLocaleString("vi-VN")}
-                        </p>
-                        {request.notes && (
-                          <p>
-                            <span className="font-medium">Ghi chú:</span> {request.notes}
-                          </p>
-                        )}
-                        {request.approvedBy && (
-                          <p>
-                            <span className="font-medium">Duyệt bởi:</span> {request.approvedBy} •{" "}
-                            {new Date(request.approvedAt!).toLocaleString("vi-VN")}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {request.status === "pending" && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleApproveRequest(request.id)}
-                          className="text-accent hover:text-accent"
-                        >
-                          Duyệt
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRejectRequest(request.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          Từ chối
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <VehicleRequestsTable
+            requests={entryExitRequests}
+            vehicles={vehicles}
+            onEdit={handleEditRequest}
+            onDelete={handleDeleteRequest}
+            onView={handleViewRequest}
+            onApprove={handleApproveRequest}
+            onReject={handleRejectRequest}
+            onBulkApprove={handleBulkApproveRequests}
+            onBulkReject={handleBulkRejectRequests}
+            onAddNew={handleAddNewRequest}
+            onRefresh={loadData}
+          />
+
+          <VehicleRequestForm
+            request={selectedRequest}
+            employees={employees}
+            vehicles={vehicles}
+            isOpen={isRequestFormOpen}
+            onClose={() => {
+              setIsRequestFormOpen(false)
+              setSelectedRequest(undefined)
+            }}
+            onSave={handleSaveRequest}
+          />
+
+          <RequestsBulkOperationsDialog
+            isOpen={showRequestsBulkOperations}
+            onClose={() => setShowRequestsBulkOperations(false)}
+            selectedCount={0}
+            onApply={(operation) => {
+              console.log("Bulk operation:", operation)
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>

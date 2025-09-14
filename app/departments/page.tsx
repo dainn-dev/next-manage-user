@@ -51,10 +51,6 @@ export default function DepartmentsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Nhân sự / Quản lý nhân sự / Phòng ban</h1>
         </div>
-        <Button onClick={handleAddNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          Thêm bộ phận
-        </Button>
       </div>
 
       <DepartmentTable departments={departments} onEdit={handleEdit} onDelete={handleDelete} onAddNew={handleAddNew} />
