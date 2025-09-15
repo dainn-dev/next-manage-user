@@ -1,0 +1,37 @@
+{
+    "api": {
+        "base_url": "http://localhost:8080",
+        "endpoint": "/api/entry-exit-requests/check-vehicle",
+        "timeout": 10,
+        "use_query_params": true,
+        "use_cookies": true,
+        "cookies": {
+            "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqYW1lczE1QHlvcG1haWwuY29tIiwiaWF0IjoxNzU2OTc2MzAxLCJleHAiOjE3NTY5NzcyMDF9.XKZ3G-Un0UII1S_iqmhBsAN5mTJkoO489FWTuLqhCKs",
+            "refresh_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqYW1lczE1QHlvcG1haWwuY29tIiwiaWF0IjoxNzU2OTc2MzAxLCJleHAiOjE3NTc1ODExMDF9.yCnlLC_tHBOkrOjIPOD-oHY0Piq0CRk4JhWJCS-wLKc"
+        }
+    },
+    "detection": {
+        "cooldown": 5,
+        "cache_duration": 600,
+        "max_cameras": 10,
+        "min_detection_duration": 1.0
+    },
+    "ui": {
+        "window_width": 1400,
+        "window_height": 800,
+        "video_width": 640,
+        "video_height": 480
+    },
+    "models": {
+        "lp_detector": "model/LP_detector_nano_61.pt",
+        "lp_ocr": "model/LP_ocr_nano_62.pt",
+        "confidence_threshold": 0.6
+    },
+    "tts": {
+        "enabled": true,
+        "use_gtts": true,
+        "rate": 150,
+        "volume": 0.8,
+        "language": "vi"
+    }
+}

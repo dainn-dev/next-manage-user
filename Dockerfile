@@ -17,7 +17,7 @@ COPY . .
 RUN pnpm build
 
 # Backend build stage
-FROM maven:3.9-openjdk-17-slim AS backend-builder
+FROM maven:3.8.4-openjdk-17 AS backend-builder
 
 # Set working directory for backend
 WORKDIR /app/backend
@@ -98,21 +98,22 @@ RUN echo 'server { \
 }' > /etc/nginx/sites-available/default
 
 # Create startup script
-RUN echo '#!/bin/bash \
-set -e \
-\
-# Start backend in background \
-java -jar /app/app.jar & \
-\
-# Wait for backend to be ready \
-echo "Waiting for backend to start..." \
-while ! wget --no-verbose --tries=1 --spider http://localhost:8080/api/actuator/health 2>/dev/null; do \
-    sleep 2 \
-done \
-echo "Backend is ready!" \
-\
-# Start nginx in foreground \
-nginx -g "daemon off;"' > /app/start.sh && chmod +x /app/start.sh
+RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Start backend in background' >> /app/start.sh && \
+    echo 'java -jar /app/app.jar &' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Wait for backend to be ready' >> /app/start.sh && \
+    echo 'echo "Waiting for backend to start..."' >> /app/start.sh && \
+    echo 'while ! wget --no-verbose --tries=1 --spider http://localhost:8080/api/actuator/health 2>/dev/null; do' >> /app/start.sh && \
+    echo '    sleep 2' >> /app/start.sh && \
+    echo 'done' >> /app/start.sh && \
+    echo 'echo "Backend is ready!"' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Start nginx in foreground' >> /app/start.sh && \
+    echo 'nginx -g "daemon off;"' >> /app/start.sh && \
+    chmod +x /app/start.sh
 
 # Change ownership to appuser
 RUN chown -R appuser:appuser /app /var/log/nginx
