@@ -9,11 +9,12 @@ spring:
   
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+      max-request-size: 50MB
       enabled: true
       file-size-threshold: 2KB
       location: /app/temp
+      resolve-lazily: false
   
   datasource:
     url: jdbc:postgresql://localhost:5432/vehicle_management

@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vehicle-management-db
+    environment:
+      POSTGRES_DB: vehicle_management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vehicle-management-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    container_name: vehicle-management-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Backend environment variables
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vehicle_management
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_PROFILES_ACTIVE: docker
+      # File upload configuration
+      SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE: 50MB
+      SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE: 50MB
+      SPRING_SERVLET_MULTIPART_ENABLED: true
+      # Frontend environment variables
+      NODE_ENV: production
+    ports:
+      - "80:80"  # Unified port for both frontend and backend
+    volumes:
+      # Volume for temporary file storage (imports/exports)
+      - file_storage:/app/temp
+      # Volume for CSV templates and exports
+      - csv_storage:/app/csv
+    networks:
+      - vehicle-management-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  file_storage:
+  csv_storage:
+
+networks:
+  vehicle-management-network:
+    driver: bridge

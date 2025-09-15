@@ -13,6 +13,7 @@ import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
 import com.vehiclemanagement.repository.EntryExitRequestRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.util.ImageProcessingUtil;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +49,9 @@ public class EntryExitRequestService {
     
     @Autowired
     private VehicleRepository vehicleRepository;
+    
+    @Autowired
+    private ImageProcessingUtil imageProcessingUtil;
     
     public List<EntryExitRequestDto> getAllRequests() {
         return requestRepository.findAll().stream()
@@ -640,23 +644,31 @@ public class EntryExitRequestService {
         String imagePath = null;
         if (imageFile != null && !imageFile.isEmpty()) {
             try {
-                imagePath = uploadVehicleImage(request.getLicensePlateNumber(), request.getType(), imageFile);
-                
-                // Save image path to the first approved request
-                EntryExitRequest approvedRequest = approvedRequests.get(0);
-                if (request.getType().toLowerCase().equals("entry")) {
-                    approvedRequest.setEntryImagePath(imagePath);
+                // Validate image before processing
+                if (!imageProcessingUtil.isValidImage(imageFile)) {
+                    System.err.println("Invalid image file provided for vehicle: " + request.getLicensePlateNumber());
                 } else {
-                    approvedRequest.setExitImagePath(imagePath);
+                    imagePath = uploadVehicleImage(request.getLicensePlateNumber(), request.getType(), imageFile);
+                    
+                    // Save image path to the first approved request
+                    EntryExitRequest approvedRequest = approvedRequests.get(0);
+                    if (request.getType().toLowerCase().equals("entry")) {
+                        approvedRequest.setEntryImagePath(imagePath);
+                    } else {
+                        approvedRequest.setExitImagePath(imagePath);
+                    }
+                    
+                    // Mark request as completed when image upload is successful
+                    approvedRequest.complete();
+                    requestRepository.save(approvedRequest);
                 }
-                
-                // Mark request as completed when image upload is successful
-                approvedRequest.complete();
-                requestRepository.save(approvedRequest);
                 
             } catch (IOException e) {
                 // Log error but don't fail the request
-                System.err.println("Error uploading image: " + e.getMessage());
+                System.err.println("Error uploading image for vehicle " + request.getLicensePlateNumber() + ": " + e.getMessage());
+            } catch (IllegalArgumentException e) {
+                // Log validation error
+                System.err.println("Image validation failed for vehicle " + request.getLicensePlateNumber() + ": " + e.getMessage());
             }
         }
         
@@ -672,6 +684,14 @@ public class EntryExitRequestService {
     }
     
     private String uploadVehicleImage(String licensePlate, String type, MultipartFile imageFile) throws IOException {
+        // Validate image file
+        if (!imageProcessingUtil.isValidImage(imageFile)) {
+            throw new IllegalArgumentException("Invalid image file");
+        }
+        
+        // Process and optimize the image
+        byte[] processedImageData = imageProcessingUtil.processImage(imageFile);
+        
         // Create directory structure: images/entry or images/exit
         String folderName = type.toLowerCase();
         Path uploadDir = Paths.get("images", folderName);
@@ -681,19 +701,13 @@ public class EntryExitRequestService {
             Files.createDirectories(uploadDir);
         }
         
-        // Generate unique filename: licensePlate_timestamp.extension
-        String originalFilename = imageFile.getOriginalFilename();
-        String extension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        }
-        
+        // Generate unique filename: licensePlate_timestamp.jpg (always use jpg for processed images)
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
-        String filename = licensePlate + "_" + timestamp + extension;
+        String filename = licensePlate + "_" + timestamp + "." + imageProcessingUtil.getProcessedImageExtension();
         
-        // Save file
+        // Save processed image file
         Path filePath = uploadDir.resolve(filename);
-        Files.copy(imageFile.getInputStream(), filePath);
+        Files.write(filePath, processedImageData);
         
         // Return the relative path
         return "/images/" + folderName + "/" + filename;

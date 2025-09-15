@@ -97,6 +97,12 @@
             <artifactId>poi-ooxml</artifactId>
             <version>5.2.4</version>
         </dependency>
+        <!-- Thumbnailator for image processing -->
+        <dependency>
+            <groupId>net.coobird</groupId>
+            <artifactId>thumbnailator</artifactId>
+            <version>0.4.19</version>
+        </dependency>
     </dependencies>
 
     <build>
