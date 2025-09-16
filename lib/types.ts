@@ -8,6 +8,9 @@ export interface Employee {
   phone: string
   department: string
   position: string
+  rank?: string // Cấp bậc
+  jobTitle?: string // Chức vụ
+  militaryCivilian?: string // SQ/QNCN
   hireDate: string
   birthDate?: string
   gender?: "male" | "female" | "other"
@@ -17,7 +20,6 @@ export interface Employee {
   salary?: number
   status: "active" | "inactive" | "terminated"
   avatar?: string
-  cardNumber?: string
   accessLevel: "general" | "restricted" | "admin"
   permissions: string[]
   customFields?: Record<string, any>
@@ -52,6 +54,10 @@ export interface CustomField {
   required: boolean
   category: string
   order: number
+  description?: string
+  defaultValue?: string
+  validationRules?: string
+  isActive?: boolean
 }
 
 export interface DocumentLibrary {
@@ -110,7 +116,7 @@ export interface EntryExitRequest {
   requestTime: string
   approvedBy?: string
   approvedAt?: string
-  status: "pending" | "approved" | "rejected"
+  status: "pending" | "approved" | "completed"
   notes?: string
   createdAt: string
 }
@@ -127,7 +133,6 @@ export interface VehicleStatistics {
     totalRequests: number
     approvedRequests: number
     pendingRequests: number
-    rejectedRequests: number
     entryRequests: number
     exitRequests: number
   }
@@ -143,7 +148,7 @@ export interface VehicleDailyStats {
   totalRequests: number
   approvedCount: number
   pendingCount: number
-  rejectedCount: number
+  completedCount: number
   uniqueVehicles: number
 }
 
@@ -156,8 +161,9 @@ export interface VehicleWeeklyStats {
   totalRequests: number
   approvedCount: number
   pendingCount: number
-  rejectedCount: number
+  completedCount: number
   uniqueVehicles: number
+  averageDailyRequests: number
 }
 
 export interface VehicleMonthlyStats {
@@ -168,6 +174,8 @@ export interface VehicleMonthlyStats {
   totalRequests: number
   approvedCount: number
   pendingCount: number
-  rejectedCount: number
+  completedCount: number
   uniqueVehicles: number
+  averageDailyRequests: number
+  peakDay: { date: string; requestCount: number }
 }

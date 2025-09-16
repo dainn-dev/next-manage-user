@@ -30,6 +30,10 @@ class ConfigManager:
                 "cache_duration": 300,
                 "max_cameras": 10
             },
+            "rate_limiting": {
+                "max_requests_per_minute": 30,
+                "enabled": True
+            },
             "ui": {
                 "window_width": 1400,
                 "window_height": 800,
@@ -40,6 +44,27 @@ class ConfigManager:
                 "lp_detector": "model/LP_detector_nano_61.pt",
                 "lp_ocr": "model/LP_ocr_nano_62.pt",
                 "confidence_threshold": 0.60
+            },
+            "rtsp_devices": {
+                "device_1": {
+                    "enabled": False,
+                    "name": "RTSP Device 1",
+                    "url": "rtsp://username:password@192.168.1.100:554/stream1"
+                },
+                "device_2": {
+                    "enabled": False,
+                    "name": "RTSP Device 2", 
+                    "url": "rtsp://username:password@192.168.1.101:554/stream1"
+                }
+            },
+            "rtsp_optimization": {
+                "buffer_size": 1,
+                "drop_frames": True,
+                "low_latency": True,
+                "tcp_transport": False,
+                "connection_timeout": 5000,
+                "read_timeout": 1000,
+                "frame_skip_threshold": 3
             }
         }
     
@@ -131,6 +156,22 @@ class ConfigManager:
         """Get detection cooldown in seconds"""
         return self.get('detection.cooldown', 5)
     
+    def get_rate_limit_max_requests(self) -> int:
+        """Get maximum API requests per minute"""
+        return self.get('rate_limiting.max_requests_per_minute', 30)
+    
+    def get_rate_limit_enabled(self) -> bool:
+        """Get whether rate limiting is enabled"""
+        return self.get('rate_limiting.enabled', True)
+    
+    def get_connection_error_cache_duration(self) -> int:
+        """Get cache duration for connection errors in seconds"""
+        return self.get('error_handling.connection_error_cache_duration', 300)
+    
+    def get_connection_error_popup_cooldown(self) -> int:
+        """Get popup cooldown for connection errors in seconds"""
+        return self.get('error_handling.connection_error_popup_cooldown', 30)
+    
     def get_max_cameras(self) -> int:
         """Get maximum number of cameras to scan"""
         return self.get('detection.max_cameras', 10)
@@ -180,6 +221,76 @@ class ConfigManager:
     def get_tts_language(self) -> str:
         """Get TTS language"""
         return self.get('tts.language', 'vi')
+    
+    def get_rtsp_devices(self) -> Dict[str, Any]:
+        """Get RTSP devices configuration"""
+        return self.get('rtsp_devices', {})
+    
+    def get_rtsp_device(self, device_id: str) -> Dict[str, Any]:
+        """Get specific RTSP device configuration"""
+        return self.get(f'rtsp_devices.{device_id}', {})
+    
+    def is_rtsp_device_enabled(self, device_id: str) -> bool:
+        """Check if specific RTSP device is enabled"""
+        return self.get(f'rtsp_devices.{device_id}.enabled', False)
+    
+    def get_rtsp_device_url(self, device_id: str) -> str:
+        """Get RTSP device URL"""
+        return self.get(f'rtsp_devices.{device_id}.url', '')
+    
+    def build_rtsp_url(self, device_id: str) -> str:
+        """Get RTSP URL from device configuration with optimization parameters"""
+        device = self.get_rtsp_device(device_id)
+        if not device:
+            return ""
+        
+        # Get the direct URL from configuration
+        base_url = device.get('url', '')
+        if not base_url:
+            return ""
+        
+        # Add optimization parameters
+        optimization = self.get_rtsp_optimization()
+        params = []
+        
+        if optimization.get('low_latency', True):
+            params.append('?tcp')
+        if optimization.get('buffer_size', 1) == 1:
+            params.append('&buffer_size=1')
+        
+        if params:
+            separator = '&' if '?' in base_url else '?'
+            base_url += separator + '&'.join(params)
+        
+        return base_url
+    
+    def get_rtsp_optimization(self) -> dict:
+        """Get RTSP optimization settings"""
+        return self.get('rtsp_optimization', {})
+    
+    def get_rtsp_buffer_size(self) -> int:
+        """Get RTSP buffer size"""
+        return self.get('rtsp_optimization.buffer_size', 1)
+    
+    def get_rtsp_drop_frames(self) -> bool:
+        """Get whether to drop frames for low latency"""
+        return self.get('rtsp_optimization.drop_frames', True)
+    
+    def get_rtsp_low_latency(self) -> bool:
+        """Get low latency mode setting"""
+        return self.get('rtsp_optimization.low_latency', True)
+    
+    def get_rtsp_connection_timeout(self) -> int:
+        """Get RTSP connection timeout in milliseconds"""
+        return self.get('rtsp_optimization.connection_timeout', 5000)
+    
+    def get_rtsp_read_timeout(self) -> int:
+        """Get RTSP read timeout in milliseconds"""
+        return self.get('rtsp_optimization.read_timeout', 1000)
+    
+    def get_rtsp_frame_skip_threshold(self) -> int:
+        """Get frame skip threshold for buffer management"""
+        return self.get('rtsp_optimization.frame_skip_threshold', 3)
 
 
 # Global config manager instance

@@ -11,10 +11,14 @@
         }
     },
     "detection": {
-        "cooldown": 5,
+        "cooldown": 2,
         "cache_duration": 600,
         "max_cameras": 10,
         "min_detection_duration": 1.0
+    },
+    "rate_limiting": {
+        "max_requests_per_minute": 30,
+        "enabled": true
     },
     "ui": {
         "window_width": 1400,
@@ -26,6 +30,31 @@
         "lp_detector": "model/LP_detector_nano_61.pt",
         "lp_ocr": "model/LP_ocr_nano_62.pt",
         "confidence_threshold": 0.6
+    },
+    "rtsp_devices": {
+        "device_1": {
+            "enabled": true,
+            "name": "RTSP Device 1",
+            "url": "rtsp://admin:L2C315FD@192.168.0.189:80/cam/realmonitor?channel=1&subtype=0"
+        },
+        "device_2": {
+            "enabled": false,
+            "name": "RTSP Device 2",
+            "url": "rtsp://admin:MKURLL@192.168.0.112:8000/Streaming/Channels/1"
+        }
+    },
+    "rtsp_optimization": {
+        "buffer_size": 1,
+        "drop_frames": true,
+        "low_latency": true,
+        "tcp_transport": false,
+        "connection_timeout": 3000,
+        "read_timeout": 500,
+        "frame_skip_threshold": 3
+    },
+    "error_handling": {
+        "connection_error_cache_duration": 300,
+        "connection_error_popup_cooldown": 30
     },
     "tts": {
         "enabled": true,

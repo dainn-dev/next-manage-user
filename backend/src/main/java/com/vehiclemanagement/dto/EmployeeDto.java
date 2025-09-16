@@ -40,6 +40,12 @@ public class EmployeeDto {
     @NotBlank(message = "Position is required")
     private String position;
     
+    private String rank; // Cấp bậc
+    
+    private String jobTitle; // Chức vụ
+    
+    private String militaryCivilian; // SQ/QNCN
+    
     @NotNull(message = "Hire date is required")
     private LocalDate hireDate;
     
@@ -54,8 +60,6 @@ public class EmployeeDto {
     private String address;
     
     private String avatar;
-    
-    private String cardNumber;
     
     private String emergencyContact;
     
@@ -84,6 +88,9 @@ public class EmployeeDto {
         this.phone = employee.getPhone();
         this.department = employee.getDepartment();
         this.position = employee.getPosition();
+        this.rank = employee.getRank();
+        this.jobTitle = employee.getJobTitle();
+        this.militaryCivilian = employee.getMilitaryCivilian();
         this.hireDate = employee.getHireDate();
         this.birthDate = employee.getBirthDate();
         this.gender = employee.getGender();
@@ -91,7 +98,6 @@ public class EmployeeDto {
         this.accessLevel = employee.getAccessLevel();
         this.address = employee.getAddress();
         this.avatar = employee.getAvatar();
-        this.cardNumber = employee.getCardNumber();
         this.emergencyContact = employee.getEmergencyContact();
         this.emergencyPhone = employee.getEmergencyPhone();
         this.salary = employee.getSalary();
@@ -173,6 +179,30 @@ public class EmployeeDto {
         this.position = position;
     }
     
+    public String getRank() {
+        return rank;
+    }
+    
+    public void setRank(String rank) {
+        this.rank = rank;
+    }
+    
+    public String getJobTitle() {
+        return jobTitle;
+    }
+    
+    public void setJobTitle(String jobTitle) {
+        this.jobTitle = jobTitle;
+    }
+    
+    public String getMilitaryCivilian() {
+        return militaryCivilian;
+    }
+    
+    public void setMilitaryCivilian(String militaryCivilian) {
+        this.militaryCivilian = militaryCivilian;
+    }
+    
     public LocalDate getHireDate() {
         return hireDate;
     }
@@ -227,14 +257,6 @@ public class EmployeeDto {
     
     public void setAvatar(String avatar) {
         this.avatar = avatar;
-    }
-    
-    public String getCardNumber() {
-        return cardNumber;
-    }
-    
-    public void setCardNumber(String cardNumber) {
-        this.cardNumber = cardNumber;
     }
     
     public String getEmergencyContact() {

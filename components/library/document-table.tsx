@@ -168,11 +168,11 @@ export function DocumentTable({ documents, onEdit, onDelete, onDownload }: Docum
         {/* Right Panel - Employee List */}
         <div className="w-1/2 border rounded-lg">
           <div className="p-4 border-b">
-            <h3 className="font-medium">Nhân sự</h3>
+            <h3 className="font-medium">Quân nhân</h3>
           </div>
           <div className="p-4">
             <div className="flex gap-2 mb-4">
-              <Input placeholder="ID nhân sự" className="w-32" />
+              <Input placeholder="ID Quân nhân" className="w-32" />
               <Input placeholder="Tên" className="flex-1" />
               <Button variant="outline" size="sm">
                 <Search className="h-4 w-4 mr-2" />
@@ -187,7 +187,7 @@ export function DocumentTable({ documents, onEdit, onDelete, onDownload }: Docum
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID nhân sự</TableHead>
+                  <TableHead>ID Quân nhân</TableHead>
                   <TableHead>Tên</TableHead>
                   <TableHead>Họ</TableHead>
                 </TableRow>

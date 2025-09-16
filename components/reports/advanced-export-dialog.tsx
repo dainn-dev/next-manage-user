@@ -27,17 +27,17 @@ interface AdvancedExportOptions {
 
 const FIELD_OPTIONS = [
   { id: "basicInfo", label: "Thông tin cơ bản", checked: true },
-  { id: "employeeId", label: "ID nhân sự", checked: false },
+  { id: "employeeId", label: "ID Quân nhân", checked: false },
   { id: "name", label: "Tên", checked: true },
   { id: "lastName", label: "Họ", checked: false },
   { id: "phone", label: "Số điện thoại", checked: true },
   { id: "gender", label: "Giới tính", checked: true },
   { id: "birthDate", label: "Sinh nhật", checked: true },
-  { id: "cardNumber", label: "Số thẻ", checked: true },
+  { id: "cardNumber", label: "Số hiệu quân nhân", checked: true },
   { id: "email", label: "Email", checked: true },
   { id: "idNumber", label: "Số chứng chỉ", checked: true },
   { id: "position", label: "Tên chức vụ", checked: true },
-  { id: "birthDate2", label: "Ngày thuê", checked: true },
+  { id: "birthDate2", label: "Ngày nhập ngũ", checked: true },
   { id: "officePhone", label: "Office Phone", checked: false },
   { id: "jobTitle", label: "Job Title", checked: false },
   { id: "street", label: "Street", checked: false },
@@ -83,7 +83,7 @@ export function AdvancedExportDialog({ isOpen, onClose, onExport }: AdvancedExpo
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle>Tải xuống mẫu nhập nhân sự</DialogTitle>
+          <DialogTitle>Tải xuống mẫu nhập Quân nhân</DialogTitle>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>

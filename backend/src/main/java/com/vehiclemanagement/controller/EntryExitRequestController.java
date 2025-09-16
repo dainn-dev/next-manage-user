@@ -221,14 +221,6 @@ public class EntryExitRequestController {
         return ResponseEntity.ok(approvedRequest);
     }
     
-    @PutMapping("/{id}/reject")
-    @Operation(summary = "Reject request", description = "Reject a pending request")
-    public ResponseEntity<EntryExitRequestDto> rejectRequest(
-            @PathVariable UUID id,
-            @Parameter(description = "Name of the person rejecting") @RequestParam String approvedBy) {
-        EntryExitRequestDto rejectedRequest = requestService.rejectRequest(id, approvedBy);
-        return ResponseEntity.ok(rejectedRequest);
-    }
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete request", description = "Delete a request by ID")

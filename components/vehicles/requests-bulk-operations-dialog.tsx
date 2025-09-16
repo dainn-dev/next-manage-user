@@ -19,7 +19,7 @@ interface RequestsBulkOperationsDialogProps {
 
 interface BulkOperation {
   type: "status" | "export" | "delete"
-  status?: "approved" | "rejected"
+  status?: "approved"
   notes?: string
   confirmDelete?: boolean
 }
@@ -112,13 +112,6 @@ export function RequestsBulkOperationsDialog({
                     Duyệt
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="rejected" id="status-rejected" />
-                  <Label htmlFor="status-rejected" className="flex items-center gap-2">
-                    <XCircle className="h-4 w-4 text-red-600" />
-                    Từ chối
-                  </Label>
-                </div>
               </RadioGroup>
             </div>
           )}
@@ -157,7 +150,7 @@ export function RequestsBulkOperationsDialog({
                 <Checkbox
                   id="confirm-delete"
                   checked={confirmDelete}
-                  onCheckedChange={setConfirmDelete}
+                  onCheckedChange={(checked) => setConfirmDelete(checked === true)}
                 />
                 <Label htmlFor="confirm-delete" className="text-sm">
                   Tôi hiểu rằng thao tác này không thể hoàn tác

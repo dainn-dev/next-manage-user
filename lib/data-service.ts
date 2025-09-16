@@ -612,11 +612,9 @@ class DataService {
 
   async updateEntryExitRequest(id: string, updates: Partial<EntryExitRequest>): Promise<EntryExitRequest | null> {
     try {
-      // Use dedicated approve/reject endpoints if available
+      // Use dedicated approve endpoint if available
       if (updates.status === "approved" && updates.approvedBy) {
         return await entryExitRequestApi.approveRequest(id, updates.approvedBy)
-      } else if (updates.status === "rejected" && updates.approvedBy) {
-        return await entryExitRequestApi.rejectRequest(id, updates.approvedBy)
       } else {
         // Fallback to general update for other fields
         const existingRequest = await entryExitRequestApi.getRequestById(id)
@@ -700,6 +698,7 @@ class DataService {
       approvedRequests: requests.filter(r => r.status === "approved").length,
       pendingRequests: requests.filter(r => r.status === "pending").length,
       rejectedRequests: requests.filter(r => r.status === "rejected").length,
+      completedRequests: requests.filter(r => r.status === "completed").length,
       entryRequests: requests.filter(r => r.requestType === "entry").length,
       exitRequests: requests.filter(r => r.requestType === "exit").length,
     }
@@ -740,6 +739,7 @@ class DataService {
           approvedCount: 0,
           pendingCount: 0,
           rejectedCount: 0,
+          completedCount: 0,
           uniqueVehicles: 0,
         })
         uniqueVehiclesPerDay.set(date, new Set())
@@ -758,6 +758,7 @@ class DataService {
       if (request.status === "approved") dayStats.approvedCount++
       else if (request.status === "pending") dayStats.pendingCount++
       else if (request.status === "rejected") dayStats.rejectedCount++
+      else if (request.status === "completed") dayStats.completedCount++
     })
 
     // Set unique vehicles count
@@ -781,7 +782,7 @@ class DataService {
       
       if (!weeklyMap.has(weekKey)) {
         weeklyMap.set(weekKey, {
-          week: `Tuần ${this.getWeekNumber(date)}`,
+          week: this.getWeekNumber(date),
           startDate: weekStart.toISOString().split('T')[0],
           endDate: weekEnd.toISOString().split('T')[0],
           entryCount: 0,
@@ -790,6 +791,7 @@ class DataService {
           approvedCount: 0,
           pendingCount: 0,
           rejectedCount: 0,
+          completedCount: 0,
           uniqueVehicles: 0,
           averageDailyRequests: 0,
         })
@@ -809,6 +811,7 @@ class DataService {
       if (request.status === "approved") weekStats.approvedCount++
       else if (request.status === "pending") weekStats.pendingCount++
       else if (request.status === "rejected") weekStats.rejectedCount++
+      else if (request.status === "completed") weekStats.completedCount++
     })
 
     // Set unique vehicles count and average daily requests
@@ -832,7 +835,7 @@ class DataService {
       
       if (!monthlyMap.has(monthKey)) {
         monthlyMap.set(monthKey, {
-          month: this.getMonthName(date.getMonth()),
+          month: date.getMonth() + 1,
           year: date.getFullYear(),
           entryCount: 0,
           exitCount: 0,
@@ -840,6 +843,7 @@ class DataService {
           approvedCount: 0,
           pendingCount: 0,
           rejectedCount: 0,
+          completedCount: 0,
           uniqueVehicles: 0,
           averageDailyRequests: 0,
           peakDay: { date: "", requestCount: 0 },
@@ -864,6 +868,7 @@ class DataService {
       if (request.status === "approved") monthStats.approvedCount++
       else if (request.status === "pending") monthStats.pendingCount++
       else if (request.status === "rejected") monthStats.rejectedCount++
+      else if (request.status === "completed") monthStats.completedCount++
     })
 
     // Set unique vehicles count, average daily requests, and peak day
@@ -884,7 +889,7 @@ class DataService {
 
     return Array.from(monthlyMap.values()).sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year
-      return a.month.localeCompare(b.month)
+      return a.month - b.month
     })
   }
 

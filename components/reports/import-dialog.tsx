@@ -37,7 +37,7 @@ export function ImportDialog({ isOpen, onClose, onImport }: ImportDialogProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle>Nhập nhân sự</DialogTitle>
+          <DialogTitle>Nhập Quân nhân</DialogTitle>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>

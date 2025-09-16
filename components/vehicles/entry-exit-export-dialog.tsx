@@ -17,7 +17,7 @@ interface EntryExitExportDialogProps {
 
 export function EntryExitExportDialog({ isOpen, onClose }: EntryExitExportDialogProps) {
   const [exportType, setExportType] = useState<"all" | "status" | "dateRange">("all")
-  const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending")
+  const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "completed">("pending")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [isExporting, setIsExporting] = useState(false)
@@ -136,7 +136,7 @@ export function EntryExitExportDialog({ isOpen, onClose }: EntryExitExportDialog
           {exportType === "status" && (
             <div className="space-y-2">
               <Label>Trạng thái</Label>
-              <Select value={status} onValueChange={(value: "pending" | "approved" | "rejected") => setStatus(value)}>
+              <Select value={status} onValueChange={(value: "pending" | "approved" | "rejected" | "completed") => setStatus(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -144,6 +144,7 @@ export function EntryExitExportDialog({ isOpen, onClose }: EntryExitExportDialog
                   <SelectItem value="pending">Chờ duyệt</SelectItem>
                   <SelectItem value="approved">Đã duyệt</SelectItem>
                   <SelectItem value="rejected">Từ chối</SelectItem>
+                  <SelectItem value="completed">Hoàn thành</SelectItem>
                 </SelectContent>
               </Select>
             </div>

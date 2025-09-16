@@ -14,7 +14,7 @@ export default function PositionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Vị trí</h1>
+        <h1 className="text-2xl font-semibold">Chức vụ</h1>
       </div>
 
       {/* Search and Filter Bar */}
@@ -67,14 +67,6 @@ export default function PositionsPage() {
         <Button variant="destructive" size="sm">
           Xóa
         </Button>
-        <Button variant="outline" size="sm">
-          <Download className="h-4 w-4 mr-2" />
-          Xuất
-        </Button>
-        <Button variant="outline" size="sm">
-          Nhập
-        </Button>
-        <span className="text-sm text-muted-foreground">Hơn nữa</span>
       </div>
 
       {/* Data Table */}

@@ -47,6 +47,15 @@ public class Employee {
     
     private String position;
     
+    @Column(name = "rank")
+    private String rank; // Cấp bậc
+    
+    @Column(name = "job_title")
+    private String jobTitle; // Chức vụ
+    
+    @Column(name = "military_civilian")
+    private String militaryCivilian; // SQ/QNCN
+    
     @Column(name = "hire_date", nullable = false)
     @NotNull(message = "Hire date is required")
     private LocalDate hireDate;
@@ -73,9 +82,6 @@ public class Employee {
     private EmployeeStatus status = EmployeeStatus.active;
     
     private String avatar;
-    
-    @Column(name = "card_number")
-    private String cardNumber;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "access_level", nullable = false)
@@ -185,6 +191,30 @@ public class Employee {
         this.position = position;
     }
     
+    public String getRank() {
+        return rank;
+    }
+    
+    public void setRank(String rank) {
+        this.rank = rank;
+    }
+    
+    public String getJobTitle() {
+        return jobTitle;
+    }
+    
+    public void setJobTitle(String jobTitle) {
+        this.jobTitle = jobTitle;
+    }
+    
+    public String getMilitaryCivilian() {
+        return militaryCivilian;
+    }
+    
+    public void setMilitaryCivilian(String militaryCivilian) {
+        this.militaryCivilian = militaryCivilian;
+    }
+    
     public LocalDate getHireDate() {
         return hireDate;
     }
@@ -255,14 +285,6 @@ public class Employee {
     
     public void setAvatar(String avatar) {
         this.avatar = avatar;
-    }
-    
-    public String getCardNumber() {
-        return cardNumber;
-    }
-    
-    public void setCardNumber(String cardNumber) {
-        this.cardNumber = cardNumber;
     }
     
     public AccessLevel getAccessLevel() {

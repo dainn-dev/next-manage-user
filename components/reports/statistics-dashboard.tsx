@@ -62,12 +62,12 @@ export function StatisticsDashboard({ employees, departments }: StatisticsDashbo
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng phòng ban</CardTitle>
+            <CardTitle className="text-sm font-medium">Tổng Cơ quan, đơn vị</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalDepartments}</div>
-            <p className="text-xs text-muted-foreground">Phòng ban đang hoạt động</p>
+            <p className="text-xs text-muted-foreground">Cơ quan, đơn vị đang hoạt động</p>
           </CardContent>
         </Card>
 
@@ -88,7 +88,7 @@ export function StatisticsDashboard({ employees, departments }: StatisticsDashbo
       {/* Department Statistics */}
       <Card>
         <CardHeader>
-          <CardTitle>Thống kê theo phòng ban</CardTitle>
+          <CardTitle>Thống kê theo Cơ quan, đơn vị</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

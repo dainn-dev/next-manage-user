@@ -34,7 +34,7 @@ export default function LibraryPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Nhân sự / Quản lý nhân sự / Danh sách thư viện</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Quân nhân / Quản lý Quân nhân / Danh sách thư viện</h1>
         </div>
         <Button>
           <Plus className="h-4 w-4 mr-2" />

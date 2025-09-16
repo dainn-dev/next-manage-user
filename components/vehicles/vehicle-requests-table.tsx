@@ -22,9 +22,7 @@ interface VehicleRequestsTableProps {
   onDelete: (requestId: string) => void
   onView: (request: EntryExitRequest) => void
   onApprove: (requestId: string) => void
-  onReject: (requestId: string) => void
   onBulkApprove?: (requestIds: string[]) => void
-  onBulkReject?: (requestIds: string[]) => void
   onAddNew: () => void
   onRefresh?: () => void
 }
@@ -36,9 +34,7 @@ export function VehicleRequestsTable({
   onDelete, 
   onView, 
   onApprove, 
-  onReject, 
   onBulkApprove,
-  onBulkReject,
   onAddNew,
   onRefresh 
 }: VehicleRequestsTableProps) {
@@ -94,11 +90,11 @@ export function VehicleRequestsTable({
             Chờ duyệt
           </Badge>
         )
-      case "rejected":
+      case "completed":
         return (
-          <Badge variant="destructive" className="bg-red-100 text-red-800">
-            <XCircle className="h-3 w-3 mr-1" />
-            Từ chối
+          <Badge variant="default" className="bg-blue-100 text-blue-800">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Hoàn thành
           </Badge>
         )
       default:
@@ -180,7 +176,6 @@ export function VehicleRequestsTable({
                 <SelectItem value="all">Tất cả</SelectItem>
                 <SelectItem value="pending">Chờ xử lý</SelectItem>
                 <SelectItem value="approved">Đã duyệt</SelectItem>
-                <SelectItem value="rejected">Đã từ chối</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -238,20 +233,6 @@ export function VehicleRequestsTable({
             }}
           >
             Duyệt hàng loạt ({selectedRequests.length})
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={selectedRequests.length === 0}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            onClick={() => {
-              if (selectedRequests.length > 0 && onBulkReject) {
-                onBulkReject(selectedRequests)
-                setSelectedRequests([])
-              }
-            }}
-          >
-            Từ chối
           </Button>
           <Button
             variant="outline"
@@ -385,22 +366,13 @@ export function VehicleRequestsTable({
                           Chỉnh sửa
                         </DropdownMenuItem>
                         {request.status === "pending" && (
-                          <>
-                            <DropdownMenuItem 
-                              onClick={() => onApprove(request.id)}
-                              className="text-green-600"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Duyệt
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => onReject(request.id)}
-                              className="text-red-600"
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Từ chối
-                            </DropdownMenuItem>
-                          </>
+                          <DropdownMenuItem 
+                            onClick={() => onApprove(request.id)}
+                            className="text-green-600"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Duyệt
+                          </DropdownMenuItem>
                         )}
                         <DropdownMenuItem onClick={() => onDelete(request.id)} className="text-destructive">
                           <Trash2 className="h-4 w-4 mr-2" />

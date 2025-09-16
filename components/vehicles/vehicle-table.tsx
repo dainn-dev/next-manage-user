@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, Download, Car as CarIcon } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Search, Filter, Download, Car as CarIcon, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
 
@@ -234,12 +235,13 @@ export function VehicleTable({
               <TableHead>Hãng/Model</TableHead>
               <TableHead>Năm sản xuất</TableHead>
               <TableHead>Trạng thái</TableHead>
+              <TableHead>Hoạt động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredVehicles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={8} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
                       <CarIcon className="h-8 w-8 text-muted-foreground" />
@@ -272,6 +274,32 @@ export function VehicleTable({
                   </TableCell>
                   <TableCell>{vehicle.year || "-"}</TableCell>
                   <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onView(vehicle)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Xem
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit(vehicle)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => onDelete(vehicle.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               ))
             )}

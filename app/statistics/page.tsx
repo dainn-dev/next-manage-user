@@ -95,7 +95,7 @@ export default function StatisticsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Thống kê hệ thống</h1>
-          <p className="text-muted-foreground">Thống kê nhân sự và phương tiện</p>
+          <p className="text-muted-foreground">Thống kê Quân nhân và phương tiện</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleRefresh}>
@@ -111,7 +111,7 @@ export default function StatisticsPage() {
 
       <Tabs defaultValue="employees" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="employees">Thống kê nhân sự</TabsTrigger>
+          <TabsTrigger value="employees">Thống kê Quân nhân</TabsTrigger>
           <TabsTrigger value="vehicles">Thống kê xe</TabsTrigger>
         </TabsList>
 

@@ -99,12 +99,6 @@ export function DepartmentTable({ departments, onEdit, onDelete, onAddNew }: Dep
         {/* Left Panel - Department Tree */}
         <div className="w-1/3 border rounded-lg p-4">
           <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer">
-              <Building2 className="h-4 w-4" />
-              <span className="text-sm">Mở rộng</span>
-              <span className="text-sm">Thu gọn</span>
-            </div>
-
             {filteredDepartments.map((department) => (
               <div key={department.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer">
                 <Building2 className="h-4 w-4 text-muted-foreground" />

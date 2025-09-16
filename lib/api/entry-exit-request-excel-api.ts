@@ -81,7 +81,7 @@ class EntryExitRequestExcelApiService {
   }
 
   // Export requests by status to Excel
-  async exportByStatusToExcel(status: 'pending' | 'approved' | 'rejected'): Promise<void> {
+  async exportByStatusToExcel(status: 'pending' | 'approved' | 'rejected' | 'completed'): Promise<void> {
     return this.downloadFile(`/export/excel/status/${status}`, `entry_exit_requests_${status}.xlsx`, {
       method: 'POST',
     })

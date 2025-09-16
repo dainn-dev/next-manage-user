@@ -81,8 +81,8 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
         return <CheckCircle className="h-4 w-4 text-green-600" />
       case "pending":
         return <Clock className="h-4 w-4 text-yellow-600" />
-      case "rejected":
-        return <XCircle className="h-4 w-4 text-red-600" />
+      case "completed":
+        return <CheckCircle className="h-4 w-4 text-blue-600" />
       default:
         return <AlertCircle className="h-4 w-4 text-gray-600" />
     }
@@ -218,16 +218,6 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
                 {((statistics.entryExitStats.pendingRequests / statistics.entryExitStats.totalRequests) * 100).toFixed(1)}% tổng yêu cầu
               </p>
             </div>
-            <div className="text-center p-4 border rounded-lg">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                {getStatusIcon("rejected")}
-                <span className="text-sm font-medium">Từ chối</span>
-              </div>
-              <div className="text-2xl font-bold text-red-600">{statistics.entryExitStats.rejectedRequests}</div>
-              <p className="text-xs text-muted-foreground">
-                {((statistics.entryExitStats.rejectedRequests / statistics.entryExitStats.totalRequests) * 100).toFixed(1)}% tổng yêu cầu
-              </p>
-            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -310,7 +300,6 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
                         {item.approvedCount} duyệt
                       </Badge>
                       <Badge variant="secondary">{item.pendingCount} chờ</Badge>
-                      <Badge variant="destructive">{item.rejectedCount} từ chối</Badge>
                       <span className="text-sm text-muted-foreground">
                         {item.uniqueVehicles} xe
                       </span>

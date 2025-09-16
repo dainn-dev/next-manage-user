@@ -48,6 +48,9 @@ export default function VehiclesPage() {
   }, [])
 
   const loadData = async (page: number = currentPage, size: number = pageSize, sort: string = sortBy, direction: string = sortDir) => {
+    // Prevent multiple simultaneous calls (but allow initial load)
+    if (loading && vehicles.length > 0) return
+    
     try {
       setLoading(true)
       setError(null)
@@ -259,14 +262,6 @@ export default function VehiclesPage() {
     loadData()
   }
 
-  const handleRejectRequest = (id: string) => {
-    dataService.updateEntryExitRequest(id, {
-      status: "rejected",
-      approvedBy: "admin",
-      approvedAt: new Date().toISOString(),
-    })
-    loadData()
-  }
 
   const handleBulkApproveRequests = async (requestIds: string[]) => {
     if (confirm(`Bạn có chắc chắn muốn duyệt ${requestIds.length} yêu cầu đã chọn?`)) {
@@ -297,34 +292,6 @@ export default function VehiclesPage() {
     }
   }
 
-  const handleBulkRejectRequests = async (requestIds: string[]) => {
-    if (confirm(`Bạn có chắc chắn muốn từ chối ${requestIds.length} yêu cầu đã chọn?`)) {
-      try {
-        const updatePromises = requestIds.map(id => 
-          dataService.updateEntryExitRequest(id, {
-            status: "rejected",
-            approvedBy: "admin",
-            approvedAt: new Date().toISOString(),
-          })
-        )
-        await Promise.all(updatePromises)
-        await loadData()
-        toast({
-          variant: "success",
-          title: "Từ chối thành công",
-          description: `${requestIds.length} yêu cầu đã được từ chối.`,
-        })
-      } catch (err) {
-        setError('Không thể từ chối yêu cầu')
-        console.error('Error rejecting requests:', err)
-        toast({
-          variant: "destructive",
-          title: "Lỗi từ chối yêu cầu",
-          description: "Không thể từ chối yêu cầu. Vui lòng thử lại sau.",
-        })
-      }
-    }
-  }
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -332,7 +299,6 @@ export default function VehiclesPage() {
       inactive: "bg-muted text-muted-foreground border-border",
       pending: "bg-secondary/20 text-secondary-foreground border-secondary/30",
       approved: "bg-accent/20 text-accent-foreground border-accent/30",
-      rejected: "bg-destructive/20 text-destructive-foreground border-destructive/30",
     }
     return variants[status as keyof typeof variants] || "bg-muted text-muted-foreground border-border"
   }
@@ -455,9 +421,7 @@ export default function VehiclesPage() {
             onDelete={handleDeleteRequest}
             onView={handleViewRequest}
             onApprove={handleApproveRequest}
-            onReject={handleRejectRequest}
             onBulkApprove={handleBulkApproveRequests}
-            onBulkReject={handleBulkRejectRequests}
             onAddNew={handleAddNewRequest}
             onRefresh={loadData}
           />

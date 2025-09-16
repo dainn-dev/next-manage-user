@@ -187,14 +187,6 @@ public class EntryExitRequestService {
         return new EntryExitRequestDto(updatedRequest);
     }
     
-    public EntryExitRequestDto rejectRequest(UUID id, String approvedBy) {
-        EntryExitRequest request = requestRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Request not found with id: " + id));
-        
-        request.reject(approvedBy);
-        EntryExitRequest updatedRequest = requestRepository.save(request);
-        return new EntryExitRequestDto(updatedRequest);
-    }
     
     public void deleteRequest(UUID id) {
         EntryExitRequest request = requestRepository.findById(id)

@@ -12,7 +12,7 @@ export interface VehicleStatistics {
     totalRequests: number
     approvedRequests: number
     pendingRequests: number
-    rejectedRequests: number
+    completedRequests: number
     entryRequests: number
     exitRequests: number
   }
@@ -28,7 +28,7 @@ export interface VehicleDailyStats {
   totalRequests: number
   approvedCount: number
   pendingCount: number
-  rejectedCount: number
+  completedCount: number
   uniqueVehicles: number
 }
 
@@ -41,8 +41,9 @@ export interface VehicleWeeklyStats {
   totalRequests: number
   approvedCount: number
   pendingCount: number
-  rejectedCount: number
+  completedCount: number
   uniqueVehicles: number
+  averageDailyRequests: number
 }
 
 export interface VehicleMonthlyStats {
@@ -53,8 +54,10 @@ export interface VehicleMonthlyStats {
   totalRequests: number
   approvedCount: number
   pendingCount: number
-  rejectedCount: number
+  completedCount: number
   uniqueVehicles: number
+  averageDailyRequests: number
+  peakDay: { date: string; requestCount: number }
 }
 
 class VehicleStatisticsApi {

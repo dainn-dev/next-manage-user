@@ -20,5 +20,5 @@ INSERT INTO entry_exit_requests (employee_id, vehicle_id, request_type, request_
 ((SELECT id FROM employees WHERE employee_id = 'EMP001'), (SELECT id FROM vehicles WHERE license_plate = '29A-12345'), 'exit', '2024-01-15 17:30:00+07', 'approved', 'End of work day'),
 ((SELECT id FROM employees WHERE employee_id = 'EMP002'), (SELECT id FROM vehicles WHERE license_plate = '29B-67890'), 'entry', '2024-01-15 09:00:00+07', 'pending', 'Late arrival'),
 ((SELECT id FROM employees WHERE employee_id = 'EMP003'), (SELECT id FROM vehicles WHERE license_plate = '29C-11111'), 'entry', '2024-01-15 08:15:00+07', 'approved', 'Regular entry'),
-((SELECT id FROM employees WHERE employee_id = 'EMP004'), (SELECT id FROM vehicles WHERE license_plate = '29D-22222'), 'exit', '2024-01-15 16:45:00+07', 'rejected', 'Vehicle under maintenance'),
+((SELECT id FROM employees WHERE employee_id = 'EMP004'), (SELECT id FROM vehicles WHERE license_plate = '29D-22222'), 'exit', '2024-01-15 16:45:00+07', 'pending', 'Vehicle under maintenance'),
 ((SELECT id FROM employees WHERE employee_id = 'EMP005'), (SELECT id FROM vehicles WHERE license_plate = '29E-33333'), 'entry', '2024-01-15 08:45:00+07', 'approved', 'Regular entry');

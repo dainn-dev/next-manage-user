@@ -49,7 +49,7 @@ export default function DepartmentsPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Nhân sự / Quản lý nhân sự / Phòng ban</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Quân nhân / Quản lý Quân nhân / Cơ quan, đơn vị</h1>
         </div>
       </div>
 

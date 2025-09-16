@@ -7,21 +7,17 @@ import Image from "next/image"
 const navigationItems = [
   {
     key: "/employees",
-    label: "Nhân sự",
-    icon: "👥",
-    children: [
-      { key: "/employees/approved", label: "Nhân viên được xem xét" },
-      { key: "/employees/terminated", label: "Nhân viên bị đuổi việc" },
-    ],
+    label: "Quân nhân",
+    icon: "👥"
   },
   {
     key: "/departments",
-    label: "Phòng ban",
+    label: "Cơ quan, đơn vị",
     icon: "🏢",
   },
   {
     key: "/positions",
-    label: "Vị trí",
+    label: "Chức vụ",
     icon: "💼",
   },
   {

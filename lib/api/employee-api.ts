@@ -28,12 +28,39 @@ export interface EmployeeCreateRequest {
   accessLevel?: string
   address?: string
   avatar?: string
-  cardNumber?: string
   emergencyContact?: string
   emergencyPhone?: string
   salary?: number
   permissions?: string[]
   notes?: string
+  rank?: string
+  jobTitle?: string
+  militaryCivilian?: string
+}
+
+export interface EmployeeStatistics {
+  totalEmployees: number
+  activeEmployees: number
+  inactiveEmployees: number
+  terminatedEmployees: number
+  employeesByDepartment: Record<string, number>
+  employeesByStatus: Record<string, number>
+  employeesByAccessLevel: Record<string, number>
+  averageAge: number
+  newEmployeesThisMonth: number
+  newEmployeesThisYear: number
+}
+
+export interface BulkOperationRequest {
+  employeeIds: string[]
+}
+
+export interface BulkUpdateStatusRequest extends BulkOperationRequest {
+  status: string
+}
+
+export interface BulkUpdateDepartmentRequest extends BulkOperationRequest {
+  department: string
 }
 
 export interface EmployeeUpdateRequest extends EmployeeCreateRequest {
@@ -42,12 +69,20 @@ export interface EmployeeUpdateRequest extends EmployeeCreateRequest {
 
 class EmployeeApiService {
   private baseUrl = `${API_BASE_URL}/employees`
+  private requestCache = new Map<string, Promise<any>>()
+  private abortControllers = new Map<string, AbortController>()
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
+    const cacheKey = `${options.method || 'GET'}:${url}`
+    
+    // Check if request is already in progress
+    if (this.requestCache.has(cacheKey)) {
+      return this.requestCache.get(cacheKey)!
+    }
     
     const config: RequestInit = {
       headers: {
@@ -57,6 +92,27 @@ class EmployeeApiService {
       ...options,
     }
 
+    // Create abort controller for this request
+    const abortController = new AbortController()
+    this.abortControllers.set(cacheKey, abortController)
+    
+    const requestPromise = this.executeRequest<T>(url, { ...config, signal: abortController.signal })
+    this.requestCache.set(cacheKey, requestPromise)
+    
+    try {
+      const result = await requestPromise
+      return result
+    } finally {
+      // Clean up cache and abort controller after request completes
+      this.requestCache.delete(cacheKey)
+      this.abortControllers.delete(cacheKey)
+    }
+  }
+
+  private async executeRequest<T>(
+    url: string,
+    config: RequestInit
+  ): Promise<T> {
     try {
       const response = await fetch(url, config)
       
@@ -72,7 +128,7 @@ class EmployeeApiService {
 
       return await response.json()
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error)
+      console.error(`API request failed for ${url}:`, error)
       throw error
     }
   }
@@ -201,6 +257,72 @@ class EmployeeApiService {
   // Get employee count by department
   async getEmployeeCountByDepartment(department: string): Promise<number> {
     return this.request<number>(`/stats/count/department/${department}`)
+  }
+
+  // Upload employee image
+  async uploadEmployeeImage(id: string, imageFile: File): Promise<Employee> {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+
+    return this.request<Employee>(`/${id}/upload-image`, {
+      method: 'POST',
+      headers: {
+        // Don't set Content-Type for FormData, let browser set it with boundary
+      },
+      body: formData,
+    })
+  }
+
+  // Bulk operations
+  async bulkDeleteEmployees(employeeIds: string[]): Promise<void> {
+    return this.request<void>('/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify(employeeIds),
+    })
+  }
+
+  async bulkUpdateEmployeeStatus(employeeIds: string[], status: string): Promise<Employee[]> {
+    const params = new URLSearchParams({ status })
+    return this.request<Employee[]>(`/bulk-update-status?${params}`, {
+      method: 'PUT',
+      body: JSON.stringify(employeeIds),
+    })
+  }
+
+  async bulkUpdateEmployeeDepartment(employeeIds: string[], department: string): Promise<Employee[]> {
+    const params = new URLSearchParams({ department })
+    return this.request<Employee[]>(`/bulk-update-department?${params}`, {
+      method: 'PUT',
+      body: JSON.stringify(employeeIds),
+    })
+  }
+
+  // Additional validation endpoints
+  async checkEmailExists(email: string): Promise<boolean> {
+    try {
+      await this.request(`/exists/email/${encodeURIComponent(email)}`)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  async validateEmployeeId(employeeId: string): Promise<boolean> {
+    return this.request<boolean>(`/validate/employee-id/${encodeURIComponent(employeeId)}`)
+  }
+
+  // Statistics endpoints
+  async getEmployeeStatistics(): Promise<EmployeeStatistics> {
+    return this.request<EmployeeStatistics>('/stats/overview')
+  }
+
+  // Cancel all pending requests
+  cancelAllRequests(): void {
+    this.abortControllers.forEach((controller) => {
+      controller.abort()
+    })
+    this.abortControllers.clear()
+    this.requestCache.clear()
   }
 }
 

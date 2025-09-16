@@ -1,6 +1,7 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.EmployeeDto;
+import com.vehiclemanagement.dto.EmployeeStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
@@ -17,7 +18,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -162,5 +166,83 @@ public class EmployeeController {
     public ResponseEntity<Long> getEmployeeCountByDepartment(@PathVariable String department) {
         long count = employeeService.getEmployeeCountByDepartment(department);
         return ResponseEntity.ok(count);
+    }
+
+    @PostMapping(value = "/{id}/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload employee image", description = "Upload an image for a specific employee")
+    public ResponseEntity<EmployeeDto> uploadEmployeeImage(
+            @PathVariable UUID id,
+            @Parameter(description = "Image file to upload") @RequestParam("image") MultipartFile imageFile) {
+        try {
+            EmployeeDto updatedEmployee = employeeService.uploadEmployeeImage(id, imageFile);
+            return ResponseEntity.ok(updatedEmployee);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Bulk operations
+    @PostMapping("/bulk-delete")
+    @Operation(summary = "Bulk delete employees", description = "Delete multiple employees by their IDs")
+    public ResponseEntity<Void> bulkDeleteEmployees(@RequestBody List<UUID> employeeIds) {
+        try {
+            employeeService.bulkDeleteEmployees(employeeIds);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping("/bulk-update-status")
+    @Operation(summary = "Bulk update employee status", description = "Update status for multiple employees")
+    public ResponseEntity<List<EmployeeDto>> bulkUpdateEmployeeStatus(
+            @RequestBody List<UUID> employeeIds,
+            @RequestParam String status) {
+        try {
+            List<EmployeeDto> updatedEmployees = employeeService.bulkUpdateEmployeeStatus(employeeIds, status);
+            return ResponseEntity.ok(updatedEmployees);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping("/bulk-update-department")
+    @Operation(summary = "Bulk update employee department", description = "Update department for multiple employees")
+    public ResponseEntity<List<EmployeeDto>> bulkUpdateEmployeeDepartment(
+            @RequestBody List<UUID> employeeIds,
+            @RequestParam String department) {
+        try {
+            List<EmployeeDto> updatedEmployees = employeeService.bulkUpdateEmployeeDepartment(employeeIds, department);
+            return ResponseEntity.ok(updatedEmployees);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // Additional validation endpoints
+    @GetMapping("/exists/email/{email}")
+    @Operation(summary = "Check if email exists", description = "Check if an email already exists")
+    public ResponseEntity<Boolean> checkEmailExists(@PathVariable String email) {
+        boolean exists = employeeService.checkEmailExists(email);
+        return ResponseEntity.ok(exists);
+    }
+
+    @GetMapping("/validate/employee-id/{employeeId}")
+    @Operation(summary = "Validate employee ID format", description = "Validate if employee ID format is correct")
+    public ResponseEntity<Boolean> validateEmployeeId(@PathVariable String employeeId) {
+        boolean isValid = employeeService.validateEmployeeId(employeeId);
+        return ResponseEntity.ok(isValid);
+    }
+
+    // Statistics endpoints
+    @GetMapping("/stats/overview")
+    @Operation(summary = "Get employee statistics overview", description = "Get comprehensive employee statistics")
+    public ResponseEntity<EmployeeStatisticsDto> getEmployeeStatistics() {
+        EmployeeStatisticsDto stats = employeeService.getEmployeeStatistics();
+        return ResponseEntity.ok(stats);
     }
 }

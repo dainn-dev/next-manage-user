@@ -45,12 +45,19 @@ export interface VehicleCreateResponse {
 
 class VehicleApiService {
   private baseUrl = `${API_BASE_URL}/vehicles`
+  private requestCache = new Map<string, Promise<any>>()
 
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
+    const cacheKey = `${options.method || 'GET'}:${url}`
+    
+    // Check if request is already in progress
+    if (this.requestCache.has(cacheKey)) {
+      return this.requestCache.get(cacheKey)!
+    }
     
     const config: RequestInit = {
       headers: {
@@ -60,6 +67,22 @@ class VehicleApiService {
       ...options,
     }
 
+    const requestPromise = this.executeRequest<T>(url, config)
+    this.requestCache.set(cacheKey, requestPromise)
+    
+    try {
+      const result = await requestPromise
+      return result
+    } finally {
+      // Clean up cache after request completes
+      this.requestCache.delete(cacheKey)
+    }
+  }
+
+  private async executeRequest<T>(
+    url: string,
+    config: RequestInit
+  ): Promise<T> {
     try {
       const response = await fetch(url, config)
       
@@ -75,7 +98,7 @@ class VehicleApiService {
 
       return await response.json()
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error)
+      console.error(`API request failed for ${url}:`, error)
       throw error
     }
   }

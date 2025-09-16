@@ -18,7 +18,7 @@ class ConfigDialog(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuration Settings")
+        self.setWindowTitle("Cài đặt cấu hình")
         self.setModal(True)
         self.setFixedSize(500, 600)
         self.setup_ui()
@@ -31,32 +31,42 @@ class ConfigDialog(QDialog):
         # Create tab widget
         tab_widget = QTabWidget()
         
+        # RTSP Devices Configuration Tab
+        rtsp_tab = self.create_rtsp_tab()
+        tab_widget.addTab(rtsp_tab, "Thiết bị RTSP")
+        
+        # RTSP Optimization Tab
+        rtsp_opt_tab = self.create_rtsp_optimization_tab()
+        tab_widget.addTab(rtsp_opt_tab, "Tối ưu RTSP")
+
         # API Configuration Tab
         api_tab = self.create_api_tab()
-        tab_widget.addTab(api_tab, "API Settings")
+        tab_widget.addTab(api_tab, "Cài đặt API")
         
         # Detection Configuration Tab
         detection_tab = self.create_detection_tab()
-        tab_widget.addTab(detection_tab, "Detection Settings")
+        tab_widget.addTab(detection_tab, "Cài đặt phát hiện")
         
         # UI Configuration Tab
         ui_tab = self.create_ui_tab()
-        tab_widget.addTab(ui_tab, "UI Settings")
+        tab_widget.addTab(ui_tab, "Cài đặt giao diện")
         
         # Models Configuration Tab
         models_tab = self.create_models_tab()
-        tab_widget.addTab(models_tab, "Model Settings")
+        tab_widget.addTab(models_tab, "Cài đặt mô hình")
         
         # TTS Configuration Tab
         tts_tab = self.create_tts_tab()
-        tab_widget.addTab(tts_tab, "TTS Settings")
+        tab_widget.addTab(tts_tab, "Cài đặt TTS")
+        
+        
         
         layout.addWidget(tab_widget)
         
         # Buttons
         button_layout = QHBoxLayout()
         
-        self.save_btn = QPushButton("Save")
+        self.save_btn = QPushButton("Lưu")
         self.save_btn.clicked.connect(self.save_config)
         self.save_btn.setStyleSheet("""
             QPushButton {
@@ -72,7 +82,7 @@ class ConfigDialog(QDialog):
             }
         """)
         
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton("Hủy")
         self.cancel_btn.clicked.connect(self.reject)
         self.cancel_btn.setStyleSheet("""
             QPushButton {
@@ -88,7 +98,7 @@ class ConfigDialog(QDialog):
             }
         """)
         
-        self.reset_btn = QPushButton("Reset to Defaults")
+        self.reset_btn = QPushButton("Đặt lại mặc định")
         self.reset_btn.clicked.connect(self.reset_to_defaults)
         self.reset_btn.setStyleSheet("""
             QPushButton {
@@ -120,40 +130,40 @@ class ConfigDialog(QDialog):
         # API Base URL
         self.api_base_url = QLineEdit()
         self.api_base_url.setPlaceholderText("http://localhost:8080")
-        layout.addRow("API Base URL:", self.api_base_url)
+        layout.addRow("URL API cơ sở:", self.api_base_url)
         
         # API Endpoint
         self.api_endpoint = QLineEdit()
         self.api_endpoint.setPlaceholderText("/api/entry-exit-requests/check-vehicle")
-        layout.addRow("API Endpoint:", self.api_endpoint)
+        layout.addRow("Điểm cuối API:", self.api_endpoint)
         
         # API Timeout
         self.api_timeout = QSpinBox()
         self.api_timeout.setRange(1, 60)
-        self.api_timeout.setSuffix(" seconds")
-        layout.addRow("API Timeout:", self.api_timeout)
+        self.api_timeout.setSuffix(" giây")
+        layout.addRow("Thời gian chờ API:", self.api_timeout)
         
         # Use Query Parameters
         self.use_query_params = QCheckBox()
-        self.use_query_params.setToolTip("Use query parameters instead of JSON payload")
-        layout.addRow("Use Query Parameters:", self.use_query_params)
+        self.use_query_params.setToolTip("Sử dụng tham số truy vấn thay vì tải JSON")
+        layout.addRow("Sử dụng tham số truy vấn:", self.use_query_params)
         
         # Use Cookies
         self.use_cookies = QCheckBox()
-        self.use_cookies.setToolTip("Include authentication cookies in requests")
-        layout.addRow("Use Cookies:", self.use_cookies)
+        self.use_cookies.setToolTip("Bao gồm cookie xác thực trong yêu cầu")
+        layout.addRow("Sử dụng Cookie:", self.use_cookies)
         
         # Access Token
         self.access_token = QLineEdit()
         self.access_token.setPlaceholderText("JWT access token")
         self.access_token.setEchoMode(QLineEdit.Password)
-        layout.addRow("Access Token:", self.access_token)
+        layout.addRow("Token truy cập:", self.access_token)
         
         # Refresh Token
         self.refresh_token = QLineEdit()
         self.refresh_token.setPlaceholderText("JWT refresh token")
         self.refresh_token.setEchoMode(QLineEdit.Password)
-        layout.addRow("Refresh Token:", self.refresh_token)
+        layout.addRow("Token làm mới:", self.refresh_token)
         
         widget.setLayout(layout)
         return widget
@@ -166,27 +176,27 @@ class ConfigDialog(QDialog):
         # Detection Cooldown
         self.detection_cooldown = QSpinBox()
         self.detection_cooldown.setRange(1, 60)
-        self.detection_cooldown.setSuffix(" seconds")
-        layout.addRow("Detection Cooldown:", self.detection_cooldown)
+        self.detection_cooldown.setSuffix(" giây")
+        layout.addRow("Thời gian chờ phát hiện:", self.detection_cooldown)
         
         # Cache Duration
         self.cache_duration = QSpinBox()
         self.cache_duration.setRange(60, 86400)  # 1 minute to 24 hours
-        self.cache_duration.setSuffix(" seconds")
-        layout.addRow("Cache Duration:", self.cache_duration)
+        self.cache_duration.setSuffix(" giây")
+        layout.addRow("Thời gian lưu cache:", self.cache_duration)
         
         # Max Cameras
         self.max_cameras = QSpinBox()
         self.max_cameras.setRange(1, 20)
-        layout.addRow("Max Cameras to Scan:", self.max_cameras)
+        layout.addRow("Số camera tối đa quét:", self.max_cameras)
         
         # Minimum Detection Duration
         self.min_detection_duration = QDoubleSpinBox()
         self.min_detection_duration.setRange(1.0, 10.0)
         self.min_detection_duration.setSingleStep(0.5)
-        self.min_detection_duration.setSuffix(" seconds")
+        self.min_detection_duration.setSuffix(" giây")
         self.min_detection_duration.setDecimals(1)
-        layout.addRow("Min Detection Duration:", self.min_detection_duration)
+        layout.addRow("Thời gian phát hiện tối thiểu:", self.min_detection_duration)
         
         widget.setLayout(layout)
         return widget
@@ -205,7 +215,7 @@ class ConfigDialog(QDialog):
         window_layout.addWidget(self.window_width)
         window_layout.addWidget(QLabel("x"))
         window_layout.addWidget(self.window_height)
-        layout.addRow("Window Size:", window_layout)
+        layout.addRow("Kích thước cửa sổ:", window_layout)
         
         # Video Size
         video_layout = QHBoxLayout()
@@ -216,7 +226,7 @@ class ConfigDialog(QDialog):
         video_layout.addWidget(self.video_width)
         video_layout.addWidget(QLabel("x"))
         video_layout.addWidget(self.video_height)
-        layout.addRow("Video Display Size:", video_layout)
+        layout.addRow("Kích thước hiển thị video:", video_layout)
         
         widget.setLayout(layout)
         return widget
@@ -229,19 +239,19 @@ class ConfigDialog(QDialog):
         # LP Detector Model
         self.lp_detector = QLineEdit()
         self.lp_detector.setPlaceholderText("model/LP_detector_nano_61.pt")
-        layout.addRow("License Plate Detector:", self.lp_detector)
+        layout.addRow("Mô hình phát hiện biển số:", self.lp_detector)
         
         # LP OCR Model
         self.lp_ocr = QLineEdit()
         self.lp_ocr.setPlaceholderText("model/LP_ocr_nano_62.pt")
-        layout.addRow("License Plate OCR:", self.lp_ocr)
+        layout.addRow("Mô hình OCR biển số:", self.lp_ocr)
         
         # Confidence Threshold
         self.confidence_threshold = QDoubleSpinBox()
         self.confidence_threshold.setRange(0.1, 1.0)
         self.confidence_threshold.setSingleStep(0.05)
         self.confidence_threshold.setDecimals(2)
-        layout.addRow("Confidence Threshold:", self.confidence_threshold)
+        layout.addRow("Ngưỡng tin cậy:", self.confidence_threshold)
         
         widget.setLayout(layout)
         return widget
@@ -253,29 +263,126 @@ class ConfigDialog(QDialog):
         
         # TTS Enabled
         self.tts_enabled = QCheckBox()
-        layout.addRow("Enable TTS:", self.tts_enabled)
+        layout.addRow("Bật TTS:", self.tts_enabled)
         
         # Use Google TTS
         self.tts_use_gtts = QCheckBox()
-        layout.addRow("Use Google TTS:", self.tts_use_gtts)
+        layout.addRow("Sử dụng Google TTS:", self.tts_use_gtts)
         
         # TTS Rate
         self.tts_rate = QSpinBox()
         self.tts_rate.setRange(50, 300)
-        self.tts_rate.setSuffix(" words/min")
-        layout.addRow("Speech Rate:", self.tts_rate)
+        self.tts_rate.setSuffix(" từ/phút")
+        layout.addRow("Tốc độ nói:", self.tts_rate)
         
         # TTS Volume
         self.tts_volume = QDoubleSpinBox()
         self.tts_volume.setRange(0.0, 1.0)
         self.tts_volume.setSingleStep(0.1)
         self.tts_volume.setDecimals(1)
-        layout.addRow("Volume:", self.tts_volume)
+        layout.addRow("Âm lượng:", self.tts_volume)
         
         # TTS Language
         self.tts_language = QComboBox()
         self.tts_language.addItems(["vi", "en", "zh", "ja", "ko"])
-        layout.addRow("Language:", self.tts_language)
+        layout.addRow("Ngôn ngữ:", self.tts_language)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def create_rtsp_tab(self):
+        """Create RTSP devices configuration tab"""
+        widget = QGroupBox()
+        layout = QVBoxLayout()
+        
+        # Device 1 Configuration
+        device1_group = QGroupBox("Thiết bị RTSP 1")
+        device1_layout = QFormLayout()
+        
+        self.rtsp_device1_enabled = QCheckBox()
+        device1_layout.addRow("Bật:", self.rtsp_device1_enabled)
+        
+        self.rtsp_device1_name = QLineEdit()
+        self.rtsp_device1_name.setPlaceholderText("Thiết bị RTSP 1")
+        device1_layout.addRow("Tên thiết bị:", self.rtsp_device1_name)
+        
+        self.rtsp_device1_url = QLineEdit()
+        self.rtsp_device1_url.setPlaceholderText("rtsp://username:password@192.168.1.100:554/stream1")
+        device1_layout.addRow("URL RTSP:", self.rtsp_device1_url)
+        
+        device1_group.setLayout(device1_layout)
+        layout.addWidget(device1_group)
+        
+        # Device 2 Configuration
+        device2_group = QGroupBox("Thiết bị RTSP 2")
+        device2_layout = QFormLayout()
+        
+        self.rtsp_device2_enabled = QCheckBox()
+        device2_layout.addRow("Bật:", self.rtsp_device2_enabled)
+        
+        self.rtsp_device2_name = QLineEdit()
+        self.rtsp_device2_name.setPlaceholderText("Thiết bị RTSP 2")
+        device2_layout.addRow("Tên thiết bị:", self.rtsp_device2_name)
+        
+        self.rtsp_device2_url = QLineEdit()
+        self.rtsp_device2_url.setPlaceholderText("rtsp://username:password@192.168.1.101:554/stream1")
+        device2_layout.addRow("URL RTSP:", self.rtsp_device2_url)
+        
+        device2_group.setLayout(device2_layout)
+        layout.addWidget(device2_group)
+        
+        widget.setLayout(layout)
+        return widget
+    
+    def create_rtsp_optimization_tab(self):
+        """Create RTSP optimization configuration tab"""
+        widget = QGroupBox()
+        layout = QFormLayout()
+        
+        # Buffer Size
+        self.rtsp_buffer_size = QSpinBox()
+        self.rtsp_buffer_size.setRange(1, 10)
+        self.rtsp_buffer_size.setValue(1)
+        self.rtsp_buffer_size.setToolTip("Giá trị thấp giảm độ trễ nhưng có thể gây mất khung hình")
+        layout.addRow("Kích thước bộ đệm:", self.rtsp_buffer_size)
+        
+        # Drop Frames
+        self.rtsp_drop_frames = QCheckBox()
+        self.rtsp_drop_frames.setToolTip("Bỏ qua khung hình để duy trì độ trễ thấp")
+        layout.addRow("Bỏ qua khung hình cho độ trễ thấp:", self.rtsp_drop_frames)
+        
+        # Low Latency Mode
+        self.rtsp_low_latency = QCheckBox()
+        self.rtsp_low_latency.setToolTip("Bật tối ưu hóa độ trễ thấp")
+        layout.addRow("Chế độ độ trễ thấp:", self.rtsp_low_latency)
+        
+        # TCP Transport
+        self.rtsp_tcp_transport = QCheckBox()
+        self.rtsp_tcp_transport.setToolTip("Sử dụng TCP thay vì UDP để đáng tin cậy hơn nhưng có thể tăng độ trễ")
+        layout.addRow("Sử dụng vận chuyển TCP:", self.rtsp_tcp_transport)
+        
+        # Connection Timeout
+        self.rtsp_connection_timeout = QSpinBox()
+        self.rtsp_connection_timeout.setRange(1000, 30000)
+        self.rtsp_connection_timeout.setSuffix(" ms")
+        self.rtsp_connection_timeout.setValue(5000)
+        self.rtsp_connection_timeout.setToolTip("Thời gian chờ để thiết lập kết nối RTSP")
+        layout.addRow("Thời gian chờ kết nối:", self.rtsp_connection_timeout)
+        
+        # Read Timeout
+        self.rtsp_read_timeout = QSpinBox()
+        self.rtsp_read_timeout.setRange(100, 10000)
+        self.rtsp_read_timeout.setSuffix(" ms")
+        self.rtsp_read_timeout.setValue(1000)
+        self.rtsp_read_timeout.setToolTip("Thời gian chờ để đọc khung hình từ luồng RTSP")
+        layout.addRow("Thời gian chờ đọc:", self.rtsp_read_timeout)
+        
+        # Frame Skip Threshold
+        self.rtsp_frame_skip_threshold = QSpinBox()
+        self.rtsp_frame_skip_threshold.setRange(1, 10)
+        self.rtsp_frame_skip_threshold.setValue(3)
+        self.rtsp_frame_skip_threshold.setToolTip("Số khung hình cần bỏ qua khi bộ đệm đang tích lũy")
+        layout.addRow("Ngưỡng bỏ qua khung hình:", self.rtsp_frame_skip_threshold)
         
         widget.setLayout(layout)
         return widget
@@ -314,6 +421,25 @@ class ConfigDialog(QDialog):
         self.tts_rate.setValue(config_manager.get('tts.rate', 150))
         self.tts_volume.setValue(config_manager.get('tts.volume', 0.8))
         self.tts_language.setCurrentText(config_manager.get('tts.language', 'vi'))
+        
+        # RTSP Device 1 settings
+        self.rtsp_device1_enabled.setChecked(config_manager.get('rtsp_devices.device_1.enabled', False))
+        self.rtsp_device1_name.setText(config_manager.get('rtsp_devices.device_1.name', ''))
+        self.rtsp_device1_url.setText(config_manager.get('rtsp_devices.device_1.url', ''))
+        
+        # RTSP Device 2 settings
+        self.rtsp_device2_enabled.setChecked(config_manager.get('rtsp_devices.device_2.enabled', False))
+        self.rtsp_device2_name.setText(config_manager.get('rtsp_devices.device_2.name', ''))
+        self.rtsp_device2_url.setText(config_manager.get('rtsp_devices.device_2.url', ''))
+        
+        # RTSP Optimization settings
+        self.rtsp_buffer_size.setValue(config_manager.get('rtsp_optimization.buffer_size', 1))
+        self.rtsp_drop_frames.setChecked(config_manager.get('rtsp_optimization.drop_frames', True))
+        self.rtsp_low_latency.setChecked(config_manager.get('rtsp_optimization.low_latency', True))
+        self.rtsp_tcp_transport.setChecked(config_manager.get('rtsp_optimization.tcp_transport', False))
+        self.rtsp_connection_timeout.setValue(config_manager.get('rtsp_optimization.connection_timeout', 5000))
+        self.rtsp_read_timeout.setValue(config_manager.get('rtsp_optimization.read_timeout', 1000))
+        self.rtsp_frame_skip_threshold.setValue(config_manager.get('rtsp_optimization.frame_skip_threshold', 3))
     
     def save_config(self):
         """Save configuration from form to config manager"""
@@ -351,23 +477,42 @@ class ConfigDialog(QDialog):
             config_manager.set('tts.volume', self.tts_volume.value())
             config_manager.set('tts.language', self.tts_language.currentText())
             
+            # RTSP Device 1 settings
+            config_manager.set('rtsp_devices.device_1.enabled', self.rtsp_device1_enabled.isChecked())
+            config_manager.set('rtsp_devices.device_1.name', self.rtsp_device1_name.text())
+            config_manager.set('rtsp_devices.device_1.url', self.rtsp_device1_url.text())
+            
+            # RTSP Device 2 settings
+            config_manager.set('rtsp_devices.device_2.enabled', self.rtsp_device2_enabled.isChecked())
+            config_manager.set('rtsp_devices.device_2.name', self.rtsp_device2_name.text())
+            config_manager.set('rtsp_devices.device_2.url', self.rtsp_device2_url.text())
+            
+            # RTSP Optimization settings
+            config_manager.set('rtsp_optimization.buffer_size', self.rtsp_buffer_size.value())
+            config_manager.set('rtsp_optimization.drop_frames', self.rtsp_drop_frames.isChecked())
+            config_manager.set('rtsp_optimization.low_latency', self.rtsp_low_latency.isChecked())
+            config_manager.set('rtsp_optimization.tcp_transport', self.rtsp_tcp_transport.isChecked())
+            config_manager.set('rtsp_optimization.connection_timeout', self.rtsp_connection_timeout.value())
+            config_manager.set('rtsp_optimization.read_timeout', self.rtsp_read_timeout.value())
+            config_manager.set('rtsp_optimization.frame_skip_threshold', self.rtsp_frame_skip_threshold.value())
+            
             # Save to file
             if config_manager.save_config():
-                QMessageBox.information(self, "Success", "Configuration saved successfully!")
+                QMessageBox.information(self, "Thành công", "Đã lưu cấu hình thành công!")
                 self.accept()
             else:
-                QMessageBox.warning(self, "Error", "Failed to save configuration!")
+                QMessageBox.warning(self, "Lỗi", "Không thể lưu cấu hình!")
                 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error saving configuration: {str(e)}")
+            QMessageBox.critical(self, "Lỗi", f"Lỗi khi lưu cấu hình: {str(e)}")
     
     def reset_to_defaults(self):
         """Reset configuration to default values"""
-        reply = QMessageBox.question(self, "Reset Configuration", 
-                                   "Are you sure you want to reset all settings to default values?",
+        reply = QMessageBox.question(self, "Đặt lại cấu hình", 
+                                   "Bạn có chắc chắn muốn đặt lại tất cả cài đặt về giá trị mặc định?",
                                    QMessageBox.Yes | QMessageBox.No)
         
         if reply == QMessageBox.Yes:
             config_manager.config = config_manager.load_default_config()
             self.load_current_config()
-            QMessageBox.information(self, "Reset Complete", "Configuration reset to default values.")
+            QMessageBox.information(self, "Hoàn thành đặt lại", "Đã đặt lại cấu hình về giá trị mặc định.")

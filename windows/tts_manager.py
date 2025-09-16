@@ -76,6 +76,13 @@ class TTSManager:
                     self.speak_with_pyttsx3(text)
         except Exception as e:
             print(f"Error speaking text: {e}")
+            # Try pyttsx3 as last resort
+            try:
+                if not self.should_stop and self.engine:
+                    print("Attempting pyttsx3 as last resort")
+                    self.speak_with_pyttsx3(text)
+            except Exception as final_error:
+                print(f"All TTS methods failed: {final_error}")
     
     def speak_with_gtts(self, text):
         """Use Google Text-to-Speech for Vietnamese"""
@@ -109,9 +116,10 @@ class TTSManager:
                 
         except Exception as e:
             print(f"Error with gTTS: {e}")
-            print("Google TTS failed - this will result in English voice")
-            # Don't fallback to pyttsx3 automatically - let user know
-            raise Exception(f"Google TTS failed: {e}. Please check internet connection.")
+            print("Google TTS failed - falling back to pyttsx3")
+            # Fallback to pyttsx3 for better user experience
+            if not self.should_stop:
+                self.speak_with_pyttsx3(text)
     
     def speak_with_pyttsx3(self, text):
         """Use pyttsx3 for text-to-speech"""
@@ -149,6 +157,9 @@ class TTSManager:
     
     def speak_async(self, text, use_gtts=True):
         """Speak text asynchronously to avoid blocking UI"""
+        # Reset stop flag when starting new speech
+        self.should_stop = False
+        
         if self.current_thread and self.current_thread.is_alive():
             # If already speaking, add to queue
             self.speech_queue.append((text, use_gtts))
@@ -276,6 +287,44 @@ class TTSManager:
                 
         except Exception as e:
             print(f"Error setting voice properties: {e}")
+    
+    def reset_state(self):
+        """Reset TTS manager state"""
+        try:
+            print("Resetting TTS manager state...")
+            self.should_stop = False
+            self.is_speaking = False
+            self.speech_queue.clear()
+            
+            # Stop any current speech
+            if self.engine:
+                try:
+                    self.engine.stop()
+                    self.engine.endLoop()
+                except:
+                    pass
+            
+            # Stop pygame mixer
+            try:
+                pygame.mixer.music.stop()
+                pygame.mixer.quit()
+            except:
+                pass
+            
+            print("TTS manager state reset successfully")
+            
+        except Exception as e:
+            print(f"Error resetting TTS state: {e}")
+    
+    def get_status(self):
+        """Get current TTS status"""
+        return {
+            "engine_available": self.engine is not None,
+            "is_speaking": self.is_speaking,
+            "should_stop": self.should_stop,
+            "queue_length": len(self.speech_queue),
+            "thread_alive": self.current_thread.is_alive() if self.current_thread else False
+        }
 
 
 # Global TTS manager instance

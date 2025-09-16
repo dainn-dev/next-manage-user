@@ -50,7 +50,7 @@ export function BulkOperationsDialog({ isOpen, onClose, selectedCount, onApply }
       case "status":
         return "Thay đổi trạng thái"
       case "department":
-        return "Thay đổi phòng ban"
+        return "Thay đổi Cơ quan, đơn vị"
       case "access":
         return "Thay đổi quyền truy cập"
       case "export":
@@ -67,7 +67,7 @@ export function BulkOperationsDialog({ isOpen, onClose, selectedCount, onApply }
       case "status":
         return `Thay đổi trạng thái của ${selectedCount} xe được chọn`
       case "department":
-        return `Thay đổi phòng ban của ${selectedCount} xe được chọn`
+        return `Thay đổi Cơ quan, đơn vị của ${selectedCount} xe được chọn`
       case "access":
         return `Thay đổi quyền truy cập của ${selectedCount} xe được chọn`
       case "export":
@@ -97,7 +97,7 @@ export function BulkOperationsDialog({ isOpen, onClose, selectedCount, onApply }
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="status">Thay đổi trạng thái</SelectItem>
-                <SelectItem value="department">Thay đổi phòng ban</SelectItem>
+                <SelectItem value="department">Thay đổi Cơ quan, đơn vị</SelectItem>
                 <SelectItem value="access">Thay đổi quyền truy cập</SelectItem>
                 <SelectItem value="export">Xuất dữ liệu</SelectItem>
                 <SelectItem value="delete">Xóa xe</SelectItem>
@@ -127,17 +127,17 @@ export function BulkOperationsDialog({ isOpen, onClose, selectedCount, onApply }
 
           {operationType === "department" && (
             <div className="space-y-2">
-              <Label>Phòng ban mới</Label>
+              <Label>Cơ quan, đơn vị mới</Label>
               <Select
                 value={operationData.department}
                 onValueChange={(value) => setOperationData({ ...operationData, department: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn phòng ban" />
+                  <SelectValue placeholder="Chọn Cơ quan, đơn vị" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="IT">Công nghệ thông tin</SelectItem>
-                  <SelectItem value="HR">Nhân sự</SelectItem>
+                  <SelectItem value="HR">Quân nhân</SelectItem>
                   <SelectItem value="Finance">Tài chính</SelectItem>
                   <SelectItem value="Operations">Vận hành</SelectItem>
                   <SelectItem value="Marketing">Marketing</SelectItem>

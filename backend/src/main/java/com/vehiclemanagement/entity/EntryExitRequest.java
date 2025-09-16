@@ -171,11 +171,6 @@ public class EntryExitRequest {
         this.approvedAt = LocalDateTime.now();
     }
     
-    public void reject(String approvedBy) {
-        this.status = RequestStatus.rejected;
-        this.approvedBy = approvedBy;
-        this.approvedAt = LocalDateTime.now();
-    }
     
     public void complete() {
         this.status = RequestStatus.completed;
@@ -187,6 +182,6 @@ public class EntryExitRequest {
     }
     
     public enum RequestStatus {
-        pending, approved, rejected, completed
+        pending, approved, completed, rejected
     }
 }

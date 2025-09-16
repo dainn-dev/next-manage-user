@@ -56,7 +56,7 @@ COPY --from=frontend-builder /app/frontend/public ./public
 COPY --from=backend-builder /app/backend/target/vehicle-management-api-0.0.1-SNAPSHOT.jar ./app.jar
 
 # Create directories for file operations
-RUN mkdir -p /app/temp /app/csv /var/log/nginx
+RUN mkdir -p /app/temp /app/csv /var/log/nginx /var/lib/nginx/body /var/lib/nginx/proxy /var/lib/nginx/fastcgi /var/lib/nginx/uwsgi /var/lib/nginx/scgi
 
 # Configure nginx to serve frontend and proxy backend
 RUN echo 'server { \
@@ -116,11 +116,11 @@ RUN echo '#!/bin/bash' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Change ownership to appuser
-RUN chown -R appuser:appuser /app /var/log/nginx
+RUN chown -R appuser:appuser /app /var/log/nginx /var/lib/nginx
 
 USER appuser
 
-EXPOSE 80
+EXPOSE 80 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

@@ -16,7 +16,9 @@ def read_plate(yolo_license_plate, im):
     LP_type = "1"
     results = yolo_license_plate(im)
     bb_list = results.pandas().xyxy[0].values.tolist()
-    if len(bb_list) == 0 or len(bb_list) < 7 or len(bb_list) > 10:
+    # Support various license plate formats including Vietnam 5-number plates
+    # Original: 7-10 characters, Updated: 5-10 characters to support Vietnam format
+    if len(bb_list) == 0 or len(bb_list) < 5 or len(bb_list) > 10:
         return "unknown"
     center_list = []
     y_mean = 0

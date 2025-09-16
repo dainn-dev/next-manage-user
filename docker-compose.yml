@@ -18,18 +18,17 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
       platforms:
         - linux/amd64
-    container_name: vehicle-management-app
+    container_name: vehicle-management-backend
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      # Backend environment variables
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vehicle_management
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
@@ -38,15 +37,31 @@ services:
       SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE: 50MB
       SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE: 50MB
       SPRING_SERVLET_MULTIPART_ENABLED: true
-      # Frontend environment variables
-      NODE_ENV: production
     ports:
-      - "80:80"  # Unified port for both frontend and backend
+      - "8080:8080"  # Backend API port
     volumes:
       # Volume for temporary file storage (imports/exports)
       - file_storage:/app/temp
       # Volume for CSV templates and exports
       - csv_storage:/app/csv
+    networks:
+      - vehicle-management-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      platforms:
+        - linux/amd64
+    container_name: vehicle-management-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"  # Frontend port
+    depends_on:
+      - backend
     networks:
       - vehicle-management-network
     restart: unless-stopped

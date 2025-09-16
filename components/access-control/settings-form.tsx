@@ -32,7 +32,7 @@ export function SettingsForm({ onSave }: SettingsFormProps) {
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <span className="text-blue-600 text-lg">👤</span>
             </div>
-            Cài đặt ID nhân sự
+            Cài đặt ID Quân nhân
           </CardTitle>
           <p className="text-sm text-muted-foreground">Cấu hình các thông số cho mã nhân viên</p>
         </CardHeader>
@@ -76,7 +76,7 @@ export function SettingsForm({ onSave }: SettingsFormProps) {
           </div>
 
           <div className="space-y-3">
-            <Label className="text-sm font-medium">ID nhân sự tự động tăng</Label>
+            <Label className="text-sm font-medium">ID Quân nhân tự động tăng</Label>
             <RadioGroup
               value={settings.autoGenerateId}
               onValueChange={(value) => setSettings((prev) => ({ ...prev, autoGenerateId: value }))}
