@@ -26,7 +26,7 @@ export function PositionTable({
   selectedPositions,
   onSelectionChange 
 }: PositionTableProps) {
-  const [sortField, setSortField] = useState<keyof Position>("positionCode")
+  const [sortField, setSortField] = useState<keyof Position>("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
   const handleSort = (field: keyof Position) => {
@@ -67,23 +67,15 @@ export function PositionTable({
     }
   }
 
-  const getLevelBadgeColor = (level: number) => {
-    if (level === 1) return "bg-red-100 text-red-800"
-    if (level <= 3) return "bg-orange-100 text-orange-800"
-    if (level <= 5) return "bg-yellow-100 text-yellow-800"
-    return "bg-green-100 text-green-800"
-  }
-
-  const getLevelLabel = (level: number) => {
-    const labels = {
-      1: "Cấp cao nhất",
-      2: "Cấp cao",
-      3: "Cấp trung",
-      4: "Cấp thấp",
-      5: "Cấp cơ sở",
-      6: "Cấp cơ bản"
-    }
-    return labels[level as keyof typeof labels] || `Cấp ${level}`
+  const getPositionBadgeColor = (positionName?: string) => {
+    if (!positionName) return "bg-gray-100 text-gray-800"
+    
+    if (positionName.includes("Chức vụ")) return "bg-purple-100 text-purple-800"
+    if (positionName.includes("Sĩ quan")) return "bg-red-100 text-red-800"
+    if (positionName.includes("QNCN")) return "bg-blue-100 text-blue-800"
+    if (positionName.includes("Tham mưu") || positionName.includes("Chính trị") || positionName.includes("Hậu cần")) return "bg-green-100 text-green-800"
+    if (positionName.includes("Trung đoàn") || positionName.includes("Tiểu đoàn")) return "bg-orange-100 text-orange-800"
+    return "bg-gray-100 text-gray-800"
   }
 
   return (
@@ -99,38 +91,38 @@ export function PositionTable({
             </TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort("positionCode")}
+              onClick={() => handleSort("id")}
             >
               Mã chức vụ
-              {sortField === "positionCode" && (
+              {sortField === "id" && (
                 <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>
               )}
             </TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort("positionName")}
+              onClick={() => handleSort("name")}
             >
               Tên chức vụ
-              {sortField === "positionName" && (
+              {sortField === "name" && (
                 <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>
               )}
             </TableHead>
             <TableHead>Chức vụ cấp cao</TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort("level")}
+              onClick={() => handleSort("name")}
             >
-              Cấp độ
-              {sortField === "level" && (
+              Loại chức vụ
+              {sortField === "name" && (
                 <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>
               )}
             </TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort("employeeCount")}
+              onClick={() => handleSort("childrenCount")}
             >
-              Số nhân viên
-              {sortField === "employeeCount" && (
+              Số chức vụ con
+              {sortField === "childrenCount" && (
                 <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>
               )}
             </TableHead>
@@ -168,11 +160,11 @@ export function PositionTable({
                   />
                 </TableCell>
                 <TableCell className="font-medium">
-                  <Badge variant="outline">{position.positionCode}</Badge>
+                  <Badge variant="outline">{position.id.substring(0, 8)}</Badge>
                 </TableCell>
                 <TableCell>
                   <div>
-                    <div className="font-medium">{position.positionName}</div>
+                    <div className="font-medium">{position.name}</div>
                     {position.description && (
                       <div className="text-sm text-muted-foreground truncate max-w-xs">
                         {position.description}
@@ -181,24 +173,24 @@ export function PositionTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  {position.parentPositionName ? (
+                  {position.parentName ? (
                     <div>
-                      <div className="text-sm font-medium">{position.parentPositionName}</div>
-                      <div className="text-xs text-muted-foreground">{position.parentPositionCode}</div>
+                      <div className="text-sm font-medium">{position.parentName}</div>
+                      <div className="text-xs text-muted-foreground">{position.parentId?.substring(0, 8)}</div>
                     </div>
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge className={getLevelBadgeColor(position.level)}>
-                    {getLevelLabel(position.level)}
+                  <Badge className={getPositionBadgeColor(position.name)}>
+                    {position.name || "Không có tên"}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{position.employeeCount}</span>
+                    <span className="font-medium">{position.childrenCount || 0}</span>
                   </div>
                 </TableCell>
                 <TableCell>

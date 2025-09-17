@@ -299,6 +299,17 @@ class DataService {
     }
   }
 
+  async getPositionsWithParent(): Promise<Position[]> {
+    try {
+      const apiPositions = await positionApi.getPositionsWithParent()
+      return apiPositions.map(pos => positionApi.convertToPosition(pos))
+    } catch (error) {
+      console.error('Failed to fetch positions with parent:', error)
+      // Fallback to regular positions
+      return this.getPositions()
+    }
+  }
+
   async getPosition(id: string): Promise<Position | undefined> {
     try {
       const apiPosition = await positionApi.getPositionById(id)

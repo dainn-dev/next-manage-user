@@ -1,5 +1,4 @@
 import type { Position } from '@/lib/types'
-import { PositionLevel } from '@/lib/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -8,25 +7,18 @@ export interface PositionApiResponse {
   name: string
   description?: string
   parentId?: string
-  level: 'INTERN' | 'JUNIOR' | 'SENIOR' | 'LEAD' | 'MANAGER' | 'DIRECTOR' | 'EXECUTIVE'
-  minSalary?: number
-  maxSalary?: number
   isActive: boolean
   displayOrder: number
   createdAt: string
   updatedAt: string
   parentName?: string
   childrenCount?: number
-  levelDisplayName?: string
 }
 
 export interface PositionCreateRequest {
   name: string
   description?: string
   parentId?: string
-  level: 'INTERN' | 'JUNIOR' | 'SENIOR' | 'LEAD' | 'MANAGER' | 'DIRECTOR' | 'EXECUTIVE'
-  minSalary?: number
-  maxSalary?: number
   isActive?: boolean
   displayOrder?: number
 }
@@ -89,6 +81,11 @@ export class PositionApi {
   // Get all active positions
   async getAllActivePositions(): Promise<PositionApiResponse[]> {
     return this.request<PositionApiResponse[]>('/active')
+  }
+
+  // Get all positions with parent information
+  async getPositionsWithParent(): Promise<PositionApiResponse[]> {
+    return this.request<PositionApiResponse[]>('/with-parent')
   }
 
   // Get position by ID
@@ -218,16 +215,12 @@ export class PositionApi {
       name: apiResponse.name,
       description: apiResponse.description || '',
       parentId: apiResponse.parentId || undefined,
-      level: PositionLevel[apiResponse.level],
-      minSalary: apiResponse.minSalary,
-      maxSalary: apiResponse.maxSalary,
       isActive: apiResponse.isActive,
       displayOrder: apiResponse.displayOrder,
       createdAt: apiResponse.createdAt,
       updatedAt: apiResponse.updatedAt,
       parentName: apiResponse.parentName,
       childrenCount: apiResponse.childrenCount || 0,
-      levelDisplayName: apiResponse.levelDisplayName || apiResponse.level,
     }
   }
 
@@ -237,9 +230,6 @@ export class PositionApi {
       name: position.name,
       description: position.description || undefined,
       parentId: position.parentId || undefined,
-      level: position.level as 'INTERN' | 'JUNIOR' | 'SENIOR' | 'LEAD' | 'MANAGER' | 'DIRECTOR' | 'EXECUTIVE',
-      minSalary: position.minSalary,
-      maxSalary: position.maxSalary,
       isActive: position.isActive,
       displayOrder: position.displayOrder,
     }

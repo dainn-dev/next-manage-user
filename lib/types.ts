@@ -22,6 +22,7 @@ export interface Employee {
   avatar?: string
   accessLevel: "general" | "restricted" | "admin"
   permissions: string[]
+  location?: string // Vị trí làm việc
   createdAt: string
   updatedAt: string
 }
@@ -50,27 +51,14 @@ export interface Position {
   name: string
   description?: string
   parentId?: string
-  level: PositionLevel
-  minSalary?: number
-  maxSalary?: number
   isActive: boolean
   displayOrder: number
   createdAt: string
   updatedAt: string
   parentName?: string
   childrenCount?: number
-  levelDisplayName?: string
 }
 
-export enum PositionLevel {
-  INTERN = 'INTERN',
-  JUNIOR = 'JUNIOR', 
-  SENIOR = 'SENIOR',
-  LEAD = 'LEAD',
-  MANAGER = 'MANAGER',
-  DIRECTOR = 'DIRECTOR',
-  EXECUTIVE = 'EXECUTIVE'
-}
 
 export interface DepartmentStatistics {
   totalDepartments: number
