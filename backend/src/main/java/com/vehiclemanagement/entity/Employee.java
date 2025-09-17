@@ -64,6 +64,8 @@ public class Employee {
     @Column(name = "military_civilian")
     private String militaryCivilian;
     
+    private String location;
+    
     @Column(name = "hire_date")
     private LocalDate hireDate;
     

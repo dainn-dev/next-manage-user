@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { Employee, Department } from "@/lib/types"
+import type { Employee, Department, Position } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { dataService } from "@/lib/data-service"
+import { ChevronDown } from "lucide-react"
 
 interface EmployeeFormProps {
   employee?: Employee
@@ -20,7 +22,10 @@ interface EmployeeFormProps {
 }
 
 export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }: EmployeeFormProps) {
-  const [formData, setFormData] = useState<Partial<Employee>>({
+  const [positions, setPositions] = useState<Position[]>([])
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
+  const [showPositionDropdown, setShowPositionDropdown] = useState(false)
+  const [formData, setFormData] = useState<Partial<Employee & { location?: string }>>({
     employeeId: employee?.employeeId || "",
     name: employee?.name || "",
     firstName: employee?.firstName || "",
@@ -41,10 +46,157 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     status: employee?.status || "active",
     accessLevel: employee?.accessLevel || "general",
     permissions: employee?.permissions || ["read"],
+    location: "",
   })
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Load positions when component mounts
+  useEffect(() => {
+    if (isOpen) {
+      loadPositions()
+    }
+  }, [isOpen])
+
+  const loadPositions = async () => {
+    try {
+      const positionData = await dataService.getPositions()
+      setPositions(positionData)
+    } catch (error) {
+      console.error("Error loading positions:", error)
+    }
+  }
+
+  // Create hierarchical position structure
+  const buildPositionHierarchy = () => {
+    const hierarchy: any[] = []
+    const positionMap = new Map()
+    
+    // Create map of all positions
+    positions.forEach(pos => {
+      positionMap.set(pos.id, { ...pos, children: [] })
+    })
+    
+    // Build hierarchy
+    positions.forEach(pos => {
+      if (pos.parentId) {
+        const parent = positionMap.get(pos.parentId)
+        if (parent) {
+          parent.children.push(positionMap.get(pos.id))
+        }
+      } else {
+        hierarchy.push(positionMap.get(pos.id))
+      }
+    })
+    
+    return hierarchy
+  }
+
+  const getPositionPath = (position: Position): string => {
+    const path: string[] = []
+    let current = position
+    
+    // Build path from current position to root
+    while (current) {
+      path.unshift(current.name)
+      if (current.parentId) {
+        current = positions.find(p => p.id === current.parentId) as Position
+      } else {
+        break
+      }
+    }
+    
+    return path.join(" > ")
+  }
+
+  const renderPositionOption = (position: Position, level = 0, parentPath = "") => {
+    // Create indentation for hierarchy
+    const indent = "  ".repeat(level)
+    
+    // Different styling based on level
+    const getLevelStyling = () => {
+      switch (level) {
+        case 0:
+          return "font-bold text-gray-900"
+        case 1:
+          return "font-semibold text-gray-800"
+        case 2:
+          return "font-medium text-gray-700"
+        default:
+          return "text-gray-600"
+      }
+    }
+    
+    const getIcon = () => {
+      switch (level) {
+        case 0:
+          return "📋"
+        case 1:
+          return position.name === "Sĩ quan" ? "🎖️" : "🛡️"
+        case 2:
+          return "▪️"
+        default:
+          return "◦"
+      }
+    }
+    
+    return (
+      <SelectItem 
+        key={position.id} 
+        value={position.id} 
+        className={`${getLevelStyling()} hover:bg-blue-50 transition-colors`}
+      >
+        {getIcon()} {indent}{position.name}
+        {position.levelDisplayName && level > 1 && (
+          <span className="text-xs text-gray-500 ml-2">({position.levelDisplayName})</span>
+        )}
+      </SelectItem>
+    )
+  }
+
+  const renderPositionHierarchy = (positions: any[], level = 0, parentPath = ""): any[] => {
+    const items: any[] = []
+    
+    // Sort positions by display order
+    const sortedPositions = [...positions].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+    
+    sortedPositions.forEach(pos => {
+      const currentPath = parentPath ? `${parentPath} > ${pos.name}` : pos.name
+      items.push(renderPositionOption(pos, level, parentPath))
+      
+      if (pos.children && pos.children.length > 0) {
+        items.push(...renderPositionHierarchy(pos.children, level + 1, currentPath))
+      }
+    })
+    return items
+  }
+
+  // Filter positions based on militaryCivilian selection
+  const getFilteredPositions = () => {
+    if (!formData.militaryCivilian) {
+      return buildPositionHierarchy()
+    }
+    
+    const hierarchy = buildPositionHierarchy()
+    const chucVuRoot = hierarchy.find(p => p.name === "Chức vụ")
+    
+    if (!chucVuRoot || !chucVuRoot.children) {
+      return hierarchy
+    }
+    
+    if (formData.militaryCivilian === "SQ") {
+      // Show only Sĩ quan branch
+      const siQuanBranch = chucVuRoot.children.find((c: any) => c.name === "Sĩ quan")
+      return siQuanBranch ? [siQuanBranch] : []
+    } else if (formData.militaryCivilian === "QNCN") {
+      // Show only QNCN branch  
+      const qncnBranch = chucVuRoot.children.find((c: any) => c.name === "QNCN")
+      return qncnBranch ? [qncnBranch] : []
+    }
+    
+    return chucVuRoot.children
+  }
 
   // Sync form data when employee prop changes
   useEffect(() => {
@@ -72,7 +224,15 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: employee.status || "active",
         accessLevel: employee.accessLevel || "general",
         permissions: employee.permissions || ["read"],
+        location: employee.location || "",
       });
+      
+      // Set selected position if editing employee
+      if (employee.jobTitle) {
+        const position = positions.find(p => p.name === employee.jobTitle)
+        setSelectedPosition(position || null)
+      }
+      
       setSelectedImageFile(null);
       setImagePreview(null);
     } else {
@@ -99,13 +259,15 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: "active",
         accessLevel: "general",
         permissions: ["read"],
+        location: "",
       });
+      setSelectedPosition(null);
       setSelectedImageFile(null);
       setImagePreview(null);
     }
   }, [employee]);
 
-  const handleInputChange = (field: keyof Employee, value: any) => {
+  const handleInputChange = (field: keyof (Employee & { location?: string }), value: any) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value }
       
@@ -121,7 +283,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   }
 
   const handleSubmit = async () => {
-    if (!formData.employeeId || !formData.firstName || !formData.lastName || !formData.position || !formData.department) {
+    if (!formData.employeeId || !formData.firstName || !formData.lastName || !formData.jobTitle || !formData.department) {
       alert("Vui lòng điền đầy đủ thông tin bắt buộc (ID Quân nhân, Họ, Tên, Chức vụ, Cơ quan đơn vị)")
       return
     }
@@ -177,7 +339,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{employee ? "Chỉnh sửa nhân viên" : "Thêm mới nhân viên"}</DialogTitle>
+          <DialogTitle>{employee ? "Chỉnh sửa nhân viên" : "Thêm thông tin quân nhân"}</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full">
@@ -295,23 +457,17 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-              />
-            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="militaryCivilian">SQ/QNCN</Label>
                 <Select value={formData.militaryCivilian} onValueChange={(value) => {
                   handleInputChange("militaryCivilian", value);
-                  // Reset rank when changing SQ/QNCN
+                  // Reset rank and position when changing SQ/QNCN
                   handleInputChange("rank", "");
+                  handleInputChange("jobTitle", "");
+                  handleInputChange("position", "");
+                  setSelectedPosition(null);
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="SQ/QNCN" />
@@ -357,14 +513,60 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="jobTitle">Chức vụ</Label>
-              <Input
-                id="jobTitle"
-                value={formData.jobTitle}
-                onChange={(e) => handleInputChange("jobTitle", e.target.value)}
-                placeholder="Nhập chức vụ"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="jobTitle">Chức vụ *</Label>
+                <Select 
+                  value={selectedPosition?.id || ""} 
+                  onValueChange={(value) => {
+                    if (value === "no-selection") return
+                    
+                    const position = positions.find(p => p.id === value)
+                    setSelectedPosition(position || null)
+                    handleInputChange("jobTitle", position?.name || "")
+                    handleInputChange("position", position?.name || "")
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn chức vụ" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {formData.militaryCivilian ? (
+                      <>
+                        {formData.militaryCivilian === "SQ" && (
+                          <div className="px-2 py-1 text-xs font-semibold text-red-600 bg-red-50 border-b">
+                            Chức vụ Sĩ quan
+                          </div>
+                        )}
+                        {formData.militaryCivilian === "QNCN" && (
+                          <div className="px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-50 border-b">
+                            Chức vụ QNCN
+                          </div>
+                        )}
+                        {renderPositionHierarchy(getFilteredPositions())}
+                      </>
+                    ) : (
+                      <>
+                        <div className="px-2 py-1 text-xs font-medium text-gray-500 bg-gray-50 border-b">
+                          Vui lòng chọn SQ/QNCN trước
+                        </div>
+                        <SelectItem value="no-selection" disabled>
+                          Chọn SQ hoặc QNCN để xem chức vụ
+                        </SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location">Vị trí</Label>
+                <Input
+                  id="location"
+                  value={formData.location}
+                  onChange={(e) => handleInputChange("location", e.target.value)}
+                  placeholder="Nhập vị trí làm việc"
+                />
+              </div>
             </div>
 
           </TabsContent>
