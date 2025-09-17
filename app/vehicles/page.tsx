@@ -1,37 +1,34 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { Vehicle, EntryExitRequest, Employee } from "@/lib/types"
+import type { Vehicle, Employee } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
 import { VehicleTable } from "@/components/vehicles/vehicle-table"
 import { VehicleForm } from "@/components/vehicles/vehicle-form"
-import { VehicleRequestsTable } from "@/components/vehicles/vehicle-requests-table"
-import { VehicleRequestForm } from "@/components/vehicles/vehicle-request-form"
 import { BulkOperationsDialog } from "@/components/vehicles/bulk-operations-dialog"
-import { RequestsBulkOperationsDialog } from "@/components/vehicles/requests-bulk-operations-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { Search, Download, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [entryExitRequests, setEntryExitRequests] = useState<EntryExitRequest[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | undefined>()
-  const [selectedRequest, setSelectedRequest] = useState<EntryExitRequest | undefined>()
+  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [isRequestFormOpen, setIsRequestFormOpen] = useState(false)
   const [showBulkOperations, setShowBulkOperations] = useState(false)
-  const [showRequestsBulkOperations, setShowRequestsBulkOperations] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "rejected" | "exited" | "entered">("all")
+  const [typeFilter, setTypeFilter] = useState<"all" | "car" | "motorbike" | "truck" | "bus">("all")
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0)
@@ -47,6 +44,20 @@ export default function VehiclesPage() {
     loadData()
   }, [])
 
+  // Filter vehicles based on search and filter criteria
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const matchesSearch = !searchTerm || 
+      vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = statusFilter === "all" || vehicle.status === statusFilter
+    const matchesType = typeFilter === "all" || vehicle.vehicleType === typeFilter
+
+    return matchesSearch && matchesStatus && matchesType
+  })
+
   const loadData = async (page: number = currentPage, size: number = pageSize, sort: string = sortBy, direction: string = sortDir) => {
     // Prevent multiple simultaneous calls (but allow initial load)
     if (loading && vehicles.length > 0) return
@@ -54,16 +65,14 @@ export default function VehiclesPage() {
     try {
       setLoading(true)
       setError(null)
-      const [vehiclesResponse, requestsData, employeesData] = await Promise.all([
+      const [vehiclesResponse, employeesData] = await Promise.all([
         dataService.getVehicles(page, size, sort, direction),
-        dataService.getEntryExitRequests(),
         dataService.getEmployees()
       ])
       setVehicles(vehiclesResponse.vehicles)
       setTotalElements(vehiclesResponse.totalElements)
       setTotalPages(vehiclesResponse.totalPages)
       setCurrentPage(vehiclesResponse.currentPage)
-      setEntryExitRequests(requestsData)
       setEmployees(employeesData)
     } catch (err) {
       setError('Không thể tải dữ liệu')
@@ -139,21 +148,14 @@ export default function VehiclesPage() {
           description: "Thông tin xe đã được cập nhật thành công.",
         })
       } else {
-        const response = await dataService.createVehicleWithResponse(vehicleData)
+        const newVehicle = await dataService.createVehicle(vehicleData)
         
-        if (response.alreadyExists) {
-          toast({
-            variant: "warning",
-            title: "Cảnh báo",
-            description: response.message,
-          })
-        } else {
-          toast({
-            variant: "success",
-            title: "Tạo mới thành công",
-            description: "Xe mới đã được tạo thành công.",
-          })
-        }
+        setVehicles(prev => [...prev, newVehicle])
+        toast({
+          variant: "success",
+          title: "Tạo mới thành công",
+          description: "Xe mới đã được thêm vào hệ thống.",
+        })
       }
       await loadData() // Reload the data
       setIsFormOpen(false)
@@ -185,63 +187,6 @@ export default function VehiclesPage() {
     setIsFormOpen(true)
   }
 
-  const handleEditRequest = (request: EntryExitRequest) => {
-    setSelectedRequest(request)
-    setIsRequestFormOpen(true)
-  }
-
-  const handleDeleteRequest = async (requestId: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa yêu cầu này?")) {
-      try {
-        await dataService.deleteEntryExitRequest(requestId)
-        await loadData() // Reload the data
-      } catch (err) {
-        setError('Không thể xóa yêu cầu')
-        console.error('Error deleting request:', err)
-      }
-    }
-  }
-
-  const handleViewRequest = (request: EntryExitRequest) => {
-    setSelectedRequest(request)
-    setIsRequestFormOpen(true)
-  }
-
-  const handleSaveRequest = async (requestData: Omit<EntryExitRequest, "id" | "createdAt">) => {
-    try {
-      if (selectedRequest) {
-        await dataService.updateEntryExitRequest(selectedRequest.id, requestData)
-        toast({
-          variant: "success",
-          title: "Cập nhật thành công",
-          description: "Yêu cầu ra vào đã được cập nhật thành công.",
-        })
-      } else {
-        await dataService.createEntryExitRequest(requestData)
-        toast({
-          variant: "success",
-          title: "Tạo mới thành công",
-          description: "Yêu cầu ra vào mới đã được tạo thành công.",
-        })
-      }
-      await loadData() // Reload the data
-      setIsRequestFormOpen(false)
-      setSelectedRequest(undefined)
-    } catch (err) {
-      setError('Không thể lưu yêu cầu')
-      console.error('Error saving request:', err)
-      toast({
-        variant: "destructive",
-        title: "Lỗi lưu yêu cầu",
-        description: "Không thể lưu yêu cầu ra vào. Vui lòng thử lại sau.",
-      })
-    }
-  }
-
-  const handleAddNewRequest = () => {
-    setSelectedRequest(undefined)
-    setIsRequestFormOpen(true)
-  }
 
   const handleUpdateVehicle = (vehicleIds: string[]) => {
     if (vehicleIds.length !== 1) return
@@ -253,45 +198,100 @@ export default function VehiclesPage() {
     }
   }
 
-  const handleApproveRequest = (id: string) => {
-    dataService.updateEntryExitRequest(id, {
-      status: "approved",
-      approvedBy: "admin",
-      approvedAt: new Date().toISOString(),
-    })
-    loadData()
+  const handleApprove = async (vehicle: Vehicle) => {
+    try {
+      const updatedVehicle = await dataService.updateVehicle(vehicle.id, {
+        ...vehicle,
+        status: "approved"
+      })
+      
+      if (updatedVehicle) {
+        setVehicles(prev => prev.map(v => v.id === vehicle.id ? updatedVehicle : v))
+        toast({
+          title: "Thành công",
+          description: `Đã duyệt xe ${vehicle.licensePlate}`,
+        })
+      }
+    } catch (err) {
+      console.error('Error approving vehicle:', err)
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Không thể duyệt xe",
+      })
+    }
   }
 
+  const handleReject = async (vehicle: Vehicle) => {
+    try {
+      const updatedVehicle = await dataService.updateVehicle(vehicle.id, {
+        ...vehicle,
+        status: "rejected"
+      })
+      
+      if (updatedVehicle) {
+        setVehicles(prev => prev.map(v => v.id === vehicle.id ? updatedVehicle : v))
+        toast({
+          title: "Thành công", 
+          description: `Đã từ chối xe ${vehicle.licensePlate}`,
+        })
+      }
+    } catch (err) {
+      console.error('Error rejecting vehicle:', err)
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Không thể từ chối xe",
+      })
+    }
+  }
 
-  const handleBulkApproveRequests = async (requestIds: string[]) => {
-    if (confirm(`Bạn có chắc chắn muốn duyệt ${requestIds.length} yêu cầu đã chọn?`)) {
+  const handleBulkDelete = async () => {
+    if (selectedVehicles.length === 0) return
+    
+    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedVehicles.length} xe đã chọn?`)) {
       try {
-        const updatePromises = requestIds.map(id => 
-          dataService.updateEntryExitRequest(id, {
-            status: "approved",
-            approvedBy: "admin",
-            approvedAt: new Date().toISOString(),
-          })
-        )
-        await Promise.all(updatePromises)
+        await Promise.all(selectedVehicles.map(id => dataService.deleteVehicle(id)))
+        setSelectedVehicles([])
         await loadData()
         toast({
-          variant: "success",
-          title: "Duyệt thành công",
-          description: `${requestIds.length} yêu cầu đã được duyệt.`,
+          title: "Thành công",
+          description: `${selectedVehicles.length} xe đã được xóa thành công!`,
         })
-      } catch (err) {
-        setError('Không thể duyệt yêu cầu')
-        console.error('Error approving requests:', err)
+      } catch (error) {
+        console.error("Error bulk deleting vehicles:", error)
         toast({
+          title: "Lỗi",
+          description: "Không thể xóa các xe đã chọn",
           variant: "destructive",
-          title: "Lỗi duyệt yêu cầu",
-          description: "Không thể duyệt yêu cầu. Vui lòng thử lại sau.",
         })
       }
     }
   }
 
+  const handleExport = () => {
+    // TODO: Implement export functionality
+    console.log("Export vehicles")
+    toast({
+      title: "Thông báo",
+      description: "Tính năng xuất dữ liệu đang được phát triển",
+    })
+  }
+
+  const getStatistics = () => {
+    const total = vehicles.length
+    const approved = vehicles.filter(v => v.status === "approved").length
+    const rejected = vehicles.filter(v => v.status === "rejected").length
+    const exited = vehicles.filter(v => v.status === "exited").length
+    const entered = vehicles.filter(v => v.status === "entered").length
+    
+    const typeStats = vehicles.reduce((acc, v) => {
+      acc[v.vehicleType] = (acc[v.vehicleType] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    return { total, approved, rejected, exited, entered, typeStats }
+  }
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -320,10 +320,12 @@ export default function VehiclesPage() {
   if (loading) {
     return (
       <div className="p-8 bg-background min-h-screen">
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-muted-foreground">Đang tải dữ liệu...</p>
+            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="text-blue-600 font-medium">Đang tải dữ liệu xe...</p>
           </div>
         </div>
       </div>
@@ -333,8 +335,8 @@ export default function VehiclesPage() {
   if (error) {
     return (
       <div className="p-8 bg-background min-h-screen">
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-4 text-center">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
               <span className="text-red-600 text-2xl">⚠️</span>
             </div>
@@ -353,30 +355,172 @@ export default function VehiclesPage() {
     )
   }
 
+  const stats = getStatistics()
+
   return (
     <div className="p-8 bg-background min-h-screen">
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-        <h1 className="text-3xl font-bold text-foreground">Quản lý xe</h1>
+          <h1 className="text-3xl font-bold text-foreground">Quản lý xe</h1>
           <p className="text-muted-foreground text-lg">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
+        </div>
+        <Button onClick={handleAddNew}>
+          <Plus className="h-4 w-4 mr-2" />
+          Thêm xe mới
+        </Button>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tổng số xe</CardTitle>
+            <Car className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.approved} đã được duyệt
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Đã duyệt</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.approved}</div>
+            <p className="text-xs text-muted-foreground">
+              Xe được phép hoạt động
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Đã ra</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.exited}</div>
+            <p className="text-xs text-muted-foreground">
+              Xe đã rời khỏi khu vực
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tỷ lệ duyệt</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Xe được phép hoạt động
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="bg-white border rounded-lg p-6 mb-6 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Search Section */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Tìm kiếm
+            </Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Nhập biển số, chủ xe, loại xe..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Trạng thái
+            </Label>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
+              <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <SelectValue placeholder="Chọn trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🚗 Tất cả</SelectItem>
+                <SelectItem value="approved">✅ Duyệt</SelectItem>
+                <SelectItem value="rejected">❌ Không được phép</SelectItem>
+                <SelectItem value="exited">🚪 Đã ra</SelectItem>
+                <SelectItem value="entered">🏠 Đã vào</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Type Filter */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Car className="h-4 w-4" />
+              Loại xe
+            </Label>
+            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)}>
+              <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <SelectValue placeholder="Chọn loại xe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">🚗 Tất cả</SelectItem>
+                <SelectItem value="car">🚗 Ô tô</SelectItem>
+                <SelectItem value="motorbike">🏍️ Xe máy</SelectItem>
+                <SelectItem value="truck">🚛 Xe tải</SelectItem>
+                <SelectItem value="bus">🚌 Xe bus</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-3 mt-6 pt-4 border-t border-gray-100">
+          <Button variant="outline" size="sm" onClick={() => loadData()} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Làm mới dữ liệu
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExport} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Xuất Excel
+          </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="vehicles" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="vehicles">Danh sách xe</TabsTrigger>
-          <TabsTrigger value="requests">Yêu cầu ra vào</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="vehicles" className="space-y-6">
+      {/* Action Bar */}
+      {selectedVehicles.length > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg mb-6">
+          <Badge variant="secondary">
+            {selectedVehicles.length} đã chọn
+          </Badge>
+          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Xóa
+          </Button>
+        </div>
+      )}
           <VehicleTable 
-            vehicles={vehicles} 
+            vehicles={filteredVehicles} 
             onEdit={handleEdit} 
             onDelete={handleDelete} 
             onView={handleView} 
             onAddNew={handleAddNew} 
             onBulkUpdate={handleUpdateVehicle}
             onRefresh={() => loadData()}
+            onApprove={handleApprove}
+            onReject={handleReject}
             currentPage={currentPage}
             totalPages={totalPages}
             totalElements={totalElements}
@@ -385,69 +529,25 @@ export default function VehiclesPage() {
             onPageSizeChange={handlePageSizeChange}
           />
 
-          <VehicleForm
-            vehicle={selectedVehicle}
-            employees={employees}
-            isOpen={isFormOpen}
-            onClose={() => {
-              setIsFormOpen(false)
-              setSelectedVehicle(undefined)
-            }}
-            onSave={handleSave}
-          />
+      <VehicleForm
+        vehicle={selectedVehicle}
+        employees={employees}
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false)
+          setSelectedVehicle(undefined)
+        }}
+        onSave={handleSave}
+      />
 
-          <BulkOperationsDialog
-            isOpen={showBulkOperations}
-            onClose={() => setShowBulkOperations(false)}
-            selectedCount={0}
-            onApply={(operation) => {
-              console.log("Bulk operation:", operation)
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="requests" className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">Yêu cầu ra vào</h2>
-              <p className="text-sm text-muted-foreground">Tổng cộng: {entryExitRequests.length} yêu cầu</p>
-            </div>
-          </div>
-
-          <VehicleRequestsTable
-            requests={entryExitRequests}
-            vehicles={vehicles}
-            onEdit={handleEditRequest}
-            onDelete={handleDeleteRequest}
-            onView={handleViewRequest}
-            onApprove={handleApproveRequest}
-            onBulkApprove={handleBulkApproveRequests}
-            onAddNew={handleAddNewRequest}
-            onRefresh={loadData}
-          />
-
-          <VehicleRequestForm
-            request={selectedRequest}
-            employees={employees}
-            vehicles={vehicles}
-            isOpen={isRequestFormOpen}
-            onClose={() => {
-              setIsRequestFormOpen(false)
-              setSelectedRequest(undefined)
-            }}
-            onSave={handleSaveRequest}
-          />
-
-          <RequestsBulkOperationsDialog
-            isOpen={showRequestsBulkOperations}
-            onClose={() => setShowRequestsBulkOperations(false)}
-            selectedCount={0}
-            onApply={(operation) => {
-              console.log("Bulk operation:", operation)
-            }}
-          />
-        </TabsContent>
-      </Tabs>
+      <BulkOperationsDialog
+        isOpen={showBulkOperations}
+        onClose={() => setShowBulkOperations(false)}
+        selectedCount={0}
+        onApply={(operation) => {
+          console.log("Bulk operation:", operation)
+        }}
+      />
     </div>
   )
 }

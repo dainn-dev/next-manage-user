@@ -13,17 +13,17 @@ public class VehicleStatisticsDto {
     @Schema(description = "Total number of vehicles")
     private long totalVehicles;
 
-    @Schema(description = "Number of active vehicles")
-    private long activeVehicles;
+    @Schema(description = "Number of approved vehicles")
+    private long approvedVehicles;
 
-    @Schema(description = "Number of inactive vehicles")
-    private long inactiveVehicles;
+    @Schema(description = "Number of rejected vehicles")
+    private long rejectedVehicles;
 
-    @Schema(description = "Number of vehicles in maintenance")
-    private long maintenanceVehicles;
+    @Schema(description = "Number of exited vehicles")
+    private long exitedVehicles;
 
-    @Schema(description = "Number of retired vehicles")
-    private long retiredVehicles;
+    @Schema(description = "Number of entered vehicles")
+    private long enteredVehicles;
 
     @Schema(description = "Vehicle count by type")
     private Map<String, Long> vehicleTypeStats;
@@ -31,8 +31,6 @@ public class VehicleStatisticsDto {
     @Schema(description = "Vehicle count by fuel type")
     private Map<String, Long> fuelTypeStats;
 
-    @Schema(description = "Entry/exit request statistics")
-    private EntryExitStatsDto entryExitStats;
 
     @Schema(description = "Daily statistics")
     private List<VehicleDailyStatsDto> dailyStats;
@@ -46,19 +44,18 @@ public class VehicleStatisticsDto {
     // Constructors
     public VehicleStatisticsDto() {}
 
-    public VehicleStatisticsDto(long totalVehicles, long activeVehicles, long inactiveVehicles, 
-                               long maintenanceVehicles, long retiredVehicles, 
+    public VehicleStatisticsDto(long totalVehicles, long approvedVehicles, long rejectedVehicles, 
+                               long exitedVehicles, long enteredVehicles, 
                                Map<String, Long> vehicleTypeStats, Map<String, Long> fuelTypeStats,
-                               EntryExitStatsDto entryExitStats, List<VehicleDailyStatsDto> dailyStats,
+                               List<VehicleDailyStatsDto> dailyStats,
                                List<VehicleWeeklyStatsDto> weeklyStats, List<VehicleMonthlyStatsDto> monthlyStats) {
         this.totalVehicles = totalVehicles;
-        this.activeVehicles = activeVehicles;
-        this.inactiveVehicles = inactiveVehicles;
-        this.maintenanceVehicles = maintenanceVehicles;
-        this.retiredVehicles = retiredVehicles;
+        this.approvedVehicles = approvedVehicles;
+        this.rejectedVehicles = rejectedVehicles;
+        this.exitedVehicles = exitedVehicles;
+        this.enteredVehicles = enteredVehicles;
         this.vehicleTypeStats = vehicleTypeStats;
         this.fuelTypeStats = fuelTypeStats;
-        this.entryExitStats = entryExitStats;
         this.dailyStats = dailyStats;
         this.weeklyStats = weeklyStats;
         this.monthlyStats = monthlyStats;
@@ -73,36 +70,36 @@ public class VehicleStatisticsDto {
         this.totalVehicles = totalVehicles;
     }
 
-    public long getActiveVehicles() {
-        return activeVehicles;
+    public long getApprovedVehicles() {
+        return approvedVehicles;
     }
 
-    public void setActiveVehicles(long activeVehicles) {
-        this.activeVehicles = activeVehicles;
+    public void setApprovedVehicles(long approvedVehicles) {
+        this.approvedVehicles = approvedVehicles;
     }
 
-    public long getInactiveVehicles() {
-        return inactiveVehicles;
+    public long getRejectedVehicles() {
+        return rejectedVehicles;
     }
 
-    public void setInactiveVehicles(long inactiveVehicles) {
-        this.inactiveVehicles = inactiveVehicles;
+    public void setRejectedVehicles(long rejectedVehicles) {
+        this.rejectedVehicles = rejectedVehicles;
     }
 
-    public long getMaintenanceVehicles() {
-        return maintenanceVehicles;
+    public long getExitedVehicles() {
+        return exitedVehicles;
     }
 
-    public void setMaintenanceVehicles(long maintenanceVehicles) {
-        this.maintenanceVehicles = maintenanceVehicles;
+    public void setExitedVehicles(long exitedVehicles) {
+        this.exitedVehicles = exitedVehicles;
     }
 
-    public long getRetiredVehicles() {
-        return retiredVehicles;
+    public long getEnteredVehicles() {
+        return enteredVehicles;
     }
 
-    public void setRetiredVehicles(long retiredVehicles) {
-        this.retiredVehicles = retiredVehicles;
+    public void setEnteredVehicles(long enteredVehicles) {
+        this.enteredVehicles = enteredVehicles;
     }
 
     public Map<String, Long> getVehicleTypeStats() {
@@ -121,13 +118,6 @@ public class VehicleStatisticsDto {
         this.fuelTypeStats = fuelTypeStats;
     }
 
-    public EntryExitStatsDto getEntryExitStats() {
-        return entryExitStats;
-    }
-
-    public void setEntryExitStats(EntryExitStatsDto entryExitStats) {
-        this.entryExitStats = entryExitStats;
-    }
 
     public List<VehicleDailyStatsDto> getDailyStats() {
         return dailyStats;
@@ -154,88 +144,6 @@ public class VehicleStatisticsDto {
     }
 
     // Nested DTOs
-    @Schema(description = "Entry/Exit request statistics")
-    public static class EntryExitStatsDto {
-        @Schema(description = "Total number of requests")
-        private long totalRequests;
-
-        @Schema(description = "Number of approved requests")
-        private long approvedRequests;
-
-        @Schema(description = "Number of pending requests")
-        private long pendingRequests;
-
-        @Schema(description = "Number of rejected requests")
-        private long rejectedRequests;
-
-        @Schema(description = "Number of entry requests")
-        private long entryRequests;
-
-        @Schema(description = "Number of exit requests")
-        private long exitRequests;
-
-        // Constructors
-        public EntryExitStatsDto() {}
-
-        public EntryExitStatsDto(long totalRequests, long approvedRequests, long pendingRequests,
-                                long rejectedRequests, long entryRequests, long exitRequests) {
-            this.totalRequests = totalRequests;
-            this.approvedRequests = approvedRequests;
-            this.pendingRequests = pendingRequests;
-            this.rejectedRequests = rejectedRequests;
-            this.entryRequests = entryRequests;
-            this.exitRequests = exitRequests;
-        }
-
-        // Getters and Setters
-        public long getTotalRequests() {
-            return totalRequests;
-        }
-
-        public void setTotalRequests(long totalRequests) {
-            this.totalRequests = totalRequests;
-        }
-
-        public long getApprovedRequests() {
-            return approvedRequests;
-        }
-
-        public void setApprovedRequests(long approvedRequests) {
-            this.approvedRequests = approvedRequests;
-        }
-
-        public long getPendingRequests() {
-            return pendingRequests;
-        }
-
-        public void setPendingRequests(long pendingRequests) {
-            this.pendingRequests = pendingRequests;
-        }
-
-        public long getRejectedRequests() {
-            return rejectedRequests;
-        }
-
-        public void setRejectedRequests(long rejectedRequests) {
-            this.rejectedRequests = rejectedRequests;
-        }
-
-        public long getEntryRequests() {
-            return entryRequests;
-        }
-
-        public void setEntryRequests(long entryRequests) {
-            this.entryRequests = entryRequests;
-        }
-
-        public long getExitRequests() {
-            return exitRequests;
-        }
-
-        public void setExitRequests(long exitRequests) {
-            this.exitRequests = exitRequests;
-        }
-    }
 
     @Schema(description = "Daily vehicle statistics")
     public static class VehicleDailyStatsDto {

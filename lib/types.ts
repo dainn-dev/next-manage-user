@@ -22,7 +22,6 @@ export interface Employee {
   avatar?: string
   accessLevel: "general" | "restricted" | "admin"
   permissions: string[]
-  customFields?: Record<string, any>
   createdAt: string
   updatedAt: string
 }
@@ -46,31 +45,49 @@ export interface AccessLevel {
   isDefault: boolean
 }
 
-export interface CustomField {
+export interface Position {
   id: string
   name: string
-  type: "text" | "number" | "date" | "select" | "checkbox" | "textarea"
-  options?: string[]
-  required: boolean
-  category: string
-  order: number
   description?: string
-  defaultValue?: string
-  validationRules?: string
-  isActive?: boolean
+  parentId?: string
+  level: PositionLevel
+  minSalary?: number
+  maxSalary?: number
+  isActive: boolean
+  displayOrder: number
+  createdAt: string
+  updatedAt: string
+  parentName?: string
+  childrenCount?: number
+  levelDisplayName?: string
 }
 
-export interface DocumentLibrary {
-  id: string
-  name: string
-  type: "folder" | "document"
-  parentId?: string
-  size?: number
-  uploadDate?: string
-  uploadedBy?: string
-  permissions: string[]
-  url?: string
+export enum PositionLevel {
+  INTERN = 'INTERN',
+  JUNIOR = 'JUNIOR', 
+  SENIOR = 'SENIOR',
+  LEAD = 'LEAD',
+  MANAGER = 'MANAGER',
+  DIRECTOR = 'DIRECTOR',
+  EXECUTIVE = 'EXECUTIVE'
 }
+
+export interface DepartmentStatistics {
+  totalDepartments: number
+  totalEmployees: number
+  averageEmployeesPerDepartment: number
+  largestDepartment: {
+    id: string
+    name: string
+    employeeCount: number
+  }
+  departmentHierarchy: {
+    parentDepartments: number
+    childDepartments: number
+    maxDepth: number
+  }
+}
+
 
 export interface AuditLog {
   id: string
@@ -98,7 +115,7 @@ export interface Vehicle {
   expiryDate?: string
   insuranceNumber?: string
   insuranceExpiry?: string
-  status: "active" | "inactive" | "maintenance" | "retired"
+  status: "approved" | "rejected" | "exited" | "entered"
   fuelType?: "gasoline" | "diesel" | "electric" | "hybrid"
   capacity?: number
   notes?: string
@@ -106,20 +123,6 @@ export interface Vehicle {
   updatedAt: string
 }
 
-export interface EntryExitRequest {
-  id: string
-  employeeId: string
-  employeeName: string
-  vehicleId: string
-  licensePlate: string
-  requestType: "entry" | "exit"
-  requestTime: string
-  approvedBy?: string
-  approvedAt?: string
-  status: "pending" | "approved" | "completed"
-  notes?: string
-  createdAt: string
-}
 
 export interface VehicleStatistics {
   totalVehicles: number
@@ -129,13 +132,6 @@ export interface VehicleStatistics {
   retiredVehicles: number
   vehicleTypeStats: Record<string, number>
   fuelTypeStats: Record<string, number>
-  entryExitStats: {
-    totalRequests: number
-    approvedRequests: number
-    pendingRequests: number
-    entryRequests: number
-    exitRequests: number
-  }
   dailyStats: VehicleDailyStats[]
   weeklyStats: VehicleWeeklyStats[]
   monthlyStats: VehicleMonthlyStats[]
@@ -149,6 +145,7 @@ export interface VehicleDailyStats {
   approvedCount: number
   pendingCount: number
   completedCount: number
+  rejectedCount: number
   uniqueVehicles: number
 }
 
@@ -162,6 +159,7 @@ export interface VehicleWeeklyStats {
   approvedCount: number
   pendingCount: number
   completedCount: number
+  rejectedCount: number
   uniqueVehicles: number
   averageDailyRequests: number
 }
@@ -175,6 +173,7 @@ export interface VehicleMonthlyStats {
   approvedCount: number
   pendingCount: number
   completedCount: number
+  rejectedCount: number
   uniqueVehicles: number
   averageDailyRequests: number
   peakDay: { date: string; requestCount: number }

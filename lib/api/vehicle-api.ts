@@ -27,7 +27,7 @@ export interface VehicleCreateRequest {
   expiryDate?: string
   insuranceNumber?: string
   insuranceExpiry?: string
-  status: "active" | "inactive" | "maintenance" | "retired"
+  status: "approved" | "rejected" | "exited" | "entered"
   fuelType?: "gasoline" | "diesel" | "electric" | "hybrid"
   capacity?: number
   notes?: string

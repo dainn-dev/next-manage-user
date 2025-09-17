@@ -52,7 +52,7 @@ public class Vehicle {
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private VehicleStatus status = VehicleStatus.active;
+    private VehicleStatus status = VehicleStatus.approved;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "fuel_type")
@@ -68,8 +68,6 @@ public class Vehicle {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
     
-    @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<EntryExitRequest> requests;
     
     // Constructors
     public Vehicle() {}
@@ -212,13 +210,6 @@ public class Vehicle {
         this.updatedAt = updatedAt;
     }
     
-    public List<EntryExitRequest> getRequests() {
-        return requests;
-    }
-    
-    public void setRequests(List<EntryExitRequest> requests) {
-        this.requests = requests;
-    }
     
     @PreUpdate
     public void preUpdate() {
@@ -231,7 +222,7 @@ public class Vehicle {
     }
     
     public enum VehicleStatus {
-        active, inactive, maintenance, retired
+        approved, rejected, exited, entered
     }
     
     public enum FuelType {

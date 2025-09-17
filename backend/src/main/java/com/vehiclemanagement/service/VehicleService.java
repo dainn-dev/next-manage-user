@@ -5,11 +5,11 @@ import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Vehicle;
-import com.vehiclemanagement.entity.EntryExitRequest;
+// import com.vehiclemanagement.entity.EntryExitRequest; // Removed
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
-import com.vehiclemanagement.repository.EntryExitRequestRepository;
+// import com.vehiclemanagement.repository.EntryExitRequestRepository; // Removed
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,8 +31,8 @@ public class VehicleService {
     @Autowired
     private EmployeeRepository employeeRepository;
     
-    @Autowired
-    private EntryExitRequestRepository entryExitRequestRepository;
+    // @Autowired
+    // private EntryExitRequestRepository entryExitRequestRepository; // Removed
     
     public List<VehicleDto> getAllVehicles() {
         return vehicleRepository.findAll().stream()
@@ -118,7 +118,7 @@ public class VehicleService {
         vehicle.setYear(vehicleDto.getYear());
         vehicle.setRegistrationDate(vehicleDto.getRegistrationDate());
         vehicle.setExpiryDate(vehicleDto.getExpiryDate());
-        vehicle.setStatus(vehicleDto.getStatus() != null ? vehicleDto.getStatus() : Vehicle.VehicleStatus.active);
+        vehicle.setStatus(vehicleDto.getStatus() != null ? vehicleDto.getStatus() : Vehicle.VehicleStatus.approved);
         vehicle.setFuelType(vehicleDto.getFuelType());
         vehicle.setCapacity(vehicleDto.getCapacity());
         vehicle.setNotes(vehicleDto.getNotes());
@@ -180,14 +180,15 @@ public class VehicleService {
     
     public VehicleStatisticsDto getVehicleStatistics() {
         List<Vehicle> vehicles = vehicleRepository.findAll();
-        List<EntryExitRequest> requests = entryExitRequestRepository.findAll();
+        // List<EntryExitRequest> requests = entryExitRequestRepository.findAll(); // Removed
+        List<Object> requests = new ArrayList<>(); // Empty list for compatibility
         
         // Basic vehicle stats
         long totalVehicles = vehicles.size();
-        long activeVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.active).count();
-        long inactiveVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.inactive).count();
-        long maintenanceVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.maintenance).count();
-        long retiredVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.retired).count();
+        long approvedVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.approved).count();
+        long rejectedVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.rejected).count();
+        long exitedVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.exited).count();
+        long enteredVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.entered).count();
         
         // Vehicle type stats
         Map<String, Long> vehicleTypeStats = vehicles.stream()
@@ -199,27 +200,21 @@ public class VehicleService {
                 .filter(v -> v.getFuelType() != null)
                 .collect(Collectors.groupingBy(v -> v.getFuelType().toString(), Collectors.counting()));
         
-        // Entry/Exit stats
-        VehicleStatisticsDto.EntryExitStatsDto entryExitStats = new VehicleStatisticsDto.EntryExitStatsDto(
-                requests.size(),
-                requests.stream().filter(r -> r.getStatus() == EntryExitRequest.RequestStatus.approved).count(),
-                requests.stream().filter(r -> r.getStatus() == EntryExitRequest.RequestStatus.pending).count(),
-                requests.stream().filter(r -> r.getStatus() == EntryExitRequest.RequestStatus.rejected).count(),
-                requests.stream().filter(r -> r.getRequestType() == EntryExitRequest.RequestType.entry).count(),
-                requests.stream().filter(r -> r.getRequestType() == EntryExitRequest.RequestType.exit).count()
-        );
+        // Entry/Exit stats - Removed, using empty stats
+        // VehicleStatisticsDto.EntryExitStatsDto entryExitStats = new VehicleStatisticsDto.EntryExitStatsDto(...); // Removed
         
-        // Generate time-based stats
-        List<VehicleStatisticsDto.VehicleDailyStatsDto> dailyStats = generateDailyStats(requests);
-        List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats = generateWeeklyStats(requests);
-        List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats = generateMonthlyStats(requests);
+        // Generate empty time-based stats (entry/exit requests removed)
+        List<VehicleStatisticsDto.VehicleDailyStatsDto> dailyStats = new ArrayList<>();
+        List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats = new ArrayList<>();
+        List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats = new ArrayList<>();
         
         return new VehicleStatisticsDto(
-                totalVehicles, activeVehicles, inactiveVehicles, maintenanceVehicles, retiredVehicles,
-                vehicleTypeStats, fuelTypeStats, entryExitStats, dailyStats, weeklyStats, monthlyStats
+                totalVehicles, approvedVehicles, rejectedVehicles, exitedVehicles, enteredVehicles,
+                vehicleTypeStats, fuelTypeStats, dailyStats, weeklyStats, monthlyStats
         );
     }
     
+    /* Removed - EntryExitRequest methods
     private List<VehicleStatisticsDto.VehicleDailyStatsDto> generateDailyStats(List<EntryExitRequest> requests) {
         Map<LocalDate, VehicleStatisticsDto.VehicleDailyStatsDto> dailyMap = new HashMap<>();
         Map<LocalDate, Set<String>> uniqueVehiclesPerDay = new HashMap<>();
@@ -367,4 +362,5 @@ public class VehicleService {
                         .thenComparing(VehicleStatisticsDto.VehicleMonthlyStatsDto::getMonth))
                 .collect(Collectors.toList());
     }
+    */ // End of removed EntryExitRequest methods
 }

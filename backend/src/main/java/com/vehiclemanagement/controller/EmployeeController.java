@@ -27,8 +27,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/employees")
-@CrossOrigin(origins = "*")
+@RequestMapping("/api/employees")
 @Tag(name = "Employee Management", description = "APIs for managing employees")
 public class EmployeeController {
 

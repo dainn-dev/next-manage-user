@@ -98,10 +98,6 @@ export default function StatisticsPage() {
           <p className="text-muted-foreground">Thống kê Quân nhân và phương tiện</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Làm mới
-          </Button>
           <Button onClick={() => setIsExportDialogOpen(true)}>
             <Download className="h-4 w-4 mr-2" />
             Xuất báo cáo

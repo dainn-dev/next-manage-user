@@ -26,16 +26,6 @@ const navigationItems = [
     icon: "🚗",
   },
   {
-    key: "/custom-fields",
-    label: "Thuộc tính tùy chỉnh",
-    icon: "⚙️",
-  },
-  {
-    key: "/library",
-    label: "Danh sách thư viện",
-    icon: "📚",
-  },
-  {
     key: "/statistics",
     label: "Thống kê",
     icon: "📊",

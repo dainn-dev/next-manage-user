@@ -9,9 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/vehicles/statistics")
+@RequestMapping("/api/vehicles/statistics")
 @Tag(name = "Vehicle Statistics", description = "APIs for vehicle statistics")
-@CrossOrigin(origins = "*")
 public class VehicleStatisticsController {
     
     @Autowired

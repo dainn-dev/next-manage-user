@@ -2,28 +2,26 @@ import type {
   Employee,
   Department,
   AccessLevel,
-  CustomField,
-  DocumentLibrary,
+  Position,
   Vehicle,
-  EntryExitRequest,
   VehicleStatistics,
   VehicleDailyStats,
   VehicleWeeklyStats,
   VehicleMonthlyStats,
+  DepartmentStatistics,
 } from "./types"
-import { mockEmployees, mockDepartments, mockAccessLevels, mockCustomFields, mockDocuments } from "./mock-data"
-import { customFieldsApi } from "./api/custom-fields-api"
+import { mockEmployees, mockDepartments, mockAccessLevels, mockPositions } from "./mock-data"
 import { vehicleApi } from "./api/vehicle-api"
-import { entryExitRequestApi } from "./api/entry-exit-request-api"
 import { employeeApi } from "./api/employee-api"
 import { vehicleStatisticsApi } from "./api/vehicle-statistics-api"
+import { departmentApi } from "./api/department-api"
+import { positionApi } from "./api/position-api"
 
 class DataService {
   private employees: Employee[] = [...mockEmployees]
   private departments: Department[] = [...mockDepartments]
   private accessLevels: AccessLevel[] = [...mockAccessLevels]
-  private customFields: CustomField[] = [...mockCustomFields]
-  private documents: DocumentLibrary[] = [...mockDocuments]
+  private positions: Position[] = [...mockPositions]
   private vehicles: Vehicle[] = [
     {
       id: "1",
@@ -33,20 +31,16 @@ class DataService {
       vehicleType: "car",
       brand: "Toyota",
       model: "Camry",
+      year: 2022,
       color: "Trắng",
-      year: 2020,
-      engineNumber: "ENG123456789",
-      chassisNumber: "CHS987654321",
-      registrationDate: "2024-01-15",
-      expiryDate: "2025-01-15",
-      insuranceNumber: "INS123456789",
-      insuranceExpiry: "2025-06-15",
-      status: "active",
       fuelType: "gasoline",
-      capacity: 5,
-      notes: "Xe công vụ chính",
-      createdAt: "2024-01-15T08:00:00Z",
-      updatedAt: "2024-01-15T08:00:00Z",
+      status: "approved",
+      registrationDate: "2022-01-15T00:00:00Z",
+      lastMaintenanceDate: "2024-01-15T00:00:00Z",
+      nextMaintenanceDate: "2024-07-15T00:00:00Z",
+      notes: "Xe đang hoạt động bình thường",
+      createdAt: "2024-03-15T08:30:00Z",
+      updatedAt: "2024-03-15T08:30:00Z",
     },
     {
       id: "2",
@@ -55,158 +49,93 @@ class DataService {
       licensePlate: "29B-67890",
       vehicleType: "motorbike",
       brand: "Honda",
-      model: "Wave",
-      color: "Đỏ",
+      model: "Wave Alpha",
       year: 2021,
-      engineNumber: "ENG987654321",
-      chassisNumber: "CHS123456789",
-      registrationDate: "2024-02-10",
-      expiryDate: "2025-02-10",
-      insuranceNumber: "INS987654321",
-      insuranceExpiry: "2025-08-10",
-      status: "active",
+      color: "Đỏ",
       fuelType: "gasoline",
-      capacity: 2,
-      notes: "Xe cá nhân",
-      createdAt: "2024-02-10T09:00:00Z",
-      updatedAt: "2024-02-10T09:00:00Z",
+      status: "approved",
+      registrationDate: "2021-06-10T00:00:00Z",
+      lastMaintenanceDate: "2024-02-10T00:00:00Z",
+      nextMaintenanceDate: "2024-08-10T00:00:00Z",
+      notes: "Xe máy cá nhân",
+      createdAt: "2024-03-16T08:15:00Z",
+      updatedAt: "2024-03-16T08:15:00Z",
     },
     {
       id: "3",
       employeeId: "3",
       employeeName: "Lê Văn Cường",
       licensePlate: "51G-11111",
-      vehicleType: "truck",
-      brand: "Hyundai",
-      model: "HD78",
+      vehicleType: "car",
+      brand: "Honda",
+      model: "Civic",
+      year: 2023,
       color: "Xanh",
-      year: 2019,
-      engineNumber: "ENG555666777",
-      chassisNumber: "CHS888999000",
-      registrationDate: "2023-12-01",
-      expiryDate: "2024-12-01",
-      insuranceNumber: "INS555666777",
-      insuranceExpiry: "2025-03-01",
-      status: "maintenance",
-      fuelType: "diesel",
-      capacity: 3,
-      notes: "Xe tải vận chuyển",
-      createdAt: "2023-12-01T10:00:00Z",
-      updatedAt: "2024-03-01T14:30:00Z",
+      fuelType: "gasoline",
+      status: "exited",
+      registrationDate: "2023-03-01T00:00:00Z",
+      lastMaintenanceDate: "2024-03-01T00:00:00Z",
+      nextMaintenanceDate: "2024-09-01T00:00:00Z",
+      notes: "Đang bảo dưỡng định kỳ",
+      createdAt: "2024-03-17T09:00:00Z",
+      updatedAt: "2024-03-17T09:00:00Z",
     },
     {
       id: "4",
       employeeId: "4",
       employeeName: "Phạm Thị Dung",
       licensePlate: "43C-22222",
-      vehicleType: "bus",
-      brand: "Mercedes",
-      model: "Sprinter",
-      color: "Trắng",
-      year: 2022,
-      engineNumber: "ENG111222333",
-      chassisNumber: "CHS444555666",
-      registrationDate: "2024-03-20",
-      expiryDate: "2025-03-20",
-      insuranceNumber: "INS111222333",
-      insuranceExpiry: "2025-09-20",
-      status: "active",
+      vehicleType: "car",
+      brand: "Mazda",
+      model: "CX-5",
+      year: 2021,
+      color: "Đen",
       fuelType: "diesel",
-      capacity: 16,
-      notes: "Xe bus đưa đón nhân viên",
-      createdAt: "2024-03-20T11:00:00Z",
-      updatedAt: "2024-03-20T11:00:00Z",
-    },
-  ]
-  private entryExitRequests: EntryExitRequest[] = [
-    {
-      id: "1",
-      employeeId: "1",
-      employeeName: "Nguyễn Văn An",
-      vehicleId: "1",
-      licensePlate: "30A-12345",
-      requestType: "entry",
-      requestTime: "2024-03-15T08:30:00Z",
       status: "approved",
-      approvedBy: "admin",
-      approvedAt: "2024-03-15T08:35:00Z",
-      createdAt: "2024-03-15T08:30:00Z",
-    },
-    {
-      id: "2",
-      employeeId: "1",
-      employeeName: "Nguyễn Văn An",
-      vehicleId: "1",
-      licensePlate: "30A-12345",
-      requestType: "exit",
-      requestTime: "2024-03-15T17:30:00Z",
-      status: "approved",
-      approvedBy: "admin",
-      approvedAt: "2024-03-15T17:35:00Z",
-      createdAt: "2024-03-15T17:30:00Z",
-    },
-    {
-      id: "3",
-      employeeId: "2",
-      employeeName: "Trần Thị Bình",
-      vehicleId: "2",
-      licensePlate: "29B-67890",
-      requestType: "entry",
-      requestTime: "2024-03-16T08:15:00Z",
-      status: "approved",
-      approvedBy: "admin",
-      approvedAt: "2024-03-16T08:20:00Z",
-      createdAt: "2024-03-16T08:15:00Z",
-    },
-    {
-      id: "4",
-      employeeId: "3",
-      employeeName: "Lê Văn Cường",
-      vehicleId: "3",
-      licensePlate: "51G-11111",
-      requestType: "entry",
-      requestTime: "2024-03-16T09:00:00Z",
-      status: "pending",
-      createdAt: "2024-03-16T09:00:00Z",
+      registrationDate: "2021-11-20T00:00:00Z",
+      lastMaintenanceDate: "2024-01-20T00:00:00Z",
+      nextMaintenanceDate: "2024-07-20T00:00:00Z",
+      notes: "SUV gia đình",
+      createdAt: "2024-03-17T16:45:00Z",
+      updatedAt: "2024-03-17T16:45:00Z",
     },
     {
       id: "5",
-      employeeId: "4",
-      employeeName: "Phạm Thị Dung",
-      vehicleId: "4",
-      licensePlate: "43C-22222",
-      requestType: "entry",
-      requestTime: "2024-03-17T07:45:00Z",
-      status: "approved",
-      approvedBy: "admin",
-      approvedAt: "2024-03-17T07:50:00Z",
-      createdAt: "2024-03-17T07:45:00Z",
+      employeeId: "5",
+      employeeName: "Hoàng Văn Em",
+      licensePlate: "77S-33333",
+      vehicleType: "truck",
+      brand: "Isuzu",
+      model: "NPR",
+      year: 2020,
+      color: "Trắng",
+      fuelType: "diesel",
+      status: "entered",
+      registrationDate: "2020-09-05T00:00:00Z",
+      lastMaintenanceDate: "2023-09-05T00:00:00Z",
+      nextMaintenanceDate: "2024-03-05T00:00:00Z",
+      notes: "Xe tải đã nghỉ hưu",
+      createdAt: "2024-03-18T07:30:00Z",
+      updatedAt: "2024-03-18T07:30:00Z",
     },
     {
       id: "6",
-      employeeId: "1",
-      employeeName: "Nguyễn Văn An",
-      vehicleId: "1",
-      licensePlate: "30A-12345",
-      requestType: "entry",
-      requestTime: "2024-03-18T08:00:00Z",
+      employeeId: "6",
+      employeeName: "Đỗ Thị Hoa",
+      licensePlate: "88H-44444",
+      vehicleType: "bus",
+      brand: "Hyundai",
+      model: "County",
+      year: 2019,
+      color: "Vàng",
+      fuelType: "diesel",
       status: "approved",
-      approvedBy: "admin",
-      approvedAt: "2024-03-18T08:05:00Z",
-      createdAt: "2024-03-18T08:00:00Z",
-    },
-    {
-      id: "7",
-      employeeId: "2",
-      employeeName: "Trần Thị Bình",
-      vehicleId: "2",
-      licensePlate: "29B-67890",
-      requestType: "exit",
-      requestTime: "2024-03-18T18:00:00Z",
-      status: "rejected",
-      approvedBy: "admin",
-      approvedAt: "2024-03-18T18:05:00Z",
-      createdAt: "2024-03-18T18:00:00Z",
+      registrationDate: "2019-12-01T00:00:00Z",
+      lastMaintenanceDate: "2024-02-01T00:00:00Z",
+      nextMaintenanceDate: "2024-08-01T00:00:00Z",
+      notes: "Xe bus đưa đón nhân viên",
+      createdAt: "2024-03-20T11:00:00Z",
+      updatedAt: "2024-03-20T11:00:00Z",
     },
   ]
 
@@ -220,90 +149,137 @@ class DataService {
     }
   }
 
-  getEmployee(id: string): Employee | undefined {
-    return this.employees.find((emp) => emp.id === id)
-  }
-
-  createEmployee(employee: Omit<Employee, "id" | "createdAt" | "updatedAt">): Employee {
-    const newEmployee: Employee = {
-      ...employee,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    this.employees.push(newEmployee)
-    return newEmployee
-  }
-
-  updateEmployee(id: string, updates: Partial<Employee>): Employee | null {
-    const index = this.employees.findIndex((emp) => emp.id === id)
-    if (index === -1) return null
-
-    this.employees[index] = {
-      ...this.employees[index],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    }
-    return this.employees[index]
-  }
-
-  deleteEmployee(id: string): boolean {
-    const index = this.employees.findIndex((emp) => emp.id === id)
-    if (index === -1) return false
-
-    this.employees.splice(index, 1)
-    return true
-  }
-
-  searchEmployees(query: string): Employee[] {
-    const lowercaseQuery = query.toLowerCase()
-    return this.employees.filter(
-      (emp) =>
-        emp.name.toLowerCase().includes(lowercaseQuery) ||
-        emp.employeeId.toLowerCase().includes(lowercaseQuery) ||
-        emp.department.toLowerCase().includes(lowercaseQuery) ||
-        emp.email.toLowerCase().includes(lowercaseQuery),
-    )
-  }
-
   // Department operations
-  getDepartments(): Department[] {
-    return this.departments
-  }
-
-  getDepartment(id: string): Department | undefined {
-    return this.departments.find((dept) => dept.id === id)
-  }
-
-  createDepartment(department: Omit<Department, "id" | "createdAt" | "updatedAt">): Department {
-    const newDepartment: Department = {
-      ...department,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  async getDepartments(): Promise<Department[]> {
+    try {
+      const apiDepartments = await departmentApi.getAllDepartmentsList()
+      return apiDepartments.map(dept => departmentApi.convertToDepartment(dept))
+    } catch (error) {
+      console.error('Failed to fetch departments from API, falling back to mock data:', error)
+      return this.departments
     }
-    this.departments.push(newDepartment)
-    return newDepartment
   }
 
-  updateDepartment(id: string, updates: Partial<Department>): Department | null {
-    const index = this.departments.findIndex((dept) => dept.id === id)
-    if (index === -1) return null
-
-    this.departments[index] = {
-      ...this.departments[index],
-      ...updates,
-      updatedAt: new Date().toISOString(),
+  async getDepartment(id: string): Promise<Department | undefined> {
+    try {
+      const apiDepartment = await departmentApi.getDepartmentById(id)
+      return departmentApi.convertToDepartment(apiDepartment)
+    } catch (error) {
+      console.error('Failed to fetch department:', error)
+      // Fallback to mock data
+      return this.departments.find((dept) => dept.id === id)
     }
-    return this.departments[index]
   }
 
-  deleteDepartment(id: string): boolean {
-    const index = this.departments.findIndex((dept) => dept.id === id)
-    if (index === -1) return false
+  async createDepartment(department: Omit<Department, "id" | "createdAt" | "updatedAt">): Promise<Department> {
+    try {
+      const apiRequest = departmentApi.convertToApiRequest({
+        ...department,
+        id: '',
+        createdAt: '',
+        updatedAt: '',
+      } as Department)
+      const apiResponse = await departmentApi.createDepartment(apiRequest)
+      return departmentApi.convertToDepartment(apiResponse)
+    } catch (error) {
+      console.error('Failed to create department:', error)
+      // Fallback to mock data behavior
+      const newDepartment: Department = {
+        ...department,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      this.departments.push(newDepartment)
+      return newDepartment
+    }
+  }
 
-    this.departments.splice(index, 1)
-    return true
+  async updateDepartment(id: string, updates: Partial<Department>): Promise<Department | null> {
+    try {
+      const existingDepartment = await this.getDepartment(id)
+      if (!existingDepartment) return null
+
+      const updatedDepartment = { ...existingDepartment, ...updates }
+      const apiRequest = departmentApi.convertToApiRequest(updatedDepartment)
+      const apiResponse = await departmentApi.updateDepartment(id, { ...apiRequest, id })
+      return departmentApi.convertToDepartment(apiResponse)
+    } catch (error) {
+      console.error('Failed to update department:', error)
+      // Fallback to mock data behavior
+      const index = this.departments.findIndex((dept) => dept.id === id)
+      if (index === -1) return null
+
+      this.departments[index] = {
+        ...this.departments[index],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      }
+      return this.departments[index]
+    }
+  }
+
+  async deleteDepartment(id: string): Promise<boolean> {
+    try {
+      await departmentApi.deleteDepartment(id)
+      return true
+    } catch (error) {
+      console.error('Failed to delete department:', error)
+      // Fallback to mock data behavior
+      const index = this.departments.findIndex((dept) => dept.id === id)
+      if (index === -1) return false
+
+      this.departments.splice(index, 1)
+      return true
+    }
+  }
+
+  async getDepartmentEmployees(departmentId: string): Promise<Employee[]> {
+    try {
+      return await departmentApi.getDepartmentEmployees(departmentId)
+    } catch (error) {
+      console.error('Failed to fetch department employees:', error)
+      // Fallback to filtering mock employees by department name
+      const department = this.departments.find(d => d.id === departmentId)
+      if (department) {
+        return this.employees.filter(emp => emp.department === department.name)
+      }
+      return []
+    }
+  }
+
+  async getDepartmentStatistics(): Promise<DepartmentStatistics> {
+    try {
+      return await departmentApi.getDepartmentStatistics()
+    } catch (error) {
+      console.error('Failed to fetch department statistics:', error)
+      // Fallback to calculated statistics
+      const total = this.departments.length
+      const totalEmployees = this.departments.reduce((sum, dept) => sum + dept.employeeCount, 0)
+      const avgEmployees = total > 0 ? totalEmployees / total : 0
+      
+      const largest = this.departments.reduce((max, dept) => 
+        dept.employeeCount > max.employeeCount ? dept : max, this.departments[0] || { name: '', employeeCount: 0 })
+
+      return {
+        totalDepartments: total,
+        totalEmployees,
+        averageEmployeesPerDepartment: Math.round(avgEmployees),
+        largestDepartment: {
+          name: largest.name,
+          employeeCount: largest.employeeCount,
+        },
+      }
+    }
+  }
+
+  searchDepartments(query: string): Department[] {
+    const lowercaseQuery = query.toLowerCase()
+    return this.departments.filter(
+      (dept) =>
+        dept.name.toLowerCase().includes(lowercaseQuery) ||
+        (dept.description && dept.description.toLowerCase().includes(lowercaseQuery))
+    )
   }
 
   // Access level operations
@@ -311,109 +287,218 @@ class DataService {
     return this.accessLevels
   }
 
-  // Custom field operations
-  // Custom Fields operations - using real API
-  async getCustomFields(): Promise<CustomField[]> {
+  // Position operations
+  async getPositions(): Promise<Position[]> {
     try {
-      return await customFieldsApi.getAllCustomFieldsList()
+      const apiPositions = await positionApi.getAllPositionsList()
+      return apiPositions.map(pos => positionApi.convertToPosition(pos))
     } catch (error) {
-      console.error('Failed to fetch custom fields from API, falling back to mock data:', error)
-      return this.customFields
+      console.error('Failed to fetch positions:', error)
+      // Fallback to mock data
+      return this.positions
     }
   }
 
-  async createCustomField(field: Omit<CustomField, "id">): Promise<CustomField> {
+  async getPosition(id: string): Promise<Position | undefined> {
     try {
-      return await customFieldsApi.createCustomField({
-        name: field.name,
-        type: field.type,
-        options: field.options,
-        required: field.required,
-        category: field.category,
-        order: field.order,
-        description: field.description,
-        defaultValue: field.defaultValue,
-        validationRules: field.validationRules,
-        isActive: true,
-      })
+      const apiPosition = await positionApi.getPositionById(id)
+      return positionApi.convertToPosition(apiPosition)
     } catch (error) {
-      console.error('Failed to create custom field via API, falling back to mock data:', error)
-      const newField: CustomField = {
-        ...field,
+      console.error('Failed to fetch position:', error)
+      // Fallback to mock data
+      return this.positions.find((pos) => pos.id === id)
+    }
+  }
+
+  async createPosition(position: Omit<Position, "id" | "createdAt" | "updatedAt">): Promise<Position> {
+    try {
+      const apiRequest = positionApi.convertToApiRequest({
+        ...position,
+        id: '',
+        createdAt: '',
+        updatedAt: '',
+        childrenCount: 0,
+      } as Position)
+      const apiResponse = await positionApi.createPosition(apiRequest)
+      return positionApi.convertToPosition(apiResponse)
+    } catch (error) {
+      console.error('Failed to create position:', error)
+      // Fallback to mock data behavior
+      const newPosition: Position = {
+        ...position,
         id: Date.now().toString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        childrenCount: 0,
       }
-      this.customFields.push(newField)
-      return newField
+      this.positions.push(newPosition)
+      return newPosition
     }
   }
 
-  async updateCustomField(id: string, updates: Partial<CustomField>): Promise<CustomField | null> {
+  async updatePosition(id: string, updates: Partial<Position>): Promise<Position | null> {
     try {
-      const existingField = await customFieldsApi.getCustomFieldById(id)
-      const updatedData = {
-        name: updates.name || existingField.name,
-        type: updates.type || existingField.type,
-        options: updates.options || existingField.options,
-        required: updates.required !== undefined ? updates.required : existingField.required,
-        category: updates.category || existingField.category,
-        order: updates.order !== undefined ? updates.order : existingField.order,
-        description: updates.description || existingField.description,
-        defaultValue: updates.defaultValue || existingField.defaultValue,
-        validationRules: updates.validationRules || existingField.validationRules,
-        isActive: updates.isActive !== undefined ? updates.isActive : true,
-      }
-      return await customFieldsApi.updateCustomField(id, updatedData)
+      const existingPosition = await this.getPosition(id)
+      if (!existingPosition) return null
+
+      const updatedPosition = { ...existingPosition, ...updates }
+      const apiRequest = positionApi.convertToApiRequest(updatedPosition)
+      const apiResponse = await positionApi.updatePosition(id, { ...apiRequest, id })
+      return positionApi.convertToPosition(apiResponse)
     } catch (error) {
-      console.error('Failed to update custom field via API, falling back to mock data:', error)
-      const index = this.customFields.findIndex((field) => field.id === id)
+      console.error('Failed to update position:', error)
+      // Fallback to mock data behavior
+      const index = this.positions.findIndex((pos) => pos.id === id)
       if (index === -1) return null
 
-      this.customFields[index] = { ...this.customFields[index], ...updates }
-      return this.customFields[index]
+      this.positions[index] = {
+        ...this.positions[index],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      }
+      return this.positions[index]
     }
   }
 
-  async deleteCustomField(id: string): Promise<boolean> {
+  async deletePosition(id: string): Promise<boolean> {
     try {
-      await customFieldsApi.deleteCustomField(id)
+      await positionApi.deletePosition(id)
       return true
     } catch (error) {
-      console.error('Failed to delete custom field via API, falling back to mock data:', error)
-      const index = this.customFields.findIndex((field) => field.id === id)
+      console.error('Failed to delete position:', error)
+      // Fallback to mock data behavior
+      const index = this.positions.findIndex((pos) => pos.id === id)
       if (index === -1) return false
 
-      this.customFields.splice(index, 1)
+      this.positions.splice(index, 1)
       return true
     }
   }
 
-  // Document operations
-  getDocuments(): DocumentLibrary[] {
-    return this.documents
-  }
-
-  createDocument(document: Omit<DocumentLibrary, "id">): DocumentLibrary {
-    const newDocument: DocumentLibrary = {
-      ...document,
-      id: Date.now().toString(),
+  async getPositionsByLevel(level: string): Promise<Position[]> {
+    try {
+      const apiPositions = await positionApi.getPositionsByLevel(level)
+      return apiPositions.map(pos => positionApi.convertToPosition(pos))
+    } catch (error) {
+      console.error('Failed to fetch positions by level:', error)
+      return this.positions.filter(pos => pos.level === level)
     }
-    this.documents.push(newDocument)
-    return newDocument
   }
 
-  deleteDocument(id: string): boolean {
-    const index = this.documents.findIndex((doc) => doc.id === id)
-    if (index === -1) return false
+  async getActivePositions(): Promise<Position[]> {
+    try {
+      const apiPositions = await positionApi.getAllActivePositions()
+      return apiPositions.map(pos => positionApi.convertToPosition(pos))
+    } catch (error) {
+      console.error('Failed to fetch active positions:', error)
+      return this.positions.filter(pos => pos.isActive)
+    }
+  }
 
-    this.documents.splice(index, 1)
-    return true
+  async getRootPositions(): Promise<Position[]> {
+    try {
+      const apiPositions = await positionApi.getRootPositions()
+      return apiPositions.map(pos => positionApi.convertToPosition(pos))
+    } catch (error) {
+      console.error('Failed to fetch root positions:', error)
+      return this.positions.filter(pos => !pos.parentId)
+    }
+  }
+
+  async getChildPositions(parentId: string): Promise<Position[]> {
+    try {
+      const apiPositions = await positionApi.getChildPositions(parentId)
+      return apiPositions.map(pos => positionApi.convertToPosition(pos))
+    } catch (error) {
+      console.error('Failed to fetch child positions:', error)
+      return this.positions.filter(pos => pos.parentId === parentId)
+    }
+  }
+
+  async bulkDeletePositions(positionIds: string[]): Promise<boolean> {
+    try {
+      await positionApi.bulkDeletePositions(positionIds)
+      return true
+    } catch (error) {
+      console.error('Failed to bulk delete positions:', error)
+      // Fallback to individual deletes
+      for (const id of positionIds) {
+        await this.deletePosition(id)
+      }
+      return true
+    }
+  }
+
+  async getPositionStatistics(): Promise<any> {
+    try {
+      return await positionApi.getPositionStatistics()
+    } catch (error) {
+      console.error('Failed to fetch position statistics:', error)
+      // Fallback to calculated statistics
+      const total = this.positions.length
+      const active = this.positions.filter(pos => pos.isActive).length
+      const inactive = total - active
+      const root = this.positions.filter(pos => !pos.parentId).length
+      
+      const byLevel: Record<string, number> = {}
+      this.positions.forEach(pos => {
+        byLevel[pos.levelDisplayName || pos.level] = (byLevel[pos.levelDisplayName || pos.level] || 0) + 1
+      })
+
+      return {
+        totalPositions: total,
+        activePositions: active,
+        inactivePositions: inactive,
+        rootPositions: root,
+        positionsByLevel: byLevel,
+      }
+    }
+  }
+
+  searchPositions(query: string): Position[] {
+    const lowercaseQuery = query.toLowerCase()
+    return this.positions.filter(
+      (pos) =>
+        pos.name.toLowerCase().includes(lowercaseQuery) ||
+        (pos.description && pos.description.toLowerCase().includes(lowercaseQuery))
+    )
   }
 
   // Vehicle operations
-  // Vehicle operations - using real API
-  async getVehicles(page: number = 0, size: number = 10, sortBy: string = 'createdAt', sortDir: string = 'desc'): Promise<{vehicles: Vehicle[], totalElements: number, totalPages: number, currentPage: number}> {
+  async getVehicles(page: number = 0, size: number = 10, sort: string = 'createdAt', direction: string = 'desc'): Promise<{
+    vehicles: Vehicle[]
+    totalElements: number
+    totalPages: number
+    currentPage: number
+    pageSize: number
+  }> {
     try {
-      const response = await vehicleApi.getAllVehicles(page, size, sortBy, sortDir)
+      return await vehicleApi.getAllVehiclesPaginated(page, size, sort, direction)
+    } catch (error) {
+      console.error('Failed to fetch vehicles from API, falling back to mock data:', error)
+      // Calculate pagination for mock data
+      const startIndex = page * size
+      const endIndex = startIndex + size
+      const paginatedVehicles = this.vehicles.slice(startIndex, endIndex)
+      
+      return {
+        vehicles: paginatedVehicles,
+        totalElements: this.vehicles.length,
+        totalPages: Math.ceil(this.vehicles.length / size),
+        currentPage: page,
+        pageSize: size
+      }
+    }
+  }
+
+  async getVehicles(page: number = 0, size: number = 10, sort: string = 'updatedAt', direction: string = 'desc'): Promise<{
+    vehicles: Vehicle[]
+    totalElements: number
+    totalPages: number
+    currentPage: number
+  }> {
+    try {
+      const response = await vehicleApi.getAllVehicles(page, size, sort, direction)
       return {
         vehicles: response.content,
         totalElements: response.totalElements,
@@ -422,16 +507,15 @@ class DataService {
       }
     } catch (error) {
       console.error('Failed to fetch vehicles from API, falling back to mock data:', error)
-      // For mock data, implement simple pagination
+      // Fallback to mock data with pagination simulation
       const startIndex = page * size
       const endIndex = startIndex + size
       const paginatedVehicles = this.vehicles.slice(startIndex, endIndex)
-      const totalPages = Math.ceil(this.vehicles.length / size)
       
       return {
         vehicles: paginatedVehicles,
         totalElements: this.vehicles.length,
-        totalPages: totalPages,
+        totalPages: Math.ceil(this.vehicles.length / size),
         currentPage: page
       }
     }
@@ -448,27 +532,22 @@ class DataService {
 
   async createVehicle(vehicle: Omit<Vehicle, "id" | "createdAt" | "updatedAt">): Promise<Vehicle> {
     try {
-      const response = await vehicleApi.createVehicle({
+      return await vehicleApi.createVehicle({
         employeeId: vehicle.employeeId,
         employeeName: vehicle.employeeName,
         licensePlate: vehicle.licensePlate,
         vehicleType: vehicle.vehicleType,
         brand: vehicle.brand,
         model: vehicle.model,
-        color: vehicle.color,
         year: vehicle.year,
-        engineNumber: vehicle.engineNumber,
-        chassisNumber: vehicle.chassisNumber,
-        registrationDate: vehicle.registrationDate,
-        expiryDate: vehicle.expiryDate,
-        insuranceNumber: vehicle.insuranceNumber,
-        insuranceExpiry: vehicle.insuranceExpiry,
-        status: vehicle.status,
+        color: vehicle.color,
         fuelType: vehicle.fuelType,
-        capacity: vehicle.capacity,
+        status: vehicle.status,
+        registrationDate: vehicle.registrationDate,
+        lastMaintenanceDate: vehicle.lastMaintenanceDate,
+        nextMaintenanceDate: vehicle.nextMaintenanceDate,
         notes: vehicle.notes,
       })
-      return response.vehicle
     } catch (error) {
       console.error('Failed to create vehicle via API, falling back to mock data:', error)
       const newVehicle: Vehicle = {
@@ -482,49 +561,11 @@ class DataService {
     }
   }
 
-  async createVehicleWithResponse(vehicle: Omit<Vehicle, "id" | "createdAt" | "updatedAt">): Promise<{vehicle: Vehicle, alreadyExists: boolean, message: string}> {
-    try {
-      const response = await vehicleApi.createVehicle({
-        employeeId: vehicle.employeeId,
-        employeeName: vehicle.employeeName,
-        licensePlate: vehicle.licensePlate,
-        vehicleType: vehicle.vehicleType,
-        brand: vehicle.brand,
-        model: vehicle.model,
-        color: vehicle.color,
-        year: vehicle.year,
-        engineNumber: vehicle.engineNumber,
-        chassisNumber: vehicle.chassisNumber,
-        registrationDate: vehicle.registrationDate,
-        expiryDate: vehicle.expiryDate,
-        insuranceNumber: vehicle.insuranceNumber,
-        insuranceExpiry: vehicle.insuranceExpiry,
-        status: vehicle.status,
-        fuelType: vehicle.fuelType,
-        capacity: vehicle.capacity,
-        notes: vehicle.notes,
-      })
-      return response
-    } catch (error) {
-      console.error('Failed to create vehicle via API, falling back to mock data:', error)
-      const newVehicle: Vehicle = {
-        ...vehicle,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-      this.vehicles.push(newVehicle)
-      return {
-        vehicle: newVehicle,
-        alreadyExists: false,
-        message: "Xe đã được tạo thành công (mock data)"
-      }
-    }
-  }
-
   async updateVehicle(id: string, updates: Partial<Vehicle>): Promise<Vehicle | null> {
     try {
-      const existingVehicle = await vehicleApi.getVehicleById(id)
+      const existingVehicle = await this.getVehicle(id)
+      if (!existingVehicle) return null
+
       const updatedData = {
         employeeId: updates.employeeId || existingVehicle.employeeId,
         employeeName: updates.employeeName || existingVehicle.employeeName,
@@ -532,19 +573,16 @@ class DataService {
         vehicleType: updates.vehicleType || existingVehicle.vehicleType,
         brand: updates.brand || existingVehicle.brand,
         model: updates.model || existingVehicle.model,
+        year: updates.year || existingVehicle.year,
         color: updates.color || existingVehicle.color,
-        year: updates.year !== undefined ? updates.year : existingVehicle.year,
-        engineNumber: updates.engineNumber || existingVehicle.engineNumber,
-        chassisNumber: updates.chassisNumber || existingVehicle.chassisNumber,
-        registrationDate: updates.registrationDate || existingVehicle.registrationDate,
-        expiryDate: updates.expiryDate || existingVehicle.expiryDate,
-        insuranceNumber: updates.insuranceNumber || existingVehicle.insuranceNumber,
-        insuranceExpiry: updates.insuranceExpiry || existingVehicle.insuranceExpiry,
-        status: updates.status || existingVehicle.status,
         fuelType: updates.fuelType || existingVehicle.fuelType,
-        capacity: updates.capacity !== undefined ? updates.capacity : existingVehicle.capacity,
+        status: updates.status || existingVehicle.status,
+        registrationDate: updates.registrationDate || existingVehicle.registrationDate,
+        lastMaintenanceDate: updates.lastMaintenanceDate || existingVehicle.lastMaintenanceDate,
+        nextMaintenanceDate: updates.nextMaintenanceDate || existingVehicle.nextMaintenanceDate,
         notes: updates.notes || existingVehicle.notes,
       }
+
       return await vehicleApi.updateVehicle(id, updatedData)
     } catch (error) {
       console.error('Failed to update vehicle via API, falling back to mock data:', error)
@@ -574,345 +612,11 @@ class DataService {
     }
   }
 
-  // Entry/exit request operations - using real API
-  async getEntryExitRequests(): Promise<EntryExitRequest[]> {
-    try {
-      return await entryExitRequestApi.getAllRequestsList()
-    } catch (error) {
-      console.error('Failed to fetch entry/exit requests from API, falling back to mock data:', error)
-      return this.entryExitRequests
-    }
-  }
-
-  async createEntryExitRequest(request: Omit<EntryExitRequest, "id" | "createdAt">): Promise<EntryExitRequest> {
-    try {
-      return await entryExitRequestApi.createRequest({
-        employeeId: request.employeeId,
-        employeeName: request.employeeName,
-        vehicleId: request.vehicleId,
-        licensePlate: request.licensePlate,
-        requestType: request.requestType,
-        requestTime: request.requestTime,
-        approvedBy: request.approvedBy,
-        approvedAt: request.approvedAt,
-        status: request.status,
-        notes: request.notes,
-      })
-    } catch (error) {
-      console.error('Failed to create entry/exit request via API, falling back to mock data:', error)
-      const newRequest: EntryExitRequest = {
-        ...request,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-      }
-      this.entryExitRequests.push(newRequest)
-      return newRequest
-    }
-  }
-
-  async updateEntryExitRequest(id: string, updates: Partial<EntryExitRequest>): Promise<EntryExitRequest | null> {
-    try {
-      // Use dedicated approve endpoint if available
-      if (updates.status === "approved" && updates.approvedBy) {
-        return await entryExitRequestApi.approveRequest(id, updates.approvedBy)
-      } else {
-        // Fallback to general update for other fields
-        const existingRequest = await entryExitRequestApi.getRequestById(id)
-        const updatedData = {
-          employeeId: updates.employeeId || existingRequest.employeeId,
-          employeeName: updates.employeeName || existingRequest.employeeName,
-          vehicleId: updates.vehicleId || existingRequest.vehicleId,
-          licensePlate: updates.licensePlate || existingRequest.licensePlate,
-          requestType: updates.requestType || existingRequest.requestType,
-          requestTime: updates.requestTime || existingRequest.requestTime,
-          approvedBy: updates.approvedBy || existingRequest.approvedBy,
-          approvedAt: updates.approvedAt || existingRequest.approvedAt,
-          status: updates.status || existingRequest.status,
-          notes: updates.notes || existingRequest.notes,
-        }
-        return await entryExitRequestApi.updateRequest(id, updatedData)
-      }
-    } catch (error) {
-      console.error('Failed to update entry/exit request via API, falling back to mock data:', error)
-      const index = this.entryExitRequests.findIndex((request) => request.id === id)
-      if (index === -1) return null
-
-      this.entryExitRequests[index] = {
-        ...this.entryExitRequests[index],
-        ...updates,
-      }
-      return this.entryExitRequests[index]
-    }
-  }
-
-  async deleteEntryExitRequest(id: string): Promise<boolean> {
-    try {
-      await entryExitRequestApi.deleteRequest(id)
-      return true
-    } catch (error) {
-      console.error('Failed to delete entry/exit request via API, falling back to mock data:', error)
-      const index = this.entryExitRequests.findIndex((request) => request.id === id)
-      if (index === -1) return false
-
-      this.entryExitRequests.splice(index, 1)
-      return true
-    }
-  }
-
   // Vehicle Statistics operations
   async getVehicleStatistics(): Promise<VehicleStatistics> {
     return await vehicleStatisticsApi.getVehicleStatistics()
   }
 
-  // Legacy method - keeping for backward compatibility but should not be used
-  getVehicleStatisticsSync(): VehicleStatistics {
-    const vehicles = this.vehicles
-    const requests = this.entryExitRequests
-
-    // Basic vehicle stats
-    const totalVehicles = vehicles.length
-    const activeVehicles = vehicles.filter(v => v.status === "active").length
-    const inactiveVehicles = vehicles.filter(v => v.status === "inactive").length
-    const maintenanceVehicles = vehicles.filter(v => v.status === "maintenance").length
-    const retiredVehicles = vehicles.filter(v => v.status === "retired").length
-
-    // Vehicle type stats
-    const vehicleTypeStats = {
-      car: vehicles.filter(v => v.vehicleType === "car").length,
-      motorbike: vehicles.filter(v => v.vehicleType === "motorbike").length,
-      truck: vehicles.filter(v => v.vehicleType === "truck").length,
-      bus: vehicles.filter(v => v.vehicleType === "bus").length,
-    }
-
-    // Fuel type stats
-    const fuelTypeStats = {
-      gasoline: vehicles.filter(v => v.fuelType === "gasoline").length,
-      diesel: vehicles.filter(v => v.fuelType === "diesel").length,
-      electric: vehicles.filter(v => v.fuelType === "electric").length,
-      hybrid: vehicles.filter(v => v.fuelType === "hybrid").length,
-    }
-
-    // Entry/Exit stats
-    const entryExitStats = {
-      totalRequests: requests.length,
-      approvedRequests: requests.filter(r => r.status === "approved").length,
-      pendingRequests: requests.filter(r => r.status === "pending").length,
-      rejectedRequests: requests.filter(r => r.status === "rejected").length,
-      completedRequests: requests.filter(r => r.status === "completed").length,
-      entryRequests: requests.filter(r => r.requestType === "entry").length,
-      exitRequests: requests.filter(r => r.requestType === "exit").length,
-    }
-
-    // Generate daily, weekly, and monthly stats
-    const dailyStats = this.generateDailyStats(requests)
-    const weeklyStats = this.generateWeeklyStats(requests)
-    const monthlyStats = this.generateMonthlyStats(requests)
-
-    return {
-      totalVehicles,
-      activeVehicles,
-      inactiveVehicles,
-      maintenanceVehicles,
-      retiredVehicles,
-      vehicleTypeStats,
-      fuelTypeStats,
-      entryExitStats,
-      dailyStats,
-      weeklyStats,
-      monthlyStats,
-    }
-  }
-
-  private generateDailyStats(requests: EntryExitRequest[]): VehicleDailyStats[] {
-    const dailyMap = new Map<string, VehicleDailyStats>()
-    const uniqueVehiclesPerDay = new Map<string, Set<string>>()
-
-    requests.forEach(request => {
-      const date = new Date(request.requestTime).toISOString().split('T')[0]
-      
-      if (!dailyMap.has(date)) {
-        dailyMap.set(date, {
-          date,
-          entryCount: 0,
-          exitCount: 0,
-          totalRequests: 0,
-          approvedCount: 0,
-          pendingCount: 0,
-          rejectedCount: 0,
-          completedCount: 0,
-          uniqueVehicles: 0,
-        })
-        uniqueVehiclesPerDay.set(date, new Set())
-      }
-
-      const dayStats = dailyMap.get(date)!
-      uniqueVehiclesPerDay.get(date)!.add(request.vehicleId)
-
-      dayStats.totalRequests++
-      if (request.requestType === "entry") {
-        dayStats.entryCount++
-      } else {
-        dayStats.exitCount++
-      }
-
-      if (request.status === "approved") dayStats.approvedCount++
-      else if (request.status === "pending") dayStats.pendingCount++
-      else if (request.status === "rejected") dayStats.rejectedCount++
-      else if (request.status === "completed") dayStats.completedCount++
-    })
-
-    // Set unique vehicles count
-    dailyMap.forEach((stats, date) => {
-      stats.uniqueVehicles = uniqueVehiclesPerDay.get(date)!.size
-    })
-
-    return Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date))
-  }
-
-  private generateWeeklyStats(requests: EntryExitRequest[]): VehicleWeeklyStats[] {
-    const weeklyMap = new Map<string, VehicleWeeklyStats>()
-    const uniqueVehiclesPerWeek = new Map<string, Set<string>>()
-
-    requests.forEach(request => {
-      const date = new Date(request.requestTime)
-      const weekStart = this.getWeekStart(date)
-      const weekKey = weekStart.toISOString().split('T')[0]
-      const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekEnd.getDate() + 6)
-      
-      if (!weeklyMap.has(weekKey)) {
-        weeklyMap.set(weekKey, {
-          week: this.getWeekNumber(date),
-          startDate: weekStart.toISOString().split('T')[0],
-          endDate: weekEnd.toISOString().split('T')[0],
-          entryCount: 0,
-          exitCount: 0,
-          totalRequests: 0,
-          approvedCount: 0,
-          pendingCount: 0,
-          rejectedCount: 0,
-          completedCount: 0,
-          uniqueVehicles: 0,
-          averageDailyRequests: 0,
-        })
-        uniqueVehiclesPerWeek.set(weekKey, new Set())
-      }
-
-      const weekStats = weeklyMap.get(weekKey)!
-      uniqueVehiclesPerWeek.get(weekKey)!.add(request.vehicleId)
-
-      weekStats.totalRequests++
-      if (request.requestType === "entry") {
-        weekStats.entryCount++
-      } else {
-        weekStats.exitCount++
-      }
-
-      if (request.status === "approved") weekStats.approvedCount++
-      else if (request.status === "pending") weekStats.pendingCount++
-      else if (request.status === "rejected") weekStats.rejectedCount++
-      else if (request.status === "completed") weekStats.completedCount++
-    })
-
-    // Set unique vehicles count and average daily requests
-    weeklyMap.forEach((stats, weekKey) => {
-      stats.uniqueVehicles = uniqueVehiclesPerWeek.get(weekKey)!.size
-      stats.averageDailyRequests = Math.round((stats.totalRequests / 7) * 10) / 10
-    })
-
-    return Array.from(weeklyMap.values()).sort((a, b) => a.startDate.localeCompare(b.startDate))
-  }
-
-  private generateMonthlyStats(requests: EntryExitRequest[]): VehicleMonthlyStats[] {
-    const monthlyMap = new Map<string, VehicleMonthlyStats>()
-    const uniqueVehiclesPerMonth = new Map<string, Set<string>>()
-    const dailyRequestsPerMonth = new Map<string, Map<string, number>>()
-
-    requests.forEach(request => {
-      const date = new Date(request.requestTime)
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const dayKey = date.toISOString().split('T')[0]
-      
-      if (!monthlyMap.has(monthKey)) {
-        monthlyMap.set(monthKey, {
-          month: date.getMonth() + 1,
-          year: date.getFullYear(),
-          entryCount: 0,
-          exitCount: 0,
-          totalRequests: 0,
-          approvedCount: 0,
-          pendingCount: 0,
-          rejectedCount: 0,
-          completedCount: 0,
-          uniqueVehicles: 0,
-          averageDailyRequests: 0,
-          peakDay: { date: "", requestCount: 0 },
-        })
-        uniqueVehiclesPerMonth.set(monthKey, new Set())
-        dailyRequestsPerMonth.set(monthKey, new Map())
-      }
-
-      const monthStats = monthlyMap.get(monthKey)!
-      uniqueVehiclesPerMonth.get(monthKey)!.add(request.vehicleId)
-      
-      const dayRequests = dailyRequestsPerMonth.get(monthKey)!
-      dayRequests.set(dayKey, (dayRequests.get(dayKey) || 0) + 1)
-
-      monthStats.totalRequests++
-      if (request.requestType === "entry") {
-        monthStats.entryCount++
-      } else {
-        monthStats.exitCount++
-      }
-
-      if (request.status === "approved") monthStats.approvedCount++
-      else if (request.status === "pending") monthStats.pendingCount++
-      else if (request.status === "rejected") monthStats.rejectedCount++
-      else if (request.status === "completed") monthStats.completedCount++
-    })
-
-    // Set unique vehicles count, average daily requests, and peak day
-    monthlyMap.forEach((stats, monthKey) => {
-      stats.uniqueVehicles = uniqueVehiclesPerMonth.get(monthKey)!.size
-      const daysInMonth = new Date(stats.year, parseInt(monthKey.split('-')[1]), 0).getDate()
-      stats.averageDailyRequests = Math.round((stats.totalRequests / daysInMonth) * 10) / 10
-      
-      const dayRequests = dailyRequestsPerMonth.get(monthKey)!
-      let peakDay = { date: "", requestCount: 0 }
-      dayRequests.forEach((count, date) => {
-        if (count > peakDay.requestCount) {
-          peakDay = { date, requestCount: count }
-        }
-      })
-      stats.peakDay = peakDay
-    })
-
-    return Array.from(monthlyMap.values()).sort((a, b) => {
-      if (a.year !== b.year) return a.year - b.year
-      return a.month - b.month
-    })
-  }
-
-  private getWeekStart(date: Date): Date {
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
-    return new Date(d.setDate(diff))
-  }
-
-  private getWeekNumber(date: Date): number {
-    const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-    const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)
-  }
-
-  private getMonthName(monthIndex: number): string {
-    const months = [
-      "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-      "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"
-    ]
-    return months[monthIndex]
-  }
 }
 
 export const dataService = new DataService()

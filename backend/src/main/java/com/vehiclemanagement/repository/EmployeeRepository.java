@@ -21,6 +21,12 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     
     List<Employee> findByDepartment(String department);
     
+    List<Employee> findByDepartmentId(UUID departmentId);
+    
+    Long countByDepartment(String department);
+    
+    Long countByDepartmentId(UUID departmentId);
+    
     List<Employee> findByStatus(Employee.EmployeeStatus status);
     
     @Query("SELECT e FROM Employee e WHERE " +

@@ -8,8 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Search, Filter, Download, Car as CarIcon, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react"
+import { Search, Filter, Download, Car as CarIcon, MoreHorizontal, Edit, Trash2, Eye, Check, X } from "lucide-react"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
 
@@ -21,6 +20,8 @@ interface VehicleTableProps {
   onAddNew: () => void
   onBulkUpdate?: (vehicleIds: string[]) => void
   onRefresh?: () => void
+  onApprove?: (vehicle: Vehicle) => void
+  onReject?: (vehicle: Vehicle) => void
   // Pagination props
   currentPage: number
   totalPages: number
@@ -30,14 +31,16 @@ interface VehicleTableProps {
   onPageSizeChange: (size: number) => void
 }
 
-export function VehicleTable({ 
-  vehicles, 
-  onEdit, 
-  onDelete, 
-  onView, 
-  onAddNew, 
-  onBulkUpdate, 
+export function VehicleTable({
+  vehicles,
+  onEdit,
+  onDelete,
+  onView,
+  onAddNew,
+  onBulkUpdate,
   onRefresh,
+  onApprove,
+  onReject,
   currentPage,
   totalPages,
   totalElements,
@@ -70,7 +73,7 @@ export function VehicleTable({
 
   // Client-side filtering for current page
   const filteredVehicles = vehicles.filter((vehicle) => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,18 +86,18 @@ export function VehicleTable({
 
   const getStatusBadge = (status: Vehicle["status"]) => {
     switch (status) {
-      case "active":
+      case "approved":
         return (
           <Badge variant="default" className="bg-green-100 text-green-800">
-            Hoạt động
+            Duyệt
           </Badge>
         )
-      case "inactive":
-        return <Badge variant="secondary">Không hoạt động</Badge>
-      case "maintenance":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Bảo trì</Badge>
-      case "retired":
-        return <Badge variant="destructive">Đã nghỉ hưu</Badge>
+      case "rejected":
+        return <Badge variant="destructive" className="bg-red-100 text-red-800">Không được phép</Badge>
+      case "exited":
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">Đã ra</Badge>
+      case "entered":
+        return <Badge variant="secondary" className="bg-purple-100 text-purple-800">Đã vào</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -127,200 +130,160 @@ export function VehicleTable({
 
   return (
     <div className="space-y-4">
-      {/* Search and Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-2 flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Biển số xe"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full sm:w-48"
-            />
-          </div>
-          <div className="relative">
-            <Input
-              placeholder="Chủ xe"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full sm:w-48"
-            />
-          </div>
-          <div className="relative">
-            <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="active">Hoạt động</SelectItem>
-                <SelectItem value="inactive">Không hoạt động</SelectItem>
-                <SelectItem value="maintenance">Bảo trì</SelectItem>
-                <SelectItem value="retired">Nghỉ hưu</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowAdvancedExport(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            Xuất
-          </Button>
-        </div>
-      </div>
 
-      {/* Action Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border hover:bg-muted text-card-foreground bg-transparent"
-            onClick={onRefresh}
-          >
-            <CarIcon className="h-4 w-4 mr-2" />
-            Làm mới
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border hover:bg-muted text-card-foreground bg-transparent"
-            onClick={onAddNew}
-          >
-            Thêm mới
-          </Button>
-          <Button
-            size="sm"
-            className="bg-blue-600 text-white hover:bg-blue-700"
-            disabled={selectedVehicles.length !== 1}
-            onClick={() => onBulkUpdate?.(selectedVehicles)}
-          >
-            Cập nhật
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={selectedVehicles.length === 0}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            onClick={() => {
-              if (selectedVehicles.length > 0) {
-                if (confirm(`Bạn có chắc chắn muốn xóa ${selectedVehicles.length} xe đã chọn?`)) {
-                  selectedVehicles.forEach(vehicleId => onDelete(vehicleId))
-                  setSelectedVehicles([])
-                }
-              }
-            }}
-          >
-            Xóa
-          </Button>
-        </div>
-      </div>
 
       {/* Data Table */}
       <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
-                  onCheckedChange={handleSelectAll}
-                />
-              </TableHead>
-              <TableHead>Biển số</TableHead>
-              <TableHead>Chủ xe</TableHead>
-              <TableHead>Loại xe</TableHead>
-              <TableHead>Hãng/Model</TableHead>
-              <TableHead>Năm sản xuất</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Hoạt động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredVehicles.length === 0 ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                      <CarIcon className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-muted-foreground">
-                      {vehicles.length === 0 ? "Không có dữ liệu" : "Không tìm thấy kết quả phù hợp"}
-                    </p>
-                  </div>
-                </TableCell>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
+                <TableHead>Biển số</TableHead>
+                <TableHead>Chủ xe</TableHead>
+                <TableHead>Loại xe</TableHead>
+                <TableHead>Hãng/Model</TableHead>
+                <TableHead>Năm sản xuất</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead className="w-32">Hoạt động</TableHead>
               </TableRow>
-            ) : (
-              filteredVehicles.map((vehicle) => (
-                <TableRow key={vehicle.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedVehicles.includes(vehicle.id)}
-                      onCheckedChange={(checked) => handleSelectVehicle(vehicle.id, checked as boolean)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{getVehicleIcon(vehicle.vehicleType)}</span>
-                      {vehicle.licensePlate}
+            </TableHeader>
+            <TableBody>
+              {filteredVehicles.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                        <CarIcon className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground">
+                        {vehicles.length === 0 ? "Không có dữ liệu" : "Không tìm thấy kết quả phù hợp"}
+                      </p>
                     </div>
-                  </TableCell>
-                  <TableCell>{vehicle.employeeName}</TableCell>
-                  <TableCell>{getVehicleTypeLabel(vehicle.vehicleType)}</TableCell>
-                  <TableCell>
-                    {vehicle.brand && vehicle.model ? `${vehicle.brand} ${vehicle.model}` : "-"}
-                  </TableCell>
-                  <TableCell>{vehicle.year || "-"}</TableCell>
-                  <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onView(vehicle)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          Xem
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onEdit(vehicle)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => onDelete(vehicle.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                filteredVehicles.map((vehicle) => (
+                  <TableRow key={vehicle.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedVehicles.includes(vehicle.id)}
+                        onCheckedChange={(checked) => handleSelectVehicle(vehicle.id, checked as boolean)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{getVehicleIcon(vehicle.vehicleType)}</span>
+                        {vehicle.licensePlate}
+                      </div>
+                    </TableCell>
+                    <TableCell>{vehicle.employeeName}</TableCell>
+                    <TableCell>{getVehicleTypeLabel(vehicle.vehicleType)}</TableCell>
+                    <TableCell>
+                      {vehicle.brand && vehicle.model ? `${vehicle.brand} ${vehicle.model}` : "-"}
+                    </TableCell>
+                    <TableCell>{vehicle.year || "-"}</TableCell>
+                    <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const menu = document.getElementById(`menu-${vehicle.id}`)
+                              if (menu) {
+                                menu.classList.toggle('hidden')
+                              }
+                            }}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                          <div
+                            id={`menu-${vehicle.id}`}
+                            className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                          >
+                            {/* Conditional approve/reject actions based on status */}
+                            {vehicle.status === "approved" && onReject && (
+                              <div
+                                className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-red-600"
+                                onClick={() => {
+                                  onReject(vehicle)
+                                  document.getElementById(`menu-${vehicle.id}`)?.classList.add('hidden')
+                                }}
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Không được phép
+                              </div>
+                            )}
+                            {vehicle.status === "rejected" && onApprove && (
+                              <div
+                                className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-green-600"
+                                onClick={() => {
+                                  onApprove(vehicle)
+                                  document.getElementById(`menu-${vehicle.id}`)?.classList.add('hidden')
+                                }}
+                              >
+                                <Check className="h-4 w-4 mr-2" />
+                                Duyệt
+                              </div>
+                            )}
+
+                            {/* Always show edit action */}
+                            <div
+                              className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => {
+                                onEdit(vehicle)
+                                document.getElementById(`menu-${vehicle.id}`)?.classList.add('hidden')
+                              }}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Chỉnh sửa
+                            </div>
+                            
+                            {/* Always show delete action */}
+                            <div
+                              className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-red-600"
+                              onClick={() => {
+                                onDelete(vehicle.id)
+                                document.getElementById(`menu-${vehicle.id}`)?.classList.add('hidden')
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Xóa
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             disabled={currentPage === 0}
             onClick={() => onPageChange(0)}
           >
             {"<<"}
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             disabled={currentPage === 0}
             onClick={() => onPageChange(currentPage - 1)}
           >
@@ -329,16 +292,16 @@ export function VehicleTable({
           <span className="text-sm">
             {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, totalElements)} / {totalElements}
           </span>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             disabled={currentPage >= totalPages - 1}
             onClick={() => onPageChange(currentPage + 1)}
           >
             {">"}
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             disabled={currentPage >= totalPages - 1}
             onClick={() => onPageChange(totalPages - 1)}
@@ -349,8 +312,8 @@ export function VehicleTable({
 
         <div className="flex items-center gap-2 text-sm">
           <span>{pageSize} hàng trên mỗi trang</span>
-          <select 
-            value={pageSize} 
+          <select
+            value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className="px-2 py-1 border rounded text-sm"
           >

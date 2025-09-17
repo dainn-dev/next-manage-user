@@ -184,23 +184,6 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Trạng thái</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => handleInputChange("status", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">✅ Hoạt động</SelectItem>
-                    <SelectItem value="inactive">❌ Không hoạt động</SelectItem>
-                    <SelectItem value="maintenance">🔧 Bảo trì</SelectItem>
-                    <SelectItem value="retired">🏁 Nghỉ hưu</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
 

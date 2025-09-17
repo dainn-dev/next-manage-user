@@ -22,9 +22,8 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/vehicles")
+@RequestMapping("/api/vehicles")
 @Tag(name = "Vehicle Management", description = "APIs for managing vehicles")
-@CrossOrigin(origins = "*")
 public class VehicleController {
     
     @Autowired

@@ -136,18 +136,6 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Yêu cầu ra vào</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{statistics.entryExitStats.totalRequests}</div>
-            <p className="text-xs text-muted-foreground">
-              {statistics.entryExitStats.approvedRequests} đã duyệt, {statistics.entryExitStats.pendingRequests} chờ duyệt
-            </p>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

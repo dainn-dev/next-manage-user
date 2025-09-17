@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Users } from "lucide-react" // Import Users component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, Download, Edit, Trash2, UserPlus } from "lucide-react"
+import { Search, Filter, Download, Edit, Trash2, UserPlus, MoreHorizontal, Eye } from "lucide-react"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
 import { BulkOperationsDialog } from "@/components/employees/bulk-operations-dialog"
@@ -18,11 +18,20 @@ interface EmployeeTableProps {
   onEdit: (employee: Employee) => void
   onDelete: (employeeId: string) => void
   onAdd: () => void
+  selectedEmployees?: string[]
+  onSelectionChange?: (selectedIds: string[]) => void
 }
 
-export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTableProps) {
+export function EmployeeTable({ 
+  employees, 
+  onEdit, 
+  onDelete, 
+  onAdd, 
+  selectedEmployees = [], 
+  onSelectionChange 
+}: EmployeeTableProps) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
+  const [localSelectedEmployees, setLocalSelectedEmployees] = useState<string[]>([])
   const [departmentFilter, setDepartmentFilter] = useState("")
   const [nameFilter, setNameFilter] = useState("")
   const [showAdvancedExport, setShowAdvancedExport] = useState(false)
@@ -40,19 +49,26 @@ export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTa
     return matchesSearch && matchesDepartment && matchesName
   })
 
+  const currentSelectedEmployees = onSelectionChange ? selectedEmployees : localSelectedEmployees
+
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedEmployees(filteredEmployees.map((emp) => emp.id))
+    const newSelection = checked ? filteredEmployees.map((emp) => emp.id) : []
+    if (onSelectionChange) {
+      onSelectionChange(newSelection)
     } else {
-      setSelectedEmployees([])
+      setLocalSelectedEmployees(newSelection)
     }
   }
 
   const handleSelectEmployee = (employeeId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedEmployees((prev) => [...prev, employeeId])
+    const newSelection = checked 
+      ? [...currentSelectedEmployees, employeeId]
+      : currentSelectedEmployees.filter((id) => id !== employeeId)
+    
+    if (onSelectionChange) {
+      onSelectionChange(newSelection)
     } else {
-      setSelectedEmployees((prev) => prev.filter((id) => id !== employeeId))
+      setLocalSelectedEmployees(newSelection)
     }
   }
 
@@ -75,66 +91,6 @@ export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTa
 
   return (
     <div className="space-y-4">
-      {/* Search and Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-2 flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Cơ quan. đơn vị"
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="pl-10 w-full sm:w-48"
-            />
-          </div>
-          <div className="relative">
-            <Input
-              placeholder="ID Quân nhân"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-48"
-            />
-          </div>
-          <div className="relative">
-            <Input
-              placeholder="Tên"
-              value={nameFilter}
-              onChange={(e) => setNameFilter(e.target.value)}
-              className="w-full sm:w-48"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Action Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-border hover:bg-muted text-card-foreground bg-transparent"
-            onClick={onAdd}
-          >
-            Thêm mới
-          </Button>
-          <Button
-            size="sm"
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
-            onClick={() => setShowBulkOperations(true)}
-            disabled={selectedEmployees.length === 0}
-          >
-            Điều chỉnh Quân nhân ({selectedEmployees.length})
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={selectedEmployees.length === 0}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            Xóa
-          </Button>
-        </div>
-      </div>
 
       {/* Data Table */}
       <div className="border rounded-lg">
@@ -143,7 +99,7 @@ export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTa
             <TableRow>
               <TableHead className="w-12">
                 <Checkbox
-                  checked={selectedEmployees.length === filteredEmployees.length && filteredEmployees.length > 0}
+                  checked={currentSelectedEmployees.length === filteredEmployees.length && filteredEmployees.length > 0}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
@@ -155,7 +111,7 @@ export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTa
               <TableHead>Chức vụ</TableHead>
               <TableHead>SQ/QNCN</TableHead>
               <TableHead>Chế độ xác minh</TableHead>
-              <TableHead>Hoạt động</TableHead>
+              <TableHead className="w-32">Hoạt động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -175,7 +131,7 @@ export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTa
                 <TableRow key={employee.id}>
                   <TableCell>
                     <Checkbox
-                      checked={selectedEmployees.includes(employee.id)}
+                      checked={currentSelectedEmployees.includes(employee.id)}
                       onCheckedChange={(checked) => handleSelectEmployee(employee.id, checked as boolean)}
                     />
                   </TableCell>
@@ -188,36 +144,46 @@ export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTa
                   <TableCell>{employee.militaryCivilian || "-"}</TableCell>
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          console.log('Edit button clicked for employee:', employee.id)
-                          onEdit(employee)
-                        }}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        title="Chỉnh sửa nhân viên"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          console.log('Delete button clicked for employee:', employee.id)
-                          onDelete(employee.id)
-                        }}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        title="Xóa nhân viên"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div className="flex items-center gap-2">              
+                      <div className="relative">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            const menu = document.getElementById(`menu-${employee.id}`)
+                            if (menu) {
+                              menu.classList.toggle('hidden')
+                            }
+                          }}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                        <div 
+                          id={`menu-${employee.id}`}
+                          className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                        >
+                          <div 
+                            className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => {
+                              onEdit(employee)
+                              document.getElementById(`menu-${employee.id}`)?.classList.add('hidden')
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Chỉnh sửa
+                          </div>
+                          <div 
+                            className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-red-600"
+                            onClick={() => {
+                              onDelete(employee.id)
+                              document.getElementById(`menu-${employee.id}`)?.classList.add('hidden')
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Xóa
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -279,9 +245,13 @@ export function EmployeeTable({ employees, onEdit, onDelete, onAdd }: EmployeeTa
         <BulkOperationsDialog
           isOpen={showBulkOperations}
           onClose={() => setShowBulkOperations(false)}
-          selectedEmployeeIds={selectedEmployees}
+          selectedEmployeeIds={currentSelectedEmployees}
           onSuccess={() => {
-            setSelectedEmployees([])
+            if (onSelectionChange) {
+              onSelectionChange([])
+            } else {
+              setLocalSelectedEmployees([])
+            }
             // Refresh the employee list
             window.location.reload()
           }}

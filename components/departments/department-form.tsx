@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { Department } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,35 +15,75 @@ interface DepartmentFormProps {
   departments: Department[]
   isOpen: boolean
   onClose: () => void
-  onSave: (department: Omit<Department, "id" | "createdAt" | "updatedAt">) => void
+  onSave: (department: Omit<Department, "id" | "createdAt" | "updatedAt">) => Promise<void>
 }
 
 export function DepartmentForm({ department, departments, isOpen, onClose, onSave }: DepartmentFormProps) {
   const [formData, setFormData] = useState<Partial<Department>>({
-    name: department?.name || "",
-    description: department?.description || "",
-    parentId: department?.parentId || null,
-    managerId: department?.managerId || "",
-    employeeCount: department?.employeeCount || 0,
+    name: "",
+    description: "",
+    parentId: undefined,
+    managerId: undefined,
+    employeeCount: 0,
   })
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    if (isOpen) {
+      if (department) {
+        setFormData({
+          name: department.name || "",
+          description: department.description || "",
+          parentId: department.parentId || undefined,
+          managerId: department.managerId || undefined,
+          employeeCount: department.employeeCount || 0,
+        })
+      } else {
+        setFormData({
+          name: "",
+          description: "",
+          parentId: undefined,
+          managerId: undefined,
+          employeeCount: 0,
+        })
+      }
+    }
+  }, [isOpen, department])
 
   const handleInputChange = (field: keyof Department, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = () => {
-    if (!formData.name) {
-      alert("Vui lòng nhập tên bộ phận")
+  const handleSubmit = async () => {
+    if (!formData.name?.trim()) {
+      toast({
+        title: "Lỗi",
+        description: "Tên đơn vị là bắt buộc",
+        variant: "destructive",
+      })
       return
     }
 
-    onSave({
-      name: formData.name!,
-      description: formData.description || "",
-      parentId: formData.parentId,
-      managerId: formData.managerId,
-      employeeCount: formData.employeeCount || 0,
-    })
+    setLoading(true)
+    try {
+      await onSave({
+        name: formData.name.trim(),
+        description: formData.description?.trim() || "",
+        parentId: formData.parentId || undefined,
+        managerId: formData.managerId || undefined,
+        employeeCount: formData.employeeCount || 0,
+      })
+    } catch (error) {
+      console.error('Error in form submission:', error)
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi lưu đơn vị",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Filter out current department from parent options to prevent circular reference
@@ -80,14 +121,14 @@ export function DepartmentForm({ department, departments, isOpen, onClose, onSav
           <div className="space-y-2">
             <Label htmlFor="parentId">Bộ phận cha</Label>
             <Select
-              value={formData.parentId || null}
-              onValueChange={(value) => handleInputChange("parentId", value || null)}
+              value={formData.parentId || undefined}
+              onValueChange={(value) => handleInputChange("parentId", value === "NONE" ? undefined : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Chọn bộ phận cha (tùy chọn)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={null}>Không có bộ phận cha</SelectItem>
+                <SelectItem value="NONE">Không có bộ phận cha</SelectItem>
                 {availableParents.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id}>
                     {dept.name}
@@ -124,7 +165,9 @@ export function DepartmentForm({ department, departments, isOpen, onClose, onSav
           <Button variant="outline" onClick={onClose}>
             Hủy
           </Button>
-          <Button onClick={handleSubmit}>{department ? "Cập nhật" : "Tạo mới"}</Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading ? "Đang lưu..." : (department ? "Cập nhật" : "Tạo mới")}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

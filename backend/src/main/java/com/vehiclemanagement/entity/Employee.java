@@ -45,6 +45,9 @@ public class Employee {
     
     private String department;
     
+    @Column(name = "department_id")
+    private UUID departmentId;
+    
     private String position;
     
     @Column(name = "rank")
@@ -90,9 +93,6 @@ public class Employee {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<String> permissions;
     
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "custom_fields")
-    private Map<String, Object> customFields;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -103,8 +103,6 @@ public class Employee {
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Vehicle> vehicles;
     
-    @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<EntryExitRequest> requests;
     
     // Constructors
     public Employee() {}
@@ -181,6 +179,14 @@ public class Employee {
     
     public void setDepartment(String department) {
         this.department = department;
+    }
+    
+    public UUID getDepartmentId() {
+        return departmentId;
+    }
+    
+    public void setDepartmentId(UUID departmentId) {
+        this.departmentId = departmentId;
     }
     
     public String getPosition() {
@@ -303,13 +309,6 @@ public class Employee {
         this.permissions = permissions;
     }
     
-    public Map<String, Object> getCustomFields() {
-        return customFields;
-    }
-    
-    public void setCustomFields(Map<String, Object> customFields) {
-        this.customFields = customFields;
-    }
     
     public LocalDateTime getCreatedAt() {
         return createdAt;
@@ -335,13 +334,6 @@ public class Employee {
         this.vehicles = vehicles;
     }
     
-    public List<EntryExitRequest> getRequests() {
-        return requests;
-    }
-    
-    public void setRequests(List<EntryExitRequest> requests) {
-        this.requests = requests;
-    }
     
     @PreUpdate
     public void preUpdate() {

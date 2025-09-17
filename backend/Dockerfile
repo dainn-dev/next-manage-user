@@ -31,7 +31,7 @@ COPY --from=builder /app/target/vehicle-management-api-0.0.1-SNAPSHOT.jar app.ja
 RUN groupadd -g 1001 spring && useradd -r -u 1001 -g spring spring
 
 # Create directories for file operations
-RUN mkdir -p /app/temp /app/csv
+RUN mkdir -p /app/uploads /app/temp /app/csv
 
 # Change ownership to spring user
 RUN chown -R spring:spring /app

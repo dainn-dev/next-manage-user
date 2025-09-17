@@ -1,127 +1,382 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, Download, Plus, RefreshCw } from "lucide-react"
-import { FileText } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Search, Download, Plus, RefreshCw, Trash2, Filter, Users, TrendingUp } from "lucide-react"
+import { PositionForm } from "@/components/positions/position-form"
+import { PositionTable } from "@/components/positions/position-table"
+import { dataService } from "@/lib/data-service"
+import type { Position, PositionLevel } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 
 export default function PositionsPage() {
+  const [positions, setPositions] = useState<Position[]>([])
+  const [filteredPositions, setFilteredPositions] = useState<Position[]>([])
   const [searchTerm, setSearchTerm] = useState("")
-  const [positionName, setPositionName] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [levelFilter, setLevelFilter] = useState<"all" | string>("all")
+  const [selectedPositions, setSelectedPositions] = useState<string[]>([])
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingPosition, setEditingPosition] = useState<Position | null>(null)
+  const [formMode, setFormMode] = useState<"create" | "edit">("create")
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    loadPositions()
+  }, [])
+
+  useEffect(() => {
+    filterPositions()
+  }, [positions, searchTerm, statusFilter, levelFilter])
+
+  const loadPositions = async () => {
+    try {
+      setLoading(true)
+      const data = await dataService.getPositions()
+      setPositions(data)
+    } catch (error) {
+      console.error("Error loading positions:", error)
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách chức vụ",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filterPositions = () => {
+    let filtered = [...positions]
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(pos =>
+        pos.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (pos.description && pos.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (pos.parentName && pos.parentName.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(pos => 
+        statusFilter === "active" ? pos.isActive : !pos.isActive
+      )
+    }
+
+    // Level filter
+    if (levelFilter !== "all") {
+      filtered = filtered.filter(pos => pos.level.toString() === levelFilter)
+    }
+
+    setFilteredPositions(filtered)
+  }
+
+  const handleCreatePosition = () => {
+    setEditingPosition(null)
+    setFormMode("create")
+    setIsFormOpen(true)
+  }
+
+  const handleEditPosition = (position: Position) => {
+    setEditingPosition(position)
+    setFormMode("edit")
+    setIsFormOpen(true)
+  }
+
+  const handleSavePosition = async (position: Position) => {
+    try {
+      if (formMode === "create") {
+        const newPosition = await dataService.createPosition({
+          name: position.name,
+          description: position.description,
+          parentId: position.parentId,
+          level: position.level,
+          minSalary: position.minSalary,
+          maxSalary: position.maxSalary,
+          isActive: position.isActive,
+          displayOrder: position.displayOrder,
+          levelDisplayName: position.levelDisplayName,
+          childrenCount: position.childrenCount,
+        })
+        setPositions(prev => [...prev, newPosition])
+        toast({
+          title: "Thành công",
+          description: "Chức vụ đã được tạo thành công!",
+        })
+      } else {
+        const updatedPosition = await dataService.updatePosition(position.id, position)
+        if (updatedPosition) {
+          setPositions(prev => prev.map(p => p.id === position.id ? updatedPosition : p))
+          toast({
+            title: "Thành công", 
+            description: "Chức vụ đã được cập nhật thành công!",
+          })
+        }
+      }
+      setIsFormOpen(false)
+      setEditingPosition(null)
+    } catch (error) {
+      console.error("Error saving position:", error)
+      toast({
+        title: "Lỗi",
+        description: formMode === "create" ? "Không thể tạo chức vụ" : "Không thể cập nhật chức vụ",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeletePosition = async (positionId: string) => {
+    if (confirm("Bạn có chắc chắn muốn xóa chức vụ này?")) {
+      try {
+        const success = await dataService.deletePosition(positionId)
+        if (success) {
+          setPositions(prev => prev.filter(p => p.id !== positionId))
+          setSelectedPositions(prev => prev.filter(id => id !== positionId))
+          toast({
+            title: "Thành công",
+            description: "Chức vụ đã được xóa thành công!",
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting position:", error)
+        toast({
+          title: "Lỗi",
+          description: "Không thể xóa chức vụ",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedPositions.length === 0) {
+      toast({
+        title: "Cảnh báo",
+        description: "Vui lòng chọn ít nhất một chức vụ để xóa",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedPositions.length} chức vụ đã chọn?`)) {
+      try {
+        const success = await dataService.bulkDeletePositions(selectedPositions)
+        if (success) {
+          setPositions(prev => prev.filter(p => !selectedPositions.includes(p.id)))
+          setSelectedPositions([])
+          toast({
+            title: "Thành công",
+            description: `${selectedPositions.length} chức vụ đã được xóa thành công!`,
+          })
+        }
+      } catch (error) {
+        console.error("Error bulk deleting positions:", error)
+        toast({
+          title: "Lỗi",
+          description: "Không thể xóa các chức vụ đã chọn",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const handleViewDetails = (position: Position) => {
+    // TODO: Implement position details view
+    console.log("View position details:", position)
+  }
+
+  const handleExport = () => {
+    // TODO: Implement export functionality
+    console.log("Export positions")
+  }
+
+  const getStatistics = () => {
+    const total = positions.length
+    const active = positions.filter(p => p.isActive).length
+    const totalEmployees = positions.reduce((sum, p) => sum + (p.childrenCount || 0), 0)
+    const avgLevel = positions.length > 0 ? (positions.reduce((sum, p) => sum + p.displayOrder, 0) / positions.length).toFixed(1) : 0
+
+    return { total, active, totalEmployees, avgLevel }
+  }
+
+  const stats = getStatistics()
+
+  if (loading) {
+    return (
+      <div className="p-8 bg-background min-h-screen">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <p className="text-blue-600 font-medium">Đang tải dữ liệu chức vụ...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Chức vụ</h1>
+    <div className="p-8 bg-background min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Quản lý Chức vụ</h1>
+          <p className="text-muted-foreground text-lg">Quản lý hệ thống chức vụ và cấp bậc trong đơn vị</p>
+        </div>
+        <Button onClick={handleCreatePosition}>
+          <Plus className="h-4 w-4 mr-2" />
+          Thêm chức vụ
+        </Button>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tổng chức vụ</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.active} đang hoạt động
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tổng nhân viên</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalEmployees}</div>
+            <p className="text-xs text-muted-foreground">
+              Nhân viên có chức vụ
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cấp độ trung bình</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avgLevel}</div>
+            <p className="text-xs text-muted-foreground">
+              Cấp độ chức vụ TB
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tỷ lệ hoạt động</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Chức vụ đang hoạt động
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6">
         <div className="flex flex-col sm:flex-row gap-2 flex-1">
           <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Số chức vụ"
+              placeholder="Tìm kiếm theo mã, tên chức vụ..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-48"
+              className="pl-10 w-full sm:w-64"
             />
           </div>
-          <div className="relative">
-            <Input
-              placeholder="Tên chức vụ"
-              value={positionName}
-              onChange={(e) => setPositionName(e.target.value)}
-              className="w-full sm:w-48"
-            />
-          </div>
+          <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="active">Hoạt động</SelectItem>
+              <SelectItem value="inactive">Không hoạt động</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value)}>
+            <SelectTrigger className="w-full sm:w-40">
+              <SelectValue placeholder="Cấp độ" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả cấp</SelectItem>
+              <SelectItem value="1">Cấp 1</SelectItem>
+              <SelectItem value="2">Cấp 2</SelectItem>
+              <SelectItem value="3">Cấp 3</SelectItem>
+              <SelectItem value="4">Cấp 4</SelectItem>
+              <SelectItem value="5">Cấp 5</SelectItem>
+              <SelectItem value="6">Cấp 6</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Search className="h-4 w-4 mr-2" />
-            Tìm kiếm
-          </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Xuất
-          </Button>
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
+          <Button variant="outline" size="sm" onClick={loadPositions}>
+            <RefreshCw className="h-4 w-4 mr-2" />
             Làm mới
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Xuất Excel
           </Button>
         </div>
       </div>
 
       {/* Action Bar */}
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Làm mới
-        </Button>
-        <Button variant="outline" size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Thêm mới
-        </Button>
-        <Button variant="destructive" size="sm">
-          Xóa
+      {selectedPositions.length > 0 && (
+        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg mb-6">
+          <Badge variant="secondary">
+            {selectedPositions.length} đã chọn
+          </Badge>
+          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Xóa đã chọn
         </Button>
       </div>
+      )}
 
       {/* Data Table */}
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Số chức vụ</TableHead>
-              <TableHead>Tên chức vụ</TableHead>
-              <TableHead>Số chức vụ cấp cao</TableHead>
-              <TableHead>Chức vụ cấp cao</TableHead>
-              <TableHead>Hoạt động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell colSpan={5} className="text-center py-8">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <p className="text-muted-foreground">Không có dữ liệu</p>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+      <div className="mb-6">
+        <PositionTable
+        positions={filteredPositions}
+        onEdit={handleEditPosition}
+        onDelete={handleDeletePosition}
+        onViewDetails={handleViewDetails}
+        selectedPositions={selectedPositions}
+        onSelectionChange={setSelectedPositions}
+        />
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled>
-            {"<<"}
-          </Button>
-          <Button variant="outline" size="sm" disabled>
-            {"<"}
-          </Button>
-          <span className="text-sm">0</span>
-          <Button variant="outline" size="sm" disabled>
-            {">"}
-          </Button>
-          <Button variant="outline" size="sm" disabled>
-            {">>"}
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm">
-          <span>50 hàng trên mỗi trang</span>
-          <span>Nhảy tới</span>
-          <Input className="w-16 h-8" defaultValue="1" />
-          <span>/0 trang</span>
-          <span>Tổng số hồ sơ 0</span>
-        </div>
-      </div>
+      {/* Position Form Dialog */}
+      <PositionForm
+        isOpen={isFormOpen}
+        onClose={() => {
+          setIsFormOpen(false)
+          setEditingPosition(null)
+        }}
+        onSave={handleSavePosition}
+        position={editingPosition}
+        mode={formMode}
+      />
     </div>
   )
 }
