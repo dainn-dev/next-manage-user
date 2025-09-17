@@ -3,6 +3,10 @@ package com.vehiclemanagement.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -10,6 +14,10 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "departments")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Department {
     
     @Id
@@ -22,6 +30,7 @@ public class Department {
     private String name;
     
     @Column(length = 500)
+    @Size(max = 500, message = "Description cannot exceed 500 characters")
     private String description;
     
     @Column(name = "parent_id")
@@ -30,141 +39,30 @@ public class Department {
     @Column(name = "manager_id")
     private UUID managerId;
     
-    @Column(name = "employee_count", nullable = false)
+    @Column(name = "employee_count")
+    @Builder.Default
     private Integer employeeCount = 0;
     
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
-    
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt = LocalDateTime.now();
-    
-    // Self-referencing relationship for parent department
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id", insertable = false, updatable = false)
-    private Department parent;
-    
-    // One-to-many relationship for child departments
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Department> children;
-    
-    // One-to-many relationship for employees
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
     private List<Employee> employees;
     
-    // Many-to-one relationship for manager
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "manager_id", insertable = false, updatable = false)
-    private Employee manager;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
     
-    // Constructors
-    public Department() {}
-    
-    public Department(String name, String description) {
-        this.name = name;
-        this.description = description;
-    }
-    
-    // Getters and Setters
-    public UUID getId() {
-        return id;
-    }
-    
-    public void setId(UUID id) {
-        this.id = id;
-    }
-    
-    public String getName() {
-        return name;
-    }
-    
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public String getDescription() {
-        return description;
-    }
-    
-    public void setDescription(String description) {
-        this.description = description;
-    }
-    
-    public UUID getParentId() {
-        return parentId;
-    }
-    
-    public void setParentId(UUID parentId) {
-        this.parentId = parentId;
-    }
-    
-    public UUID getManagerId() {
-        return managerId;
-    }
-    
-    public void setManagerId(UUID managerId) {
-        this.managerId = managerId;
-    }
-    
-    public Integer getEmployeeCount() {
-        return employeeCount;
-    }
-    
-    public void setEmployeeCount(Integer employeeCount) {
-        this.employeeCount = employeeCount;
-    }
-    
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-    
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-    
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-    
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-    
-    public Department getParent() {
-        return parent;
-    }
-    
-    public void setParent(Department parent) {
-        this.parent = parent;
-    }
-    
-    public List<Department> getChildren() {
-        return children;
-    }
-    
-    public void setChildren(List<Department> children) {
-        this.children = children;
-    }
-    
-    public List<Employee> getEmployees() {
-        return employees;
-    }
-    
-    public void setEmployees(List<Employee> employees) {
-        this.employees = employees;
-    }
-    
-    public Employee getManager() {
-        return manager;
-    }
-    
-    public void setManager(Employee manager) {
-        this.manager = manager;
-    }
+    @Column(name = "updated_at")
+    @Builder.Default
+    private LocalDateTime updatedAt = LocalDateTime.now();
     
     @PreUpdate
     public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 }
