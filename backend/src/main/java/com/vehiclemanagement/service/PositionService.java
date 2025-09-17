@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,16 @@ public class PositionService {
         List<Position> positions = positionRepository.findAll();
         return positions.stream()
                 .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get all positions with parent information
+     */
+    public List<PositionDto> getAllPositionsWithParent() {
+        List<Position> positions = positionRepository.findAll();
+        return positions.stream()
+                .map(this::convertToDtoWithParent)
                 .collect(Collectors.toList());
     }
     
@@ -123,9 +134,6 @@ public class PositionService {
         existingPosition.setName(positionDto.getName());
         existingPosition.setDescription(positionDto.getDescription());
         existingPosition.setParentId(positionDto.getParentId());
-        existingPosition.setLevel(positionDto.getLevel());
-        existingPosition.setMinSalary(positionDto.getMinSalary());
-        existingPosition.setMaxSalary(positionDto.getMaxSalary());
         existingPosition.setIsActive(positionDto.getIsActive());
         
         if (positionDto.getDisplayOrder() != null) {
@@ -162,15 +170,6 @@ public class PositionService {
         return positions.map(this::convertToDto);
     }
     
-    /**
-     * Get positions by level
-     */
-    public List<PositionDto> getPositionsByLevel(Position.PositionLevel level) {
-        List<Position> positions = positionRepository.findByLevel(level);
-        return positions.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
     
     /**
      * Get root positions (positions without parent)
@@ -195,8 +194,8 @@ public class PositionService {
     /**
      * Get positions with filters
      */
-    public Page<PositionDto> getPositionsWithFilters(Position.PositionLevel level, UUID parentId, Pageable pageable) {
-        Page<Position> positions = positionRepository.findWithFilters(level, parentId, pageable);
+    public Page<PositionDto> getPositionsWithFilters(UUID parentId, Pageable pageable) {
+        Page<Position> positions = positionRepository.findWithFilters(parentId, pageable);
         return positions.map(this::convertToDto);
     }
     
@@ -209,21 +208,15 @@ public class PositionService {
         long inactivePositions = positionRepository.countByIsActive(false);
         long rootPositions = positionRepository.countRootPositions();
         
-        // Get positions by level
-        List<Object[]> levelCounts = positionRepository.countByLevelActive();
-        Map<String, Long> positionsByLevel = new HashMap<>();
-        for (Object[] row : levelCounts) {
-            Position.PositionLevel level = (Position.PositionLevel) row[0];
-            Long count = (Long) row[1];
-            positionsByLevel.put(level.getDisplayName(), count);
-        }
+        // Get positions by parent (simplified statistics)
+        Map<String, Long> positionsByParent = new HashMap<>();
         
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalPositions", totalPositions);
         stats.put("activePositions", activePositions);
         stats.put("inactivePositions", inactivePositions);
         stats.put("rootPositions", rootPositions);
-        stats.put("positionsByLevel", positionsByLevel);
+        stats.put("positionsByParent", positionsByParent);
         
         return stats;
     }
@@ -232,8 +225,42 @@ public class PositionService {
      * Bulk delete positions
      */
     public void bulkDeletePositions(List<UUID> positionIds) {
+        List<String> errors = new ArrayList<>();
+        List<UUID> successfulDeletes = new ArrayList<>();
+        
         for (UUID id : positionIds) {
-            deletePosition(id); // This will check for constraints
+            try {
+                // Check if position exists
+                if (!positionRepository.existsById(id)) {
+                    errors.add("Position with ID " + id + " not found");
+                    continue;
+                }
+                
+                // Check if position has children
+                if (positionRepository.hasChildren(id)) {
+                    errors.add("Cannot delete position with ID " + id + " - has child positions");
+                    continue;
+                }
+                
+                // Delete the position
+                positionRepository.deleteById(id);
+                successfulDeletes.add(id);
+                
+            } catch (Exception e) {
+                errors.add("Failed to delete position with ID " + id + ": " + e.getMessage());
+            }
+        }
+        
+        // If there were errors but some successful deletes, log the errors but don't throw exception
+        if (!errors.isEmpty()) {
+            String errorMessage = "Some positions could not be deleted: " + String.join(", ", errors);
+            if (successfulDeletes.isEmpty()) {
+                // If no positions were deleted, throw exception
+                throw new IllegalStateException(errorMessage);
+            } else {
+                // If some were deleted, just log the errors (partial success)
+                System.out.println("Bulk delete completed with warnings: " + errorMessage);
+            }
         }
     }
     
@@ -304,23 +331,44 @@ public class PositionService {
         dto.setName(position.getName());
         dto.setDescription(position.getDescription());
         dto.setParentId(position.getParentId());
-        dto.setLevel(position.getLevel());
-        dto.setMinSalary(position.getMinSalary());
-        dto.setMaxSalary(position.getMaxSalary());
         dto.setIsActive(position.getIsActive());
         dto.setDisplayOrder(position.getDisplayOrder());
         dto.setCreatedAt(position.getCreatedAt());
         dto.setUpdatedAt(position.getUpdatedAt());
         
-        // Set additional fields
-        if (position.getLevel() != null) {
-            dto.setLevelDisplayName(position.getLevel().getDisplayName());
-        }
-        
         // Set parent name if parent exists
         if (position.getParentId() != null) {
             positionRepository.findById(position.getParentId())
                     .ifPresent(parent -> dto.setParentName(parent.getName()));
+        }
+        
+        // Set children count
+        dto.setChildrenCount(positionRepository.countByParentId(position.getId()).intValue());
+        
+        return dto;
+    }
+    
+    /**
+     * Convert Position entity to DTO with detailed parent information
+     */
+    private PositionDto convertToDtoWithParent(Position position) {
+        PositionDto dto = new PositionDto();
+        dto.setId(position.getId());
+        dto.setName(position.getName());
+        dto.setDescription(position.getDescription());
+        dto.setParentId(position.getParentId());
+        dto.setIsActive(position.getIsActive());
+        dto.setDisplayOrder(position.getDisplayOrder());
+        dto.setCreatedAt(position.getCreatedAt());
+        dto.setUpdatedAt(position.getUpdatedAt());
+        
+        // Set detailed parent information if parent exists
+        if (position.getParentId() != null) {
+            positionRepository.findById(position.getParentId())
+                    .ifPresent(parent -> {
+                        dto.setParentName(parent.getName());
+                        // You can add more parent details here if needed
+                    });
         }
         
         // Set children count
@@ -337,9 +385,6 @@ public class PositionService {
         position.setName(dto.getName());
         position.setDescription(dto.getDescription());
         position.setParentId(dto.getParentId());
-        position.setLevel(dto.getLevel());
-        position.setMinSalary(dto.getMinSalary());
-        position.setMaxSalary(dto.getMaxSalary());
         position.setIsActive(dto.getIsActive() != null ? dto.getIsActive() : true);
         position.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : 0);
         

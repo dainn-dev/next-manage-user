@@ -23,7 +23,6 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
     
     List<Position> findByIsActiveTrueOrderByDisplayOrderAsc();
     
-    List<Position> findByLevel(Position.PositionLevel level);
     
     List<Position> findByParentId(UUID parentId);
     
@@ -35,13 +34,6 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
            "LOWER(p.description) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     Page<Position> findBySearchTerm(@Param("searchTerm") String searchTerm, Pageable pageable);
     
-    @Query("SELECT p FROM Position p WHERE " +
-           "p.level = :level AND " +
-           "(LOWER(p.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(p.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
-    Page<Position> findByLevelAndSearchTerm(@Param("level") Position.PositionLevel level, 
-                                           @Param("searchTerm") String searchTerm, 
-                                           Pageable pageable);
     
     @Query("SELECT p FROM Position p WHERE " +
            "p.isActive = :isActive AND " +
@@ -58,14 +50,10 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
     @Query("SELECT p FROM Position p WHERE p.parentId = :parentId ORDER BY p.displayOrder ASC")
     List<Position> findByParentIdOrderByDisplayOrder(@Param("parentId") UUID parentId);
     
-    @Query("SELECT p FROM Position p LEFT JOIN FETCH p.children WHERE p.parentId IS NULL ORDER BY p.displayOrder ASC")
-    List<Position> findRootPositionsWithChildren();
-    
-    @Query("SELECT p FROM Position p LEFT JOIN FETCH p.parent WHERE p.id = :id")
-    Optional<Position> findByIdWithParent(@Param("id") UUID id);
+    // Note: Removed queries with non-existent JPA relationships (children, parent)
+    // Use findRootPositions() and findByParentId() instead for hierarchical queries
     
     // Statistics queries
-    Long countByLevel(Position.PositionLevel level);
     
     Long countByIsActive(Boolean isActive);
     
@@ -74,8 +62,6 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
     @Query("SELECT COUNT(p) FROM Position p WHERE p.parentId IS NULL")
     Long countRootPositions();
     
-    @Query("SELECT p.level, COUNT(p) FROM Position p WHERE p.isActive = true GROUP BY p.level")
-    List<Object[]> countByLevelActive();
     
     @Query("SELECT p FROM Position p WHERE p.createdAt >= :startDate AND p.createdAt <= :endDate")
     List<Position> findByCreatedAtBetween(@Param("startDate") LocalDateTime startDate, 
@@ -89,20 +75,12 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
     @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM Position p WHERE p.parentId = :positionId")
     boolean hasChildren(@Param("positionId") UUID positionId);
     
-    // Salary range queries
-    @Query("SELECT p FROM Position p WHERE " +
-           "(:minSalary IS NULL OR p.maxSalary IS NULL OR p.maxSalary >= :minSalary) AND " +
-           "(:maxSalary IS NULL OR p.minSalary IS NULL OR p.minSalary <= :maxSalary)")
-    List<Position> findBySalaryRange(@Param("minSalary") java.math.BigDecimal minSalary, 
-                                    @Param("maxSalary") java.math.BigDecimal maxSalary);
     
     // Advanced queries
     @Query("SELECT p FROM Position p WHERE p.isActive = true AND " +
-           "(:level IS NULL OR p.level = :level) AND " +
            "(:parentId IS NULL OR p.parentId = :parentId) " +
            "ORDER BY p.displayOrder ASC")
-    Page<Position> findWithFilters(@Param("level") Position.PositionLevel level,
-                                  @Param("parentId") UUID parentId,
+    Page<Position> findWithFilters(@Param("parentId") UUID parentId,
                                   Pageable pageable);
     
     @Query("SELECT MAX(p.displayOrder) FROM Position p WHERE " +

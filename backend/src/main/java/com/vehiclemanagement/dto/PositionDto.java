@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -25,12 +24,6 @@ public class PositionDto {
     
     private String description;
     private UUID parentId;
-    
-    @NotNull(message = "Position level is required")
-    private Position.PositionLevel level;
-    
-    private BigDecimal minSalary;
-    private BigDecimal maxSalary;
     private Boolean isActive;
     private Integer displayOrder;
     private LocalDateTime createdAt;
@@ -39,7 +32,6 @@ public class PositionDto {
     // Additional fields for frontend display
     private String parentName;
     private Integer childrenCount;
-    private String levelDisplayName;
     private Integer employeeCount;
     
     // Constructor from entity
@@ -48,9 +40,6 @@ public class PositionDto {
         this.name = position.getName();
         this.description = position.getDescription();
         this.parentId = position.getParentId();
-        this.level = position.getLevel();
-        this.minSalary = position.getMinSalary();
-        this.maxSalary = position.getMaxSalary();
         this.isActive = position.getIsActive();
         this.displayOrder = position.getDisplayOrder();
         this.createdAt = position.getCreatedAt();

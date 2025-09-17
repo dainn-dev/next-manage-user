@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -57,6 +58,16 @@ public class PositionController {
     })
     public ResponseEntity<List<PositionDto>> getAllPositionsList() {
         List<PositionDto> positions = positionService.getAllPositions();
+        return ResponseEntity.ok(positions);
+    }
+    
+    @GetMapping("/with-parent")
+    @Operation(summary = "Get all positions with parent information")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved positions with parent details")
+    })
+    public ResponseEntity<List<PositionDto>> getAllPositionsWithParent() {
+        List<PositionDto> positions = positionService.getAllPositionsWithParent();
         return ResponseEntity.ok(positions);
     }
     
@@ -147,16 +158,6 @@ public class PositionController {
         return ResponseEntity.ok(positions);
     }
     
-    @GetMapping("/level/{level}")
-    @Operation(summary = "Get positions by level")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully retrieved positions by level")
-    })
-    public ResponseEntity<List<PositionDto>> getPositionsByLevel(
-            @Parameter(description = "Position level") @PathVariable Position.PositionLevel level) {
-        List<PositionDto> positions = positionService.getPositionsByLevel(level);
-        return ResponseEntity.ok(positions);
-    }
     
     @GetMapping("/root")
     @Operation(summary = "Get root positions (positions without parent)")
@@ -185,13 +186,12 @@ public class PositionController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered positions")
     })
     public ResponseEntity<Page<PositionDto>> getPositionsWithFilters(
-            @Parameter(description = "Position level") @RequestParam(required = false) Position.PositionLevel level,
             @Parameter(description = "Parent position ID") @RequestParam(required = false) UUID parentId,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
         
         Pageable pageable = PageRequest.of(page, size);
-        Page<PositionDto> positions = positionService.getPositionsWithFilters(level, parentId, pageable);
+        Page<PositionDto> positions = positionService.getPositionsWithFilters(parentId, pageable);
         return ResponseEntity.ok(positions);
     }
     
@@ -230,21 +230,4 @@ public class PositionController {
         return ResponseEntity.ok(movedPosition);
     }
     
-    @GetMapping("/levels")
-    @Operation(summary = "Get all available position levels")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Successfully retrieved position levels")
-    })
-    public ResponseEntity<Map<String, String>> getPositionLevels() {
-        Map<String, String> levels = Map.of(
-            "INTERN", Position.PositionLevel.INTERN.getDisplayName(),
-            "JUNIOR", Position.PositionLevel.JUNIOR.getDisplayName(),
-            "SENIOR", Position.PositionLevel.SENIOR.getDisplayName(),
-            "LEAD", Position.PositionLevel.LEAD.getDisplayName(),
-            "MANAGER", Position.PositionLevel.MANAGER.getDisplayName(),
-            "DIRECTOR", Position.PositionLevel.DIRECTOR.getDisplayName(),
-            "EXECUTIVE", Position.PositionLevel.EXECUTIVE.getDisplayName()
-        );
-        return ResponseEntity.ok(levels);
-    }
 }

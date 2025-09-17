@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -33,16 +32,6 @@ public class Position {
     
     @Column(name = "parent_id")
     private UUID parentId;
-    
-    @Enumerated(EnumType.STRING)
-    @NotNull(message = "Position level is required")
-    private PositionLevel level;
-    
-    @Column(name = "min_salary", precision = 12, scale = 2)
-    private BigDecimal minSalary;
-    
-    @Column(name = "max_salary", precision = 12, scale = 2)
-    private BigDecimal maxSalary;
     
     @Column(name = "is_active")
     @Builder.Default
@@ -71,24 +60,4 @@ public class Position {
         this.updatedAt = LocalDateTime.now();
     }
     
-    // Enums
-    public enum PositionLevel {
-        INTERN("Thực tập sinh"),
-        JUNIOR("Nhân viên"),
-        SENIOR("Nhân viên cao cấp"),
-        LEAD("Trưởng nhóm"),
-        MANAGER("Quản lý"),
-        DIRECTOR("Giám đốc"),
-        EXECUTIVE("Điều hành");
-        
-        private final String displayName;
-        
-        PositionLevel(String displayName) {
-            this.displayName = displayName;
-        }
-        
-        public String getDisplayName() {
-            return displayName;
-        }
-    }
 }
