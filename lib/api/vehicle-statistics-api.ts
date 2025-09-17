@@ -95,7 +95,32 @@ class VehicleStatisticsApi {
    * Get comprehensive vehicle statistics
    */
   async getVehicleStatistics(): Promise<VehicleStatistics> {
-    return this.request<VehicleStatistics>('/vehicles/statistics/overview')
+    try {
+      return await this.request<VehicleStatistics>('/vehicles/statistics/overview')
+    } catch (error) {
+      console.warn('Failed to fetch vehicle statistics, returning default values:', error)
+      // Return default statistics when API fails
+      return {
+        totalVehicles: 0,
+        activeVehicles: 0,
+        inactiveVehicles: 0,
+        maintenanceVehicles: 0,
+        retiredVehicles: 0,
+        vehicleTypeStats: {},
+        fuelTypeStats: {},
+        entryExitStats: {
+          totalRequests: 0,
+          approvedRequests: 0,
+          pendingRequests: 0,
+          completedRequests: 0,
+          entryRequests: 0,
+          exitRequests: 0,
+        },
+        dailyStats: [],
+        weeklyStats: [],
+        monthlyStats: [],
+      }
+    }
   }
 }
 

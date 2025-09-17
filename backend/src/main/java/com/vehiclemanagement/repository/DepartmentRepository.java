@@ -56,16 +56,9 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     List<Department> findByEmployeeCountGreaterThan(@Param("minCount") Integer minCount);
     
     /**
-     * Get department hierarchy with children
+     * Note: Removed queries with non-existent JPA relationships (children, parent)
+     * Use findRootDepartments() and findByParentIdOrderByName() instead for hierarchical queries
      */
-    @Query("SELECT d FROM Department d LEFT JOIN FETCH d.children ORDER BY d.name")
-    List<Department> findAllWithChildren();
-    
-    /**
-     * Get departments with their parent information
-     */
-    @Query("SELECT d FROM Department d LEFT JOIN FETCH d.parent ORDER BY d.name")
-    List<Department> findAllWithParent();
     
     /**
      * Count total employees across all departments

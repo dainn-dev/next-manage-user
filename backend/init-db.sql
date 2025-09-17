@@ -4,8 +4,8 @@
 -- Create database if it doesn't exist (this is handled by POSTGRES_DB env var)
 -- CREATE DATABASE vehicle_management;
 
--- Grant permissions
-GRANT ALL PRIVILEGES ON DATABASE vehicle_management TO admin;
+-- Grant permissions to postgres user (default user)
+GRANT ALL PRIVILEGES ON DATABASE vehicle_management TO postgres;
 
 -- Create extensions if needed
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

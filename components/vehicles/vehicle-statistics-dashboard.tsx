@@ -32,18 +32,40 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("day")
   const [selectedPeriod, setSelectedPeriod] = useState<string>("")
 
+  // Add defensive programming with default values
+  const safeStatistics = {
+    totalVehicles: statistics?.totalVehicles || 0,
+    activeVehicles: statistics?.activeVehicles || 0,
+    inactiveVehicles: statistics?.inactiveVehicles || 0,
+    maintenanceVehicles: statistics?.maintenanceVehicles || 0,
+    retiredVehicles: statistics?.retiredVehicles || 0,
+    vehicleTypeStats: statistics?.vehicleTypeStats || {},
+    fuelTypeStats: statistics?.fuelTypeStats || {},
+    entryExitStats: {
+      totalRequests: statistics?.entryExitStats?.totalRequests || 0,
+      approvedRequests: statistics?.entryExitStats?.approvedRequests || 0,
+      pendingRequests: statistics?.entryExitStats?.pendingRequests || 0,
+      completedRequests: statistics?.entryExitStats?.completedRequests || 0,
+      entryRequests: statistics?.entryExitStats?.entryRequests || 0,
+      exitRequests: statistics?.entryExitStats?.exitRequests || 0,
+    },
+    dailyStats: statistics?.dailyStats || [],
+    weeklyStats: statistics?.weeklyStats || [],
+    monthlyStats: statistics?.monthlyStats || [],
+  }
+
   const filteredData = useMemo(() => {
     switch (timeFilter) {
       case "day":
-        return statistics.dailyStats
+        return safeStatistics.dailyStats
       case "week":
-        return statistics.weeklyStats
+        return safeStatistics.weeklyStats
       case "month":
-        return statistics.monthlyStats
+        return safeStatistics.monthlyStats
       default:
-        return statistics.dailyStats
+        return safeStatistics.dailyStats
     }
-  }, [timeFilter, statistics])
+  }, [timeFilter, safeStatistics])
 
   const getVehicleTypeIcon = (type: string) => {
     switch (type) {
@@ -116,9 +138,9 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
             <Car className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.totalVehicles}</div>
+            <div className="text-2xl font-bold">{safeStatistics.totalVehicles}</div>
             <p className="text-xs text-muted-foreground">
-              {statistics.activeVehicles} hoạt động, {statistics.inactiveVehicles + statistics.maintenanceVehicles} không hoạt động
+              {safeStatistics.activeVehicles} hoạt động, {safeStatistics.inactiveVehicles + safeStatistics.maintenanceVehicles} không hoạt động
             </p>
           </CardContent>
         </Card>
@@ -129,9 +151,9 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
             <Activity className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{statistics.activeVehicles}</div>
+            <div className="text-2xl font-bold text-green-600">{safeStatistics.activeVehicles}</div>
             <p className="text-xs text-muted-foreground">
-              {((statistics.activeVehicles / statistics.totalVehicles) * 100).toFixed(1)}% tổng số
+              {((safeStatistics.activeVehicles / safeStatistics.totalVehicles) * 100).toFixed(1)}% tổng số
             </p>
           </CardContent>
         </Card>
@@ -143,9 +165,9 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
             <AlertCircle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{statistics.maintenanceVehicles}</div>
+            <div className="text-2xl font-bold text-orange-600">{safeStatistics.maintenanceVehicles}</div>
             <p className="text-xs text-muted-foreground">
-              {((statistics.maintenanceVehicles / statistics.totalVehicles) * 100).toFixed(1)}% tổng số
+              {((safeStatistics.maintenanceVehicles / safeStatistics.totalVehicles) * 100).toFixed(1)}% tổng số
             </p>
           </CardContent>
         </Card>
@@ -159,7 +181,7 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {Object.entries(statistics.vehicleTypeStats).map(([type, count]) => (
+              {Object.entries(safeStatistics.vehicleTypeStats).map(([type, count]) => (
                 <div key={type} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {getVehicleTypeIcon(type)}
@@ -168,7 +190,7 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">{count} xe</Badge>
                     <span className="text-xs text-muted-foreground">
-                      {((count / statistics.totalVehicles) * 100).toFixed(1)}%
+                      {((count / safeStatistics.totalVehicles) * 100).toFixed(1)}%
                     </span>
                   </div>
                 </div>
@@ -191,9 +213,9 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
                 {getStatusIcon("approved")}
                 <span className="text-sm font-medium">Đã duyệt</span>
               </div>
-              <div className="text-2xl font-bold text-green-600">{statistics.entryExitStats.approvedRequests}</div>
+              <div className="text-2xl font-bold text-green-600">{safeStatistics.entryExitStats.approvedRequests}</div>
               <p className="text-xs text-muted-foreground">
-                {((statistics.entryExitStats.approvedRequests / statistics.entryExitStats.totalRequests) * 100).toFixed(1)}% tổng yêu cầu
+                {safeStatistics.entryExitStats.totalRequests > 0 ? ((safeStatistics.entryExitStats.approvedRequests / safeStatistics.entryExitStats.totalRequests) * 100).toFixed(1) : 0}% tổng yêu cầu
               </p>
             </div>
             <div className="text-center p-4 border rounded-lg">
@@ -201,9 +223,9 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
                 {getStatusIcon("pending")}
                 <span className="text-sm font-medium">Chờ duyệt</span>
               </div>
-              <div className="text-2xl font-bold text-yellow-600">{statistics.entryExitStats.pendingRequests}</div>
+              <div className="text-2xl font-bold text-yellow-600">{safeStatistics.entryExitStats.pendingRequests}</div>
               <p className="text-xs text-muted-foreground">
-                {((statistics.entryExitStats.pendingRequests / statistics.entryExitStats.totalRequests) * 100).toFixed(1)}% tổng yêu cầu
+                {safeStatistics.entryExitStats.totalRequests > 0 ? ((safeStatistics.entryExitStats.pendingRequests / safeStatistics.entryExitStats.totalRequests) * 100).toFixed(1) : 0}% tổng yêu cầu
               </p>
             </div>
           </div>
@@ -214,14 +236,14 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
                 <TrendingUp className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-medium">Yêu cầu vào</span>
               </div>
-              <div className="text-2xl font-bold text-blue-600">{statistics.entryExitStats.entryRequests}</div>
+              <div className="text-2xl font-bold text-blue-600">{safeStatistics.entryExitStats.entryRequests}</div>
             </div>
             <div className="text-center p-4 border rounded-lg">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <TrendingDown className="h-4 w-4 text-purple-600" />
                 <span className="text-sm font-medium">Yêu cầu ra</span>
               </div>
-              <div className="text-2xl font-bold text-purple-600">{statistics.entryExitStats.exitRequests}</div>
+              <div className="text-2xl font-bold text-purple-600">{safeStatistics.entryExitStats.exitRequests}</div>
             </div>
           </div>
         </CardContent>

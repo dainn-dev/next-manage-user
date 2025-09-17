@@ -160,7 +160,8 @@ public class DepartmentService {
      * Get department hierarchy
      */
     public List<DepartmentDto> getDepartmentHierarchy() {
-        List<Department> departments = departmentRepository.findAllWithChildren();
+        // Get all departments and build hierarchy manually since JPA relationships are not defined
+        List<Department> departments = departmentRepository.findAll();
         return departments.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
