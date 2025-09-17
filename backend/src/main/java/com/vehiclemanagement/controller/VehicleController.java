@@ -2,6 +2,7 @@ package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
+import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.service.VehicleService;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -183,5 +185,37 @@ public class VehicleController {
     public ResponseEntity<List<Object[]>> getVehicleCountByFuelType() {
         List<Object[]> counts = vehicleService.getVehicleCountByFuelType();
         return ResponseEntity.ok(counts);
+    }
+    
+    @GetMapping("/check-vehicle")
+    @Operation(summary = "Check vehicle access", description = "Check if a vehicle with given license plate is approved for access and update status")
+    public ResponseEntity<VehicleCheckResponse> checkVehicle(
+            @Parameter(description = "License plate number to check", required = true)
+            @RequestParam String licensePlateNumber,
+            @Parameter(description = "Type of access: entry or exit", required = true)
+            @RequestParam String type) {
+        try {
+            VehicleCheckResponse response = vehicleService.checkVehicleAccess(licensePlateNumber, type);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            VehicleCheckResponse response = new VehicleCheckResponse(false, "Xe không tồn tại hoặc có lỗi xảy ra", licensePlateNumber, type);
+            return ResponseEntity.ok(response);
+        }
+    }
+    
+    @PostMapping("/upload-image/{vehicleId}")
+    @Operation(summary = "Upload vehicle image", description = "Upload an image for a specific vehicle")
+    public ResponseEntity<String> uploadVehicleImage(
+            @Parameter(description = "Vehicle ID", required = true)
+            @PathVariable UUID vehicleId,
+            @Parameter(description = "Image file to upload", required = true)
+            @RequestParam("image") MultipartFile imageFile) {
+        try {
+            String imagePath = vehicleService.uploadVehicleImage(vehicleId, imageFile);
+            return ResponseEntity.ok(imagePath);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error uploading image: " + e.getMessage());
+        }
     }
 }

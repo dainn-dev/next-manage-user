@@ -119,6 +119,7 @@ export interface Vehicle {
   fuelType?: "gasoline" | "diesel" | "electric" | "hybrid"
   capacity?: number
   notes?: string
+  imagePath?: string
   createdAt: string
   updatedAt: string
 }

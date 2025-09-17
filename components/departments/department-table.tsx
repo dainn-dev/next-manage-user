@@ -95,7 +95,9 @@ export function DepartmentTable({
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 bg-blue-100 px-2 py-1 rounded-full">
                     <Users className="h-3 w-3 text-blue-600" />
-                    <span className="text-xs font-medium text-blue-700">{department.employeeCount}</span>
+                    <span className="text-xs font-medium text-blue-700">
+                      {employees.filter(emp => emp.department === department.name).length}
+                    </span>
                   </div>                  
                   <Eye className="h-4 w-4 text-gray-400" />
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

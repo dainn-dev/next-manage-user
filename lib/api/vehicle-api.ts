@@ -31,6 +31,7 @@ export interface VehicleCreateRequest {
   fuelType?: "gasoline" | "diesel" | "electric" | "hybrid"
   capacity?: number
   notes?: string
+  imagePath?: string
 }
 
 export interface VehicleUpdateRequest extends VehicleCreateRequest {
@@ -250,6 +251,24 @@ class VehicleApiService {
   // Get vehicle count by fuel type
   async getVehicleCountByFuelType(): Promise<Array<[string, number]>> {
     return this.request<Array<[string, number]>>('/stats/count/fuel-type')
+  }
+
+  // Upload vehicle image
+  async uploadVehicleImage(vehicleId: string, imageFile: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    
+    const response = await fetch(`${this.baseUrl}/upload-image/${vehicleId}`, {
+      method: 'POST',
+      body: formData,
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(errorText || `HTTP error! status: ${response.status}`)
+    }
+    
+    return response.text() // Returns the image path
   }
 }
 

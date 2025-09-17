@@ -45,6 +45,8 @@ public class VehicleDto {
     
     private String notes;
     
+    private String imagePath;
+    
     private LocalDateTime createdAt;
     
     private LocalDateTime updatedAt;
@@ -68,6 +70,7 @@ public class VehicleDto {
         this.fuelType = vehicle.getFuelType();
         this.capacity = vehicle.getCapacity();
         this.notes = vehicle.getNotes();
+        this.imagePath = vehicle.getImagePath();
         this.createdAt = vehicle.getCreatedAt();
         this.updatedAt = vehicle.getUpdatedAt();
     }
@@ -193,6 +196,14 @@ public class VehicleDto {
     
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+    
+    public String getImagePath() {
+        return imagePath;
+    }
+    
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
     
     public LocalDateTime getCreatedAt() {

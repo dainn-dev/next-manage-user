@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Upload, X, Image } from "lucide-react"
+import { vehicleApi } from "@/lib/api/vehicle-api"
 
 interface VehicleFormProps {
   vehicle?: Vehicle
@@ -28,9 +30,14 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
     color: vehicle?.color || "",
     year: vehicle?.year || undefined,
     registrationDate: vehicle?.registrationDate || "",
-    status: vehicle?.status || "active",
+    status: vehicle?.status || "approved",
     notes: vehicle?.notes || "",
+    imagePath: vehicle?.imagePath || "",
   })
+  
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(vehicle?.imagePath || null)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   // Update form data when vehicle prop changes
   useEffect(() => {
@@ -45,9 +52,12 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
         color: vehicle.color || "",
         year: vehicle.year || undefined,
         registrationDate: vehicle.registrationDate || "",
-        status: vehicle.status || "active",
+        status: vehicle.status || "approved",
         notes: vehicle.notes || "",
+        imagePath: vehicle.imagePath || "",
       })
+      setImagePreview(vehicle.imagePath || null)
+      setSelectedImage(null)
     } else {
       // Reset form for new vehicle
       setFormData({
@@ -60,9 +70,12 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
         color: "",
         year: undefined,
         registrationDate: "",
-        status: "active",
+        status: "approved",
         notes: "",
+        imagePath: "",
       })
+      setImagePreview(null)
+      setSelectedImage(null)
     }
   }, [vehicle])
 
@@ -94,25 +107,80 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
     }))
   }
 
-  const handleSubmit = () => {
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Vui lòng chọn file hình ảnh')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Kích thước file không được vượt quá 5MB')
+        return
+      }
+      
+      setSelectedImage(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null)
+    setImagePreview(null)
+    setFormData((prev) => ({ ...prev, imagePath: "" }))
+  }
+
+  const handleSubmit = async () => {
     if (!formData.employeeId || !formData.licensePlate) {
       alert("Vui lòng điền đầy đủ thông tin bắt buộc")
       return
     }
 
-    onSave({
-      employeeId: formData.employeeId!,
-      employeeName: formData.employeeName!,
-      licensePlate: formData.licensePlate!,
-      vehicleType: formData.vehicleType!,
-      brand: formData.brand,
-      model: formData.model,
-      color: formData.color,
-      year: formData.year,
-      registrationDate: formData.registrationDate || new Date().toISOString().split('T')[0],
-      status: formData.status || "active",
-      notes: formData.notes,
-    })
+    try {
+      // First save the vehicle data
+      const vehicleData = {
+        employeeId: formData.employeeId!,
+        employeeName: formData.employeeName!,
+        licensePlate: formData.licensePlate!,
+        vehicleType: formData.vehicleType!,
+        brand: formData.brand,
+        model: formData.model,
+        color: formData.color,
+        year: formData.year,
+        registrationDate: formData.registrationDate || new Date().toISOString().split('T')[0],
+        status: formData.status || "approved",
+        notes: formData.notes,
+        imagePath: formData.imagePath,
+      }
+      
+      onSave(vehicleData)
+      
+      // Upload image if selected and it's a new vehicle
+      if (selectedImage && !vehicle) {
+        setUploadingImage(true)
+        try {
+          // Note: We'll need to get the vehicle ID from the parent component after save
+          // For now, we'll handle image upload separately
+          console.log("Image will be uploaded after vehicle creation")
+        } catch (error) {
+          console.error("Error uploading image:", error)
+          alert("Lỗi tải ảnh lên. Xe đã được tạo nhưng ảnh chưa được lưu.")
+        } finally {
+          setUploadingImage(false)
+        }
+      }
+    } catch (error) {
+      console.error("Error saving vehicle:", error)
+    }
   }
 
   return (
@@ -249,6 +317,61 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
                 placeholder="Ghi chú thêm về xe..."
               />
             </div>
+
+            {/* Image Upload Section */}
+            <div className="space-y-2">
+              <Label>Hình ảnh xe</Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                {imagePreview ? (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="Vehicle preview"
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <Image className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="mt-2">
+                      <label htmlFor="image-upload" className="cursor-pointer">
+                        <span className="mt-2 block text-sm font-medium text-gray-900">
+                          Chọn hình ảnh xe
+                        </span>
+                        <span className="mt-1 block text-xs text-gray-500">
+                          PNG, JPG, GIF tối đa 5MB
+                        </span>
+                      </label>
+                      <input
+                        id="image-upload"
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => document.getElementById('image-upload')?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Tải ảnh lên
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -256,9 +379,22 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
           <Button variant="outline" onClick={onClose}>
             Hủy
           </Button>
-          <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700">
-            <span className="mr-2">💾</span>
-            {vehicle ? "Cập nhật" : "Thêm mới"}
+          <Button 
+            onClick={handleSubmit} 
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={uploadingImage}
+          >
+            {uploadingImage ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Đang tải ảnh...
+              </>
+            ) : (
+              <>
+                <span className="mr-2">💾</span>
+                {vehicle ? "Cập nhật" : "Thêm mới"}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

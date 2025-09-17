@@ -2,6 +2,7 @@ package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
+import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Vehicle;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.temporal.WeekFields;
@@ -122,6 +124,7 @@ public class VehicleService {
         vehicle.setFuelType(vehicleDto.getFuelType());
         vehicle.setCapacity(vehicleDto.getCapacity());
         vehicle.setNotes(vehicleDto.getNotes());
+        vehicle.setImagePath(vehicleDto.getImagePath());
         
         Vehicle savedVehicle = vehicleRepository.save(vehicle);
         return new VehicleCreateResponse(
@@ -151,6 +154,7 @@ public class VehicleService {
         existingVehicle.setFuelType(vehicleDto.getFuelType());
         existingVehicle.setCapacity(vehicleDto.getCapacity());
         existingVehicle.setNotes(vehicleDto.getNotes());
+        existingVehicle.setImagePath(vehicleDto.getImagePath());
         
         Vehicle updatedVehicle = vehicleRepository.save(existingVehicle);
         return new VehicleDto(updatedVehicle);
@@ -363,4 +367,130 @@ public class VehicleService {
                 .collect(Collectors.toList());
     }
     */ // End of removed EntryExitRequest methods
+    
+    /**
+     * Upload vehicle image and update image path
+     */
+    @Transactional
+    public String uploadVehicleImage(UUID vehicleId, MultipartFile imageFile) {
+        try {
+            // Find the vehicle
+            Vehicle vehicle = vehicleRepository.findById(vehicleId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + vehicleId));
+            
+            // Validate file
+            if (imageFile.isEmpty()) {
+                throw new IllegalArgumentException("Image file is empty");
+            }
+            
+            // Check file type
+            String contentType = imageFile.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("File must be an image");
+            }
+            
+            // Generate unique filename
+            String originalFilename = imageFile.getOriginalFilename();
+            String fileExtension = originalFilename != null && originalFilename.contains(".") 
+                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                    : ".jpg";
+            String filename = "vehicle_" + vehicleId + "_" + System.currentTimeMillis() + fileExtension;
+            
+            // Create upload directory if it doesn't exist
+            java.nio.file.Path uploadDir = java.nio.file.Paths.get("uploads/vehicles");
+            if (!java.nio.file.Files.exists(uploadDir)) {
+                java.nio.file.Files.createDirectories(uploadDir);
+            }
+            
+            // Save file
+            java.nio.file.Path filePath = uploadDir.resolve(filename);
+            imageFile.transferTo(filePath.toFile());
+            
+            // Update vehicle with image path
+            String imagePath = "/uploads/vehicles/" + filename;
+            vehicle.setImagePath(imagePath);
+            vehicleRepository.save(vehicle);
+            
+            return imagePath;
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to upload vehicle image: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Check if a vehicle is approved for access based on license plate and update status
+     */
+    @Transactional
+    public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type) {
+        try {
+            // Find vehicle by license plate
+            Vehicle vehicle = vehicleRepository.findByLicensePlate(licensePlateNumber)
+                    .orElse(null);
+            
+            if (vehicle == null) {
+                return new VehicleCheckResponse(
+                    false, 
+                    "Xe với biển số " + licensePlateNumber + " chưa được đăng ký trong hệ thống", 
+                    licensePlateNumber, 
+                    type
+                );
+            }
+            
+            // Check if vehicle status is approved
+            boolean isApproved = vehicle.getStatus() == Vehicle.VehicleStatus.approved;
+            
+            String message;
+            if (isApproved) {
+                // Update vehicle status based on type
+                if ("entry".equalsIgnoreCase(type)) {
+                    vehicle.setStatus(Vehicle.VehicleStatus.entered);
+                    vehicleRepository.save(vehicle);
+                    message = "Xe biển số " + licensePlateNumber + " được phép vào";
+                } else if ("exit".equalsIgnoreCase(type)) {
+                    vehicle.setStatus(Vehicle.VehicleStatus.exited);
+                    vehicleRepository.save(vehicle);
+                    message = "Xe biển số " + licensePlateNumber + " được phép ra";
+                } else {
+                    message = "Xe biển số " + licensePlateNumber + " được phép ra vào";
+                }
+            } else {
+                String statusText = getStatusText(vehicle.getStatus());
+                message = "Xe biển số " + licensePlateNumber + " không được phép ra vào";
+            }
+            
+            return new VehicleCheckResponse(
+                isApproved,
+                message,
+                licensePlateNumber,
+                type
+            );
+            
+        } catch (Exception e) {
+            return new VehicleCheckResponse(
+                false,
+                "Lỗi kiểm tra xe: " + e.getMessage(),
+                licensePlateNumber,
+                type
+            );
+        }
+    }
+    
+    /**
+     * Get status text for vehicle status
+     */
+    private String getStatusText(Vehicle.VehicleStatus status) {
+        switch (status) {
+            case approved:
+                return "Approved";
+            case rejected:
+                return "Rejected";
+            case exited:
+                return "Exited";
+            case entered:
+                return "Entered";
+            default:
+                return status.toString();
+        }
+    }
 }

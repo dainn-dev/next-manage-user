@@ -62,6 +62,9 @@ public class Vehicle {
     
     private String notes;
     
+    @Column(name = "image_path")
+    private String imagePath;
+    
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
@@ -192,6 +195,14 @@ public class Vehicle {
     
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+    
+    public String getImagePath() {
+        return imagePath;
+    }
+    
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
     
     public LocalDateTime getCreatedAt() {
