@@ -564,9 +564,9 @@ class WebcamThread(QThread):
             try:
                 print("Loading models with ultralytics/yolov5...")
                 self.yolo_LP_detect = torch.hub.load('ultralytics/yolov5', 'custom', 
-                                                   path=detector_path, force_reload=True, trust_repo=True)
+                                                   path=detector_path, force_reload=False, trust_repo=True)
                 self.yolo_license_plate = torch.hub.load('ultralytics/yolov5', 'custom', 
-                                                       path=ocr_path, force_reload=True, trust_repo=True)
+                                                       path=ocr_path, force_reload=False, trust_repo=True)
                 print("Models loaded successfully with ultralytics/yolov5")
             except Exception as ultralytics_error:
                 print(f"ultralytics/yolov5 failed: {ultralytics_error}")
@@ -576,9 +576,9 @@ class WebcamThread(QThread):
                 try:
                     yolov5_path = os.path.join(os.path.dirname(__file__), 'model', 'yolov5')
                     self.yolo_LP_detect = torch.hub.load(yolov5_path, 'custom', 
-                                                       path=detector_path, force_reload=True, source='local')
+                                                       path=detector_path, force_reload=False, source='local')
                     self.yolo_license_plate = torch.hub.load(yolov5_path, 'custom', 
-                                                           path=ocr_path, force_reload=True, source='local')
+                                                           path=ocr_path, force_reload=False, source='local')
                     print("Models loaded successfully with local YOLOv5")
                 except Exception as local_error:
                     print(f"Local YOLOv5 also failed: {local_error}")
@@ -938,6 +938,138 @@ class WebcamThread(QThread):
         self.wait()
 
 
+class UnregisteredVehicleDialog(QDialog):
+    """Dialog for handling unregistered vehicles with option to allow access"""
+    allow_access_requested = pyqtSignal()
+    detection_resume_requested = pyqtSignal()
+    
+    def __init__(self, license_plate, panel_type, response_data, parent=None):
+        super().__init__(parent)
+        self.license_plate = license_plate
+        self.panel_type = panel_type
+        self.response_data = response_data
+        
+        self.setWindowTitle("Xe chưa đăng ký")
+        self.setModal(True)
+        self.setFixedSize(450, 350)
+        
+        # Set window flags
+        self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
+        
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Setup the dialog UI"""
+        layout = QVBoxLayout()
+        
+        # Warning header
+        header_label = QLabel("⚠️ XE CHƯA ĐĂNG KÝ")
+        header_label.setFont(QFont("Arial", 14, QFont.Bold))
+        header_label.setAlignment(Qt.AlignCenter)
+        header_label.setStyleSheet("color: #d63031; background-color: #fff5f5; padding: 10px; border: 2px solid #fab1a0; border-radius: 5px;")
+        layout.addWidget(header_label)
+        
+        # License plate info
+        plate_label = QLabel(f"Biển số: {self.license_plate}")
+        plate_label.setFont(QFont("Arial", 12, QFont.Bold))
+        plate_label.setAlignment(Qt.AlignCenter)
+        plate_label.setStyleSheet("font-family: monospace; font-size: 16px; padding: 5px;")
+        layout.addWidget(plate_label)
+        
+        # Panel type
+        type_label = QLabel(f"Loại: {self.panel_type.upper()}")
+        type_label.setFont(QFont("Arial", 10))
+        type_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(type_label)
+        
+        # Message
+        message_label = QLabel("Xe này chưa được đăng ký trong hệ thống.\nBạn có muốn cho phép xe này truy cập?")
+        message_label.setFont(QFont("Arial", 10))
+        message_label.setAlignment(Qt.AlignCenter)
+        message_label.setWordWrap(True)
+        message_label.setStyleSheet("padding: 15px; line-height: 1.5;")
+        layout.addWidget(message_label)
+        
+        # Timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        time_label = QLabel(f"Thời gian: {timestamp}")
+        time_label.setFont(QFont("Arial", 9))
+        time_label.setAlignment(Qt.AlignCenter)
+        time_label.setStyleSheet("color: #636e72;")
+        layout.addWidget(time_label)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        # Cho phép (Allow) button
+        allow_btn = QPushButton("Cho phép")
+        allow_btn.clicked.connect(self.on_allow_clicked)
+        allow_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00b894;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #00a085;
+            }
+        """)
+        button_layout.addWidget(allow_btn)
+        
+        # Từ chối (Deny) button
+        deny_btn = QPushButton("Từ chối")
+        deny_btn.clicked.connect(self.on_deny_clicked)
+        deny_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d63031;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        button_layout.addWidget(deny_btn)
+        
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+    
+    def on_allow_clicked(self):
+        """Handle allow button click"""
+        try:
+            print(f"User allowed access for external vehicle: {self.license_plate}")
+            self.allow_access_requested.emit()
+            self.accept()
+        except Exception as e:
+            print(f"Error in allow button: {e}")
+    
+    def on_deny_clicked(self):
+        """Handle deny button click"""
+        try:
+            print(f"User denied access for external vehicle: {self.license_plate}")
+            self.detection_resume_requested.emit()
+            self.accept()
+        except Exception as e:
+            print(f"Error in deny button: {e}")
+    
+    def closeEvent(self, event):
+        """Handle dialog close"""
+        try:
+            self.detection_resume_requested.emit()
+            event.accept()
+        except Exception as e:
+            print(f"Error closing unregistered vehicle dialog: {e}")
+            event.accept()
+
+
 class CameraPanel(QGroupBox):
     """Individual camera panel widget"""
     def __init__(self, title, panel_type):
@@ -1153,6 +1285,17 @@ class CameraPanel(QGroupBox):
     def show_api_response(self, license_plate, panel_type, response_data):
         """Show API response in popup dialog"""
         try:
+            # Check if this is an unregistered vehicle (not approved and contains specific message)
+            is_unregistered = (
+                not response_data.get("approved", False) and 
+                "chưa được đăng ký trong hệ thống" in response_data.get("message", "").lower()
+            )
+            
+            if is_unregistered:
+                # Show special dialog for unregistered vehicles
+                self.show_unregistered_vehicle_dialog(license_plate, panel_type, response_data)
+                return
+            
             # IMMEDIATELY pause detection to prevent multiple popups
             if self.webcam_thread and self.webcam_thread.isRunning():
                 self.webcam_thread.pause_detection()
@@ -1271,6 +1414,75 @@ class CameraPanel(QGroupBox):
             
         except Exception as e:
             self.log_text.append(f"Lỗi hiển thị phản hồi API: {str(e)}")
+    
+    def show_unregistered_vehicle_dialog(self, license_plate, panel_type, response_data):
+        """Show special dialog for unregistered vehicles with option to allow access"""
+        try:
+            # IMMEDIATELY pause detection to prevent multiple popups
+            if self.webcam_thread and self.webcam_thread.isRunning():
+                self.webcam_thread.pause_detection()
+                print(f"🔄 Paused detection for unregistered vehicle: {license_plate}")
+            
+            # Create and show unregistered vehicle dialog
+            dialog = UnregisteredVehicleDialog(license_plate, panel_type, response_data, self)
+            dialog.allow_access_requested.connect(lambda: self.handle_allow_external_vehicle(license_plate, panel_type))
+            dialog.detection_resume_requested.connect(self.handle_detection_resume)
+            dialog.show()
+            
+        except Exception as e:
+            self.log_text.append(f"Lỗi hiển thị dialog xe chưa đăng ký: {str(e)}")
+            # Resume detection if error occurs
+            if self.webcam_thread and self.webcam_thread.isRunning():
+                self.webcam_thread.resume_detection()
+    
+    def handle_allow_external_vehicle(self, license_plate, panel_type):
+        """Handle allowing access for external vehicle"""
+        try:
+            import requests
+            import json
+            
+            # Send WebSocket message (if WebSocket is available)
+            # This would require WebSocket client implementation in Python
+            
+            # Create vehicle log entry for external vehicle
+            vehicle_log_data = {
+                "licensePlateNumber": license_plate,
+                "entryExitTime": datetime.now().isoformat(),
+                "type": panel_type.lower(),
+                "vehicleType": "external",
+                "driverName": "Khách bên ngoài",
+                "purpose": "Được phép truy cập bởi bảo vệ",
+                "gateLocation": "Main Gate",
+                "notes": f"External vehicle allowed by security - Panel: {panel_type}"
+            }
+            
+            # Call vehicle-logs API
+            api_url = f"{config_manager.get_api_base_url()}/api/vehicle-logs"
+            headers = {'Content-Type': 'application/json'}
+            
+            response = requests.post(api_url, json=vehicle_log_data, headers=headers, timeout=10)
+            
+            if response.status_code in [200, 201]:
+                self.log_text.append(f"✅ Đã cho phép xe ngoài {license_plate} - Đã tạo log entry")
+                
+                # Show success message
+                from PyQt5.QtWidgets import QMessageBox
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Thành công")
+                msg.setText(f"Đã cho phép xe {license_plate} truy cập")
+                msg.setInformativeText("Log entry đã được tạo trong hệ thống")
+                msg.exec_()
+                
+            else:
+                self.log_text.append(f"❌ Lỗi tạo log cho xe ngoài {license_plate}: {response.status_code}")
+                
+        except Exception as e:
+            self.log_text.append(f"Lỗi cho phép xe ngoài: {str(e)}")
+        finally:
+            # Resume detection
+            if self.webcam_thread and self.webcam_thread.isRunning():
+                self.webcam_thread.resume_detection()
     
     def handle_scan_again_request(self):
         """Handle scan again request from dialog"""
