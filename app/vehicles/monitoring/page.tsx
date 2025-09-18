@@ -58,7 +58,7 @@ export default function VehicleMonitoringPage() {
   }
 
   // Initialize WebSocket connection
-  const { isConnected, connectionError } = useWebSocket(handleVehicleCheck)
+  const { isConnected, connectionError, reconnect } = useWebSocket(handleVehicleCheck)
 
   useEffect(() => {
     loadData()
@@ -209,15 +209,15 @@ export default function VehicleMonitoringPage() {
             </Button>
             
             {/* WebSocket Status */}
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium cursor-pointer ${
               isConnected 
                 ? 'bg-green-100 text-green-700' 
-                : 'bg-red-100 text-red-700'
-            }`}>
+                : 'bg-red-100 text-red-700 hover:bg-red-200'
+            }`} onClick={!isConnected ? reconnect : undefined} title={connectionError || ''}>
               <div className={`w-2 h-2 rounded-full ${
                 isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
               }`}></div>
-              {isConnected ? 'WebSocket Kết nối' : 'WebSocket Ngắt kết nối'}
+              {isConnected ? 'WebSocket Kết nối' : 'Kết nối lại'}
             </div>
             
             {/* Test Button */}
