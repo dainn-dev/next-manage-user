@@ -158,112 +158,149 @@ export default function VehicleMonitoringPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Theo dõi ra / vào</h1>
-          <Button onClick={loadData} variant="outline" className="mt-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full mb-4 shadow-lg">
+            <Car className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Theo dõi ra / vào</h1>
+          <p className="text-gray-600 mb-4">Hệ thống giám sát an ninh thông minh</p>
+          <Button onClick={loadData} variant="outline" className="mt-2 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Làm mới
+            Làm mới dữ liệu
           </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Personnel Information */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">Thông tin quân nhân ra / vào</h2>
+            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold text-gray-800">Thông tin quân nhân ra / vào</h2>
+              </div>
               
-              <div className="border-2 border-gray-300 rounded-lg p-6">
+              <div className="border-2 border-gray-200 rounded-xl p-6 bg-gradient-to-br from-gray-50 to-white">
                 {selectedLog ? (
                   <div className="flex gap-6">
                     {/* Photo placeholder */}
                     <div className="flex-shrink-0">
-                      <div className="w-32 h-40 bg-gray-200 border-2 border-gray-400 rounded flex items-center justify-center">
-                        <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                        </svg>
+                      <div className="w-32 h-40 bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <div className="text-center">
+                          <svg className="w-12 h-12 text-blue-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                          </svg>
+                          <span className="text-xs text-blue-500 font-medium">Ảnh</span>
+                        </div>
                       </div>
                     </div>
                     
                     {/* Information table */}
                     <div className="flex-1">
-                      <table className="w-full">
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Giờ ra / vào:</td>
-                            <td className="py-2 text-gray-800">{formatTime(selectedLog.entryExitTime)} - {formatDate(selectedLog.entryExitTime)}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Họ và tên:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.driverName || 'N/A'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Cơ quan, đơn vị:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.employeeName || 'N/A'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">ID quân nhân:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.vehicleId || 'N/A'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Tình trạng:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.type === 'entry' ? 'Vào cổng' : 'Ra cổng'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Loại xe:</td>
-                            <td className="py-2 text-gray-800">Honda Civic</td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Biển số:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.licensePlateNumber}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                      <div className="space-y-3">
+                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-blue-50 transition-colors duration-200">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-600">Giờ ra / vào</span>
+                            <p className="text-gray-800 font-semibold">{formatTime(selectedLog.entryExitTime)} - {formatDate(selectedLog.entryExitTime)}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-green-50 transition-colors duration-200">
+                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-600">Họ và tên</span>
+                            <p className="text-gray-800 font-semibold">{selectedLog.driverName || 'N/A'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-purple-50 transition-colors duration-200">
+                          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-600">Cơ quan, đơn vị</span>
+                            <p className="text-gray-800 font-semibold">{selectedLog.employeeName || 'N/A'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-yellow-50 transition-colors duration-200">
+                          <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-600">ID quân nhân</span>
+                            <p className="text-gray-800 font-semibold">{selectedLog.vehicleId || 'N/A'}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-indigo-50 transition-colors duration-200">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
+                            {selectedLog.type === 'entry' ? 
+                              <ArrowUp className="w-4 h-4 text-green-600" /> : 
+                              <ArrowDown className="w-4 h-4 text-red-600" />
+                            }
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-600">Tình trạng</span>
+                            <p className={`font-semibold ${selectedLog.type === 'entry' ? 'text-green-600' : 'text-red-600'}`}>
+                              {selectedLog.type === 'entry' ? 'Vào cổng' : 'Ra cổng'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-orange-50 transition-colors duration-200">
+                          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                            <Car className="w-4 h-4 text-orange-600" />
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-600">Loại xe</span>
+                            <p className="text-gray-800 font-semibold">Honda Civic</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-200">
+                          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-600">Biển số</span>
+                            <p className="text-gray-800 font-semibold font-mono">{selectedLog.licensePlateNumber}</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-6">
-                    {/* Photo placeholder */}
-                    <div className="flex-shrink-0">
-                      <div className="w-32 h-40 bg-gray-200 border-2 border-gray-400 rounded flex items-center justify-center">
-                        <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                        </svg>
-                      </div>
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
-                    
-                    {/* Information table with sample data */}
-                    <div className="flex-1">
-                      <table className="w-full">
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Giờ ra / vào:</td>
-                            <td className="py-2 text-gray-800">10:30 - 29/09/2025</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Họ và tên:</td>
-                            <td className="py-2 text-gray-800">Nguyễn Văn A</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Cơ quan, đơn vị:</td>
-                            <td className="py-2 text-gray-800">Tiểu đoàn 9</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">ID quân nhân:</td>
-                            <td className="py-2 text-gray-800">MA001</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Tình trạng:</td>
-                            <td className="py-2 text-gray-800">Ra cổng</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Loại xe:</td>
-                            <td className="py-2 text-gray-800">Honda Civic</td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Biển số:</td>
-                            <td className="py-2 text-gray-800">76M5 -14389</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Chưa có thông tin</h3>
+                    <p className="text-gray-500 mb-4">Chọn một quân nhân từ danh sách bên dưới để xem thông tin chi tiết</p>
+                    <div className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-sm font-medium">
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Hướng dẫn sử dụng
                     </div>
                   </div>
                 )}
@@ -273,46 +310,93 @@ export default function VehicleMonitoringPage() {
 
           {/* Right Column - Clock and Photo */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 text-center">
-              <div className="mb-4">
+            <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 text-center h-full flex flex-col">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 012 0v4m0 0V3a1 1 0 012 0v4m0 0a3 3 0 11-6 0m6 0a3 3 0 11-6 0m6 0H9a3 3 0 000 6h6a3 3 0 000-6H9z" />
+                  </svg>
+                </div>
                 <div className="text-lg font-medium text-gray-700">{formatCurrentDate(currentTime)}</div>
               </div>
               
-              <div className="text-4xl font-bold text-gray-800 mb-6 font-mono">
-                {formatClock(currentTime)}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 mb-6">
+                <div className="text-4xl font-bold text-gray-800 font-mono tracking-wider">
+                  {formatClock(currentTime)}
+                </div>
+                <div className="text-sm text-blue-600 font-medium mt-1">Thời gian hiện tại</div>
               </div>
               
-              <div className="w-32 h-32 bg-gray-200 border-2 border-gray-300 rounded mx-auto flex items-center justify-center">
-                <svg className="w-16 h-16 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                </svg>
+              <div className="flex-1 flex items-center justify-center min-h-0">
+                <div className="w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-50 border-2 border-gray-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
+                  <div className="text-center">
+                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                    </svg>
+                    <span className="text-xs text-gray-500 font-medium">Camera</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Personnel Queue Section - Full Width */}
-        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">Thứ tự quân nhân ra vào</h2>
+        <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 mt-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">Thứ tự quân nhân ra vào</h2>
+              <p className="text-sm text-gray-500">Nhấp vào thẻ để xem thông tin chi tiết</p>
+            </div>
+          </div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
             {filteredLogs.map((log) => (
               <div 
                 key={log.id} 
-                className={`rounded-lg p-4 text-center cursor-pointer transition-all duration-200 ${
+                className={`rounded-xl p-6 text-center cursor-pointer transition-all duration-300 transform hover:scale-105 ${
                   selectedLog?.id === log.id 
-                    ? 'bg-blue-100 border-2 border-blue-400' 
-                    : 'bg-gray-100 hover:bg-gray-200'
+                    ? 'bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-400 shadow-lg' 
+                    : 'bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:shadow-md hover:border-blue-300'
                 }`}
                 onClick={() => setSelectedLog(log)}
               >
-                <div className="w-16 h-16 bg-gray-200 border border-gray-300 rounded mx-auto mb-2 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                  </svg>
+                <div className={`w-20 h-20 rounded-full mx-auto mb-3 flex items-center justify-center transition-all duration-200 ${
+                  selectedLog?.id === log.id 
+                    ? 'bg-gradient-to-br from-blue-200 to-blue-100 border-2 border-blue-300' 
+                    : 'bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300'
+                }`}>
+                  <div className="text-center">
+                    <svg className={`w-8 h-8 mx-auto mb-1 ${
+                      selectedLog?.id === log.id ? 'text-blue-500' : 'text-gray-400'
+                    }`} fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                    </svg>
+                    <div className={`w-2 h-2 rounded-full mx-auto ${
+                      log.type === 'entry' ? 'bg-green-400' : 'bg-red-400'
+                    }`}></div>
+                  </div>
                 </div>
-                <div className="text-sm font-medium text-gray-700">{log.driverName || 'Lê Văn B'}</div>
-                <div className="text-xs text-gray-500">{log.employeeName || 'Tiểu đoàn 8'}</div>
+                <div className="text-base font-medium text-gray-700 mb-1 truncate" title={log.driverName || 'Lê Văn B'}>
+                  {log.driverName || 'Lê Văn B'}
+                </div>
+                <div className="text-sm text-gray-500 truncate" title={log.employeeName || 'Tiểu đoàn 8'}>
+                  {log.employeeName || 'Tiểu đoàn 8'}
+                </div>
+                <div className="mt-2">
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    log.type === 'entry' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {log.type === 'entry' ? 'Vào' : 'Ra'}
+                  </span>
+                </div>
               </div>
             ))}
             
@@ -320,56 +404,39 @@ export default function VehicleMonitoringPage() {
             {filteredLogs.length === 0 && (
               <>
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="bg-gray-100 rounded-lg p-4 text-center">
-                    <div className="w-16 h-16 bg-gray-200 border border-gray-300 rounded mx-auto mb-2 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                      </svg>
+                  <div key={i} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition-shadow duration-200">
+                    <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300 rounded-full mx-auto mb-3 flex items-center justify-center">
+                      <div className="text-center">
+                        <svg className="w-8 h-8 text-gray-400 mx-auto mb-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                        </svg>
+                        <div className="w-2 h-2 bg-gray-300 rounded-full mx-auto"></div>
+                      </div>
                     </div>
-                    <div className="text-sm font-medium text-gray-700">Lê Văn B</div>
-                    <div className="text-xs text-gray-500">Tiểu đoàn 8</div>
+                    <div className="text-base font-medium text-gray-700 mb-1">Lê Văn B</div>
+                    <div className="text-sm text-gray-500">Tiểu đoàn 8</div>
+                    <div className="mt-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                        Chờ
+                      </span>
+                    </div>
                   </div>
                 ))}
               </>
             )}
           </div>
-        </div>
-
-        {/* Hidden Filters Section */}
-        <div className="hidden">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Tìm biển số, tài xế..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          
+          {filteredLogs.length === 0 && (
+            <div className="text-center mt-8 py-8 border-t border-gray-200">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-gray-500 text-lg mb-2">Hệ thống đang hoạt động bình thường</p>
+              <p className="text-gray-400 text-sm">Dữ liệu sẽ được cập nhật tự động mỗi 30 giây</p>
             </div>
-            
-            <Select value={typeFilter} onValueChange={(value: any) => setTypeFilter(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Loại hoạt động" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="entry">Vào</SelectItem>
-                <SelectItem value="exit">Ra</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={vehicleTypeFilter} onValueChange={(value: any) => setVehicleTypeFilter(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Loại xe" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="internal">Nội bộ</SelectItem>
-                <SelectItem value="external">Bên ngoài</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          )}
         </div>
       </div>
     </div>
