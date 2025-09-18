@@ -16,6 +16,7 @@ import { employeeApi } from "./api/employee-api"
 import { vehicleStatisticsApi } from "./api/vehicle-statistics-api"
 import { departmentApi } from "./api/department-api"
 import { positionApi } from "./api/position-api"
+import { vehicleLogApi, type EmployeeVehicleInfo } from "./api/vehicle-log-api"
 
 class DataService {
   private employees: Employee[] = [...mockEmployees]
@@ -626,6 +627,11 @@ class DataService {
   // Vehicle Statistics operations
   async getVehicleStatistics(): Promise<VehicleStatistics> {
     return await vehicleStatisticsApi.getVehicleStatistics()
+  }
+
+  // Vehicle Log operations
+  async getEmployeeInfoByLicensePlate(licensePlateNumber: string, type: 'entry' | 'exit'): Promise<EmployeeVehicleInfo> {
+    return await vehicleLogApi.getEmployeeInfoByLicensePlate(licensePlateNumber, type)
   }
 
 }

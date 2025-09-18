@@ -39,6 +39,45 @@ export interface VehicleLogStatistics {
   uniqueVehicles: number
 }
 
+export interface EmployeeVehicleInfo {
+  // Employee information
+  employeeId: string
+  employeeName: string
+  firstName?: string
+  lastName?: string
+  department: string
+  position: string
+  rank?: string
+  jobTitle?: string
+  militaryCivilian?: string
+  phone: string
+  email: string
+  location?: string
+  avatar?: string
+  
+  // Vehicle information
+  vehicleId: string
+  licensePlateNumber: string
+  brand?: string
+  model?: string
+  color?: string
+  vehicleType?: string
+  year?: number
+  engineNumber?: string
+  chassisNumber?: string
+  registrationDate?: string
+  expiryDate?: string
+  
+  // Latest log information
+  logId?: string
+  logType: string
+  logTime?: string
+  driverName?: string
+  purpose?: string
+  gateLocation?: string
+  notes?: string
+}
+
 export const vehicleLogApi = {
   // Get paginated vehicle logs
   getAllVehicleLogs: async (page = 0, size = 10, sortBy = 'entryExitTime', sortDir = 'desc'): Promise<VehicleLogPage> => {
@@ -184,6 +223,15 @@ export const vehicleLogApi = {
     const response = await fetch(`${API_BASE_URL}/vehicle-logs/statistics/today`)
     if (!response.ok) {
       throw new Error('Failed to fetch today statistics')
+    }
+    return response.json()
+  },
+
+  // Get employee info by license plate and type
+  getEmployeeInfoByLicensePlate: async (licensePlateNumber: string, type: 'entry' | 'exit'): Promise<EmployeeVehicleInfo> => {
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/employee-info?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toUpperCase()}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch employee info')
     }
     return response.json()
   }

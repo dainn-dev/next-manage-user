@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -18,6 +19,9 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
     
     // Find by license plate
     List<VehicleLog> findByLicensePlateNumber(String licensePlateNumber);
+    
+    // Find latest log by license plate and type
+    Optional<VehicleLog> findTopByLicensePlateNumberAndTypeOrderByEntryExitTimeDesc(String licensePlateNumber, VehicleLog.LogType type);
     
     // Find by vehicle ID
     List<VehicleLog> findByVehicleId(UUID vehicleId);

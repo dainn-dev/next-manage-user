@@ -150,4 +150,13 @@ public class VehicleLogController {
             public final long uniqueVehicles = vehicleLogService.getTodayUniqueVehicles();
         });
     }
+    
+    @GetMapping("/employee-info")
+    @Operation(summary = "Get employee info by license plate", description = "Get employee and vehicle information by license plate number and entry/exit type")
+    public ResponseEntity<Object> getEmployeeInfoByLicensePlate(
+            @Parameter(description = "License plate number") @RequestParam String licensePlateNumber,
+            @Parameter(description = "Log type (entry/exit)") @RequestParam VehicleLog.LogType type) {
+        Object employeeInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, type);
+        return ResponseEntity.ok(employeeInfo);
+    }
 }

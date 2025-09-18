@@ -198,6 +198,69 @@ public class VehicleLogService {
         return dto;
     }
     
+    public Object getEmployeeInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type) {
+        // Find the vehicle by license plate
+        Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlate(licensePlateNumber);
+        
+        if (vehicleOpt.isEmpty()) {
+            throw new RuntimeException("Vehicle not found with license plate: " + licensePlateNumber);
+        }
+        
+        Vehicle vehicle = vehicleOpt.get();
+        
+        // Get the employee who owns this vehicle
+        Employee employee = vehicle.getEmployee();
+        
+        if (employee == null) {
+            throw new RuntimeException("No employee found for vehicle: " + licensePlateNumber);
+        }
+        
+        // Find the latest log entry for this vehicle and type
+        Optional<VehicleLog> latestLogOpt = vehicleLogRepository
+                .findTopByLicensePlateNumberAndTypeOrderByEntryExitTimeDesc(licensePlateNumber, type);
+        
+        VehicleLog latestLog = latestLogOpt.orElse(null);
+        
+        // Create response object
+        return new Object() {
+            public final String employeeId = employee.getEmployeeId();
+            public final String employeeName = employee.getName();
+            public final String firstName = employee.getFirstName();
+            public final String lastName = employee.getLastName();
+            public final String department = employee.getDepartment();
+            public final String position = employee.getPosition();
+            public final String rank = employee.getRank();
+            public final String jobTitle = employee.getJobTitle();
+            public final String militaryCivilian = employee.getMilitaryCivilian();
+            public final String phone = employee.getPhone();
+            public final String email = employee.getEmail();
+            public final String location = employee.getLocation();
+            public final String avatar = employee.getAvatar();
+            
+            // Vehicle information
+            public final String vehicleId = vehicle.getId().toString();
+            public final String licensePlateNumber = vehicle.getLicensePlateNumber();
+            public final String brand = vehicle.getBrand();
+            public final String model = vehicle.getModel();
+            public final String color = vehicle.getColor();
+            public final String vehicleType = vehicle.getVehicleType() != null ? vehicle.getVehicleType().name() : null;
+            public final Integer year = vehicle.getYear();
+            public final String engineNumber = vehicle.getEngineNumber();
+            public final String chassisNumber = vehicle.getChassisNumber();
+            public final String registrationDate = vehicle.getRegistrationDate() != null ? vehicle.getRegistrationDate().toString() : null;
+            public final String expiryDate = vehicle.getExpiryDate() != null ? vehicle.getExpiryDate().toString() : null;
+            
+            // Latest log information
+            public final String logId = latestLog != null ? latestLog.getId().toString() : null;
+            public final String logType = latestLog != null ? latestLog.getType().name() : type.name();
+            public final String logTime = latestLog != null ? latestLog.getEntryExitTime().toString() : null;
+            public final String driverName = latestLog != null ? latestLog.getDriverName() : null;
+            public final String purpose = latestLog != null ? latestLog.getPurpose() : null;
+            public final String gateLocation = latestLog != null ? latestLog.getGateLocation() : null;
+            public final String notes = latestLog != null ? latestLog.getNotes() : null;
+        };
+    }
+
     private VehicleLog convertToEntity(VehicleLogDto dto) {
         return VehicleLog.builder()
                 .id(dto.getId())
