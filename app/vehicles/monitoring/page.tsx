@@ -44,6 +44,7 @@ export default function VehicleMonitoringPage() {
   useEffect(() => {
     // Auto-select the latest log for display
     if (filteredLogs.length > 0 && !selectedLog) {
+      console.log('Auto-selecting first log:', filteredLogs[0]);
       setSelectedLog(filteredLogs[0])
     }
   }, [filteredLogs, selectedLog])
@@ -163,10 +164,38 @@ export default function VehicleMonitoringPage() {
         </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Theo dõi ra / vào</h1>
           <p className="text-gray-600 mb-4">Hệ thống giám sát an ninh thông minh</p>
-          <Button onClick={loadData} variant="outline" className="mt-2 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200">
-          <RefreshCw className="h-4 w-4 mr-2" />
-            Làm mới dữ liệu
-        </Button>
+          <div className="flex gap-2">
+            <Button onClick={loadData} variant="outline" className="mt-2 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Làm mới dữ liệu
+            </Button>
+            <Button 
+              onClick={() => {
+                const testLog = {
+                  id: 'test-123',
+                  licensePlateNumber: '29B-12345',
+                  driverName: 'Test User',
+                  employeeName: 'Test Department',
+                  employeeId: 'EMP001',
+                  entryExitTime: new Date().toISOString(),
+                  type: 'entry' as const,
+                  vehicleType: 'internal' as const,
+                  vehicleBrand: 'Toyota',
+                  vehicleModel: 'Camry',
+                  vehicleColor: 'Đỏ',
+                  purpose: 'Công tác',
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                };
+                console.log('Setting test log:', testLog);
+                setSelectedLog(testLog);
+              }} 
+              variant="outline" 
+              className="mt-2 bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
+            >
+              Test Selection
+            </Button>
+          </div>
       </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -184,6 +213,8 @@ export default function VehicleMonitoringPage() {
               
               <div className="border-2 border-gray-200 rounded-xl p-6 bg-gradient-to-br from-gray-50 to-white">
                 {selectedLog ? (
+                  <>
+                    {console.log('Displaying selectedLog:', selectedLog)}
                   <div className="flex gap-6">
                     {/* Photo placeholder */}
                     <div className="flex-shrink-0">
@@ -320,6 +351,7 @@ export default function VehicleMonitoringPage() {
                       </div>
                     </div>
                   </div>
+                  </>
                 ) : (
                   <div className="text-center py-12">
                     <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -385,6 +417,7 @@ export default function VehicleMonitoringPage() {
             <div>
               <h2 className="text-xl font-semibold text-gray-800">Thứ tự quân nhân ra vào</h2>
               <p className="text-sm text-gray-500">Nhấp vào thẻ để xem thông tin chi tiết</p>
+              <p className="text-xs text-blue-600 mt-1">Debug: {filteredLogs.length} logs, Selected: {selectedLog?.id || 'none'}</p>
             </div>
         </div>
         
@@ -397,7 +430,12 @@ export default function VehicleMonitoringPage() {
                     ? 'bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-400 shadow-lg' 
                     : 'bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:shadow-md hover:border-blue-300'
                 }`}
-                onClick={() => setSelectedLog(log)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Clicked log:', log);
+                  setSelectedLog(log);
+                }}
               >
                 <div className={`w-20 h-20 rounded-full mx-auto mb-3 flex items-center justify-center transition-all duration-200 ${
                   selectedLog?.id === log.id 
@@ -437,7 +475,30 @@ export default function VehicleMonitoringPage() {
             {filteredLogs.length === 0 && (
               <>
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition-shadow duration-200">
+                  <div 
+                    key={i} 
+                    className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                    onClick={() => {
+                      const testLog = {
+                        id: `placeholder-${i}`,
+                        licensePlateNumber: `29B-${1000 + i}`,
+                        driverName: `Lê Văn ${String.fromCharCode(65 + i)}`,
+                        employeeName: `Tiểu đoàn ${i + 7}`,
+                        employeeId: `EMP00${i}`,
+                        entryExitTime: new Date().toISOString(),
+                        type: (i % 2 === 0 ? 'entry' : 'exit') as 'entry' | 'exit',
+                        vehicleType: 'internal' as const,
+                        vehicleBrand: 'Honda',
+                        vehicleModel: 'Civic',
+                        vehicleColor: 'Trắng',
+                        purpose: 'Công tác',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                      };
+                      console.log('Placeholder clicked:', testLog);
+                      setSelectedLog(testLog);
+                    }}
+                  >
                     <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300 rounded-full mx-auto mb-3 flex items-center justify-center">
                       <div className="text-center">
                         <svg className="w-8 h-8 text-gray-400 mx-auto mb-1" fill="currentColor" viewBox="0 0 20 20">
