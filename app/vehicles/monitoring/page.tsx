@@ -217,31 +217,8 @@ export default function VehicleMonitoringPage() {
               <div className={`w-2 h-2 rounded-full ${
                 isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
               }`}></div>
-              {isConnected ? 'WebSocket Kết nối' : 'Kết nối lại'}
+              {isConnected ? 'Hoạt động' : 'Kết nối lại'}
             </div>
-            
-            {/* Test Button */}
-            <Button 
-              onClick={async () => {
-                try {
-                  await vehicleLogApi.testVehicleCheck("29B-12345", "entry")
-                  toast({
-                    title: "Test thành công",
-                    description: "Đã gửi test vehicle check",
-                  })
-                } catch (error) {
-                  toast({
-                    title: "Test thất bại",
-                    description: "Không thể gửi test vehicle check",
-                    variant: "destructive",
-                  })
-                }
-              }}
-              variant="outline" 
-              className="bg-yellow-50 hover:bg-yellow-100 border-yellow-300 text-yellow-700"
-            >
-              Test WebSocket
-            </Button>
           </div>
       </div>
 
@@ -506,18 +483,6 @@ export default function VehicleMonitoringPage() {
             )}
             </div>
           </div>
-          
-              {filteredLogs.length === 0 && (
-            <div className="text-center mt-8 py-8 border-t border-gray-200">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <p className="text-gray-500 text-lg mb-2">Hệ thống đang hoạt động bình thường</p>
-              <p className="text-gray-400 text-sm">Dữ liệu sẽ được cập nhật tự động mỗi 30 giây</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

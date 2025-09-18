@@ -18,6 +18,8 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
   const callbackRef = useRef(onVehicleCheck)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isConnectingRef = useRef(false)
+  const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastHeartbeatRef = useRef<number>(Date.now())
 
   // Update callback ref when it changes
   useEffect(() => {
@@ -45,8 +47,9 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
         },
         // Disable automatic reconnect to prevent continuous connect/disconnect
         reconnectDelay: 0,
-        heartbeatIncoming: 10000,
-        heartbeatOutgoing: 10000,
+        // Shorter heartbeat intervals for faster disconnection detection
+        heartbeatIncoming: 4000,
+        heartbeatOutgoing: 4000,
       })
 
       client.onConnect = (frame) => {
@@ -54,6 +57,7 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
         setIsConnected(true)
         setConnectionError(null)
         isConnectingRef.current = false
+        lastHeartbeatRef.current = Date.now()
 
         // Subscribe to vehicle check topic
         client.subscribe('/topic/vehicle-check', (message) => {
@@ -65,6 +69,36 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
             console.error('Error parsing vehicle check message:', error)
           }
         })
+
+        // Start health check interval
+        healthCheckIntervalRef.current = setInterval(async () => {
+          const now = Date.now()
+          const timeSinceLastHeartbeat = now - lastHeartbeatRef.current
+          
+          // Test backend connection
+          const isBackendAlive = await testConnection()
+          
+          // If backend is down or no heartbeat for more than 15 seconds, consider connection lost
+          if (!isBackendAlive || timeSinceLastHeartbeat > 15000) {
+            console.warn('WebSocket connection lost - backend unreachable or heartbeat timeout')
+            setIsConnected(false)
+            setConnectionError(isBackendAlive ? 'Connection timeout' : 'Backend server unavailable')
+            
+            // Clean up
+            if (clientRef.current) {
+              clientRef.current.deactivate()
+              clientRef.current = null
+            }
+            if (healthCheckIntervalRef.current) {
+              clearInterval(healthCheckIntervalRef.current)
+              healthCheckIntervalRef.current = null
+            }
+            isConnectingRef.current = false
+          } else {
+            // Update heartbeat timestamp on successful check
+            lastHeartbeatRef.current = now
+          }
+        }, 5000) // Check every 5 seconds
       }
 
       client.onStompError = (frame) => {
@@ -72,6 +106,12 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
         setConnectionError(frame.headers['message'] || 'Connection error')
         setIsConnected(false)
         isConnectingRef.current = false
+        
+        // Clear health check interval
+        if (healthCheckIntervalRef.current) {
+          clearInterval(healthCheckIntervalRef.current)
+          healthCheckIntervalRef.current = null
+        }
         
         // Schedule reconnect after 10 seconds
         reconnectTimeoutRef.current = setTimeout(() => {
@@ -85,12 +125,37 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
         setConnectionError('WebSocket connection failed')
         setIsConnected(false)
         isConnectingRef.current = false
+        
+        // Clear health check interval
+        if (healthCheckIntervalRef.current) {
+          clearInterval(healthCheckIntervalRef.current)
+          healthCheckIntervalRef.current = null
+        }
+      }
+
+      client.onWebSocketClose = (event) => {
+        console.log('WebSocket connection closed:', event)
+        setIsConnected(false)
+        setConnectionError('Connection closed')
+        isConnectingRef.current = false
+        
+        // Clear health check interval
+        if (healthCheckIntervalRef.current) {
+          clearInterval(healthCheckIntervalRef.current)
+          healthCheckIntervalRef.current = null
+        }
       }
 
       client.onDisconnect = () => {
         console.log('WebSocket disconnected')
         setIsConnected(false)
         isConnectingRef.current = false
+        
+        // Clear health check interval
+        if (healthCheckIntervalRef.current) {
+          clearInterval(healthCheckIntervalRef.current)
+          healthCheckIntervalRef.current = null
+        }
       }
 
       clientRef.current = client
@@ -104,6 +169,9 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
+      }
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current)
       }
       if (clientRef.current) {
         clientRef.current.deactivate()
@@ -124,10 +192,32 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
     }
   }
 
+  const testConnection = async () => {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/health`, {
+        method: 'GET',
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      return response.ok
+    } catch (error) {
+      console.error('Connection test failed:', error)
+      return false
+    }
+  }
+
   const reconnect = () => {
     if (clientRef.current) {
       clientRef.current.deactivate()
       clientRef.current = null
+    }
+    if (healthCheckIntervalRef.current) {
+      clearInterval(healthCheckIntervalRef.current)
+      healthCheckIntervalRef.current = null
     }
     isConnectingRef.current = false
     
@@ -157,6 +247,7 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
           setIsConnected(true)
           setConnectionError(null)
           isConnectingRef.current = false
+          lastHeartbeatRef.current = Date.now()
 
           client.subscribe('/topic/vehicle-check', (message) => {
             try {
@@ -167,6 +258,31 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage) => 
               console.error('Error parsing vehicle check message:', error)
             }
           })
+
+          // Start health check interval for reconnected client
+          healthCheckIntervalRef.current = setInterval(async () => {
+            const now = Date.now()
+            const timeSinceLastHeartbeat = now - lastHeartbeatRef.current
+            const isBackendAlive = await testConnection()
+            
+            if (!isBackendAlive || timeSinceLastHeartbeat > 15000) {
+              console.warn('WebSocket connection lost on reconnected client')
+              setIsConnected(false)
+              setConnectionError(isBackendAlive ? 'Connection timeout' : 'Backend server unavailable')
+              
+              if (clientRef.current) {
+                clientRef.current.deactivate()
+                clientRef.current = null
+              }
+              if (healthCheckIntervalRef.current) {
+                clearInterval(healthCheckIntervalRef.current)
+                healthCheckIntervalRef.current = null
+              }
+              isConnectingRef.current = false
+            } else {
+              lastHeartbeatRef.current = now
+            }
+          }, 5000)
         }
 
         client.onStompError = (frame) => {
