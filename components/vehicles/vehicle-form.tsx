@@ -16,10 +16,11 @@ interface VehicleFormProps {
   employees: Employee[]
   isOpen: boolean
   onClose: () => void
-  onSave: (vehicle: Omit<Vehicle, "id" | "createdAt" | "updatedAt">) => void
+  onSave: (vehicle: Omit<Vehicle, "id" | "createdAt" | "updatedAt">) => Promise<Vehicle | void>
+  onImageUpload?: (vehicleId: string, imageFile: File) => Promise<void>
 }
 
-export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: VehicleFormProps) {
+export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onImageUpload }: VehicleFormProps) {
   const [formData, setFormData] = useState<Partial<Vehicle>>({
     employeeId: vehicle?.employeeId || "",
     employeeName: vehicle?.employeeName || "",
@@ -36,7 +37,11 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
   })
   
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(vehicle?.imagePath || null)
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    vehicle?.imagePath 
+      ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${vehicle.imagePath}`
+      : null
+  )
   const [uploadingImage, setUploadingImage] = useState(false)
 
   // Update form data when vehicle prop changes
@@ -56,7 +61,11 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
         notes: vehicle.notes || "",
         imagePath: vehicle.imagePath || "",
       })
-      setImagePreview(vehicle.imagePath || null)
+      setImagePreview(
+        vehicle.imagePath 
+          ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${vehicle.imagePath}`
+          : null
+      )
       setSelectedImage(null)
     } else {
       // Reset form for new vehicle
@@ -162,18 +171,36 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave }: Veh
         imagePath: formData.imagePath,
       }
       
-      onSave(vehicleData)
+      // Save vehicle data first
+      const savedVehicle = await onSave(vehicleData)
       
-      // Upload image if selected and it's a new vehicle
-      if (selectedImage && !vehicle) {
+      // Upload image if selected
+      if (selectedImage) {
         setUploadingImage(true)
         try {
-          // Note: We'll need to get the vehicle ID from the parent component after save
-          // For now, we'll handle image upload separately
-          console.log("Image will be uploaded after vehicle creation")
+          let vehicleId: string
+          
+          // Get vehicle ID from either existing vehicle or newly created vehicle
+          if (vehicle?.id) {
+            vehicleId = vehicle.id
+          } else if (typeof savedVehicle === 'object' && savedVehicle && 'id' in savedVehicle) {
+            vehicleId = (savedVehicle as any).id
+          } else {
+            throw new Error("Cannot determine vehicle ID for image upload")
+          }
+          
+          if (onImageUpload) {
+            await onImageUpload(vehicleId, selectedImage)
+          } else {
+            // Direct API call if no callback provided
+            const imagePath = await vehicleApi.uploadVehicleImage(vehicleId, selectedImage)
+            console.log("Image uploaded successfully:", imagePath)
+          }
+          
+          alert("Ảnh xe đã được tải lên thành công!")
         } catch (error) {
           console.error("Error uploading image:", error)
-          alert("Lỗi tải ảnh lên. Xe đã được tạo nhưng ảnh chưa được lưu.")
+          alert("Lỗi tải ảnh lên: " + (error instanceof Error ? error.message : "Unknown error"))
         } finally {
           setUploadingImage(false)
         }

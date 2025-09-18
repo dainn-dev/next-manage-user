@@ -59,6 +59,36 @@ export interface Position {
   childrenCount?: number
 }
 
+export enum PositionLevel {
+  // Chức vụ hierarchy
+  CHUC_VU = "chuc_vu",
+  SI_QUAN = "si_quan",
+  QNCN = "qncn",
+  
+  // Sĩ quan levels
+  TRUNG_DOI = "trung_doi",
+  DAI_DOI = "dai_doi",
+  TIEU_DOAN = "tieu_doan",
+  TRUNG_DOAN = "trung_doan",
+  CO_QUAN_SQ = "co_quan_sq",
+  
+  // QNCN levels
+  TIEU_DOAN_QNCN = "tieu_doan_qncn",
+  CO_QUAN_QNCN = "co_quan_qncn",
+  THAM_MUU = "tham_muu",
+  CHINH_TRI = "chinh_tri",
+  HAU_CAN_KY_THUAT = "hau_can_ky_thuat",
+  
+  // Traditional levels
+  INTERN = "intern",
+  JUNIOR = "junior",
+  SENIOR = "senior",
+  LEAD = "lead",
+  MANAGER = "manager",
+  DIRECTOR = "director",
+  EXECUTIVE = "executive",
+}
+
 
 export interface DepartmentStatistics {
   totalDepartments: number

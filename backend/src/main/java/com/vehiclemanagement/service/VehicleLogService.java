@@ -93,8 +93,8 @@ public class VehicleLogService {
     public VehicleLogDto createVehicleLog(VehicleLogDto vehicleLogDto) {
         VehicleLog vehicleLog = convertToEntity(vehicleLogDto);
         
-        // Try to find and associate vehicle by license plate
-        Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlate(vehicleLogDto.getLicensePlateNumber());
+        // Try to find and associate vehicle by license plate using normalized search
+        Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
         if (vehicle.isPresent()) {
             vehicleLog.setVehicle(vehicle.get());
             vehicleLog.setEmployee(vehicle.get().getEmployee());
@@ -125,8 +125,8 @@ public class VehicleLogService {
         existingLog.setNotes(vehicleLogDto.getNotes());
         existingLog.setImagePath(vehicleLogDto.getImagePath());
         
-        // Update vehicle association if license plate changed
-        Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlate(vehicleLogDto.getLicensePlateNumber());
+        // Update vehicle association if license plate changed using normalized search
+        Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
         if (vehicle.isPresent()) {
             existingLog.setVehicle(vehicle.get());
             existingLog.setEmployee(vehicle.get().getEmployee());
@@ -174,6 +174,7 @@ public class VehicleLogService {
                 .vehicleId(vehicleLog.getVehicle() != null ? vehicleLog.getVehicle().getId() : null)
                 .employeeId(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getId() : null)
                 .employeeName(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getName() : null)
+                .employeeAvatar(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getAvatar() : null)
                 .entryExitTime(vehicleLog.getEntryExitTime())
                 .type(vehicleLog.getType())
                 .vehicleType(vehicleLog.getVehicleType())
@@ -199,8 +200,8 @@ public class VehicleLogService {
     }
     
     public Object getEmployeeInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type) {
-        // Find the vehicle by license plate
-        Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlate(licensePlateNumber);
+        // Find the vehicle by license plate using normalized search
+        Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber);
         
         if (vehicleOpt.isEmpty()) {
             throw new RuntimeException("Vehicle not found with license plate: " + licensePlateNumber);
@@ -214,12 +215,12 @@ public class VehicleLogService {
         if (employee == null) {
             throw new RuntimeException("No employee found for vehicle: " + licensePlateNumber);
         }
+
+        // Find the latest log entry for this vehicle and type using normalized license plate search
+        List<VehicleLog> logs = vehicleLogRepository
+                .findByLicensePlateNumberNormalizedAndTypeOrderByEntryExitTimeDesc(licensePlateNumber, type);
         
-        // Find the latest log entry for this vehicle and type
-        Optional<VehicleLog> latestLogOpt = vehicleLogRepository
-                .findTopByLicensePlateNumberAndTypeOrderByEntryExitTimeDesc(licensePlateNumber, type);
-        
-        VehicleLog latestLog = latestLogOpt.orElse(null);
+        VehicleLog latestLog = logs.isEmpty() ? null : logs.get(0);
         
         // Create response object
         return new Object() {
@@ -256,6 +257,7 @@ public class VehicleLogService {
             public final String purpose = latestLog != null ? latestLog.getPurpose() : null;
             public final String gateLocation = latestLog != null ? latestLog.getGateLocation() : null;
             public final String notes = latestLog != null ? latestLog.getNotes() : null;
+            public final String vehicleImagePath = vehicle.getImagePath();
         };
     }
 

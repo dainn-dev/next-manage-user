@@ -106,17 +106,36 @@ public class VehicleLogController {
     @Operation(summary = "Search vehicle logs", description = "Search vehicle logs with various filters")
     public ResponseEntity<Page<VehicleLogDto>> searchVehicleLogs(
             @Parameter(description = "License plate number") @RequestParam(required = false) String licensePlate,
-            @Parameter(description = "Log type (entry/exit)") @RequestParam(required = false) VehicleLog.LogType type,
-            @Parameter(description = "Vehicle type (internal/external)") @RequestParam(required = false) VehicleLog.VehicleCategory vehicleType,
+            @Parameter(description = "Log type (entry/exit)") @RequestParam(required = false) String type,
+            @Parameter(description = "Vehicle type (internal/external)") @RequestParam(required = false) String vehicleType,
             @Parameter(description = "Driver name") @RequestParam(required = false) String driverName,
             @Parameter(description = "Start date and time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @Parameter(description = "End date and time") @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
         
+        // Convert string parameters to enums, handling both uppercase and lowercase
+        VehicleLog.LogType logType = null;
+        if (type != null && !type.trim().isEmpty()) {
+            try {
+                logType = VehicleLog.LogType.valueOf(type.toLowerCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid log type: " + type + ". Valid values are: entry, exit");
+            }
+        }
+        
+        VehicleLog.VehicleCategory vehicleCategoryType = null;
+        if (vehicleType != null && !vehicleType.trim().isEmpty()) {
+            try {
+                vehicleCategoryType = VehicleLog.VehicleCategory.valueOf(vehicleType.toLowerCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid vehicle type: " + vehicleType + ". Valid values are: internal, external");
+            }
+        }
+        
         Pageable pageable = PageRequest.of(page, size, Sort.by("entryExitTime").descending());
         Page<VehicleLogDto> logs = vehicleLogService.searchVehicleLogs(
-                licensePlate, type, vehicleType, driverName, startDate, endDate, pageable);
+                licensePlate, logType, vehicleCategoryType, driverName, startDate, endDate, pageable);
         return ResponseEntity.ok(logs);
     }
     
@@ -155,8 +174,16 @@ public class VehicleLogController {
     @Operation(summary = "Get employee info by license plate", description = "Get employee and vehicle information by license plate number and entry/exit type")
     public ResponseEntity<Object> getEmployeeInfoByLicensePlate(
             @Parameter(description = "License plate number") @RequestParam String licensePlateNumber,
-            @Parameter(description = "Log type (entry/exit)") @RequestParam VehicleLog.LogType type) {
-        Object employeeInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, type);
+            @Parameter(description = "Log type (entry/exit)") @RequestParam String type) {
+        // Convert string to enum, handling both uppercase and lowercase
+        VehicleLog.LogType logType;
+        try {
+            logType = VehicleLog.LogType.valueOf(type.toLowerCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid log type: " + type + ". Valid values are: entry, exit");
+        }
+        
+        Object employeeInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, logType);
         return ResponseEntity.ok(employeeInfo);
     }
 }

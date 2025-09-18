@@ -1,7 +1,7 @@
 {
     "api": {
         "base_url": "http://localhost:8080",
-        "endpoint": "/api/entry-exit-requests/check-vehicle",
+        "endpoint": "/api/vehicles/check-vehicle",
         "timeout": 10,
         "use_query_params": true,
         "use_cookies": true,
@@ -57,7 +57,7 @@
         "connection_error_popup_cooldown": 30
     },
     "tts": {
-        "enabled": true,
+        "enabled": false,
         "use_gtts": true,
         "rate": 150,
         "volume": 0.8,

@@ -23,6 +23,13 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
     // Find latest log by license plate and type
     Optional<VehicleLog> findTopByLicensePlateNumberAndTypeOrderByEntryExitTimeDesc(String licensePlateNumber, VehicleLog.LogType type);
     
+    // Find latest log by normalized license plate and type
+    @Query("SELECT vl FROM VehicleLog vl WHERE " +
+           "REPLACE(REPLACE(REPLACE(REPLACE(UPPER(vl.licensePlateNumber), '-', ''), '.', ''), ' ', ''), '_', '') = " +
+           "REPLACE(REPLACE(REPLACE(REPLACE(UPPER(:licensePlateNumber), '-', ''), '.', ''), ' ', ''), '_', '') " +
+           "AND vl.type = :type ORDER BY vl.entryExitTime DESC")
+    List<VehicleLog> findByLicensePlateNumberNormalizedAndTypeOrderByEntryExitTimeDesc(@Param("licensePlateNumber") String licensePlateNumber, @Param("type") VehicleLog.LogType type);
+    
     // Find by vehicle ID
     List<VehicleLog> findByVehicleId(UUID vehicleId);
     

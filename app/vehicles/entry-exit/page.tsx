@@ -11,8 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, RefreshCw, Car, TrendingUp, ArrowUp, ArrowDown, Calendar, Download, Plus, Filter, Eye, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import type { VehicleLog } from "@/lib/types"
-import { vehicleLogApi, VehicleLogPage } from "@/lib/api/vehicle-log-api"
+import { vehicleLogApi, VehicleLogPage, VehicleLog } from "@/lib/api/vehicle-log-api"
 
 export default function VehicleEntryExitPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([])
@@ -343,8 +342,6 @@ export default function VehicleEntryExitPage() {
                 <TableHead>Chủ xe</TableHead>
                 <TableHead>Mục đích</TableHead>
                 <TableHead>Cổng</TableHead>
-                <TableHead>Bảo vệ</TableHead>
-                <TableHead className="w-[100px]">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -377,27 +374,11 @@ export default function VehicleEntryExitPage() {
                   <TableCell>
                     <span className="text-sm">{log.gateLocation || 'N/A'}</span>
                   </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{log.securityGuardName || 'N/A'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
                 </TableRow>
               ))}
               {logs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Không có dữ liệu thông tin ra vào
                   </TableCell>
                 </TableRow>

@@ -83,7 +83,9 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
     Page<Position> findWithFilters(@Param("parentId") UUID parentId,
                                   Pageable pageable);
     
-    @Query("SELECT MAX(p.displayOrder) FROM Position p WHERE " +
-           "(:parentId IS NULL AND p.parentId IS NULL) OR p.parentId = :parentId")
-    Integer getMaxDisplayOrderByParent(@Param("parentId") UUID parentId);
+    @Query("SELECT MAX(p.displayOrder) FROM Position p WHERE p.parentId IS NULL")
+    Integer getMaxDisplayOrderForRootPositions();
+    
+    @Query("SELECT MAX(p.displayOrder) FROM Position p WHERE p.parentId = :parentId")
+    Integer getMaxDisplayOrderByParentId(@Param("parentId") UUID parentId);
 }

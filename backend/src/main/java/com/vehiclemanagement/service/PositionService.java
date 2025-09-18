@@ -98,7 +98,12 @@ public class PositionService {
         
         // Set display order if not provided
         if (position.getDisplayOrder() == null || position.getDisplayOrder() == 0) {
-            Integer maxOrder = positionRepository.getMaxDisplayOrderByParent(position.getParentId());
+            Integer maxOrder;
+            if (position.getParentId() == null) {
+                maxOrder = positionRepository.getMaxDisplayOrderForRootPositions();
+            } else {
+                maxOrder = positionRepository.getMaxDisplayOrderByParentId(position.getParentId());
+            }
             position.setDisplayOrder(maxOrder != null ? maxOrder + 1 : 1);
         }
         

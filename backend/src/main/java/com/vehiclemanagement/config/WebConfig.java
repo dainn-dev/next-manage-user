@@ -20,6 +20,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Serve uploaded images
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:uploads/")
+                .setCachePeriod(3600);
+                
+        // Keep existing images handler for backward compatibility
         registry.addResourceHandler("/images/**")
                 .addResourceLocations("file:images/")
                 .setCachePeriod(3600);

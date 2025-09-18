@@ -494,30 +494,6 @@ export default function EmployeesPage() {
             <Trash2 className="h-4 w-4 mr-2" />
             Xóa
           </Button>
-          <Button 
-            variant="secondary" 
-            size="sm"
-            onClick={() => {
-              if (selectedEmployees.length === 0) {
-                toast({
-                  title: "Cảnh báo",
-                  description: "Vui lòng chọn ít nhất một nhân viên để điều chỉnh",
-                  variant: "destructive",
-                })
-                return
-              }
-              
-              // TODO: Implement bulk employee adjustment functionality
-              console.log("Bulk adjust employees:", selectedEmployees)
-              toast({
-                title: "Thông báo",
-                description: `Điều chỉnh ${selectedEmployees.length} nhân viên đã chọn`,
-              })
-            }}
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Điều chỉnh quân nhân
-          </Button>
         </div>
       )}
 

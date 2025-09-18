@@ -4,8 +4,10 @@ import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
+import com.vehiclemanagement.dto.VehicleLogDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Vehicle;
+import com.vehiclemanagement.entity.VehicleLog;
 // import com.vehiclemanagement.entity.EntryExitRequest; // Removed
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
@@ -16,10 +18,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.WeekFields;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,6 +40,12 @@ public class VehicleService {
     
     @Autowired
     private EmployeeRepository employeeRepository;
+    
+    @Autowired
+    private VehicleLogService vehicleLogService;
+    
+    @Autowired
+    private WebSocketService webSocketService;
     
     // @Autowired
     // private EntryExitRequestRepository entryExitRequestRepository; // Removed
@@ -54,7 +68,7 @@ public class VehicleService {
     }
     
     public VehicleDto getVehicleByLicensePlate(String licensePlate) {
-        Vehicle vehicle = vehicleRepository.findByLicensePlate(licensePlate)
+        Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlate)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with license plate: " + licensePlate));
         return new VehicleDto(vehicle);
     }
@@ -96,9 +110,9 @@ public class VehicleService {
     }
     
     public VehicleCreateResponse createVehicle(VehicleDto vehicleDto) {
-        // Check if vehicle with this license plate already exists
-        if (vehicleRepository.existsByLicensePlate(vehicleDto.getLicensePlate())) {
-            Vehicle existingVehicle = vehicleRepository.findByLicensePlate(vehicleDto.getLicensePlate())
+        // Check if vehicle with this license plate already exists (using normalized comparison)
+        if (vehicleRepository.existsByLicensePlateNormalized(vehicleDto.getLicensePlate())) {
+            Vehicle existingVehicle = vehicleRepository.findByLicensePlateNormalized(vehicleDto.getLicensePlate())
                     .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with license plate: " + vehicleDto.getLicensePlate()));
             return new VehicleCreateResponse(
                 new VehicleDto(existingVehicle), 
@@ -374,6 +388,12 @@ public class VehicleService {
     @Transactional
     public String uploadVehicleImage(UUID vehicleId, MultipartFile imageFile) {
         try {
+            System.out.println("=== Vehicle Image Upload ===");
+            System.out.println("Vehicle ID: " + vehicleId);
+            System.out.println("File name: " + imageFile.getOriginalFilename());
+            System.out.println("File size: " + imageFile.getSize());
+            System.out.println("Content type: " + imageFile.getContentType());
+            
             // Find the vehicle
             Vehicle vehicle = vehicleRepository.findById(vehicleId)
                     .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + vehicleId));
@@ -386,7 +406,7 @@ public class VehicleService {
             // Check file type
             String contentType = imageFile.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
-                throw new IllegalArgumentException("File must be an image");
+                throw new IllegalArgumentException("File must be an image. Content type: " + contentType);
             }
             
             // Generate unique filename
@@ -396,26 +416,57 @@ public class VehicleService {
                     : ".jpg";
             String filename = "vehicle_" + vehicleId + "_" + System.currentTimeMillis() + fileExtension;
             
+            System.out.println("Generated filename: " + filename);
+            
             // Create upload directory if it doesn't exist
-            java.nio.file.Path uploadDir = java.nio.file.Paths.get("uploads/vehicles");
-            if (!java.nio.file.Files.exists(uploadDir)) {
-                java.nio.file.Files.createDirectories(uploadDir);
+            Path uploadDir = Paths.get("uploads", "vehicles");
+            System.out.println("Upload directory: " + uploadDir.toAbsolutePath());
+            
+            if (!Files.exists(uploadDir)) {
+                System.out.println("Creating upload directory...");
+                Files.createDirectories(uploadDir);
             }
             
             // Save file
-            java.nio.file.Path filePath = uploadDir.resolve(filename);
-            imageFile.transferTo(filePath.toFile());
+            Path filePath = uploadDir.resolve(filename);
+            System.out.println("Full file path: " + filePath.toAbsolutePath());
+            
+            Files.copy(imageFile.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("File saved successfully");
             
             // Update vehicle with image path
             String imagePath = "/uploads/vehicles/" + filename;
+            System.out.println("Setting image path on vehicle: " + imagePath);
+            System.out.println("Transaction active: " + TransactionSynchronizationManager.isActualTransactionActive());
+            
             vehicle.setImagePath(imagePath);
-            vehicleRepository.save(vehicle);
+            Vehicle savedVehicle = vehicleRepository.save(vehicle);
+            
+            // Force flush to ensure database update
+            vehicleRepository.flush();
+            
+            System.out.println("Vehicle saved and flushed. Current image path in DB: " + savedVehicle.getImagePath());
+            System.out.println("Vehicle ID: " + savedVehicle.getId());
+            System.out.println("=== Upload Complete ===");
             
             return imagePath;
             
         } catch (Exception e) {
+            System.err.println("Error uploading vehicle image: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException("Failed to upload vehicle image: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Normalize license plate by removing special characters and converting to uppercase
+     */
+    private String normalizeLicensePlate(String licensePlate) {
+        if (licensePlate == null) {
+            return null;
+        }
+        // Remove common special characters and convert to uppercase
+        return licensePlate.replaceAll("[-._\\s]", "").toUpperCase();
     }
     
     /**
@@ -424,21 +475,34 @@ public class VehicleService {
     @Transactional
     public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type) {
         try {
-            // Find vehicle by license plate
-            Vehicle vehicle = vehicleRepository.findByLicensePlate(licensePlateNumber)
+            // Find vehicle by license plate with normalized search
+            // This handles cases where license plates may have different formatting (e.g., "ABC-123" vs "ABC123")
+            Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber)
                     .orElse(null);
             
             if (vehicle == null) {
+                String notFoundMessage = "Xe với biển số " + licensePlateNumber + " chưa được đăng ký trong hệ thống";
+                
+                // Send WebSocket message for vehicle not found
+                try {
+                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, notFoundMessage);
+                } catch (Exception wsException) {
+                    // Log WebSocket error but don't fail the response
+                    System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
+                }
+                
                 return new VehicleCheckResponse(
                     false, 
-                    "Xe với biển số " + licensePlateNumber + " chưa được đăng ký trong hệ thống", 
+                    notFoundMessage, 
                     licensePlateNumber, 
                     type
                 );
             }
             
-            // Check if vehicle status is approved
-            boolean isApproved = vehicle.getStatus() == Vehicle.VehicleStatus.approved;
+            // Check if vehicle status is approved or already in appropriate state for entry/exit
+            boolean isApproved = vehicle.getStatus() == Vehicle.VehicleStatus.approved ||
+                    ("entry".equalsIgnoreCase(type) && vehicle.getStatus() == Vehicle.VehicleStatus.exited) ||
+                    ("exit".equalsIgnoreCase(type) && vehicle.getStatus() == Vehicle.VehicleStatus.entered);
             
             String message;
             if (isApproved) {
@@ -454,9 +518,26 @@ public class VehicleService {
                 } else {
                     message = "Xe biển số " + licensePlateNumber + " được phép ra vào";
                 }
+                
+                // Create vehicle log entry for approved access
+                createVehicleLogEntry(vehicle, type);
+                
+                // Get employee info and send to WebSocket
+                try {
+                    VehicleLog.LogType logType = "entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit;
+                    Object monitorInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, logType);
+                    webSocketService.sendVehicleCheckMessage(monitorInfo);
+                } catch (Exception e) {
+                    // Fallback to simple message if employee info fails
+                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message);
+                }
+                
             } else {
                 String statusText = getStatusText(vehicle.getStatus());
-                message = "Xe biển số " + licensePlateNumber + " không được phép ra vào";
+                message = "Xe biển số " + licensePlateNumber + " không được phép ra vào (Trạng thái: " + statusText + ")";
+                
+                // Send WebSocket message for denied access
+                webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message);
             }
             
             return new VehicleCheckResponse(
@@ -467,12 +548,49 @@ public class VehicleService {
             );
             
         } catch (Exception e) {
+            String errorMessage = "Lỗi kiểm tra xe: " + e.getMessage();
+            
+            // Send WebSocket message for error
+            try {
+                webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, errorMessage);
+            } catch (Exception wsException) {
+                // Log WebSocket error but don't fail the response
+                System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
+            }
+            
             return new VehicleCheckResponse(
                 false,
-                "Lỗi kiểm tra xe: " + e.getMessage(),
+                errorMessage,
                 licensePlateNumber,
                 type
             );
+        }
+    }
+    
+    /**
+     * Create a vehicle log entry for access events
+     */
+    private void createVehicleLogEntry(Vehicle vehicle, String type) {
+        try {
+            VehicleLogDto logDto = VehicleLogDto.builder()
+                    .licensePlateNumber(vehicle.getLicensePlate())
+                    .vehicleId(vehicle.getId())
+                    .employeeId(vehicle.getEmployee().getId())
+                    .entryExitTime(LocalDateTime.now())
+                    .type("entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit)
+                    .vehicleType(VehicleLog.VehicleCategory.internal) // Assuming internal vehicles since they're registered
+                    .driverName(vehicle.getEmployee().getName())
+                    .purpose("Truy cập xe tự động")
+                    .gateLocation("Main Gate") // Default gate location, could be parameterized later
+                    .notes("Auto-generated log entry from vehicle access check")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            
+            vehicleLogService.createVehicleLog(logDto);
+            
+        } catch (Exception e) {
+            // Log the error but don't fail the vehicle check process
+            System.err.println("Failed to create vehicle log entry: " + e.getMessage());
         }
     }
     

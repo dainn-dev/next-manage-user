@@ -20,6 +20,7 @@ public class VehicleLogDto {
     private UUID vehicleId;
     private UUID employeeId;
     private String employeeName;
+    private String employeeAvatar;
     private LocalDateTime entryExitTime;
     private VehicleLog.LogType type;
     private VehicleLog.VehicleCategory vehicleType;

@@ -150,8 +150,8 @@ def encode_image_to_base64(image):
         return None
 
 
-def send_license_plate_to_api(license_plate, image, panel_type, api_url=None):
-    """Send license plate data to API with caching and rate limiting"""
+def send_license_plate_to_api(license_plate, panel_type, api_url=None):
+    """Send license plate data to API with caching and rate limiting (GET request)"""
     try:
         # Clean expired cache entries first
         clean_expired_cache()
@@ -179,20 +179,12 @@ def send_license_plate_to_api(license_plate, image, panel_type, api_url=None):
         if api_url is None:
             api_url = config_manager.get_api_url()
         
-        # Prepare headers
+        # Prepare headers for GET request
         headers = {
-            "Accept": "*/*",
+            "Accept": "application/json",
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive",
-            "Origin": "http://localhost:8080",
-            "Referer": "http://localhost:8080/api/swagger-ui/index.html",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
-            "sec-ch-ua": '"Chromium";v="140", "Not=A?Brand";v="24", "Microsoft Edge";v="140"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"'
         }
         
         # Prepare cookies if enabled
@@ -200,74 +192,27 @@ def send_license_plate_to_api(license_plate, image, panel_type, api_url=None):
         if config_manager.get_api_use_cookies():
             cookies = config_manager.get_api_cookies()
         
-        # Prepare request parameters
-        print(f"DEBUG: use_query_params = {config_manager.get_api_use_query_params()}")
-        if config_manager.get_api_use_query_params():
-            # Use query parameters (new format)
-            params = {
-                "licensePlateNumber": license_plate,
-                "type": panel_type
-            }
-            
-            # Prepare multipart form data using requests-toolbelt for better compatibility
-            from requests_toolbelt.multipart.encoder import MultipartEncoder
-            
-            # Resize image to very small size due to server limitations
-            height, width = image.shape[:2]
-            # Server can only handle very small images (tested: 10x10 works, larger fails)
-            max_size = 120  # Use 50x50 as safe limit
-            if width > max_size or height > max_size:
-                # Resize to very small dimensions
-                new_width = min(max_size, width)
-                new_height = min(max_size, height)
-                image = cv2.resize(image, (new_width, new_height))
-            
-            # Encode with very low quality to minimize file size
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 5]  # Very low quality
-            image_bytes = cv2.imencode('.jpg', image, encode_param)[1].tobytes()
-            
-            # Use requests-toolbelt for proper multipart handling
-            multipart_data = MultipartEncoder(
-                fields={
-                    'image': (f'{license_plate}.jpg', image_bytes, 'image/jpeg')
-                }
-            )
-            
-            # Set Content-Type header with boundary
-            headers['Content-Type'] = multipart_data.content_type
-            
-            timeout = config_manager.get_api_timeout()
-            
-            # Debug: Print request details
-            print(f"DEBUG: Sending request to: {api_url}")
-            print(f"DEBUG: Using requests-toolbelt MultipartEncoder")
-            print(f"DEBUG: Image size: {len(image_bytes)} bytes")
-            print(f"DEBUG: Content-Type: {headers['Content-Type']}")
-            
-            # Disable proxies for localhost requests
-            proxies = {'http': None, 'https': None} if 'localhost' in api_url or '127.0.0.1' in api_url else None
-            response = requests.post(api_url, params=params, data=multipart_data, headers=headers, cookies=cookies, timeout=timeout, proxies=proxies)
-            
-            # Debug: Print response details
-            print(f"DEBUG: Response status: {response.status_code}")
-            print(f"DEBUG: Response text: {response.text[:200]}...")
-        else:
-            # Use JSON payload (old format)
-            image_base64 = encode_image_to_base64(image)
-            if image_base64 is None:
-                return {"success": False, "message": "Failed to encode image"}
-            
-            payload = {
-                "type": panel_type,
-                "licensePlateNumber": license_plate,
-                "image": image_base64
-            }
-            
-            headers["Content-Type"] = "application/json"
-            timeout = config_manager.get_api_timeout()
-            # Disable proxies for localhost requests
-            proxies = {'http': None, 'https': None} if 'localhost' in api_url or '127.0.0.1' in api_url else None
-            response = requests.post(api_url, json=payload, headers=headers, cookies=cookies, timeout=timeout, proxies=proxies)
+        # Prepare query parameters for GET request
+        params = {
+            "licensePlateNumber": license_plate,
+            "type": panel_type
+        }
+        
+        timeout = config_manager.get_api_timeout()
+        
+        # Debug: Print request details
+        print(f"DEBUG: Sending GET request to: {api_url}")
+        print(f"DEBUG: Query parameters: {params}")
+        
+        # Disable proxies for localhost requests
+        proxies = {'http': None, 'https': None} if 'localhost' in api_url or '127.0.0.1' in api_url else None
+        
+        # Make GET request instead of POST
+        response = requests.get(api_url, params=params, headers=headers, cookies=cookies, timeout=timeout, proxies=proxies)
+        
+        # Debug: Print response details
+        print(f"DEBUG: Response status: {response.status_code}")
+        print(f"DEBUG: Response text: {response.text[:200]}...")
         
         if response.status_code == 200:
             try:
@@ -373,6 +318,8 @@ def get_available_cameras():
 class APIResponseDialog(QDialog):
     """Dialog to display API response messages"""
     scan_again_requested = pyqtSignal()  # Signal to request another scan
+    detection_pause_requested = pyqtSignal()  # Signal to pause detection
+    detection_resume_requested = pyqtSignal()  # Signal to resume detection
     
     def __init__(self, license_plate, panel_type, response_data, parent=None):
         super().__init__(parent)
@@ -481,6 +428,8 @@ class APIResponseDialog(QDialog):
         self.response_data = response_data
         self.license_plate = license_plate
         self.panel_type = panel_type
+        
+        # Note: Detection is already paused before this dialog is created
     
     def on_scan_again_clicked(self):
         """Handle Quét lại (Scan Again) button click"""
@@ -499,11 +448,15 @@ class APIResponseDialog(QDialog):
             self.accept()
     
     def on_ok_clicked(self):
-        """Handle OK button click - stop TTS and close dialog"""
+        """Handle OK button click - stop TTS, resume detection and close dialog"""
         try:
             # Stop TTS immediately and synchronously
             print("OK button clicked - stopping TTS immediately")
             tts_manager.stop_speaking()
+            
+            # Emit signal to resume detection
+            print("OK button clicked - resuming license plate detection")
+            self.detection_resume_requested.emit()
             
             # Close the dialog immediately
             self.accept()
@@ -512,6 +465,7 @@ class APIResponseDialog(QDialog):
             print(f"Error in OK button click: {e}")
             # Force close the dialog even if there's an error
             try:
+                self.detection_resume_requested.emit()
                 self.accept()
             except:
                 self.close()
@@ -536,10 +490,14 @@ class APIResponseDialog(QDialog):
             print(f"Error stopping TTS safely: {e}")
     
     def closeEvent(self, event):
-        """Handle dialog close event - stop TTS when dialog is closed"""
+        """Handle dialog close event - stop TTS and resume detection when dialog is closed"""
         try:
             # Stop TTS asynchronously to prevent blocking
             self.stop_tts_async()
+            
+            # Emit signal to resume detection when dialog is closed
+            print("Dialog closed - resuming license plate detection")
+            self.detection_resume_requested.emit()
         except Exception as e:
             print(f"Error stopping TTS on close: {e}")
         finally:
@@ -562,12 +520,14 @@ class WebcamThread(QThread):
         self.panel_name = panel_name
         self.panel_type = panel_name  # Add panel_type for compatibility
         self.running = False
+        self.detection_paused = False  # Flag to pause/resume license plate detection
         self.cap = None
         self.is_rtsp_device = False
         self.rtsp_url = None
         self.last_detection_time = {}  # Track last detection time for each plate
         self.plate_detection_start = {}  # Track when each plate was first detected
         self.min_detection_duration = config_manager.get_min_detection_duration()  # Minimum detection duration from config
+        self.pending_api_calls = set()  # Track license plates with pending API calls to prevent duplicates
         
         # RTSP optimization variables
         self.frame_skip_count = 0
@@ -811,6 +771,13 @@ class WebcamThread(QThread):
             if not self.yolo_LP_detect or not self.yolo_license_plate:
                 return frame, ""
             
+            # Check if detection is paused
+            if self.detection_paused:
+                # Add visual indicator that detection is paused
+                cv2.putText(frame, "DETECTION PAUSED", (10, 100), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                return frame, ""
+            
             plates = self.yolo_LP_detect(frame, size=640)
             list_plates = plates.pandas().xyxy[0].values.tolist()
             current_frame_plates = set()
@@ -878,6 +845,12 @@ class WebcamThread(QThread):
                     global_cooldown_ok = global_key not in global_detection_times or (current_time - global_detection_times[global_key]) > detection_cooldown
                     
                     if local_cooldown_ok and global_cooldown_ok:
+                        # Check if there's already a pending API call for this license plate
+                        pending_key = f"{lp}_{self.panel_type}"
+                        if pending_key in self.pending_api_calls:
+                            print(f"API call already pending for {lp} - skipping duplicate")
+                            continue
+                        
                         # Check if this request is already cached
                         is_cached, cached_response = is_request_cached(lp, self.panel_type)
                         if is_cached:
@@ -899,11 +872,13 @@ class WebcamThread(QThread):
                                 cache_api_response(lp, self.panel_type, rate_limit_response)
                                 self.api_response_ready.emit(lp, self.panel_type, rate_limit_response)
                             else:
+                                # Mark as pending to prevent duplicates
+                                self.pending_api_calls.add(pending_key)
                                 self.last_detection_time[lp] = current_time
                                 global_detection_times[global_key] = current_time
                                 print(f"License plate {lp} detected for {detection_duration:.1f}s - sending to API")
                                 # Send to API in a separate thread to avoid blocking
-                                self.send_to_api_async(lp, frame)
+                                self.send_to_api_async(lp)
                     else:
                         print(f"License plate {lp} skipped due to cooldown (local: {not local_cooldown_ok}, global: {not global_cooldown_ok})")
                 else:
@@ -927,11 +902,12 @@ class WebcamThread(QThread):
             self.error_occurred.emit(f"Lỗi xử lý khung hình: {str(e)}")
             return frame, ""
     
-    def send_to_api_async(self, license_plate, frame):
+    def send_to_api_async(self, license_plate):
         """Send license plate data to API asynchronously"""
+        pending_key = f"{license_plate}_{self.panel_type}"
         try:
-            # Make API call
-            response_data = send_license_plate_to_api(license_plate, frame, self.panel_type)
+            # Make API call (no longer need to pass frame/image)
+            response_data = send_license_plate_to_api(license_plate, self.panel_type)
             
             # Emit signal with response data
             self.api_response_ready.emit(license_plate, self.panel_type, response_data)
@@ -939,6 +915,22 @@ class WebcamThread(QThread):
         except Exception as e:
             error_response = {"success": False, "message": f"Lỗi API: {str(e)}"}
             self.api_response_ready.emit(license_plate, self.panel_type, error_response)
+        finally:
+            # Remove from pending calls when done
+            self.pending_api_calls.discard(pending_key)
+            print(f"Removed {pending_key} from pending API calls")
+    
+    def pause_detection(self):
+        """Pause license plate detection while keeping camera running"""
+        self.detection_paused = True
+        print(f"License plate detection paused for {self.panel_type} panel")
+    
+    def resume_detection(self):
+        """Resume license plate detection"""
+        self.detection_paused = False
+        # Clear pending API calls to allow fresh detections
+        self.pending_api_calls.clear()
+        print(f"License plate detection resumed for {self.panel_type} panel")
     
     def stop(self):
         """Stop the webcam thread"""
@@ -1161,6 +1153,11 @@ class CameraPanel(QGroupBox):
     def show_api_response(self, license_plate, panel_type, response_data):
         """Show API response in popup dialog"""
         try:
+            # IMMEDIATELY pause detection to prevent multiple popups
+            if self.webcam_thread and self.webcam_thread.isRunning():
+                self.webcam_thread.pause_detection()
+                print(f"🔄 Immediately paused detection for {panel_type} panel due to popup")
+            
             # Create a unique key for this detection with timestamp
             import time
             current_time = int(time.time())
@@ -1180,6 +1177,9 @@ class CameraPanel(QGroupBox):
                     cooldown_duration = 5
                 if time_since_last_popup < cooldown_duration:
                     print(f"Popup cooldown active for {license_plate} - {cooldown_duration - time_since_last_popup:.1f}s remaining")
+                    # Resume detection since we're not showing dialog
+                    if self.webcam_thread and self.webcam_thread.isRunning():
+                        self.webcam_thread.resume_detection()
                     return
             
             # Check if a dialog for this detection is already open (within last 10 seconds)
@@ -1190,15 +1190,29 @@ class CameraPanel(QGroupBox):
                         key_time = int(key.split('_')[-1])
                         if current_time - key_time < 10:  # Within 10 seconds
                             print(f"Dialog already exists for {license_plate} - skipping (key: {key})")
+                            # Resume detection since we're not showing dialog
+                            if self.webcam_thread and self.webcam_thread.isRunning():
+                                self.webcam_thread.resume_detection()
                             return
                     except:
                         pass
             
             # Also check if we have any active dialogs for this license plate (regardless of timestamp)
-            for key in self.active_dialogs.keys():
+            # Close any existing dialogs for this license plate to prevent multiple dialogs
+            dialogs_to_close = []
+            for key in list(self.active_dialogs.keys()):
                 if key.startswith(f"{license_plate}_{panel_type}_"):
-                    print(f"Active dialog found for {license_plate} - skipping (key: {key})")
-                    return
+                    print(f"Closing existing dialog for {license_plate} (key: {key})")
+                    dialog = self.active_dialogs[key]
+                    try:
+                        dialog.close()  # Close the existing dialog
+                        dialogs_to_close.append(key)
+                    except:
+                        dialogs_to_close.append(key)
+            
+            # Remove closed dialogs from tracking
+            for key in dialogs_to_close:
+                self.active_dialogs.pop(key, None)
             
             # Log the API response
             timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1216,6 +1230,8 @@ class CameraPanel(QGroupBox):
             
             dialog = APIResponseDialog(license_plate, panel_type, response_data, main_window)
             dialog.scan_again_requested.connect(self.handle_scan_again_request)
+            # Note: No need to connect pause signal since we pause immediately above
+            dialog.detection_resume_requested.connect(self.handle_detection_resume)
             
             # Track this dialog
             self.active_dialogs[dialog_key] = dialog
@@ -1290,6 +1306,24 @@ class CameraPanel(QGroupBox):
             
         except Exception as e:
             self.log_text.append(f"Lỗi xử lý yêu cầu quét lại: {str(e)}")
+    
+    def handle_detection_pause(self):
+        """Handle detection pause request from dialog"""
+        try:
+            if self.webcam_thread and self.webcam_thread.isRunning():
+                self.webcam_thread.pause_detection()
+                self.log_text.append("⏸️ Đã tạm dừng phát hiện biển số xe")
+        except Exception as e:
+            self.log_text.append(f"Lỗi tạm dừng phát hiện: {str(e)}")
+    
+    def handle_detection_resume(self):
+        """Handle detection resume request from dialog"""
+        try:
+            if self.webcam_thread and self.webcam_thread.isRunning():
+                self.webcam_thread.resume_detection()
+                self.log_text.append("▶️ Đã tiếp tục phát hiện biển số xe")
+        except Exception as e:
+            self.log_text.append(f"Lỗi tiếp tục phát hiện: {str(e)}")
 
 
 class LicensePlateMonitor(QMainWindow):

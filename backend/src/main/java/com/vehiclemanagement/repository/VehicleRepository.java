@@ -17,6 +17,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     
     Optional<Vehicle> findByLicensePlate(String licensePlate);
     
+    @Query("SELECT v FROM Vehicle v WHERE REPLACE(REPLACE(REPLACE(REPLACE(UPPER(v.licensePlate), '-', ''), '.', ''), ' ', ''), '_', '') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(:licensePlate), '-', ''), '.', ''), ' ', ''), '_', '')")
+    Optional<Vehicle> findByLicensePlateNormalized(@Param("licensePlate") String licensePlate);
+    
     List<Vehicle> findByEmployeeId(UUID employeeId);
     
     List<Vehicle> findByVehicleType(Vehicle.VehicleType vehicleType);
@@ -49,6 +52,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
                                            Pageable pageable);
     
     boolean existsByLicensePlate(String licensePlate);
+    
+    @Query("SELECT CASE WHEN COUNT(v) > 0 THEN true ELSE false END FROM Vehicle v WHERE REPLACE(REPLACE(REPLACE(REPLACE(UPPER(v.licensePlate), '-', ''), '.', ''), ' ', ''), '_', '') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(:licensePlate), '-', ''), '.', ''), ' ', ''), '_', '')")
+    boolean existsByLicensePlateNormalized(@Param("licensePlate") String licensePlate);
     
     @Query("SELECT COUNT(v) FROM Vehicle v WHERE v.status = :status")
     long countByStatus(@Param("status") Vehicle.VehicleStatus status);

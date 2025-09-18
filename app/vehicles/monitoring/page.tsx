@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, RefreshCw, Car, ArrowUp, ArrowDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { vehicleLogApi, VehicleLogStatistics, VehicleLog, EmployeeVehicleInfo } from "@/lib/api/vehicle-log-api"
-import { useWebSocket, VehicleCheckMessage } from "@/hooks/use-websocket"
+import { useWebSocket, VehicleCheckMessage, EmployeeVehicleCheckMessage } from "@/hooks/use-websocket"
 import { dataService } from "@/lib/data-service"
 
 export default function VehicleMonitoringPage() {
@@ -26,30 +26,145 @@ export default function VehicleMonitoringPage() {
   const { toast } = useToast()
 
   // WebSocket handler for vehicle check events
-  const handleVehicleCheck = async (message: VehicleCheckMessage) => {
+  const handleVehicleCheck = async (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
     try {
       setIsLoadingEmployeeInfo(true)
-      console.log('Vehicle check received:', message)
+      console.log('=== WebSocket Message Received ===')
+      console.log('Raw message:', message)
+      console.log('Message type:', typeof message)
+      console.log('Message keys:', Object.keys(message))
+      console.log('Stringified message:', JSON.stringify(message, null, 2))
       
-      // Call employee-info API with the received license plate and type
-      const info = await dataService.getEmployeeInfoByLicensePlate(
-        message.licensePlateNumber, 
-        message.type.toLowerCase() as 'entry' | 'exit'
-      )
+      // Check if this is the new format with employee info
+      const isEmployeeInfo = 'employeeId' in message && 'vehicleId' in message
+      console.log('Is employee info format:', isEmployeeInfo)
+      
+      let info: EmployeeVehicleInfo
+      let licensePlateNumber: string
+      let type: string
+      let timestamp: string
+      
+      if (isEmployeeInfo) {
+        // New format: employee info is already included
+        console.log('Using NEW format - employee info included in WebSocket message')
+        const empMsg = message as EmployeeVehicleCheckMessage
+        info = {
+          employeeId: empMsg.employeeId,
+          employeeName: empMsg.employeeName,
+          firstName: empMsg.firstName,
+          lastName: empMsg.lastName,
+          department: empMsg.department,
+          position: empMsg.position,
+          rank: empMsg.rank,
+          jobTitle: empMsg.jobTitle,
+          militaryCivilian: empMsg.militaryCivilian,
+          phone: empMsg.phone,
+          email: empMsg.email,
+          location: empMsg.location,
+          avatar: empMsg.avatar,
+          vehicleId: empMsg.vehicleId,
+          licensePlateNumber: empMsg.licensePlateNumber,
+          brand: empMsg.brand,
+          model: empMsg.model,
+          color: empMsg.color,
+          vehicleType: empMsg.vehicleType,
+          year: empMsg.year,
+          registrationDate: empMsg.registrationDate,
+          expiryDate: empMsg.expiryDate,
+          logId: empMsg.logId,
+          logType: empMsg.logType,
+          logTime: empMsg.logTime,
+          driverName: empMsg.driverName,
+          purpose: empMsg.purpose,
+          gateLocation: empMsg.gateLocation,
+          notes: empMsg.notes
+        }
+        licensePlateNumber = empMsg.licensePlateNumber
+        type = empMsg.logType.toLowerCase()
+        timestamp = empMsg.logTime || new Date().toISOString()
+      } else {
+        // Old format: need to fetch employee info via API
+        console.log('Using OLD format - making API call for employee info')
+        const oldMsg = message as VehicleCheckMessage
+        info = await dataService.getEmployeeInfoByLicensePlate(
+          oldMsg.licensePlateNumber, 
+          oldMsg.type.toLowerCase() as 'entry' | 'exit'
+        )
+        licensePlateNumber = oldMsg.licensePlateNumber
+        type = oldMsg.type.toLowerCase()
+        timestamp = oldMsg.timestamp
+      }
+      
+      console.log('Final processed info:', info)
+      console.log('License plate:', licensePlateNumber, 'Type:', type, 'Timestamp:', timestamp)
       
       setEmployeeInfo(info)
       
+      // Create a synthetic log entry for immediate UI update
+      const newLogEntry: VehicleLog = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        licensePlateNumber: licensePlateNumber,
+        vehicleId: info.vehicleId || undefined,
+        employeeId: info.employeeId || undefined,
+        employeeName: info.employeeName || undefined,
+        employeeAvatar: info.avatar || undefined,
+        entryExitTime: timestamp,
+        type: type as 'entry' | 'exit',
+        vehicleType: 'internal' as const,
+        driverName: info.employeeName || undefined,
+        purpose: 'Truy cập xe tự động',
+        gateLocation: 'Main Gate',
+        securityGuardId: undefined,
+        securityGuardName: undefined,
+        notes: 'Auto-generated log entry from vehicle access check',
+        imagePath: undefined,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        vehicleBrand: info.brand || undefined,
+        vehicleModel: info.model || undefined,
+        vehicleColor: info.color || undefined
+      }
+      
+      // Add new log entry to the beginning of the logs array for immediate update
+      setLogs(prevLogs => [newLogEntry, ...prevLogs])
+      
+      // Set the new log as selected to show its details
+      setSelectedLog(newLogEntry)
+      
+      // Refresh logs in the background to get the real data from server
+      setTimeout(async () => {
+        try {
+          const [logsData] = await Promise.all([
+            vehicleLogApi.getTodayLogs(0, 50)
+          ])
+          setLogs(logsData.content)
+          
+          // Try to find and select the real log entry that matches our synthetic one
+          const realLogEntry = logsData.content.find(log => 
+            log.licensePlateNumber === licensePlateNumber &&
+            log.type === type &&
+            Math.abs(new Date(log.entryExitTime).getTime() - new Date(timestamp).getTime()) < 60000 // Within 1 minute
+          )
+          
+          if (realLogEntry) {
+            setSelectedLog(realLogEntry)
+          }
+        } catch (error) {
+          console.error('Error refreshing logs:', error)
+        }
+      }, 2000) // Refresh after 2 seconds
+      
       toast({
         title: "Thông tin quân nhân",
-        description: `Đã tải thông tin cho xe ${message.licensePlateNumber}`,
+        description: `Đã tải thông tin cho xe ${licensePlateNumber}`,
         variant: "default",
       })
       
     } catch (error) {
-      console.error('Error fetching employee info:', error)
+      console.error('Error processing vehicle check:', error)
       toast({
         title: "Lỗi",
-        description: "Không thể tải thông tin quân nhân",
+        description: "Không thể xử lý thông tin vehicle check",
         variant: "destructive",
       })
     } finally {
@@ -62,8 +177,6 @@ export default function VehicleMonitoringPage() {
 
   useEffect(() => {
     loadData()
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadData, 30000)
     
     // Update clock every second
     const clockInterval = setInterval(() => {
@@ -71,7 +184,6 @@ export default function VehicleMonitoringPage() {
     }, 1000)
     
     return () => {
-      clearInterval(interval)
       clearInterval(clockInterval)
     }
   }, [])
@@ -90,16 +202,55 @@ export default function VehicleMonitoringPage() {
   const loadData = async () => {
     try {
       setLoading(true)
+      console.log('Loading today\'s vehicle logs...')
+      
       const [logsData, statsData] = await Promise.all([
-        vehicleLogApi.getTodayLogs(0, 50),
+        vehicleLogApi.getTodayLogs(0, 100), // Increased size to get more today's logs
         vehicleLogApi.getTodayStatistics()
       ])
-      setLogs(logsData.content)
+      
+      console.log('Received logs data:', logsData)
+      console.log('Total logs for today:', logsData.content.length)
+      
+      // Sort logs by entryExitTime (newest first)
+      const sortedLogs = logsData.content.sort((a, b) => 
+        new Date(b.entryExitTime).getTime() - new Date(a.entryExitTime).getTime()
+      )
+      
+      console.log('Sorted logs (newest first):', sortedLogs.map(log => ({
+        licensePlate: log.licensePlateNumber,
+        time: log.entryExitTime,
+        type: log.type
+      })))
+      
+      setLogs(sortedLogs)
       setStatistics(statsData)
       
-      // Auto-select the latest log if none is selected
-      if (logsData.content.length > 0 && !selectedLog) {
-        setSelectedLog(logsData.content[0])
+      // Auto-select the latest log and load its employee info
+      if (sortedLogs.length > 0) {
+        const latestLog = sortedLogs[0]
+        console.log('Auto-selecting latest log:', latestLog.licensePlateNumber, latestLog.type)
+        setSelectedLog(latestLog)
+        
+        // Load employee info for the latest log
+        if (latestLog.licensePlateNumber && latestLog.type) {
+          try {
+            setIsLoadingEmployeeInfo(true)
+            const info = await dataService.getEmployeeInfoByLicensePlate(
+              latestLog.licensePlateNumber, 
+              latestLog.type as 'entry' | 'exit'
+            )
+            console.log('Loaded employee info for latest log:', info)
+            setEmployeeInfo(info)
+          } catch (error) {
+            console.error('Error loading employee info for latest log:', error)
+          } finally {
+            setIsLoadingEmployeeInfo(false)
+          }
+        }
+      } else {
+        console.log('No logs found for today')
+        setEmployeeInfo(null)
       }
     } catch (error) {
       console.error('Error loading monitoring data:', error)
@@ -247,14 +398,22 @@ export default function VehicleMonitoringPage() {
                   <div className="flex gap-6">
                     {/* Photo placeholder */}
                     <div className="flex-shrink-0">
-                      <div className="w-32 h-40 bg-gradient-to-br from-green-100 to-green-50 border-2 border-green-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
-                        <div className="text-center">
-                          <svg className="w-12 h-12 text-green-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                          </svg>
-                          <span className="text-xs text-green-500 font-medium">Ảnh</span>
+                        <div className="w-32 h-40 bg-gradient-to-br from-green-100 to-green-50 border-2 border-green-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
+                          {employeeInfo.avatar ? (
+                            <img 
+                              src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${employeeInfo.avatar}`} 
+                              alt="Employee photo" 
+                              className="w-32 h-40 object-cover rounded-xl" 
+                            />
+                          ) : (
+                            <div className="text-center">
+                              <svg className="w-12 h-12 text-green-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                              </svg>
+                              <span className="text-xs text-green-500 font-medium">Ảnh</span>
+                            </div>
+                          )}
                         </div>
-                      </div>
                     </div>
                     
                     {/* Information table */}
@@ -297,14 +456,22 @@ export default function VehicleMonitoringPage() {
                   <div className="flex gap-6">
                     {/* Photo placeholder */}
                     <div className="flex-shrink-0">
-                      <div className="w-32 h-40 bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
-                        <div className="text-center">
-                          <svg className="w-12 h-12 text-blue-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                          </svg>
-                          <span className="text-xs text-blue-500 font-medium">Ảnh</span>
+                        <div className="w-32 h-40 bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
+                          {selectedLog.imagePath ? (
+                            <img 
+                              src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${selectedLog.imagePath}`} 
+                              alt="Vehicle photo" 
+                              className="w-32 h-40 object-cover rounded-xl" 
+                            />
+                          ) : (
+                            <div className="text-center">
+                              <svg className="w-12 h-12 text-blue-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                              </svg>
+                              <span className="text-xs text-blue-500 font-medium">Ảnh</span>
+                            </div>
+                          )}
                         </div>
-                      </div>
                     </div>
                     
                     {/* Information table */}
@@ -385,12 +552,33 @@ export default function VehicleMonitoringPage() {
 
               <div className="flex-1 flex items-center justify-center min-h-0 px-4">
                 <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 border-2 border-gray-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200 min-h-48">
-                  <div className="text-center">
-                    <svg className="w-16 h-16 text-gray-400 mx-auto mb-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                    </svg>
-                    <span className="text-sm text-gray-500 font-medium">Camera</span>
-                  </div>
+                  {employeeInfo && (employeeInfo as any).vehicleImagePath ? (
+                    <img 
+                      src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${(employeeInfo as any).vehicleImagePath}`}
+                      alt="Vehicle photo"
+                      className="w-full h-full object-cover rounded-xl"
+                      onError={(e) => {
+                        // Fallback to placeholder if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement!.innerHTML = `
+                          <div class="text-center">
+                            <svg class="w-16 h-16 text-gray-400 mx-auto mb-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
+                            </svg>
+                            <span class="text-sm text-gray-500 font-medium">Ảnh xe</span>
+                          </div>
+                        `;
+                      }}
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <svg className="w-16 h-16 text-gray-400 mx-auto mb-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                      </svg>
+                      <span className="text-sm text-gray-500 font-medium">Camera</span>
+                    </div>
+                  )}
                 </div>
             </div>
           </div>
@@ -427,18 +615,26 @@ export default function VehicleMonitoringPage() {
                   selectedLog?.id === log.id 
                     ? 'bg-gradient-to-br from-blue-200 to-blue-100 border-2 border-blue-300' 
                     : 'bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300'
-                }`} style={{ aspectRatio: '3/4' }}>
-                  <div className="text-center">
-                    <svg className={`w-10 h-10 mx-auto mb-2 ${
-                      selectedLog?.id === log.id ? 'text-blue-500' : 'text-gray-400'
-                    }`} fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                    </svg>
-                    <div className={`w-2 h-2 rounded-full mx-auto ${
-                      log.type === 'entry' ? 'bg-green-400' : 'bg-red-400'
-                    }`}></div>
+                  }`} style={{ aspectRatio: '3/4' }}>
+                    {log.employeeAvatar ? (
+                      <img 
+                        src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${log.employeeAvatar}`} 
+                        alt="employee photo" 
+                        className="w-24 h-32 object-cover rounded-lg" 
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <svg className={`w-10 h-10 mx-auto mb-2 ${
+                          selectedLog?.id === log.id ? 'text-blue-500' : 'text-gray-400'
+                        }`} fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                        </svg>
+                        <div className={`w-2 h-2 rounded-full mx-auto ${
+                          log.type === 'entry' ? 'bg-green-400' : 'bg-red-400'
+                        }`}></div>
+                      </div>
+                    )}
                   </div>
-                </div>
                 <div className="text-lg font-medium text-gray-700 mb-2 truncate" title={log.driverName || 'Lê Văn B'}>
                   {log.driverName || 'Lê Văn B'}
                 </div>
@@ -456,31 +652,6 @@ export default function VehicleMonitoringPage() {
                 </div>
               </div>
             ))}
-            
-            {/* Add some placeholder cards if no logs */}
-            {filteredLogs.length === 0 && (
-              <>
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex-shrink-0 w-48 bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-8 text-center hover:shadow-md transition-shadow duration-200">
-                    <div className="w-24 h-32 bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300 rounded-lg mx-auto mb-4 flex items-center justify-center" style={{ aspectRatio: '3/4' }}>
-                      <div className="text-center">
-                        <svg className="w-10 h-10 text-gray-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                        </svg>
-                        <div className="w-2 h-2 bg-gray-300 rounded-full mx-auto"></div>
-                      </div>
-                    </div>
-                    <div className="text-lg font-medium text-gray-700 mb-2">Lê Văn B</div>
-                    <div className="text-base text-gray-500 mb-3">Tiểu đoàn 8</div>
-                    <div className="mt-3">
-                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                        Chờ
-                      </span>
-                    </div>
-                    </div>
-                ))}
-              </>
-            )}
             </div>
           </div>
         </div>

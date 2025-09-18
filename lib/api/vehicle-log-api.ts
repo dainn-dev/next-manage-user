@@ -6,6 +6,7 @@ export interface VehicleLog {
   vehicleId?: string
   employeeId?: string
   employeeName?: string
+  employeeAvatar?: string
   entryExitTime: string
   type: 'entry' | 'exit'
   vehicleType: 'internal' | 'external'
@@ -21,6 +22,7 @@ export interface VehicleLog {
   vehicleBrand?: string
   vehicleModel?: string
   vehicleColor?: string
+  vehicleImagePath?: string
 }
 
 export interface VehicleLogPage {
@@ -229,7 +231,7 @@ export const vehicleLogApi = {
 
   // Get employee info by license plate and type
   getEmployeeInfoByLicensePlate: async (licensePlateNumber: string, type: 'entry' | 'exit'): Promise<EmployeeVehicleInfo> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/employee-info?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toUpperCase()}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/employee-info?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toLowerCase()}`)
     if (!response.ok) {
       throw new Error('Failed to fetch employee info')
     }
@@ -250,7 +252,7 @@ export const vehicleLogApi = {
       },
       body: JSON.stringify({
         licensePlateNumber,
-        type: type.toUpperCase(),
+        type: type.toLowerCase(),
         ...additionalData
       })
     })
@@ -262,7 +264,7 @@ export const vehicleLogApi = {
 
   // Test vehicle check endpoint
   testVehicleCheck: async (licensePlateNumber: string, type: 'entry' | 'exit') => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-check/test?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toUpperCase()}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-check/test?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toLowerCase()}`)
     if (!response.ok) {
       throw new Error('Failed to test vehicle check')
     }
