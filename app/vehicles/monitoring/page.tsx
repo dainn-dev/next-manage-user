@@ -156,18 +156,18 @@ export default function VehicleMonitoringPage() {
   return (
     <div className="bg-gray-100 p-6 min-h-screen" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+      {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full mb-4 shadow-lg">
             <Car className="w-8 h-8 text-white" />
-          </div>
+        </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Theo dõi ra / vào</h1>
           <p className="text-gray-600 mb-4">Hệ thống giám sát an ninh thông minh</p>
           <Button onClick={loadData} variant="outline" className="mt-2 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="h-4 w-4 mr-2" />
             Làm mới dữ liệu
-          </Button>
-        </div>
+        </Button>
+      </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Personnel Information */}
@@ -220,7 +220,7 @@ export default function VehicleMonitoringPage() {
                           </div>
                           <div className="flex-1">
                             <span className="text-sm font-medium text-gray-600">Họ và tên</span>
-                            <p className="text-gray-800 font-semibold">{selectedLog.driverName || 'N/A'}</p>
+                            <p className="text-gray-800 font-semibold">{selectedLog.driverName || selectedLog.employeeName || 'N/A'}</p>
                           </div>
                         </div>
                         
@@ -232,7 +232,7 @@ export default function VehicleMonitoringPage() {
                           </div>
                           <div className="flex-1">
                             <span className="text-sm font-medium text-gray-600">Cơ quan, đơn vị</span>
-                            <p className="text-gray-800 font-semibold">{selectedLog.employeeName || 'N/A'}</p>
+                            <p className="text-gray-800 font-semibold">{selectedLog.employeeName || selectedLog.securityGuardName || 'N/A'}</p>
                           </div>
                         </div>
                         
@@ -244,7 +244,7 @@ export default function VehicleMonitoringPage() {
                           </div>
                           <div className="flex-1">
                             <span className="text-sm font-medium text-gray-600">ID quân nhân</span>
-                            <p className="text-gray-800 font-semibold">{selectedLog.vehicleId || 'N/A'}</p>
+                            <p className="text-gray-800 font-semibold">{selectedLog.employeeId || selectedLog.securityGuardId || 'N/A'}</p>
                           </div>
                         </div>
                         
@@ -269,7 +269,12 @@ export default function VehicleMonitoringPage() {
                           </div>
                           <div className="flex-1">
                             <span className="text-sm font-medium text-gray-600">Loại xe</span>
-                            <p className="text-gray-800 font-semibold">Honda Civic</p>
+                            <p className="text-gray-800 font-semibold">
+                              {selectedLog.vehicleBrand && selectedLog.vehicleModel 
+                                ? `${selectedLog.vehicleBrand} ${selectedLog.vehicleModel}`
+                                : selectedLog.vehicleBrand || selectedLog.vehicleModel || 'N/A'
+                              }
+                            </p>
                           </div>
                         </div>
                         
@@ -284,6 +289,34 @@ export default function VehicleMonitoringPage() {
                             <p className="text-gray-800 font-semibold font-mono">{selectedLog.licensePlateNumber}</p>
                           </div>
                         </div>
+                        
+                        {selectedLog.purpose && (
+                          <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-teal-50 transition-colors duration-200">
+                            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center mr-3">
+                              <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-600">Mục đích</span>
+                              <p className="text-gray-800 font-semibold">{selectedLog.purpose}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {selectedLog.vehicleColor && (
+                          <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-pink-50 transition-colors duration-200">
+                            <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center mr-3">
+                              <svg className="w-4 h-4 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4 4 4 0 004-4V5z" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-600">Màu xe</span>
+                              <p className="text-gray-800 font-semibold">{selectedLog.vehicleColor}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -302,8 +335,8 @@ export default function VehicleMonitoringPage() {
                       </svg>
                       Hướng dẫn sử dụng
                     </div>
-                  </div>
-                )}
+        </div>
+      )}
               </div>
             </div>
           </div>
@@ -318,15 +351,15 @@ export default function VehicleMonitoringPage() {
                   </svg>
                 </div>
                 <div className="text-lg font-medium text-gray-700">{formatCurrentDate(currentTime)}</div>
-              </div>
-              
+          </div>
+
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 mb-6">
                 <div className="text-4xl font-bold text-gray-800 font-mono tracking-wider">
                   {formatClock(currentTime)}
                 </div>
                 <div className="text-sm text-blue-600 font-medium mt-1">Thời gian hiện tại</div>
-              </div>
-              
+          </div>
+
               <div className="flex-1 flex items-center justify-center min-h-0">
                 <div className="w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-50 border-2 border-gray-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
                   <div className="text-center">
@@ -336,10 +369,10 @@ export default function VehicleMonitoringPage() {
                     <span className="text-xs text-gray-500 font-medium">Camera</span>
                   </div>
                 </div>
-              </div>
             </div>
           </div>
         </div>
+      </div>
 
         {/* Personnel Queue Section - Full Width */}
         <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 mt-6">
@@ -353,10 +386,10 @@ export default function VehicleMonitoringPage() {
               <h2 className="text-xl font-semibold text-gray-800">Thứ tự quân nhân ra vào</h2>
               <p className="text-sm text-gray-500">Nhấp vào thẻ để xem thông tin chi tiết</p>
             </div>
-          </div>
-          
+        </div>
+        
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
-            {filteredLogs.map((log) => (
+              {filteredLogs.map((log) => (
               <div 
                 key={log.id} 
                 className={`rounded-xl p-6 text-center cursor-pointer transition-all duration-300 transform hover:scale-105 ${
@@ -420,13 +453,13 @@ export default function VehicleMonitoringPage() {
                         Chờ
                       </span>
                     </div>
-                  </div>
+                    </div>
                 ))}
               </>
             )}
           </div>
           
-          {filteredLogs.length === 0 && (
+              {filteredLogs.length === 0 && (
             <div className="text-center mt-8 py-8 border-t border-gray-200">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
