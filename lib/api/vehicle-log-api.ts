@@ -234,5 +234,38 @@ export const vehicleLogApi = {
       throw new Error('Failed to fetch employee info')
     }
     return response.json()
+  },
+
+  // Check vehicle (triggers WebSocket notification)
+  checkVehicle: async (licensePlateNumber: string, type: 'entry' | 'exit', additionalData?: {
+    driverName?: string
+    purpose?: string
+    gateLocation?: string
+    notes?: string
+  }) => {
+    const response = await fetch(`${API_BASE_URL}/vehicle-check`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        licensePlateNumber,
+        type: type.toUpperCase(),
+        ...additionalData
+      })
+    })
+    if (!response.ok) {
+      throw new Error('Failed to check vehicle')
+    }
+    return response.json()
+  },
+
+  // Test vehicle check endpoint
+  testVehicleCheck: async (licensePlateNumber: string, type: 'entry' | 'exit') => {
+    const response = await fetch(`${API_BASE_URL}/vehicle-check/test?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toUpperCase()}`)
+    if (!response.ok) {
+      throw new Error('Failed to test vehicle check')
+    }
+    return response.json()
   }
 }

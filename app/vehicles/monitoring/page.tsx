@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, RefreshCw, Car, ArrowUp, ArrowDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { vehicleLogApi, VehicleLogStatistics, VehicleLog } from "@/lib/api/vehicle-log-api"
+import { vehicleLogApi, VehicleLogStatistics, VehicleLog, EmployeeVehicleInfo } from "@/lib/api/vehicle-log-api"
+import { useWebSocket, VehicleCheckMessage } from "@/hooks/use-websocket"
+import { dataService } from "@/lib/data-service"
 
 export default function VehicleMonitoringPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([])
@@ -19,7 +21,44 @@ export default function VehicleMonitoringPage() {
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState<"all" | "internal" | "external">("all")
   const [currentTime, setCurrentTime] = useState(new Date())
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null)
+  const [employeeInfo, setEmployeeInfo] = useState<EmployeeVehicleInfo | null>(null)
+  const [isLoadingEmployeeInfo, setIsLoadingEmployeeInfo] = useState(false)
   const { toast } = useToast()
+
+  // WebSocket handler for vehicle check events
+  const handleVehicleCheck = async (message: VehicleCheckMessage) => {
+    try {
+      setIsLoadingEmployeeInfo(true)
+      console.log('Vehicle check received:', message)
+      
+      // Call employee-info API with the received license plate and type
+      const info = await dataService.getEmployeeInfoByLicensePlate(
+        message.licensePlateNumber, 
+        message.type.toLowerCase() as 'entry' | 'exit'
+      )
+      
+      setEmployeeInfo(info)
+      
+      toast({
+        title: "Thông tin quân nhân",
+        description: `Đã tải thông tin cho xe ${message.licensePlateNumber}`,
+        variant: "default",
+      })
+      
+    } catch (error) {
+      console.error('Error fetching employee info:', error)
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải thông tin quân nhân",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingEmployeeInfo(false)
+    }
+  }
+
+  // Initialize WebSocket connection
+  const { isConnected, connectionError } = useWebSocket(handleVehicleCheck)
 
   useEffect(() => {
     loadData()
@@ -44,7 +83,6 @@ export default function VehicleMonitoringPage() {
   useEffect(() => {
     // Auto-select the latest log for display
     if (filteredLogs.length > 0 && !selectedLog) {
-      console.log('Auto-selecting first log:', filteredLogs[0]);
       setSelectedLog(filteredLogs[0])
     }
   }, [filteredLogs, selectedLog])
@@ -164,36 +202,45 @@ export default function VehicleMonitoringPage() {
         </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Theo dõi ra / vào</h1>
           <p className="text-gray-600 mb-4">Hệ thống giám sát an ninh thông minh</p>
-          <div className="flex gap-2">
-            <Button onClick={loadData} variant="outline" className="mt-2 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200">
+          <div className="flex items-center gap-4">
+            <Button onClick={loadData} variant="outline" className="hover:bg-blue-50 hover:border-blue-300 transition-all duration-200">
               <RefreshCw className="h-4 w-4 mr-2" />
               Làm mới dữ liệu
             </Button>
+            
+            {/* WebSocket Status */}
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium ${
+              isConnected 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+              }`}></div>
+              {isConnected ? 'WebSocket Kết nối' : 'WebSocket Ngắt kết nối'}
+            </div>
+            
+            {/* Test Button */}
             <Button 
-              onClick={() => {
-                const testLog = {
-                  id: 'test-123',
-                  licensePlateNumber: '29B-12345',
-                  driverName: 'Test User',
-                  employeeName: 'Test Department',
-                  employeeId: 'EMP001',
-                  entryExitTime: new Date().toISOString(),
-                  type: 'entry' as const,
-                  vehicleType: 'internal' as const,
-                  vehicleBrand: 'Toyota',
-                  vehicleModel: 'Camry',
-                  vehicleColor: 'Đỏ',
-                  purpose: 'Công tác',
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                };
-                console.log('Setting test log:', testLog);
-                setSelectedLog(testLog);
-              }} 
+              onClick={async () => {
+                try {
+                  await vehicleLogApi.testVehicleCheck("29B-12345", "entry")
+                  toast({
+                    title: "Test thành công",
+                    description: "Đã gửi test vehicle check",
+                  })
+                } catch (error) {
+                  toast({
+                    title: "Test thất bại",
+                    description: "Không thể gửi test vehicle check",
+                    variant: "destructive",
+                  })
+                }
+              }}
               variant="outline" 
-              className="mt-2 bg-green-50 hover:bg-green-100 border-green-300 text-green-700"
+              className="bg-yellow-50 hover:bg-yellow-100 border-yellow-300 text-yellow-700"
             >
-              Test Selection
+              Test WebSocket
             </Button>
           </div>
       </div>
@@ -212,9 +259,64 @@ export default function VehicleMonitoringPage() {
               </div>
               
               <div className="border-2 border-gray-200 rounded-xl p-6 bg-gradient-to-br from-gray-50 to-white">
-                {selectedLog ? (
-                  <>
-                    {console.log('Displaying selectedLog:', selectedLog)}
+                {isLoadingEmployeeInfo ? (
+                  <div className="flex items-center justify-center h-48">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-600">Đang tải thông tin quân nhân...</p>
+                    </div>
+                  </div>
+                ) : employeeInfo ? (
+                  <div className="flex gap-6">
+                    {/* Photo placeholder */}
+                    <div className="flex-shrink-0">
+                      <div className="w-32 h-40 bg-gradient-to-br from-green-100 to-green-50 border-2 border-green-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
+                        <div className="text-center">
+                          <svg className="w-12 h-12 text-green-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                          </svg>
+                          <span className="text-xs text-green-500 font-medium">Ảnh</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Information table */}
+                    <div className="flex-1">
+                      <table className="w-full">
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Giờ ra / vào:</td>
+                            <td className="py-2 text-gray-800">{employeeInfo.logTime ? new Date(employeeInfo.logTime).toLocaleString('vi-VN') : 'N/A'}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Họ và tên:</td>
+                            <td className="py-2 text-gray-800">{employeeInfo.employeeName}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Cơ quan, đơn vị:</td>
+                            <td className="py-2 text-gray-800">{employeeInfo.department}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">ID quân nhân:</td>
+                            <td className="py-2 text-gray-800">{employeeInfo.employeeId}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Tình trạng:</td>
+                            <td className="py-2 text-gray-800">{employeeInfo.logType === 'ENTRY' ? 'Vào cổng' : 'Ra cổng'}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Loại xe:</td>
+                            <td className="py-2 text-gray-800">{employeeInfo.brand && employeeInfo.model ? `${employeeInfo.brand} ${employeeInfo.model}` : 'N/A'}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Biển số:</td>
+                            <td className="py-2 text-gray-800">{employeeInfo.licensePlateNumber}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : selectedLog ? (
                   <div className="flex gap-6">
                     {/* Photo placeholder */}
                     <div className="flex-shrink-0">
@@ -230,128 +332,40 @@ export default function VehicleMonitoringPage() {
                     
                     {/* Information table */}
                     <div className="flex-1">
-                      <div className="space-y-3">
-                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-blue-50 transition-colors duration-200">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-600">Giờ ra / vào</span>
-                            <p className="text-gray-800 font-semibold">{formatTime(selectedLog.entryExitTime)} - {formatDate(selectedLog.entryExitTime)}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-green-50 transition-colors duration-200">
-                          <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-600">Họ và tên</span>
-                            <p className="text-gray-800 font-semibold">{selectedLog.driverName || selectedLog.employeeName || 'N/A'}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-purple-50 transition-colors duration-200">
-                          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-600">Cơ quan, đơn vị</span>
-                            <p className="text-gray-800 font-semibold">{selectedLog.employeeName || selectedLog.securityGuardName || 'N/A'}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-yellow-50 transition-colors duration-200">
-                          <div className="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-600">ID quân nhân</span>
-                            <p className="text-gray-800 font-semibold">{selectedLog.employeeId || selectedLog.securityGuardId || 'N/A'}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-indigo-50 transition-colors duration-200">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center mr-3">
-                            {selectedLog.type === 'entry' ? 
-                              <ArrowUp className="w-4 h-4 text-green-600" /> : 
-                              <ArrowDown className="w-4 h-4 text-red-600" />
-                            }
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-600">Tình trạng</span>
-                            <p className={`font-semibold ${selectedLog.type === 'entry' ? 'text-green-600' : 'text-red-600'}`}>
-                              {selectedLog.type === 'entry' ? 'Vào cổng' : 'Ra cổng'}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-orange-50 transition-colors duration-200">
-                          <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
-                            <Car className="w-4 h-4 text-orange-600" />
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-600">Loại xe</span>
-                            <p className="text-gray-800 font-semibold">
-                              {selectedLog.vehicleBrand && selectedLog.vehicleModel 
-                                ? `${selectedLog.vehicleBrand} ${selectedLog.vehicleModel}`
-                                : selectedLog.vehicleBrand || selectedLog.vehicleModel || 'N/A'
-                              }
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-200">
-                          <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-600">Biển số</span>
-                            <p className="text-gray-800 font-semibold font-mono">{selectedLog.licensePlateNumber}</p>
-                          </div>
-                        </div>
-                        
-                        {selectedLog.purpose && (
-                          <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-teal-50 transition-colors duration-200">
-                            <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center mr-3">
-                              <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                              </svg>
-                            </div>
-                            <div className="flex-1">
-                              <span className="text-sm font-medium text-gray-600">Mục đích</span>
-                              <p className="text-gray-800 font-semibold">{selectedLog.purpose}</p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {selectedLog.vehicleColor && (
-                          <div className="flex items-center p-3 bg-white rounded-lg border border-gray-200 hover:bg-pink-50 transition-colors duration-200">
-                            <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center mr-3">
-                              <svg className="w-4 h-4 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4 4 4 0 004-4V5z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1">
-                              <span className="text-sm font-medium text-gray-600">Màu xe</span>
-                              <p className="text-gray-800 font-semibold">{selectedLog.vehicleColor}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <table className="w-full">
+                        <tbody>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Giờ ra / vào:</td>
+                            <td className="py-2 text-gray-800">{formatTime(selectedLog.entryExitTime)} - {formatDate(selectedLog.entryExitTime)}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Họ và tên:</td>
+                            <td className="py-2 text-gray-800">{selectedLog.driverName || 'N/A'}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Cơ quan, đơn vị:</td>
+                            <td className="py-2 text-gray-800">{selectedLog.employeeName || 'N/A'}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">ID quân nhân:</td>
+                            <td className="py-2 text-gray-800">{selectedLog.vehicleId || 'N/A'}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Tình trạng:</td>
+                            <td className="py-2 text-gray-800">{selectedLog.type === 'entry' ? 'Vào cổng' : 'Ra cổng'}</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Loại xe:</td>
+                            <td className="py-2 text-gray-800">Honda Civic</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-4 font-semibold text-gray-700">Biển số:</td>
+                            <td className="py-2 text-gray-800">{selectedLog.licensePlateNumber}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                  </>
                 ) : (
                   <div className="text-center py-12">
                     <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -392,13 +406,13 @@ export default function VehicleMonitoringPage() {
                 <div className="text-sm text-blue-600 font-medium mt-1">Thời gian hiện tại</div>
           </div>
 
-              <div className="flex-1 flex items-center justify-center min-h-0">
-                <div className="w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-50 border-2 border-gray-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="flex-1 flex items-center justify-center min-h-0 px-4">
+                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 border-2 border-gray-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200 min-h-48">
                   <div className="text-center">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-16 h-16 text-gray-400 mx-auto mb-3" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
                     </svg>
-                    <span className="text-xs text-gray-500 font-medium">Camera</span>
+                    <span className="text-sm text-gray-500 font-medium">Camera</span>
                   </div>
                 </div>
             </div>
@@ -417,33 +431,28 @@ export default function VehicleMonitoringPage() {
             <div>
               <h2 className="text-xl font-semibold text-gray-800">Thứ tự quân nhân ra vào</h2>
               <p className="text-sm text-gray-500">Nhấp vào thẻ để xem thông tin chi tiết</p>
-              <p className="text-xs text-blue-600 mt-1">Debug: {filteredLogs.length} logs, Selected: {selectedLog?.id || 'none'}</p>
             </div>
         </div>
         
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6">
+        <div className="overflow-x-auto">
+            <div className="flex gap-8 pb-4 min-w-max">
               {filteredLogs.map((log) => (
               <div 
                 key={log.id} 
-                className={`rounded-xl p-6 text-center cursor-pointer transition-all duration-300 transform hover:scale-105 ${
+                className={`flex-shrink-0 w-48 rounded-xl p-8 text-center cursor-pointer transition-all duration-300 transform hover:scale-105 ${
                   selectedLog?.id === log.id 
                     ? 'bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-400 shadow-lg' 
                     : 'bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:shadow-md hover:border-blue-300'
                 }`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Clicked log:', log);
-                  setSelectedLog(log);
-                }}
+                onClick={() => setSelectedLog(log)}
               >
-                <div className={`w-20 h-20 rounded-full mx-auto mb-3 flex items-center justify-center transition-all duration-200 ${
+                <div className={`w-24 h-32 rounded-lg mx-auto mb-4 flex items-center justify-center transition-all duration-200 ${
                   selectedLog?.id === log.id 
                     ? 'bg-gradient-to-br from-blue-200 to-blue-100 border-2 border-blue-300' 
                     : 'bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300'
-                }`}>
+                }`} style={{ aspectRatio: '3/4' }}>
                   <div className="text-center">
-                    <svg className={`w-8 h-8 mx-auto mb-1 ${
+                    <svg className={`w-10 h-10 mx-auto mb-2 ${
                       selectedLog?.id === log.id ? 'text-blue-500' : 'text-gray-400'
                     }`} fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
@@ -453,14 +462,14 @@ export default function VehicleMonitoringPage() {
                     }`}></div>
                   </div>
                 </div>
-                <div className="text-base font-medium text-gray-700 mb-1 truncate" title={log.driverName || 'Lê Văn B'}>
+                <div className="text-lg font-medium text-gray-700 mb-2 truncate" title={log.driverName || 'Lê Văn B'}>
                   {log.driverName || 'Lê Văn B'}
                 </div>
-                <div className="text-sm text-gray-500 truncate" title={log.employeeName || 'Tiểu đoàn 8'}>
+                <div className="text-base text-gray-500 mb-3 truncate" title={log.employeeName || 'Tiểu đoàn 8'}>
                   {log.employeeName || 'Tiểu đoàn 8'}
                 </div>
-                <div className="mt-2">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                <div className="mt-3">
+                  <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${
                     log.type === 'entry' 
                       ? 'bg-green-100 text-green-700' 
                       : 'bg-red-100 text-red-700'
@@ -475,42 +484,19 @@ export default function VehicleMonitoringPage() {
             {filteredLogs.length === 0 && (
               <>
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div 
-                    key={i} 
-                    className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 text-center hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                    onClick={() => {
-                      const testLog = {
-                        id: `placeholder-${i}`,
-                        licensePlateNumber: `29B-${1000 + i}`,
-                        driverName: `Lê Văn ${String.fromCharCode(65 + i)}`,
-                        employeeName: `Tiểu đoàn ${i + 7}`,
-                        employeeId: `EMP00${i}`,
-                        entryExitTime: new Date().toISOString(),
-                        type: (i % 2 === 0 ? 'entry' : 'exit') as 'entry' | 'exit',
-                        vehicleType: 'internal' as const,
-                        vehicleBrand: 'Honda',
-                        vehicleModel: 'Civic',
-                        vehicleColor: 'Trắng',
-                        purpose: 'Công tác',
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                      };
-                      console.log('Placeholder clicked:', testLog);
-                      setSelectedLog(testLog);
-                    }}
-                  >
-                    <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300 rounded-full mx-auto mb-3 flex items-center justify-center">
+                  <div key={i} className="flex-shrink-0 w-48 bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-8 text-center hover:shadow-md transition-shadow duration-200">
+                    <div className="w-24 h-32 bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300 rounded-lg mx-auto mb-4 flex items-center justify-center" style={{ aspectRatio: '3/4' }}>
                       <div className="text-center">
-                        <svg className="w-8 h-8 text-gray-400 mx-auto mb-1" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-10 h-10 text-gray-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
                         </svg>
                         <div className="w-2 h-2 bg-gray-300 rounded-full mx-auto"></div>
                       </div>
                     </div>
-                    <div className="text-base font-medium text-gray-700 mb-1">Lê Văn B</div>
-                    <div className="text-sm text-gray-500">Tiểu đoàn 8</div>
-                    <div className="mt-2">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                    <div className="text-lg font-medium text-gray-700 mb-2">Lê Văn B</div>
+                    <div className="text-base text-gray-500 mb-3">Tiểu đoàn 8</div>
+                    <div className="mt-3">
+                      <span className="inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
                         Chờ
                       </span>
                     </div>
@@ -518,6 +504,7 @@ export default function VehicleMonitoringPage() {
                 ))}
               </>
             )}
+            </div>
           </div>
           
               {filteredLogs.length === 0 && (

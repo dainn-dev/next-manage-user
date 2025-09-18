@@ -239,14 +239,12 @@ public class VehicleLogService {
             
             // Vehicle information
             public final String vehicleId = vehicle.getId().toString();
-            public final String licensePlateNumber = vehicle.getLicensePlateNumber();
+            public final String licensePlateNumber = vehicle.getLicensePlate();
             public final String brand = vehicle.getBrand();
             public final String model = vehicle.getModel();
             public final String color = vehicle.getColor();
             public final String vehicleType = vehicle.getVehicleType() != null ? vehicle.getVehicleType().name() : null;
             public final Integer year = vehicle.getYear();
-            public final String engineNumber = vehicle.getEngineNumber();
-            public final String chassisNumber = vehicle.getChassisNumber();
             public final String registrationDate = vehicle.getRegistrationDate() != null ? vehicle.getRegistrationDate().toString() : null;
             public final String expiryDate = vehicle.getExpiryDate() != null ? vehicle.getExpiryDate().toString() : null;
             
