@@ -3,7 +3,11 @@
 import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, LogOut, User } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+import { UserRole } from "@/lib/types"
 
 interface NavigationItem {
   key: string
@@ -17,6 +21,11 @@ const navigationItems: NavigationItem[] = [
     key: "/employees",
     label: "Quân nhân",
     icon: "👥"
+  },
+  {
+    key: "/users",
+    label: "Quản lý người dùng",
+    icon: "👤"
   },
   {
     key: "/departments",
@@ -129,9 +138,47 @@ export function Sidebar() {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [hoveredItem, setHoveredItem] = useState<string | null>(null)
+  const { user, logout } = useAuth()
+  const { toast } = useToast()
+
+  // Filter navigation items based on user role
+  const filteredNavigationItems = navigationItems.filter(item => {
+    // Show users menu only for admin users
+    if (item.key === "/users") {
+      return user?.role === UserRole.ADMIN
+    }
+    return true
+  })
 
   const handleMenuClick = (key: string) => {
     router.push(key)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast({
+        title: "Đăng xuất thành công",
+        description: "Bạn đã đăng xuất khỏi hệ thống",
+      })
+      router.push("/login")
+    } catch (error) {
+      toast({
+        title: "Lỗi đăng xuất",
+        description: "Có lỗi xảy ra khi đăng xuất",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const getUserInitials = () => {
+    if (!user) return "U"
+    const firstName = user.firstName || ""
+    const lastName = user.lastName || ""
+    if (firstName && lastName) {
+      return (firstName[0] + lastName[0]).toUpperCase()
+    }
+    return user.username[0].toUpperCase()
   }
 
   return (
@@ -177,7 +224,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navigationItems.map((item) => (
+        {filteredNavigationItems.map((item) => (
           <div key={item.key}>
             <button
               onClick={() => handleMenuClick(item.key)}
@@ -268,17 +315,45 @@ export function Sidebar() {
       </nav>
 
       <div className="p-6 border-t border-sidebar-border">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 bg-sidebar-accent rounded-full flex items-center justify-center text-sidebar-accent-foreground text-sm font-medium">
-            A
+            {getUserInitials()}
           </div>
           {!collapsed && (
-            <div>
-              <span className="text-sm font-medium text-sidebar-foreground">admin</span>
-              <p className="text-xs text-muted-foreground">Quản trị viên</p>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-sidebar-foreground">
+                {user?.firstName && user?.lastName 
+                  ? `${user.firstName} ${user.lastName}` 
+                  : user?.username || "Người dùng"}
+              </span>
+              <p className="text-xs text-muted-foreground">
+                {user?.role || "Người dùng"}
+              </p>
             </div>
           )}
         </div>
+        {!collapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="w-full justify-start text-muted-foreground hover:text-sidebar-foreground hover:bg-muted"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Đăng xuất
+          </Button>
+        )}
+        {collapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="w-full p-2 text-muted-foreground hover:text-sidebar-foreground hover:bg-muted"
+            title="Đăng xuất"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import type { Position } from '@/lib/types'
+import { authApi } from "./auth-api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
@@ -44,11 +45,11 @@ export class PositionApi {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${API_BASE_URL}/api/positions${endpoint}`
+    const url = `${API_BASE_URL}/positions${endpoint}`
     
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
+        ...authApi.getAuthHeaders(),
         ...options.headers,
       },
       ...options,

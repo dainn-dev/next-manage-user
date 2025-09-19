@@ -1,3 +1,5 @@
+import { authApi } from "./auth-api"
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
 export interface VehicleStatistics {
@@ -69,7 +71,7 @@ class VehicleStatisticsApi {
     
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
+        ...authApi.getAuthHeaders(),
         ...options.headers,
       },
       ...options,

@@ -25,7 +25,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin/users")
 @Tag(name = "User Management (Admin)", description = "APIs for managing users (Admin only)")
-@PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
+@PreAuthorize("hasRole('ADMIN')")
 public class UserController {
     
     @Autowired
@@ -177,7 +177,7 @@ public class UserController {
     
     @PatchMapping("/{id}/role")
     @Operation(summary = "Update user role", description = "Update the role of a specific user")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserDto> updateUserRole(@PathVariable UUID id, @RequestParam User.Role role) {
         UserDto updatedUser = userService.updateUserRole(id, role);
         return ResponseEntity.ok(updatedUser);
@@ -186,7 +186,7 @@ public class UserController {
     // Bulk operations
     @PostMapping("/bulk-delete")
     @Operation(summary = "Bulk delete users", description = "Delete multiple users by their IDs")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> bulkDeleteUsers(@RequestBody List<UUID> userIds) {
         try {
             userService.bulkDeleteUsers(userIds);
@@ -211,7 +211,7 @@ public class UserController {
     
     @PutMapping("/bulk-update-role")
     @Operation(summary = "Bulk update user role", description = "Update role for multiple users")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserDto>> bulkUpdateUserRole(
             @RequestBody List<UUID> userIds,
             @RequestParam User.Role role) {

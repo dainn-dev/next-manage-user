@@ -167,3 +167,80 @@ export interface VehicleMonthlyStats {
   averageDailyRequests: number
   peakDay: { date: string; requestCount: number }
 }
+
+// Authentication types
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface LoginResponse {
+  token: string
+  tokenType: string
+  username: string
+  email: string
+  role: string
+  expiresAt: string
+  user: User
+}
+
+export interface User {
+  id: string
+  username: string
+  email: string
+  firstName?: string
+  lastName?: string
+  role: UserRole
+  status: UserStatus
+  lastLogin?: string
+  employeeId?: string
+  employeeName?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateUserRequest {
+  username: string
+  email: string
+  password: string
+  firstName?: string
+  lastName?: string
+  role: UserRole
+  status: UserStatus
+  employeeId?: string
+}
+
+export interface UpdateUserRequest {
+  username?: string
+  email?: string
+  password?: string
+  firstName?: string
+  lastName?: string
+  role?: UserRole
+  status?: UserStatus
+  employeeId?: string
+}
+
+export enum UserRole {
+  USER = 'USER',
+  ADMIN = 'ADMIN'
+}
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  LOCKED = 'LOCKED',
+  SUSPENDED = 'SUSPENDED'
+}
+
+export interface UserStatistics {
+  totalUsers: number
+  activeUsers: number
+  inactiveUsers: number
+  lockedUsers: number
+  suspendedUsers: number
+  adminUsers: number
+  regularUsers: number
+  usersByRole: Record<string, number>
+  usersByStatus: Record<string, number>
+}
