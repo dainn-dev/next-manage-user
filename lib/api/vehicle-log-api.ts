@@ -1,3 +1,5 @@
+import { authApi } from "./auth-api"
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api'
 
 export interface VehicleLog {
@@ -185,7 +187,7 @@ export const vehicleLogApi = {
     const response = await fetch(`${API_BASE_URL}/vehicle-logs`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        ...authApi.getAuthHeaders(),
       },
       body: JSON.stringify(vehicleLog),
     })
@@ -200,7 +202,7 @@ export const vehicleLogApi = {
     const response = await fetch(`${API_BASE_URL}/vehicle-logs/${id}`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
+        ...authApi.getAuthHeaders(),
       },
       body: JSON.stringify(vehicleLog),
     })

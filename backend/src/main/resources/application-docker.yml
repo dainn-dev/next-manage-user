@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: vehicle-management-api
+  main:
+    allow-circular-references: true
   
   servlet:
     multipart:
@@ -56,3 +58,8 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+# JWT Configuration
+jwt:
+  secret: mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm
+  expiration: 86400 # 24 hours in seconds

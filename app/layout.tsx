@@ -1,8 +1,9 @@
 import type React from "react"
 import { Inter, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
-import { Sidebar } from "@/components/layout/sidebar"
 import { ToasterWrapper } from "@/components/ui/toaster-wrapper"
+import { AuthProvider } from "@/lib/auth-context"
+import { ProtectedLayout } from "@/components/layout/protected-layout"
 
 const inter = Inter({
   variable: "--font-inter",
@@ -22,10 +23,11 @@ export default function RootLayout({
   return (
     <html lang="vi" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased">
-        <div className="flex h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-auto bg-white">{children}</main>
-        </div>
+        <AuthProvider>
+          <ProtectedLayout>
+            {children}
+          </ProtectedLayout>
+        </AuthProvider>
         <ToasterWrapper />
       </body>
     </html>
