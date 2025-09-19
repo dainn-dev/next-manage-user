@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { ChevronRight } from "lucide-react"
 import { PositionLevel } from "@/lib/types"
 
@@ -61,13 +61,58 @@ interface MenuItemProps {
 
 function MenuItem({ item, onSelect, selectedLevel, depth = 0 }: MenuItemProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [showSubmenu, setShowSubmenu] = useState(false)
   const hasChildren = item.children && item.children.length > 0
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+    }
+  }, [])
+
+  const handleMouseEnter = () => {
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+    
+    setIsHovered(true)
+    if (hasChildren) {
+      // Add slight delay before showing submenu to prevent accidental triggers
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = setTimeout(() => setShowSubmenu(true), 100)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    setIsHovered(false)
+    
+    if (hasChildren) {
+      // Add delay before hiding submenu to allow user to move to it
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = setTimeout(() => {
+        setShowSubmenu(false)
+      }, 200)
+    } else {
+      setShowSubmenu(false)
+    }
+    
+    // Clear show timeout if user leaves before submenu appears
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+  }
 
   return (
     <div
       className="relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div
         className={`
@@ -88,12 +133,32 @@ function MenuItem({ item, onSelect, selectedLevel, depth = 0 }: MenuItemProps) {
       </div>
 
       {/* Submenu */}
-      {hasChildren && isHovered && (
-        <div className={`
-          absolute ${depth === 0 ? 'left-full top-0' : 'left-full top-0'}
-          min-w-[200px] bg-white border border-gray-200 rounded-md shadow-lg z-50
-          py-1
-        `}>
+      {hasChildren && (isHovered || showSubmenu) && (
+        <div 
+          className={`
+            absolute ${depth === 0 ? 'left-full top-0' : 'left-full top-0'}
+            min-w-[200px] bg-white border border-gray-200 rounded-md shadow-lg z-50
+            py-1 transition-all duration-200 ease-in-out
+          `}
+          data-submenu="true"
+          onMouseEnter={() => {
+            // Clear hide timeout when entering submenu
+            if (hideTimeoutRef.current) {
+              clearTimeout(hideTimeoutRef.current)
+              hideTimeoutRef.current = null
+            }
+            setShowSubmenu(true)
+            setIsHovered(true)
+          }}
+          onMouseLeave={() => {
+            // Add delay before hiding when leaving submenu
+            if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current)
+            hideTimeoutRef.current = setTimeout(() => {
+              setShowSubmenu(false)
+              setIsHovered(false)
+            }, 150)
+          }}
+        >
           {item.children!.map((child) => (
             <MenuItem
               key={child.level}

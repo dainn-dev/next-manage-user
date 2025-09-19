@@ -192,22 +192,48 @@ export function VehicleTable({
                     <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="relative">
+                        <div 
+                          className="relative group"
+                          onMouseEnter={() => {
+                            const menu = document.getElementById(`menu-${vehicle.id}`)
+                            if (menu) {
+                              menu.classList.remove('hidden')
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            // Add small delay before hiding
+                            setTimeout(() => {
+                              const menu = document.getElementById(`menu-${vehicle.id}`)
+                              if (menu && !menu.matches(':hover')) {
+                                menu.classList.add('hidden')
+                              }
+                            }, 200)
+                          }}
+                        >
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              const menu = document.getElementById(`menu-${vehicle.id}`)
-                              if (menu) {
-                                menu.classList.toggle('hidden')
-                              }
-                            }}
+                            className="h-8 w-8 p-0 group-hover:bg-accent transition-colors duration-150"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                           <div
                             id={`menu-${vehicle.id}`}
-                            className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                            className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md transition-all duration-150"
+                            onMouseEnter={() => {
+                              // Keep menu open when hovering over it
+                              const menu = document.getElementById(`menu-${vehicle.id}`)
+                              if (menu) {
+                                menu.classList.remove('hidden')
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              // Hide menu when leaving
+                              const menu = document.getElementById(`menu-${vehicle.id}`)
+                              if (menu) {
+                                menu.classList.add('hidden')
+                              }
+                            }}
                           >
                             {/* Conditional approve/reject actions based on status */}
                             {vehicle.status === "approved" && onReject && (
