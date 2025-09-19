@@ -40,6 +40,11 @@ spring:
       name: admin
       password: admin
 
+# JWT Configuration
+jwt:
+  secret: mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm
+  expiration: 86400 # 24 hours in seconds
+
 management:
   endpoints:
     web:
