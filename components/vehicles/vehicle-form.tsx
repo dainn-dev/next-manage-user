@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { getImageUrl } from "@/lib/api/config"
 import { Upload, X, Image } from "lucide-react"
 import { vehicleApi } from "@/lib/api/vehicle-api"
 
@@ -39,7 +40,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(
     vehicle?.imagePath 
-      ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${vehicle.imagePath}`
+      ? getImageUrl(vehicle.imagePath)
       : null
   )
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -63,7 +64,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
       })
       setImagePreview(
         vehicle.imagePath 
-          ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${vehicle.imagePath}`
+          ? getImageUrl(vehicle.imagePath)
           : null
       )
       setSelectedImage(null)

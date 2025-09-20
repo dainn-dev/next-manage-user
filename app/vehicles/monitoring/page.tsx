@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { vehicleLogApi, VehicleLogStatistics, VehicleLog, EmployeeVehicleInfo } from "@/lib/api/vehicle-log-api"
 import { useWebSocket, VehicleCheckMessage, EmployeeVehicleCheckMessage } from "@/hooks/use-websocket"
 import { dataService } from "@/lib/data-service"
+import { getImageUrl } from "@/lib/api/config"
 
 export default function VehicleMonitoringPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([])
@@ -389,7 +390,7 @@ export default function VehicleMonitoringPage() {
                         <div className="w-32 h-40 bg-gradient-to-br from-green-100 to-green-50 border-2 border-green-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
                           {employeeInfo.avatar ? (
                             <img 
-                              src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${employeeInfo.avatar}`} 
+                              src={getImageUrl(employeeInfo.avatar) || '/placeholder-user.jpg'} 
                               alt="Employee photo" 
                               className="w-32 h-40 object-cover rounded-xl" 
                             />
@@ -447,7 +448,7 @@ export default function VehicleMonitoringPage() {
                         <div className="w-32 h-40 bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
                           {selectedLog.imagePath ? (
                             <img 
-                              src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${selectedLog.imagePath}`} 
+                              src={getImageUrl(selectedLog.imagePath) || '/placeholder.jpg'} 
                               alt="Vehicle photo" 
                               className="w-32 h-40 object-cover rounded-xl" 
                             />
@@ -488,7 +489,7 @@ export default function VehicleMonitoringPage() {
                           </tr>
                           <tr className="border-b">
                             <td className="py-2 pr-4 font-semibold text-gray-700">Loại xe:</td>
-                            <td className="py-2 text-gray-800">Honda Civic</td>
+                            <td className="py-2 text-gray-800">{selectedLog.vehicleBrand && selectedLog.vehicleModel ? `${selectedLog.vehicleBrand} ${selectedLog.vehicleModel}` : 'N/A'}</td>
                           </tr>
                           <tr>
                             <td className="py-2 pr-4 font-semibold text-gray-700">Biển số:</td>
@@ -542,7 +543,7 @@ export default function VehicleMonitoringPage() {
                 <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 border-2 border-gray-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200 min-h-48">
                   {employeeInfo && (employeeInfo as any).vehicleImagePath ? (
                     <img 
-                      src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${(employeeInfo as any).vehicleImagePath}`}
+                      src={getImageUrl((employeeInfo as any).vehicleImagePath) || '/placeholder.jpg'}
                       alt="Vehicle photo"
                       className="w-full h-full object-cover rounded-xl"
                       onError={(e) => {
@@ -606,7 +607,7 @@ export default function VehicleMonitoringPage() {
                   }`} style={{ aspectRatio: '3/4' }}>
                     {log.employeeAvatar ? (
                       <img 
-                        src={`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${log.employeeAvatar}`} 
+                        src={getImageUrl(log.employeeAvatar) || '/placeholder-user.jpg'} 
                         alt="employee photo" 
                         className="w-24 h-32 object-cover rounded-lg" 
                       />
@@ -626,8 +627,8 @@ export default function VehicleMonitoringPage() {
                 <div className="text-lg font-medium text-gray-700 mb-2 truncate" title={log.driverName || 'Lê Văn B'}>
                   {log.driverName || 'Lê Văn B'}
                 </div>
-                <div className="text-base text-gray-500 mb-3 truncate" title={log.employeeName || 'Tiểu đoàn 8'}>
-                  {log.employeeName || 'Tiểu đoàn 8'}
+                <div className="text-base text-gray-500 mb-3 truncate" title={log.employeeName || 'N/A'}>
+                  {log.employeeName || 'N/A'}
                 </div>
                 <div className="mt-3">
                   <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${

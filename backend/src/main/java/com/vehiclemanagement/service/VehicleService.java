@@ -533,7 +533,7 @@ public class VehicleService {
                 }
                 
             } else {
-                String statusText = getStatusText(vehicle.getStatus());
+                String statusText = getStatusText(vehicle.getStatus()) =="Entered" ? "đã vào" : "đã ra";
                 message = "Xe biển số " + licensePlateNumber + " không được phép ra vào (Trạng thái: " + statusText + ")";
                 
                 // Send WebSocket message for denied access

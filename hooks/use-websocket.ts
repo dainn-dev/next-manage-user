@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
+import { getWsUrl } from '@/lib/api/config'
 
 export interface VehicleCheckMessage {
   licensePlateNumber: string
@@ -73,7 +74,7 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
       console.log('Attempting WebSocket connection...')
 
       // Create WebSocket connection using SockJS
-      const socket = new SockJS(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/ws`)
+      const socket = new SockJS(getWsUrl())
       
       const client = new Client({
         webSocketFactory: () => socket,
@@ -179,7 +180,7 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
         isConnectingRef.current = true
         console.log('Manual reconnection attempt...')
 
-        const socket = new SockJS(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/ws`)
+        const socket = new SockJS(getWsUrl())
         
         const client = new Client({
           webSocketFactory: () => socket,

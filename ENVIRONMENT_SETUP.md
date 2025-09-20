@@ -29,9 +29,7 @@ This document explains how to set up environment variables for the Vehicle Manag
 
 ### Frontend (NEXT_PUBLIC_* variables)
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-NEXT_PUBLIC_WS_URL=http://localhost:8080/ws
+NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 ### Backend
