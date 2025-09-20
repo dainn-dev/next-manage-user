@@ -176,11 +176,11 @@ export default function TrungDoiPage() {
   }
 
   const handleViewDetails = (position: Position) => {
-    console.log("View Trung đội position details:", position)
+    alert("T�nh nang xem chi ti?t s? du?c tri?n khai sau")
   }
 
   const handleExport = () => {
-    console.log("Export Trung đội positions")
+    alert("T�nh nang xu?t d? li?u s? du?c tri?n khai sau")
   }
 
   const getStatistics = () => {

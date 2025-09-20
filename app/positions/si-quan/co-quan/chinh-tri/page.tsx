@@ -175,11 +175,11 @@ export default function ChinhTriPage() {
   }
 
   const handleViewDetails = (position: Position) => {
-    console.log("View Chính trị position details:", position)
+    alert("T�nh nang xem chi ti?t s? du?c tri?n khai sau")
   }
 
   const handleExport = () => {
-    console.log("Export Chính trị positions")
+    alert("T�nh nang xu?t d? li?u s? du?c tri?n khai sau")
   }
 
   const getStatistics = () => {

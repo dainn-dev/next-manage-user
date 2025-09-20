@@ -200,6 +200,7 @@ class EmployeeApiService {
     return this.request<EmployeeApiResponse>(`/department/${department}?${params}`)
   }
 
+
   // Get employees by status
   async getEmployeesByStatus(
     status: string,

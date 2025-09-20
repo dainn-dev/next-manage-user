@@ -8,12 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Combobox } from "@/components/ui/combobox"
-import { dataService } from "@/lib/data-service"
 import { positionApi, type PositionApiResponse } from "@/lib/api/position-api"
-import { ChevronDown } from "lucide-react"
 
 interface EmployeeFormProps {
   employee?: Employee
@@ -24,12 +20,11 @@ interface EmployeeFormProps {
 }
 
 export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }: EmployeeFormProps) {
-  const [positions, setPositions] = useState<Position[]>([])
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
-  const [showPositionDropdown, setShowPositionDropdown] = useState(false)
   const [sqQncnOptions, setSqQncnOptions] = useState<PositionApiResponse[]>([])
-  const [loadingPositions, setLoadingPositions] = useState(false)
-  const [formData, setFormData] = useState<Partial<Employee & { location?: string }>>({
+  const [filteredPositions, setFilteredPositions] = useState<PositionApiResponse[]>([])
+  const [loadingFilteredPositions, setLoadingFilteredPositions] = useState(false)
+  const [formData, setFormData] = useState<Partial<Employee>>({
     employeeId: employee?.employeeId || "",
     name: employee?.name || "",
     firstName: employee?.firstName || "",
@@ -39,7 +34,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     department: employee?.department || "",
     position: employee?.position || "",
     rank: employee?.rank || "",
-    jobTitle: employee?.jobTitle || "",
     militaryCivilian: employee?.militaryCivilian || "",
     hireDate: employee?.hireDate || "",
     birthDate: employee?.birthDate || "",
@@ -50,17 +44,15 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     status: employee?.status || "active",
     accessLevel: employee?.accessLevel || "general",
     permissions: employee?.permissions || ["read"],
-    location: "",
   })
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // Load SQ/QNCN options and all leaf positions when component mounts
+  // Load SQ/QNCN options when component mounts
   useEffect(() => {
     if (isOpen) {
       loadSqQncnOptions()
-      loadAllLeafPositions()
     }
   }, [isOpen])
 
@@ -76,73 +68,45 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     }
   }
 
-  const loadAllLeafPositions = async () => {
-    setLoadingPositions(true)
+
+  const loadFilteredPositions = async (sqQncnSelection: string) => {
+    if (!sqQncnSelection) {
+      setFilteredPositions([])
+      return
+    }
+
+    setLoadingFilteredPositions(true)
     try {
-      // Load all leaf positions across the entire system
-      const allLeafPositions = await positionApi.getAllLeafPositions()
-      const positionData = allLeafPositions.map(pos => positionApi.convertToPosition(pos))
-      setPositions(positionData)
+      // Find the selected SQ/QNCN option to get its ID
+      const selectedOption = sqQncnOptions.find(option => option.name === sqQncnSelection)
+      if (selectedOption) {
+        // Call the specific API endpoint for filtered positions
+        const response = await positionApi.getPositionsWithFilters(
+          undefined, // level
+          selectedOption.id, // parentId
+          0, // page
+          100, // size
+          true // leafOnly
+        )
+        setFilteredPositions(response.content)
+      } else {
+        setFilteredPositions([])
+      }
     } catch (error) {
-      console.error("Error loading all leaf positions:", error)
-      setPositions([])
+      console.error("Error loading filtered positions:", error)
+      setFilteredPositions([])
     } finally {
-      setLoadingPositions(false)
+      setLoadingFilteredPositions(false)
     }
   }
 
 
-
-  const getPositionPath = (position: Position): string => {
-    const path: string[] = []
-    let current = position
-    
-    // Build path from current position to root
-    while (current) {
-      path.unshift(current.name)
-      if (current.parentId) {
-        current = positions.find(p => p.id === current.parentId) as Position
-      } else {
-        break
-      }
-    }
-    
-    return path.join(" > ")
-  }
-
-
-  // Get position options for combobox
-  const getPositionOptions = () => {
-    // All leaf positions are now loaded when form opens
-    // Convert to combobox options with "name - parentName" format
-    return positions.map(pos => ({
-      value: pos.id,
-      label: pos.parentName ? `${pos.name} - ${pos.parentName}` : pos.name,
-      description: pos.description || pos.name
-    }))
-  }
-
-  // Helper function to check if position is under a specific branch
-  const isUnderBranch = (position: Position, branchName: string): boolean => {
-    let current = position
-    while (current) {
-      if (current.name === branchName) {
-        return true
-      }
-      if (current.parentId) {
-        current = positions.find(p => p.id === current.parentId) as Position
-      } else {
-        break
-      }
-    }
-    return false
-  }
 
   // Sync form data when employee prop changes
   useEffect(() => {
-    console.log('EmployeeForm: employee prop changed', employee?.id, employee?.name);
+    // Employee prop changed
     if (employee) {
-      console.log('EmployeeForm: Setting form data for employee', employee.employeeId, employee.name);
+      // Setting form data for existing employee
       setFormData({
         employeeId: employee.employeeId || "",
         name: employee.name || "",
@@ -153,7 +117,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         department: employee.department || "",
         position: employee.position || "",
         rank: employee.rank || "",
-        jobTitle: employee.jobTitle || "",
         militaryCivilian: employee.militaryCivilian || "",
         hireDate: employee.hireDate || "",
         birthDate: employee.birthDate || "",
@@ -164,20 +127,18 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: employee.status || "active",
         accessLevel: employee.accessLevel || "general",
         permissions: employee.permissions || ["read"],
-        location: employee.location || "",
       });
       
-      // Set selected position if editing employee
-      if (employee.jobTitle) {
-        const position = positions.find(p => p.name === employee.jobTitle)
-        setSelectedPosition(position || null)
+      // Load filtered positions for the militaryCivilian value if editing employee
+      if (employee.militaryCivilian) {
+        loadFilteredPositions(employee.militaryCivilian)
       }
       
       setSelectedImageFile(null);
       setImagePreview(null);
     } else {
       // Reset form when creating new employee
-      console.log('EmployeeForm: Resetting form data for new employee');
+      // Resetting form data for new employee
       setFormData({
         employeeId: "",
         name: "",
@@ -188,7 +149,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         department: "",
         position: "",
         rank: "",
-        jobTitle: "",
         militaryCivilian: "",
         hireDate: "",
         birthDate: "",
@@ -199,15 +159,25 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: "active",
         accessLevel: "general",
         permissions: ["read"],
-        location: "",
       });
       setSelectedPosition(null);
       setSelectedImageFile(null);
       setImagePreview(null);
     }
-  }, [employee, positions]);
+  }, [employee]);
 
-  const handleInputChange = (field: keyof (Employee & { location?: string }), value: any) => {
+  // Set selected position when filtered positions are loaded and we have an employee with position
+  useEffect(() => {
+    if (employee && employee.position && filteredPositions.length > 0) {
+      const position = filteredPositions.find(p => p.name === employee.position)
+      if (position) {
+        const convertedPosition = positionApi.convertToPosition(position)
+        setSelectedPosition(convertedPosition)
+      }
+    }
+  }, [filteredPositions, employee]);
+
+  const handleInputChange = (field: keyof Employee, value: any) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value }
       
@@ -223,7 +193,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   }
 
   const handleSubmit = async () => {
-    if (!formData.employeeId || !formData.firstName || !formData.lastName || !formData.jobTitle || !formData.department) {
+    if (!formData.employeeId || !formData.firstName || !formData.lastName || !formData.position || !formData.department) {
       alert("Vui lòng điền đầy đủ thông tin bắt buộc (ID Quân nhân, Họ, Tên, Chức vụ, Cơ quan đơn vị)")
       return
     }
@@ -240,7 +210,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         department: formData.department!,
         position: formData.position!,
         rank: formData.rank || "",
-        jobTitle: formData.jobTitle || "",
         militaryCivilian: formData.militaryCivilian || "",
         hireDate: formData.hireDate || new Date().toISOString().split("T")[0],
         birthDate: formData.birthDate,
@@ -405,9 +374,10 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                   handleInputChange("militaryCivilian", value);
                   // Reset rank and position when changing SQ/QNCN
                   handleInputChange("rank", "");
-                  handleInputChange("jobTitle", "");
                   handleInputChange("position", "");
                   setSelectedPosition(null);
+                  // Load filtered positions based on SQ/QNCN selection
+                  loadFilteredPositions(value);
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="SQ/QNCN" />
@@ -456,36 +426,45 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="jobTitle">Chức vụ *</Label>
-                <Combobox
-                  options={getPositionOptions()}
-                  value={selectedPosition?.id || ""}
+                <Select 
+                  value={selectedPosition?.id || ""} 
                   onValueChange={(value) => {
-                    const position = positions.find(p => p.id === value)
-                    setSelectedPosition(position || null)
-                    handleInputChange("jobTitle", position?.name || "")
-                    handleInputChange("position", position?.name || "")
+                    const position = filteredPositions.find(p => p.id === value)
+                    if (position) {
+                      const convertedPosition = positionApi.convertToPosition(position)
+                      setSelectedPosition(convertedPosition)
+                      handleInputChange("position", position.name)
+                    }
                   }}
-                  placeholder="Chọn chức vụ"
-                  searchPlaceholder="Tìm kiếm chức vụ..."
-                  emptyText={
-                    loadingPositions 
-                      ? "Đang tải chức vụ..."
-                      : "Không tìm thấy chức vụ phù hợp"
-                  }
-                  disabled={loadingPositions}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Vị trí</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange("location", e.target.value)}
-                  placeholder="Nhập vị trí làm việc"
-                />
+                  disabled={!formData.militaryCivilian || loadingFilteredPositions}
+                >
+                  <SelectTrigger>
+                    <SelectValue 
+                      placeholder={
+                        !formData.militaryCivilian 
+                          ? "Vui lòng chọn SQ/QNCN trước"
+                          : loadingFilteredPositions 
+                            ? "Đang tải chức vụ..." 
+                            : "Chọn chức vụ"
+                      } 
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredPositions.length === 0 && formData.militaryCivilian && !loadingFilteredPositions && (
+                      <SelectItem value="" disabled>
+                        Không có chức vụ phù hợp
+                      </SelectItem>
+                    )}
+                    {filteredPositions.map((position) => (
+                      <SelectItem key={position.id} value={position.id}>
+                        {position.parentName ? `${position.name} - ${position.parentName}` : position.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

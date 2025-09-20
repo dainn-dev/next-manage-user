@@ -78,7 +78,7 @@ export function Sidebar() {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [positions, setPositions] = useState<PositionApiResponse[]>([])
-  const [loadingPositions, setLoadingPositions] = useState(true)
+  const [loadingPositions, setLoadingPositions] = useState(false)
   const { user, logout } = useAuth()
   const { toast } = useToast()
 
@@ -86,20 +86,19 @@ export function Sidebar() {
   useEffect(() => {
     const loadPositions = async () => {
       try {
+        setLoadingPositions(true)
         const positionsData = await positionApi.getPositionMenuHierarchy()
         setPositions(positionsData)
       } catch (error) {
         console.error('Failed to load positions:', error)
-        toast({
-          title: "Lỗi tải dữ liệu",
-          description: "Không thể tải danh sách chức vụ",
-          variant: "destructive",
-        })
+        // Don't show toast error on component mount to avoid spam
+        // User will see "Không có dữ liệu" in the dropdown instead
       } finally {
         setLoadingPositions(false)
       }
     }
 
+    // Load positions when component mounts
     loadPositions()
   }, [toast])
 
@@ -157,11 +156,31 @@ export function Sidebar() {
     return `${parentPath}/${slug}`
   }
 
+  // Handle position menu click based on filterBy property
+  const handlePositionClick = (position: PositionApiResponse) => {
+    if (position.filterBy === 'N_A') {
+      // Don't allow clicking for N/A positions
+      return
+    }
+
+    if (position.filterBy === 'CHUC_VU') {
+      // Navigate to employees page with position filter
+      router.push(`/employees?position=${encodeURIComponent(position.name)}`)
+    } else if (position.filterBy === 'CO_QUAN_DON_VI') {
+      // Navigate to employees page with department filter
+      router.push(`/employees?department=${encodeURIComponent(position.name)}`)
+    } else {
+      // Default behavior - navigate to position page
+      const positionPath = getPositionPath(position)
+      router.push(positionPath)
+    }
+  }
+
   // Render position dropdown menu items recursively
   const renderPositionMenuItems = (positions: PositionApiResponse[]): React.ReactNode => {
     return positions.map((position) => {
       const hasChildren = position.children && position.children.length > 0
-      const positionPath = getPositionPath(position)
+      const isClickable = position.filterBy !== 'N_A'
 
       if (hasChildren) {
         return (
@@ -179,14 +198,18 @@ export function Sidebar() {
       return (
         <DropdownMenuItem
           key={position.id}
-          onClick={() => handleMenuClick(positionPath)}
-          className={
-            pathname === positionPath || pathname.startsWith(positionPath)
+          onClick={() => isClickable ? handlePositionClick(position) : undefined}
+          className={`${
+            pathname === getPositionPath(position) || pathname.startsWith(getPositionPath(position))
               ? "bg-sidebar-accent text-sidebar-accent-foreground"
               : ""
-          }
+          } ${!isClickable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          disabled={!isClickable}
         >
           {position.name}
+          {!isClickable && (
+            <span className="ml-2 text-xs text-muted-foreground">(N/A)</span>
+          )}
         </DropdownMenuItem>
       )
     })
@@ -261,9 +284,14 @@ export function Sidebar() {
                   ) : positions.length > 0 ? (
                     renderPositionMenuItems(positions)
                   ) : (
-                    <DropdownMenuItem disabled>
-                      <span>Không có dữ liệu</span>
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem onClick={() => handleMenuClick("/positions")}>
+                        <span>📋 Tất cả chức vụ</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled>
+                        <span className="text-xs text-muted-foreground">Không thể tải menu phân cấp</span>
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

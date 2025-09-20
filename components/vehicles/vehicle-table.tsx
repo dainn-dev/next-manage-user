@@ -358,7 +358,7 @@ export function VehicleTable({
           isOpen={showAdvancedExport}
           onClose={() => setShowAdvancedExport(false)}
           onExport={(options) => {
-            console.log("Export options:", options)
+            // Export options selected
           }}
         />
       )}
@@ -368,7 +368,7 @@ export function VehicleTable({
           isOpen={showImport}
           onClose={() => setShowImport(false)}
           onImport={(options) => {
-            console.log("Import options:", options)
+            // Import options selected
           }}
         />
       )}

@@ -85,7 +85,11 @@ export interface EmployeeVehicleInfo {
 export const vehicleLogApi = {
   // Get paginated vehicle logs
   getAllVehicleLogs: async (page = 0, size = 10, sortBy = 'entryExitTime', sortDir = 'desc'): Promise<VehicleLogPage> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch vehicle logs')
     }
@@ -94,7 +98,11 @@ export const vehicleLogApi = {
 
   // Get all vehicle logs as list
   getAllVehicleLogsList: async (): Promise<VehicleLog[]> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/list`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/list`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch vehicle logs list')
     }
@@ -103,7 +111,11 @@ export const vehicleLogApi = {
 
   // Get vehicle log by ID
   getVehicleLogById: async (id: string): Promise<VehicleLog> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/${id}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/${id}`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch vehicle log')
     }
@@ -112,7 +124,11 @@ export const vehicleLogApi = {
 
   // Get today's logs
   getTodayLogs: async (page = 0, size = 10): Promise<VehicleLogPage> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/today?page=${page}&size=${size}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/today?page=${page}&size=${size}`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch today logs')
     }
@@ -121,7 +137,11 @@ export const vehicleLogApi = {
 
   // Get weekly logs
   getWeeklyLogs: async (page = 0, size = 10): Promise<VehicleLogPage> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/weekly?page=${page}&size=${size}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/weekly?page=${page}&size=${size}`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch weekly logs')
     }
@@ -130,7 +150,11 @@ export const vehicleLogApi = {
 
   // Get monthly logs
   getMonthlyLogs: async (page = 0, size = 10): Promise<VehicleLogPage> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/monthly?page=${page}&size=${size}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/monthly?page=${page}&size=${size}`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch monthly logs')
     }
@@ -145,7 +169,12 @@ export const vehicleLogApi = {
     size = 10
   ): Promise<VehicleLogPage> => {
     const response = await fetch(
-      `${API_BASE_URL}/vehicle-logs/date-range?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&page=${page}&size=${size}`
+      `${API_BASE_URL}/vehicle-logs/date-range?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&page=${page}&size=${size}`,
+      {
+        headers: {
+          ...authApi.getAuthHeaders(),
+        },
+      }
     )
     if (!response.ok) {
       throw new Error('Failed to fetch vehicle logs by date range')
@@ -175,7 +204,11 @@ export const vehicleLogApi = {
     searchParams.append('page', (params.page || 0).toString())
     searchParams.append('size', (params.size || 10).toString())
 
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/search?${searchParams.toString()}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/search?${searchParams.toString()}`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to search vehicle logs')
     }
@@ -216,6 +249,9 @@ export const vehicleLogApi = {
   deleteVehicleLog: async (id: string): Promise<void> => {
     const response = await fetch(`${API_BASE_URL}/vehicle-logs/${id}`, {
       method: 'DELETE',
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
     })
     if (!response.ok) {
       throw new Error('Failed to delete vehicle log')
@@ -224,7 +260,11 @@ export const vehicleLogApi = {
 
   // Get today's statistics
   getTodayStatistics: async (): Promise<VehicleLogStatistics> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/statistics/today`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/statistics/today`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch today statistics')
     }
@@ -233,7 +273,11 @@ export const vehicleLogApi = {
 
   // Get employee info by license plate and type
   getEmployeeInfoByLicensePlate: async (licensePlateNumber: string, type: 'entry' | 'exit'): Promise<EmployeeVehicleInfo> => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-logs/employee-info?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toLowerCase()}`)
+    const response = await fetch(`${API_BASE_URL}/vehicle-logs/employee-info?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toLowerCase()}`, {
+      headers: {
+        ...authApi.getAuthHeaders(),
+      },
+    })
     if (!response.ok) {
       throw new Error('Failed to fetch employee info')
     }

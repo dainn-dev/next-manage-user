@@ -22,11 +22,75 @@ interface PaginatedResponse<T> {
 }
 
 class UserApi {
+  private requestCache = new Map<string, Promise<any>>()
+  private abortControllers = new Map<string, AbortController>()
+
   private getAuthHeaders() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+    }
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`
+    const cacheKey = `${options.method || 'GET'}:${url}`
+    
+    // Check if request is already in progress
+    if (this.requestCache.has(cacheKey)) {
+      return this.requestCache.get(cacheKey)!
+    }
+    
+    const config: RequestInit = {
+      headers: {
+        ...this.getAuthHeaders(),
+        ...options.headers,
+      },
+      ...options,
+    }
+
+    // Create abort controller for this request
+    const abortController = new AbortController()
+    this.abortControllers.set(cacheKey, abortController)
+    
+    const requestPromise = this.executeRequest<T>(url, { ...config, signal: abortController.signal })
+    this.requestCache.set(cacheKey, requestPromise)
+    
+    try {
+      const result = await requestPromise
+      return result
+    } finally {
+      // Clean up cache and abort controller after request completes
+      this.requestCache.delete(cacheKey)
+      this.abortControllers.delete(cacheKey)
+    }
+  }
+
+  private async executeRequest<T>(
+    url: string,
+    config: RequestInit
+  ): Promise<T> {
+    try {
+      const response = await fetch(url, config)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
+      // Handle 204 No Content responses
+      if (response.status === 204) {
+        return {} as T
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error(`API request failed for ${url}:`, error)
+      throw error
     }
   }
 
@@ -44,47 +108,17 @@ class UserApi {
       sortDir
     })
 
-    const response = await fetch(`${API_BASE_URL}/admin/users?${params}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || 'Failed to fetch users')
-    }
-
-    return response.json()
+    return this.request<PaginatedResponse<User>>(`/admin/users?${params}`)
   }
 
   // Get all users as list (no pagination)
   async getAllUsersList(): Promise<User[]> {
-    const response = await fetch(`${API_BASE_URL}/admin/users/list`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || 'Failed to fetch users list')
-    }
-
-    return response.json()
+    return this.request<User[]>('/admin/users/list')
   }
 
   // Get user by ID
   async getUserById(id: string): Promise<User> {
-    const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || 'Failed to fetch user')
-    }
-
-    return response.json()
+    return this.request<User>(`/admin/users/${id}`)
   }
 
   // Get user by username
@@ -118,17 +152,7 @@ class UserApi {
       sortDir
     })
 
-    const response = await fetch(`${API_BASE_URL}/admin/users/search?${params}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || 'Failed to search users')
-    }
-
-    return response.json()
+    return this.request<PaginatedResponse<User>>(`/admin/users/search?${params}`)
   }
 
   // Get users by role
@@ -146,17 +170,7 @@ class UserApi {
       sortDir
     })
 
-    const response = await fetch(`${API_BASE_URL}/admin/users/role/${role}?${params}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || 'Failed to fetch users by role')
-    }
-
-    return response.json()
+    return this.request<PaginatedResponse<User>>(`/admin/users/role/${role}?${params}`)
   }
 
   // Get users by status
@@ -174,17 +188,7 @@ class UserApi {
       sortDir
     })
 
-    const response = await fetch(`${API_BASE_URL}/admin/users/status/${status}?${params}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.message || 'Failed to fetch users by status')
-    }
-
-    return response.json()
+    return this.request<PaginatedResponse<User>>(`/admin/users/status/${status}?${params}`)
   }
 
   // Create user

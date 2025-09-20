@@ -76,42 +76,20 @@ export default function UsersPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    loadData()
-  }, [])
-
-  useEffect(() => {
     loadUsers()
   }, [currentPage, pageSize, searchTerm, roleFilter, statusFilter])
 
-  const loadData = async () => {
+  // Load employees once when component mounts
+  useEffect(() => {
+    loadEmployees()
+  }, [])
+
+  const loadEmployees = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      
-      const [usersData, employeesData] = await Promise.all([
-        userApi.getAllUsersList(),
-        dataService.getEmployees()
-      ])
-      
-      setUsers(usersData)
+      const employeesData = await dataService.getEmployees()
       setEmployees(employeesData)
-      
-      // Calculate statistics
-      const stats = {
-        totalUsers: usersData.length,
-        activeUsers: usersData.filter(u => u.status === UserStatus.ACTIVE).length,
-        inactiveUsers: usersData.filter(u => u.status === UserStatus.INACTIVE).length,
-        lockedUsers: usersData.filter(u => u.status === UserStatus.LOCKED).length,
-        suspendedUsers: usersData.filter(u => u.status === UserStatus.SUSPENDED).length,
-        adminUsers: usersData.filter(u => u.role === UserRole.ADMIN).length,
-        regularUsers: usersData.filter(u => u.role === UserRole.USER).length,
-      }
-      setStatistics(stats)
     } catch (err) {
-      setError('Không thể tải dữ liệu người dùng')
-      console.error('Error loading users data:', err)
-    } finally {
-      setLoading(false)
+      console.error('Error loading employees:', err)
     }
   }
 
@@ -134,6 +112,38 @@ export default function UsersPage() {
       setTotalPages(usersData.totalPages)
       setTotalElements(usersData.totalElements)
       setCurrentPage(usersData.number)
+
+      // Calculate statistics from the current page data (for basic stats)
+      // Only fetch full list for statistics on first load with no filters
+      if (searchTerm === "" && roleFilter === "all" && statusFilter === "all" && currentPage === 0) {
+        // Use the paginated data for basic statistics if we have enough data
+        if (usersData.totalElements <= usersData.size) {
+          // If all users fit in one page, use current data for statistics
+          const stats = {
+            totalUsers: usersData.totalElements,
+            activeUsers: usersData.content.filter(u => u.status === UserStatus.ACTIVE).length,
+            inactiveUsers: usersData.content.filter(u => u.status === UserStatus.INACTIVE).length,
+            lockedUsers: usersData.content.filter(u => u.status === UserStatus.LOCKED).length,
+            suspendedUsers: usersData.content.filter(u => u.status === UserStatus.SUSPENDED).length,
+            adminUsers: usersData.content.filter(u => u.role === UserRole.ADMIN).length,
+            regularUsers: usersData.content.filter(u => u.role === UserRole.USER).length,
+          }
+          setStatistics(stats)
+        } else {
+          // If there are more users, fetch full list for accurate statistics
+          const allUsersData = await userApi.getAllUsersList()
+          const stats = {
+            totalUsers: allUsersData.length,
+            activeUsers: allUsersData.filter(u => u.status === UserStatus.ACTIVE).length,
+            inactiveUsers: allUsersData.filter(u => u.status === UserStatus.INACTIVE).length,
+            lockedUsers: allUsersData.filter(u => u.status === UserStatus.LOCKED).length,
+            suspendedUsers: allUsersData.filter(u => u.status === UserStatus.SUSPENDED).length,
+            adminUsers: allUsersData.filter(u => u.role === UserRole.ADMIN).length,
+            regularUsers: allUsersData.filter(u => u.role === UserRole.USER).length,
+          }
+          setStatistics(stats)
+        }
+      }
     } catch (err) {
       setError('Không thể tải danh sách người dùng')
       console.error('Error loading users:', err)

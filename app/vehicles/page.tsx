@@ -270,8 +270,8 @@ export default function VehiclesPage() {
   }
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log("Export vehicles")
+    // Export functionality to be implemented
+    alert("Tính năng xuất dữ liệu sẽ được triển khai sau")
     toast({
       title: "Thông báo",
       description: "Tính năng xuất dữ liệu đang được phát triển",
@@ -545,7 +545,7 @@ export default function VehiclesPage() {
         onClose={() => setShowBulkOperations(false)}
         selectedCount={0}
         onApply={(operation) => {
-          console.log("Bulk operation:", operation)
+          // Bulk operation selected
         }}
       />
     </div>
