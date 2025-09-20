@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -45,8 +45,8 @@ export default function ThamMuuPage() {
     } catch (error) {
       console.error("Error loading positions:", error)
       toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách chức vụ Tham mưu",
+        title: "Lá»—i",
+        description: "KhÃ´ng thá»ƒ táº£i danh sÃ¡ch chá»©c vá»¥ Tham mÆ°u",
         variant: "destructive",
       })
     } finally {
@@ -94,16 +94,16 @@ export default function ThamMuuPage() {
         })
         setPositions(prev => [...prev, newPosition])
         toast({
-          title: "Thành công",
-          description: "Chức vụ Tham mưu đã được tạo thành công!",
+          title: "ThÃ nh cÃ´ng",
+          description: "Chá»©c vá»¥ Tham mÆ°u Ä‘Ã£ Ä‘Æ°á»£c táº¡o thÃ nh cÃ´ng!",
         })
       } else {
         const updatedPosition = await dataService.updatePosition(position.id, position)
         if (updatedPosition) {
           setPositions(prev => prev.map(p => p.id === position.id ? updatedPosition : p))
           toast({
-            title: "Thành công", 
-            description: "Chức vụ Tham mưu đã được cập nhật thành công!",
+            title: "ThÃ nh cÃ´ng", 
+            description: "Chá»©c vá»¥ Tham mÆ°u Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t thÃ nh cÃ´ng!",
           })
         }
       }
@@ -112,30 +112,30 @@ export default function ThamMuuPage() {
     } catch (error) {
       console.error("Error saving position:", error)
       toast({
-        title: "Lỗi",
-        description: formMode === "create" ? "Không thể tạo chức vụ Tham mưu" : "Không thể cập nhật chức vụ Tham mưu",
+        title: "Lá»—i",
+        description: formMode === "create" ? "KhÃ´ng thá»ƒ táº¡o chá»©c vá»¥ Tham mÆ°u" : "KhÃ´ng thá»ƒ cáº­p nháº­t chá»©c vá»¥ Tham mÆ°u",
         variant: "destructive",
       })
     }
   }
 
   const handleDeletePosition = async (positionId: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa chức vụ Tham mưu này?")) {
+    if (confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a chá»©c vá»¥ Tham mÆ°u nÃ y?")) {
       try {
         const success = await dataService.deletePosition(positionId)
         if (success) {
           setPositions(prev => prev.filter(p => p.id !== positionId))
           setSelectedPositions(prev => prev.filter(id => id !== positionId))
           toast({
-            title: "Thành công",
-            description: "Chức vụ Tham mưu đã được xóa thành công!",
+            title: "ThÃ nh cÃ´ng",
+            description: "Chá»©c vá»¥ Tham mÆ°u Ä‘Ã£ Ä‘Æ°á»£c xÃ³a thÃ nh cÃ´ng!",
           })
         }
       } catch (error) {
         console.error("Error deleting position:", error)
         toast({
-          title: "Lỗi",
-          description: "Không thể xóa chức vụ Tham mưu",
+          title: "Lá»—i",
+          description: "KhÃ´ng thá»ƒ xÃ³a chá»©c vá»¥ Tham mÆ°u",
           variant: "destructive",
         })
       }
@@ -145,29 +145,29 @@ export default function ThamMuuPage() {
   const handleBulkDelete = async () => {
     if (selectedPositions.length === 0) {
       toast({
-        title: "Cảnh báo",
-        description: "Vui lòng chọn ít nhất một chức vụ để xóa",
+        title: "Cáº£nh bÃ¡o",
+        description: "Vui lÃ²ng chá»n Ã­t nháº¥t má»™t chá»©c vá»¥ Ä‘á»ƒ xÃ³a",
         variant: "destructive",
       })
       return
     }
 
-    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedPositions.length} chức vụ Tham mưu đã chọn?`)) {
+    if (confirm(`Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a ${selectedPositions.length} chá»©c vá»¥ Tham mÆ°u Ä‘Ã£ chá»n?`)) {
       try {
         const success = await dataService.bulkDeletePositions(selectedPositions)
         if (success) {
           setPositions(prev => prev.filter(p => !selectedPositions.includes(p.id)))
           setSelectedPositions([])
           toast({
-            title: "Thành công",
-            description: `${selectedPositions.length} chức vụ Tham mưu đã được xóa thành công!`,
+            title: "ThÃ nh cÃ´ng",
+            description: `${selectedPositions.length} chá»©c vá»¥ Tham mÆ°u Ä‘Ã£ Ä‘Æ°á»£c xÃ³a thÃ nh cÃ´ng!`,
           })
         }
       } catch (error) {
         console.error("Error bulk deleting positions:", error)
         toast({
-          title: "Lỗi",
-          description: "Không thể xóa các chức vụ Tham mưu đã chọn",
+          title: "Lá»—i",
+          description: "KhÃ´ng thá»ƒ xÃ³a cÃ¡c chá»©c vá»¥ Tham mÆ°u Ä‘Ã£ chá»n",
           variant: "destructive",
         })
       }
@@ -175,11 +175,11 @@ export default function ThamMuuPage() {
   }
 
   const handleViewDetails = (position: Position) => {
-    alert("T�nh nang xem chi ti?t s? du?c tri?n khai sau")
+    alert("Tính nang xem chi ti?t s? du?c tri?n khai sau")
   }
 
   const handleExport = () => {
-    alert("T�nh nang xu?t d? li?u s? du?c tri?n khai sau")
+    alert("Tính nang xu?t d? li?u s? du?c tri?n khai sau")
   }
 
   const getStatistics = () => {
@@ -200,7 +200,7 @@ export default function ThamMuuPage() {
             <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center">
               <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <p className="text-green-600 font-medium">Đang tải dữ liệu chức vụ Tham mưu...</p>
+            <p className="text-green-600 font-medium">Äang táº£i dá»¯ liá»‡u chá»©c vá»¥ Tham mÆ°u...</p>
           </div>
         </div>
       </div>
@@ -219,16 +219,16 @@ export default function ThamMuuPage() {
             className="text-green-600 hover:text-green-700 hover:bg-green-50"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại Cơ quan
+            Quay láº¡i CÆ¡ quan
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Chức vụ Tham mưu</h1>
-            <p className="text-muted-foreground text-lg">Quản lý chức vụ bộ phận Tham mưu</p>
+            <h1 className="text-3xl font-bold text-foreground">Chá»©c vá»¥ Tham mÆ°u</h1>
+            <p className="text-muted-foreground text-lg">Quáº£n lÃ½ chá»©c vá»¥ bá»™ pháº­n Tham mÆ°u</p>
           </div>
         </div>
         <Button onClick={handleCreatePosition} className="bg-green-600 hover:bg-green-700">
           <Plus className="h-4 w-4 mr-2" />
-          Thêm chức vụ Tham mưu
+          ThÃªm chá»©c vá»¥ Tham mÆ°u
         </Button>
       </div>
 
@@ -236,31 +236,31 @@ export default function ThamMuuPage() {
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card className="border-green-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng chức vụ Tham mưu</CardTitle>
+            <CardTitle className="text-sm font-medium">Tá»•ng chá»©c vá»¥ Tham mÆ°u</CardTitle>
             <Users className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.active} đang hoạt động
+              {stats.active} Ä‘ang hoáº¡t Ä‘á»™ng
             </p>
           </CardContent>
         </Card>
         <Card className="border-green-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nhân sự</CardTitle>
+            <CardTitle className="text-sm font-medium">NhÃ¢n sá»±</CardTitle>
             <Users className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.totalEmployees}</div>
             <p className="text-xs text-muted-foreground">
-              Tổng số cán bộ Tham mưu
+              Tá»•ng sá»‘ cÃ¡n bá»™ Tham mÆ°u
             </p>
           </CardContent>
         </Card>
         <Card className="border-green-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tỷ lệ hoạt động</CardTitle>
+            <CardTitle className="text-sm font-medium">Tá»· lá»‡ hoáº¡t Ä‘á»™ng</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -268,7 +268,7 @@ export default function ThamMuuPage() {
               {stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">
-              Chức vụ đang hoạt động
+              Chá»©c vá»¥ Ä‘ang hoáº¡t Ä‘á»™ng
             </p>
           </CardContent>
         </Card>
@@ -280,7 +280,7 @@ export default function ThamMuuPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm kiếm chức vụ Tham mưu..."
+              placeholder="TÃ¬m kiáº¿m chá»©c vá»¥ Tham mÆ°u..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full sm:w-64"
@@ -288,12 +288,12 @@ export default function ThamMuuPage() {
           </div>
           <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
             <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Trạng thái" />
+              <SelectValue placeholder="Tráº¡ng thÃ¡i" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="active">Hoạt động</SelectItem>
-              <SelectItem value="inactive">Không hoạt động</SelectItem>
+              <SelectItem value="all">Táº¥t cáº£</SelectItem>
+              <SelectItem value="active">Hoáº¡t Ä‘á»™ng</SelectItem>
+              <SelectItem value="inactive">KhÃ´ng hoáº¡t Ä‘á»™ng</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -301,11 +301,11 @@ export default function ThamMuuPage() {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadPositions}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            Làm mới
+            LÃ m má»›i
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
-            Xuất Excel
+            Xuáº¥t Excel
           </Button>
         </div>
       </div>
@@ -314,11 +314,11 @@ export default function ThamMuuPage() {
       {selectedPositions.length > 0 && (
         <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg mb-6">
           <Badge variant="secondary" className="bg-green-100 text-green-800">
-            {selectedPositions.length} đã chọn
+            {selectedPositions.length} Ä‘Ã£ chá»n
           </Badge>
           <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
-            Xóa đã chọn
+            XÃ³a Ä‘Ã£ chá»n
           </Button>
         </div>
       )}
@@ -349,3 +349,4 @@ export default function ThamMuuPage() {
     </div>
   )
 }
+

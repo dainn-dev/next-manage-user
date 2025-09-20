@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -42,8 +42,8 @@ export default function PositionsPage() {
     } catch (error) {
       console.error("Error loading positions:", error)
       toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách chức vụ",
+        title: "Lá»—i",
+        description: "KhÃ´ng thá»ƒ táº£i danh sÃ¡ch chá»©c vá»¥",
         variant: "destructive",
       })
     } finally {
@@ -103,16 +103,16 @@ export default function PositionsPage() {
         })
         setPositions(prev => [...prev, newPosition])
         toast({
-          title: "Thành công",
-          description: "Chức vụ đã được tạo thành công!",
+          title: "ThÃ nh cÃ´ng",
+          description: "Chá»©c vá»¥ Ä‘Ã£ Ä‘Æ°á»£c táº¡o thÃ nh cÃ´ng!",
         })
       } else {
         const updatedPosition = await dataService.updatePosition(position.id, position)
         if (updatedPosition) {
           setPositions(prev => prev.map(p => p.id === position.id ? updatedPosition : p))
           toast({
-            title: "Thành công", 
-            description: "Chức vụ đã được cập nhật thành công!",
+            title: "ThÃ nh cÃ´ng", 
+            description: "Chá»©c vá»¥ Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t thÃ nh cÃ´ng!",
           })
         }
       }
@@ -121,30 +121,30 @@ export default function PositionsPage() {
     } catch (error) {
       console.error("Error saving position:", error)
       toast({
-        title: "Lỗi",
-        description: formMode === "create" ? "Không thể tạo chức vụ" : "Không thể cập nhật chức vụ",
+        title: "Lá»—i",
+        description: formMode === "create" ? "KhÃ´ng thá»ƒ táº¡o chá»©c vá»¥" : "KhÃ´ng thá»ƒ cáº­p nháº­t chá»©c vá»¥",
         variant: "destructive",
       })
     }
   }
 
   const handleDeletePosition = async (positionId: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa chức vụ này?")) {
+    if (confirm("Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a chá»©c vá»¥ nÃ y?")) {
       try {
         const success = await dataService.deletePosition(positionId)
         if (success) {
           setPositions(prev => prev.filter(p => p.id !== positionId))
           setSelectedPositions(prev => prev.filter(id => id !== positionId))
           toast({
-            title: "Thành công",
-            description: "Chức vụ đã được xóa thành công!",
+            title: "ThÃ nh cÃ´ng",
+            description: "Chá»©c vá»¥ Ä‘Ã£ Ä‘Æ°á»£c xÃ³a thÃ nh cÃ´ng!",
           })
         }
       } catch (error) {
         console.error("Error deleting position:", error)
         toast({
-          title: "Lỗi",
-          description: "Không thể xóa chức vụ",
+          title: "Lá»—i",
+          description: "KhÃ´ng thá»ƒ xÃ³a chá»©c vá»¥",
           variant: "destructive",
         })
       }
@@ -154,29 +154,29 @@ export default function PositionsPage() {
   const handleBulkDelete = async () => {
     if (selectedPositions.length === 0) {
       toast({
-        title: "Cảnh báo",
-        description: "Vui lòng chọn ít nhất một chức vụ để xóa",
+        title: "Cáº£nh bÃ¡o",
+        description: "Vui lÃ²ng chá»n Ã­t nháº¥t má»™t chá»©c vá»¥ Ä‘á»ƒ xÃ³a",
         variant: "destructive",
       })
       return
     }
 
-    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedPositions.length} chức vụ đã chọn?`)) {
+    if (confirm(`Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a ${selectedPositions.length} chá»©c vá»¥ Ä‘Ã£ chá»n?`)) {
       try {
         const success = await dataService.bulkDeletePositions(selectedPositions)
         if (success) {
           setPositions(prev => prev.filter(p => !selectedPositions.includes(p.id)))
           setSelectedPositions([])
           toast({
-            title: "Thành công",
-            description: `${selectedPositions.length} chức vụ đã được xóa thành công!`,
+            title: "ThÃ nh cÃ´ng",
+            description: `${selectedPositions.length} chá»©c vá»¥ Ä‘Ã£ Ä‘Æ°á»£c xÃ³a thÃ nh cÃ´ng!`,
           })
         }
       } catch (error) {
         console.error("Error bulk deleting positions:", error)
         toast({
-          title: "Lỗi",
-          description: "Không thể xóa các chức vụ đã chọn",
+          title: "Lá»—i",
+          description: "KhÃ´ng thá»ƒ xÃ³a cÃ¡c chá»©c vá»¥ Ä‘Ã£ chá»n",
           variant: "destructive",
         })
       }
@@ -185,12 +185,12 @@ export default function PositionsPage() {
 
   const handleViewDetails = (position: Position) => {
     // Position details view to be implemented
-    alert("Tính năng xem chi tiết sẽ được triển khai sau")
+    alert("TÃ­nh nÄƒng xem chi tiáº¿t sáº½ Ä‘Æ°á»£c triá»ƒn khai sau")
   }
 
   const handleExport = () => {
     // Export functionality to be implemented
-    alert("Tính năng xuất dữ liệu sẽ được triển khai sau")
+    alert("TÃ­nh nÄƒng xuáº¥t dá»¯ liá»‡u sáº½ Ä‘Æ°á»£c triá»ƒn khai sau")
   }
 
   const getStatistics = () => {
@@ -212,7 +212,7 @@ export default function PositionsPage() {
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
               <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <p className="text-blue-600 font-medium">Đang tải dữ liệu chức vụ...</p>
+            <p className="text-blue-600 font-medium">Äang táº£i dá»¯ liá»‡u chá»©c vá»¥...</p>
           </div>
         </div>
       </div>
@@ -224,12 +224,12 @@ export default function PositionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Quản lý Chức vụ</h1>
-          <p className="text-muted-foreground text-lg">Quản lý hệ thống chức vụ và cấp bậc trong đơn vị</p>
+          <h1 className="text-3xl font-bold text-foreground">Quáº£n lÃ½ Chá»©c vá»¥</h1>
+          <p className="text-muted-foreground text-lg">Quáº£n lÃ½ há»‡ thá»‘ng chá»©c vá»¥ vÃ  cáº¥p báº­c trong Ä‘Æ¡n vá»‹</p>
         </div>
         <Button onClick={handleCreatePosition}>
           <Plus className="h-4 w-4 mr-2" />
-          Thêm chức vụ
+          ThÃªm chá»©c vá»¥
         </Button>
       </div>
 
@@ -237,43 +237,43 @@ export default function PositionsPage() {
       <div className="grid gap-4 md:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng chức vụ</CardTitle>
+            <CardTitle className="text-sm font-medium">Tá»•ng chá»©c vá»¥</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.active} đang hoạt động
+              {stats.active} Ä‘ang hoáº¡t Ä‘á»™ng
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng nhân viên</CardTitle>
+            <CardTitle className="text-sm font-medium">Tá»•ng nhÃ¢n viÃªn</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalEmployees}</div>
             <p className="text-xs text-muted-foreground">
-              Nhân viên có chức vụ
+              NhÃ¢n viÃªn cÃ³ chá»©c vá»¥
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cấp độ trung bình</CardTitle>
+            <CardTitle className="text-sm font-medium">Cáº¥p Ä‘á»™ trung bÃ¬nh</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.avgLevel}</div>
             <p className="text-xs text-muted-foreground">
-              Cấp độ chức vụ TB
+              Cáº¥p Ä‘á»™ chá»©c vá»¥ TB
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tỷ lệ hoạt động</CardTitle>
+            <CardTitle className="text-sm font-medium">Tá»· lá»‡ hoáº¡t Ä‘á»™ng</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -281,7 +281,7 @@ export default function PositionsPage() {
               {stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">
-              Chức vụ đang hoạt động
+              Chá»©c vá»¥ Ä‘ang hoáº¡t Ä‘á»™ng
             </p>
           </CardContent>
         </Card>
@@ -293,7 +293,7 @@ export default function PositionsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm kiếm theo mã, tên chức vụ..."
+              placeholder="TÃ¬m kiáº¿m theo mÃ£, tÃªn chá»©c vá»¥..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full sm:w-64"
@@ -301,26 +301,26 @@ export default function PositionsPage() {
           </div>
           <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
             <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Trạng thái" />
+              <SelectValue placeholder="Tráº¡ng thÃ¡i" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="active">Hoạt động</SelectItem>
-              <SelectItem value="inactive">Không hoạt động</SelectItem>
+              <SelectItem value="all">Táº¥t cáº£</SelectItem>
+              <SelectItem value="active">Hoáº¡t Ä‘á»™ng</SelectItem>
+              <SelectItem value="inactive">KhÃ´ng hoáº¡t Ä‘á»™ng</SelectItem>
             </SelectContent>
           </Select>
           <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value)}>
             <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Cấp độ" />
+              <SelectValue placeholder="Cáº¥p Ä‘á»™" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả cấp</SelectItem>
-              <SelectItem value="1">Cấp 1</SelectItem>
-              <SelectItem value="2">Cấp 2</SelectItem>
-              <SelectItem value="3">Cấp 3</SelectItem>
-              <SelectItem value="4">Cấp 4</SelectItem>
-              <SelectItem value="5">Cấp 5</SelectItem>
-              <SelectItem value="6">Cấp 6</SelectItem>
+              <SelectItem value="all">Táº¥t cáº£ cáº¥p</SelectItem>
+              <SelectItem value="1">Cáº¥p 1</SelectItem>
+              <SelectItem value="2">Cáº¥p 2</SelectItem>
+              <SelectItem value="3">Cáº¥p 3</SelectItem>
+              <SelectItem value="4">Cáº¥p 4</SelectItem>
+              <SelectItem value="5">Cáº¥p 5</SelectItem>
+              <SelectItem value="6">Cáº¥p 6</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -328,11 +328,11 @@ export default function PositionsPage() {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadPositions}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            Làm mới
+            LÃ m má»›i
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
-            Xuất Excel
+            Xuáº¥t Excel
           </Button>
         </div>
       </div>
@@ -341,11 +341,11 @@ export default function PositionsPage() {
       {selectedPositions.length > 0 && (
         <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg mb-6">
           <Badge variant="secondary">
-            {selectedPositions.length} đã chọn
+            {selectedPositions.length} Ä‘Ã£ chá»n
           </Badge>
           <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
-            Xóa đã chọn
+            XÃ³a Ä‘Ã£ chá»n
         </Button>
       </div>
       )}
@@ -376,3 +376,4 @@ export default function PositionsPage() {
     </div>
   )
 }
+
