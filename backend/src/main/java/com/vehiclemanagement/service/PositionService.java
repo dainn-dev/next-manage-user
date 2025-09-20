@@ -413,6 +413,7 @@ public class PositionService {
         dto.setParentId(position.getParentId());
         dto.setIsActive(position.getIsActive());
         dto.setDisplayOrder(position.getDisplayOrder());
+        dto.setFilterBy(position.getFilterBy());
         dto.setCreatedAt(position.getCreatedAt());
         dto.setUpdatedAt(position.getUpdatedAt());
         
@@ -439,6 +440,7 @@ public class PositionService {
         dto.setParentId(position.getParentId());
         dto.setIsActive(position.getIsActive());
         dto.setDisplayOrder(position.getDisplayOrder());
+        dto.setFilterBy(position.getFilterBy());
         dto.setCreatedAt(position.getCreatedAt());
         dto.setUpdatedAt(position.getUpdatedAt());
         

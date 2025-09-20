@@ -40,7 +40,7 @@ export function PositionForm({ isOpen, onClose, onSave, position, mode }: Positi
           positionName: position.name,
           parentPositionCode: position.parentId || "",
           description: position.description || "",
-          filterBy: (position as any).filterBy || "N_A",
+          filterBy: position.filterBy || "N_A",
         })
       } else {
         setFormData({
