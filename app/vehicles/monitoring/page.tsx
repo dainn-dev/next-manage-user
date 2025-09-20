@@ -101,6 +101,8 @@ export default function VehicleMonitoringPage() {
         employeeId: info.employeeId || undefined,
         employeeName: info.employeeName || undefined,
         employeeAvatar: info.avatar || undefined,
+        employeeDepartment: info.department || undefined,
+        employeePosition: info.position || undefined,
         entryExitTime: timestamp,
         type: type as 'entry' | 'exit',
         vehicleType: 'internal' as const,
@@ -627,9 +629,19 @@ export default function VehicleMonitoringPage() {
                 <div className="text-lg font-medium text-gray-700 mb-2 truncate" title={log.driverName || 'Lê Văn B'}>
                   {log.driverName || 'Lê Văn B'}
                 </div>
-                <div className="text-base text-gray-500 mb-3 truncate" title={log.employeeName || 'N/A'}>
+                <div className="text-base text-gray-500 mb-2 truncate" title={log.employeeName || 'N/A'}>
                   {log.employeeName || 'N/A'}
                 </div>
+                {log.employeeDepartment && (
+                  <div className="text-sm text-gray-400 mb-2 truncate" title={log.employeeDepartment}>
+                    {log.employeeDepartment}
+                  </div>
+                )}
+                {log.employeePosition && (
+                  <div className="text-sm text-gray-400 mb-3 truncate" title={log.employeePosition}>
+                    {log.employeePosition}
+                  </div>
+                )}
                 <div className="mt-3">
                   <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${
                     log.type === 'entry' 

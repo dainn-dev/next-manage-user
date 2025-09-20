@@ -175,6 +175,8 @@ public class VehicleLogService {
                 .employeeId(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getId() : null)
                 .employeeName(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getName() : null)
                 .employeeAvatar(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getAvatar() : null)
+                .employeeDepartment(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getDepartment() : null)
+                .employeePosition(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getPosition() : null)
                 .entryExitTime(vehicleLog.getEntryExitTime())
                 .type(vehicleLog.getType())
                 .vehicleType(vehicleLog.getVehicleType())

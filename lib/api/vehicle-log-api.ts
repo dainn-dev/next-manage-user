@@ -11,6 +11,8 @@ export interface VehicleLog {
   employeeId?: string
   employeeName?: string
   employeeAvatar?: string
+  employeeDepartment?: string
+  employeePosition?: string
   entryExitTime: string
   type: 'entry' | 'exit'
   vehicleType: 'internal' | 'external'
