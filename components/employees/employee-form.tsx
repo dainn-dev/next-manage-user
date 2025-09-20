@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Combobox } from "@/components/ui/combobox"
 import { dataService } from "@/lib/data-service"
+import { positionApi, type PositionApiResponse } from "@/lib/api/position-api"
 import { ChevronDown } from "lucide-react"
 
 interface EmployeeFormProps {
@@ -26,6 +27,8 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   const [positions, setPositions] = useState<Position[]>([])
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
   const [showPositionDropdown, setShowPositionDropdown] = useState(false)
+  const [sqQncnOptions, setSqQncnOptions] = useState<PositionApiResponse[]>([])
+  const [loadingPositions, setLoadingPositions] = useState(false)
   const [formData, setFormData] = useState<Partial<Employee & { location?: string }>>({
     employeeId: employee?.employeeId || "",
     name: employee?.name || "",
@@ -53,21 +56,41 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // Load positions when component mounts
+  // Load SQ/QNCN options and all leaf positions when component mounts
   useEffect(() => {
     if (isOpen) {
-      loadPositions()
+      loadSqQncnOptions()
+      loadAllLeafPositions()
     }
   }, [isOpen])
 
-  const loadPositions = async () => {
+  const loadSqQncnOptions = async () => {
     try {
-      const positionData = await dataService.getPositions()
-      setPositions(positionData)
+      // Load position menu hierarchy and filter for root positions with null parent
+      const menuData = await positionApi.getPositionMenuHierarchy()
+      // Filter for positions that are root level (parentId is null) which should be SQ/QNCN options
+      const rootPositions = menuData.filter(pos => !pos.parentId)
+      setSqQncnOptions(rootPositions)
     } catch (error) {
-      console.error("Error loading positions:", error)
+      console.error("Error loading SQ/QNCN options:", error)
     }
   }
+
+  const loadAllLeafPositions = async () => {
+    setLoadingPositions(true)
+    try {
+      // Load all leaf positions across the entire system
+      const allLeafPositions = await positionApi.getAllLeafPositions()
+      const positionData = allLeafPositions.map(pos => positionApi.convertToPosition(pos))
+      setPositions(positionData)
+    } catch (error) {
+      console.error("Error loading all leaf positions:", error)
+      setPositions([])
+    } finally {
+      setLoadingPositions(false)
+    }
+  }
+
 
 
   const getPositionPath = (position: Position): string => {
@@ -90,27 +113,12 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
 
   // Get position options for combobox
   const getPositionOptions = () => {
-    if (!formData.militaryCivilian) {
-      return []
-    }
-    
-    // Filter positions based on militaryCivilian selection
-    let filteredPositions = positions.filter(pos => {
-      if (formData.militaryCivilian === "SQ") {
-        // For Sĩ quan, find positions under the "Sĩ quan" branch
-        return isUnderBranch(pos, "Sĩ quan")
-      } else if (formData.militaryCivilian === "QNCN") {
-        // For QNCN, find positions under the "QNCN" branch
-        return isUnderBranch(pos, "QNCN")
-      }
-      return false
-    })
-    
-    // Convert to combobox options with full path for better identification
-    return filteredPositions.map(pos => ({
+    // All leaf positions are now loaded when form opens
+    // Convert to combobox options with "name - parentName" format
+    return positions.map(pos => ({
       value: pos.id,
-      label: pos.name,
-      description: getPositionPath(pos)
+      label: pos.parentName ? `${pos.name} - ${pos.parentName}` : pos.name,
+      description: pos.description || pos.name
     }))
   }
 
@@ -197,7 +205,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
       setSelectedImageFile(null);
       setImagePreview(null);
     }
-  }, [employee]);
+  }, [employee, positions]);
 
   const handleInputChange = (field: keyof (Employee & { location?: string }), value: any) => {
     setFormData((prev) => {
@@ -405,8 +413,11 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                     <SelectValue placeholder="SQ/QNCN" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SQ">Sĩ quan</SelectItem>
-                    <SelectItem value="QNCN">QNCN</SelectItem>
+                    {sqQncnOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.name}>
+                        {option.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -417,7 +428,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                     <SelectValue placeholder="Chọn cấp bậc" />
                   </SelectTrigger>
                   <SelectContent>
-                    {formData.militaryCivilian === "SQ" && (
+                    {formData.militaryCivilian && (formData.militaryCivilian.includes("Sĩ quan") || formData.militaryCivilian === "SQ") && (
                       <>
                         <SelectItem value="Thiếu Uý">Thiếu Uý</SelectItem>
                         <SelectItem value="Trung Uý">Trung Uý</SelectItem>
@@ -429,7 +440,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                         <SelectItem value="Đại Tá">Đại Tá</SelectItem>
                       </>
                     )}
-                    {formData.militaryCivilian === "QNCN" && (
+                    {formData.militaryCivilian && (formData.militaryCivilian.includes("QNCN") || formData.militaryCivilian === "QNCN") && (
                       <>
                         <SelectItem value="Thiếu Uý">Thiếu Uý</SelectItem>
                         <SelectItem value="Trung Uý">Trung Uý</SelectItem>
@@ -460,11 +471,11 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                   placeholder="Chọn chức vụ"
                   searchPlaceholder="Tìm kiếm chức vụ..."
                   emptyText={
-                    !formData.militaryCivilian 
-                      ? "Vui lòng chọn SQ/QNCN trước"
+                    loadingPositions 
+                      ? "Đang tải chức vụ..."
                       : "Không tìm thấy chức vụ phù hợp"
                   }
-                  disabled={!formData.militaryCivilian}
+                  disabled={loadingPositions}
                 />
               </div>
               <div className="space-y-2">

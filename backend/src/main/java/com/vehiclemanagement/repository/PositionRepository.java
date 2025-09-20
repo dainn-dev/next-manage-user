@@ -83,9 +83,34 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
     Page<Position> findWithFilters(@Param("parentId") UUID parentId,
                                   Pageable pageable);
     
+    // Find all leaf positions (positions without children) recursively under a parent
+    @Query("SELECT p FROM Position p WHERE p.isActive = true AND " +
+           "NOT EXISTS (SELECT c FROM Position c WHERE c.parentId = p.id AND c.isActive = true) " +
+           "ORDER BY p.displayOrder ASC")
+    List<Position> findAllLeafPositions();
+    
+    // Find direct leaf positions under a parent (non-recursive)
+    @Query("SELECT p FROM Position p WHERE p.isActive = true AND " +
+           "(:parentId IS NULL OR p.parentId = :parentId) AND " +
+           "NOT EXISTS (SELECT c FROM Position c WHERE c.parentId = p.id AND c.isActive = true) " +
+           "ORDER BY p.displayOrder ASC")
+    Page<Position> findLeafPositionsWithFilters(@Param("parentId") UUID parentId,
+                                               Pageable pageable);
+    
     @Query("SELECT MAX(p.displayOrder) FROM Position p WHERE p.parentId IS NULL")
     Integer getMaxDisplayOrderForRootPositions();
     
     @Query("SELECT MAX(p.displayOrder) FROM Position p WHERE p.parentId = :parentId")
     Integer getMaxDisplayOrderByParentId(@Param("parentId") UUID parentId);
+    
+    // Filter queries
+    @Query("SELECT p FROM Position p WHERE p.filterBy = :filterBy AND " +
+           "(:parentId IS NULL OR p.parentId = :parentId) AND " +
+           "p.isActive = true ORDER BY p.displayOrder ASC")
+    List<Position> findByFilterByAndParentId(@Param("filterBy") Position.FilterType filterBy,
+                                           @Param("parentId") UUID parentId);
+    
+    @Query("SELECT p FROM Position p WHERE p.filterBy = :filterBy AND " +
+           "p.isActive = true ORDER BY p.displayOrder ASC")
+    List<Position> findByFilterBy(@Param("filterBy") Position.FilterType filterBy);
 }

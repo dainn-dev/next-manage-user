@@ -26,13 +26,13 @@ public class PositionDto {
     private UUID parentId;
     private Boolean isActive;
     private Integer displayOrder;
+    private Position.FilterType filterBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
     // Additional fields for frontend display
     private String parentName;
     private Integer childrenCount;
-    private Integer employeeCount;
     
     // Constructor from entity
     public PositionDto(Position position) {
@@ -42,6 +42,7 @@ public class PositionDto {
         this.parentId = position.getParentId();
         this.isActive = position.getIsActive();
         this.displayOrder = position.getDisplayOrder();
+        this.filterBy = position.getFilterBy();
         this.createdAt = position.getCreatedAt();
         this.updatedAt = position.getUpdatedAt();
     }

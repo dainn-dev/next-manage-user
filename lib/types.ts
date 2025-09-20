@@ -53,6 +53,7 @@ export interface Position {
   parentId?: string
   isActive: boolean
   displayOrder: number
+  filterBy?: 'CO_QUAN_DON_VI' | 'CHUC_VU' | 'N_A'
   createdAt: string
   updatedAt: string
   parentName?: string
@@ -60,11 +61,6 @@ export interface Position {
 }
 
 export enum PositionLevel {
-  // Chức vụ hierarchy
-  CHUC_VU = "chuc_vu",
-  SI_QUAN = "si_quan",
-  QNCN = "qncn",
-  
   // Sĩ quan levels
   TRUNG_DOI = "trung_doi",
   DAI_DOI = "dai_doi",

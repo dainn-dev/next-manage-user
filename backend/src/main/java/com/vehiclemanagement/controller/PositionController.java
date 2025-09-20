@@ -1,6 +1,7 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.PositionDto;
+import com.vehiclemanagement.dto.PositionMenuDto;
 import com.vehiclemanagement.entity.Position;
 import com.vehiclemanagement.service.PositionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -66,8 +67,18 @@ public class PositionController {
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved positions with parent details")
     })
-    public ResponseEntity<List<PositionDto>> getAllPositionsWithParent() {
-        List<PositionDto> positions = positionService.getAllPositionsWithParent();
+    public ResponseEntity<List<PositionMenuDto>> getAllPositionsWithParent() {
+        List<PositionMenuDto> positions = positionService.getAllPositionsWithParent();
+        return ResponseEntity.ok(positions);
+    }
+    
+    @GetMapping("/menu")
+    @Operation(summary = "Get position menu hierarchy for navigation")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved position menu hierarchy")
+    })
+    public ResponseEntity<List<PositionMenuDto>> getPositionMenuHierarchy() {
+        List<PositionMenuDto> positions = positionService.getAllPositionsWithParent();
         return ResponseEntity.ok(positions);
     }
     
@@ -187,11 +198,12 @@ public class PositionController {
     })
     public ResponseEntity<Page<PositionDto>> getPositionsWithFilters(
             @Parameter(description = "Parent position ID") @RequestParam(required = false) UUID parentId,
+            @Parameter(description = "Only leaf positions (positions without children)") @RequestParam(defaultValue = "false") boolean leafOnly,
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
         
         Pageable pageable = PageRequest.of(page, size);
-        Page<PositionDto> positions = positionService.getPositionsWithFilters(parentId, pageable);
+        Page<PositionDto> positions = positionService.getPositionsWithFilters(parentId, leafOnly, pageable);
         return ResponseEntity.ok(positions);
     }
     
@@ -228,6 +240,45 @@ public class PositionController {
             @Parameter(description = "New parent position ID") @RequestParam(required = false) UUID parentId) {
         PositionDto movedPosition = positionService.movePosition(id, parentId);
         return ResponseEntity.ok(movedPosition);
+    }
+    
+    @GetMapping("/filter/chuc-vu")
+    @Operation(summary = "Get positions with CHUC_VU filter and optional parentId")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved positions with CHUC_VU filter")
+    })
+    public ResponseEntity<List<PositionDto>> getChucVuPositions(
+            @Parameter(description = "Parent position ID (optional)") @RequestParam(required = false) UUID parentId) {
+        List<PositionDto> positions = positionService.getChucVuPositions(parentId);
+        return ResponseEntity.ok(positions);
+    }
+    
+    @GetMapping("/filter/by-type")
+    @Operation(summary = "Get positions by filter type and optional parentId")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered positions")
+    })
+    public ResponseEntity<List<PositionDto>> getPositionsByFilter(
+            @Parameter(description = "Filter type (CO_QUAN_DON_VI, CHUC_VU, N_A)") @RequestParam String filterBy,
+            @Parameter(description = "Parent position ID (optional)") @RequestParam(required = false) UUID parentId) {
+        
+        try {
+            Position.FilterType filterType = Position.FilterType.valueOf(filterBy.toUpperCase());
+            List<PositionDto> positions = positionService.getPositionsByFilterAndParent(filterType, parentId);
+            return ResponseEntity.ok(positions);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    @GetMapping("/leaf")
+    @Operation(summary = "Get all leaf positions (positions without children) across the entire system")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved all leaf positions")
+    })
+    public ResponseEntity<List<PositionDto>> getAllLeafPositions() {
+        List<PositionDto> leafPositions = positionService.getAllLeafPositions();
+        return ResponseEntity.ok(leafPositions);
     }
     
 }

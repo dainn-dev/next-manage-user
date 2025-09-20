@@ -1,6 +1,7 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.PositionDto;
+import com.vehiclemanagement.dto.PositionMenuDto;
 import com.vehiclemanagement.entity.Position;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.PositionRepository;
@@ -13,10 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.PageImpl;
 
 @Service
 @Transactional
@@ -36,13 +40,36 @@ public class PositionService {
     }
     
     /**
-     * Get all positions with parent information
+     * Get all positions with parent information - builds hierarchical structure
      */
-    public List<PositionDto> getAllPositionsWithParent() {
-        List<Position> positions = positionRepository.findAll();
-        return positions.stream()
-                .map(this::convertToDtoWithParent)
+    public List<PositionMenuDto> getAllPositionsWithParent() {
+        // Get all root positions (positions without parent)
+        List<Position> rootPositions = positionRepository.findRootPositions();
+        
+        // Convert to DTO and build hierarchy
+        return rootPositions.stream()
+                .map(this::buildPositionMenuHierarchy)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * Recursively build position menu hierarchy
+     */
+    private PositionMenuDto buildPositionMenuHierarchy(Position position) {
+        PositionMenuDto menuDto = new PositionMenuDto(position);
+        
+        // Get children for this position
+        List<Position> children = positionRepository.findByParentIdOrderByDisplayOrder(position.getId());
+        
+        // Recursively build children
+        List<PositionMenuDto> childrenDtos = children.stream()
+                .map(this::buildPositionMenuHierarchy)
+                .collect(Collectors.toList());
+        
+        menuDto.setChildren(childrenDtos);
+        menuDto.setChildrenCount(childrenDtos.size());
+        
+        return menuDto;
     }
     
     /**
@@ -77,11 +104,6 @@ public class PositionService {
      * Create new position
      */
     public PositionDto createPosition(PositionDto positionDto) {
-        // Validate unique name
-        if (positionRepository.existsByName(positionDto.getName())) {
-            throw new IllegalArgumentException("Position name already exists: " + positionDto.getName());
-        }
-        
         // Validate parent exists (if provided)
         if (positionDto.getParentId() != null) {
             if (!positionRepository.existsById(positionDto.getParentId())) {
@@ -118,12 +140,6 @@ public class PositionService {
         Position existingPosition = positionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Position not found with id: " + id));
         
-        // Validate unique name (excluding current position)
-        if (!existingPosition.getName().equals(positionDto.getName()) && 
-            positionRepository.existsByNameAndIdNot(positionDto.getName(), id)) {
-            throw new IllegalArgumentException("Position name already exists: " + positionDto.getName());
-        }
-        
         // Validate parent exists and no circular reference
         if (positionDto.getParentId() != null) {
             if (!positionRepository.existsById(positionDto.getParentId())) {
@@ -140,6 +156,7 @@ public class PositionService {
         existingPosition.setDescription(positionDto.getDescription());
         existingPosition.setParentId(positionDto.getParentId());
         existingPosition.setIsActive(positionDto.getIsActive());
+        existingPosition.setFilterBy(positionDto.getFilterBy() != null ? positionDto.getFilterBy() : Position.FilterType.N_A);
         
         if (positionDto.getDisplayOrder() != null) {
             existingPosition.setDisplayOrder(positionDto.getDisplayOrder());
@@ -199,9 +216,67 @@ public class PositionService {
     /**
      * Get positions with filters
      */
-    public Page<PositionDto> getPositionsWithFilters(UUID parentId, Pageable pageable) {
-        Page<Position> positions = positionRepository.findWithFilters(parentId, pageable);
+    public Page<PositionDto> getPositionsWithFilters(UUID parentId, boolean leafOnly, Pageable pageable) {
+        Page<Position> positions;
+        
+        if (leafOnly) {
+            if (parentId != null) {
+                // Get all leaf positions recursively under the parent
+                List<Position> allLeafPositions = getRecursiveLeafPositions(parentId);
+                // Convert to Page manually for consistency with API
+                int start = (int) pageable.getOffset();
+                int end = Math.min((start + pageable.getPageSize()), allLeafPositions.size());
+                List<Position> pageContent = start >= allLeafPositions.size() ? 
+                    new ArrayList<>() : allLeafPositions.subList(start, end);
+                positions = new PageImpl<>(pageContent, pageable, allLeafPositions.size());
+            } else {
+                positions = positionRepository.findLeafPositionsWithFilters(parentId, pageable);
+            }
+        } else {
+            positions = positionRepository.findWithFilters(parentId, pageable);
+        }
+        
         return positions.map(this::convertToDto);
+    }
+    
+    /**
+     * Get all leaf positions recursively under a parent
+     */
+    private List<Position> getRecursiveLeafPositions(UUID parentId) {
+        List<Position> allLeafPositions = new ArrayList<>();
+        Set<UUID> visited = new HashSet<>();
+        collectLeafPositionsRecursive(parentId, allLeafPositions, visited);
+        return allLeafPositions;
+    }
+    
+    /**
+     * Recursively collect leaf positions under a parent
+     */
+    private void collectLeafPositionsRecursive(UUID parentId, List<Position> leafPositions, Set<UUID> visited) {
+        if (parentId == null || visited.contains(parentId)) {
+            return;
+        }
+        visited.add(parentId);
+        
+        // Get all direct children of this parent
+        List<Position> children = positionRepository.findByParentIdOrderByDisplayOrder(parentId);
+        
+        for (Position child : children) {
+            if (!child.getIsActive()) {
+                continue;
+            }
+            
+            // Check if this child has any active children
+            boolean hasChildren = positionRepository.hasChildren(child.getId());
+            
+            if (!hasChildren) {
+                // This is a leaf position, add it to the result
+                leafPositions.add(child);
+            } else {
+                // This position has children, recurse into it
+                collectLeafPositionsRecursive(child.getId(), leafPositions, visited);
+            }
+        }
     }
     
     /**
@@ -392,7 +467,42 @@ public class PositionService {
         position.setParentId(dto.getParentId());
         position.setIsActive(dto.getIsActive() != null ? dto.getIsActive() : true);
         position.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : 0);
+        position.setFilterBy(dto.getFilterBy() != null ? dto.getFilterBy() : Position.FilterType.N_A);
         
         return position;
+    }
+    
+    /**
+     * Get positions by filterBy and parentId
+     */
+    public List<PositionDto> getPositionsByFilterAndParent(Position.FilterType filterBy, UUID parentId) {
+        List<Position> positions;
+        
+        if (parentId != null) {
+            positions = positionRepository.findByFilterByAndParentId(filterBy, parentId);
+        } else {
+            positions = positionRepository.findByFilterBy(filterBy);
+        }
+        
+        return positions.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get positions with CHUC_VU filter and optional parentId
+     */
+    public List<PositionDto> getChucVuPositions(UUID parentId) {
+        return getPositionsByFilterAndParent(Position.FilterType.CHUC_VU, parentId);
+    }
+    
+    /**
+     * Get all leaf positions (positions without children) across the entire system
+     */
+    public List<PositionDto> getAllLeafPositions() {
+        List<Position> leafPositions = positionRepository.findAllLeafPositions();
+        return leafPositions.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 }
