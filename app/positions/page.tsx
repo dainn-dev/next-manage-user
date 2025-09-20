@@ -185,12 +185,12 @@ export default function PositionsPage() {
 
   const handleViewDetails = (position: Position) => {
     // Position details view to be implemented
-    alert("TÃ­nh nÄƒng xem chi tiáº¿t sáº½ Ä‘Æ°á»£c triá»ƒn khai sau")
+    alert("Tính năng xem chi tiết sẽ được triển khai sau")
   }
 
   const handleExport = () => {
     // Export functionality to be implemented
-    alert("TÃ­nh nÄƒng xuáº¥t dá»¯ liá»‡u sáº½ Ä‘Æ°á»£c triá»ƒn khai sau")
+    alert("Tính năng xuất dữ liệu sẽ được triển khai sau")
   }
 
   const getStatistics = () => {
