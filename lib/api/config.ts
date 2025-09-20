@@ -9,7 +9,7 @@ const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
   
   // Full API URL (with /api suffix)
-  API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api',
+  API_URL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/api',
   
   // WebSocket URL
   WS_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
@@ -24,7 +24,22 @@ export const getBaseUrl = () => API_CONFIG.BASE_URL
 export const getWsUrl = () => `${API_CONFIG.WS_URL}/ws`
 export const getImageUrl = (imagePath?: string) => {
   if (!imagePath) return null
-  return `${API_CONFIG.BASE_URL}${imagePath}`
+  
+  // Ensure we have a proper base URL
+  const baseUrl = API_CONFIG.BASE_URL || 'http://localhost:8080'
+  
+  // If imagePath already starts with http, return as-is
+  if (imagePath.startsWith('http')) {
+    return imagePath
+  }
+  
+  // If imagePath doesn't start with /, add it
+  const normalizedPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`
+  
+  const fullUrl = `${baseUrl}${normalizedPath}`
+  console.log('🖼️ Image URL generated:', { imagePath, baseUrl, fullUrl })
+  
+  return fullUrl
 }
 
 // Export the config for direct access if needed

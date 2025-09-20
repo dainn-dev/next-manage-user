@@ -31,9 +31,6 @@ export interface Department {
   id: string
   name: string
   description?: string
-  parentId?: string
-  managerId?: string
-  employeeCount: number
   createdAt: string
   updatedAt: string
 }

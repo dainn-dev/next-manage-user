@@ -84,10 +84,6 @@ public class EmployeeService {
             throw new IllegalArgumentException("Employee ID already exists: " + employeeDto.getEmployeeId());
         }
 
-        // Check if email already exists
-        if (employeeRepository.findByEmail(employeeDto.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("Email already exists: " + employeeDto.getEmail());
-        }
 
         Employee employee = new Employee();
         employee.setEmployeeId(employeeDto.getEmployeeId());
@@ -127,11 +123,6 @@ public class EmployeeService {
             throw new IllegalArgumentException("Employee ID already exists: " + employeeDto.getEmployeeId());
         }
 
-        // Check if email already exists (excluding current employee)
-        if (!existingEmployee.getEmail().equals(employeeDto.getEmail()) &&
-            employeeRepository.findByEmail(employeeDto.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("Email already exists: " + employeeDto.getEmail());
-        }
 
         existingEmployee.setEmployeeId(employeeDto.getEmployeeId());
         existingEmployee.setName(employeeDto.getName());
@@ -259,9 +250,6 @@ public class EmployeeService {
     }
 
     // Validation methods
-    public boolean checkEmailExists(String email) {
-        return employeeRepository.existsByEmail(email);
-    }
 
     public boolean validateEmployeeId(String employeeId) {
         // Basic validation - can be enhanced with specific rules

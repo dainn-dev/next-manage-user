@@ -261,8 +261,13 @@ class VehicleApiService {
     const formData = new FormData()
     formData.append('image', imageFile)
     
+    // Get auth headers but remove Content-Type as it will be set automatically for FormData
+    const authHeaders = authApi.getAuthHeaders()
+    const { 'Content-Type': _, ...headersWithoutContentType } = authHeaders
+    
     const response = await fetch(`${this.baseUrl}/upload-image/${vehicleId}`, {
       method: 'POST',
+      headers: headersWithoutContentType,
       body: formData,
     })
     

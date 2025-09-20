@@ -46,8 +46,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     
     boolean existsByEmployeeId(String employeeId);
     
-    boolean existsByEmail(String email);
-    
     @Query("SELECT COUNT(e) FROM Employee e WHERE e.status = :status")
     long countByStatus(@Param("status") Employee.EmployeeStatus status);
     

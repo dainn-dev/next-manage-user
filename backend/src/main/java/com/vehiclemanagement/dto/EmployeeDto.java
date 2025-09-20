@@ -1,7 +1,6 @@
 package com.vehiclemanagement.dto;
 
 import com.vehiclemanagement.entity.Employee;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -32,7 +31,6 @@ public class EmployeeDto {
     private String firstName;
     private String lastName;
     
-    @Email(message = "Email should be valid")
     private String email;
     
     private String phone;

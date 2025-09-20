@@ -22,9 +22,6 @@ export function DepartmentForm({ department, departments, isOpen, onClose, onSav
   const [formData, setFormData] = useState<Partial<Department>>({
     name: "",
     description: "",
-    parentId: undefined,
-    managerId: undefined,
-    employeeCount: 0,
   })
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
@@ -35,17 +32,11 @@ export function DepartmentForm({ department, departments, isOpen, onClose, onSav
         setFormData({
           name: department.name || "",
           description: department.description || "",
-          parentId: department.parentId || undefined,
-          managerId: department.managerId || undefined,
-          employeeCount: department.employeeCount || 0,
         })
       } else {
         setFormData({
           name: "",
           description: "",
-          parentId: undefined,
-          managerId: undefined,
-          employeeCount: 0,
         })
       }
     }
@@ -70,9 +61,6 @@ export function DepartmentForm({ department, departments, isOpen, onClose, onSav
       await onSave({
         name: formData.name.trim(),
         description: formData.description?.trim() || "",
-        parentId: formData.parentId || undefined,
-        managerId: formData.managerId || undefined,
-        employeeCount: formData.employeeCount || 0,
       })
     } catch (error) {
       console.error('Error in form submission:', error)
@@ -115,48 +103,6 @@ export function DepartmentForm({ department, departments, isOpen, onClose, onSav
               onChange={(e) => handleInputChange("description", e.target.value)}
               placeholder="Nhập mô tả bộ phận"
               rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="parentId">Bộ phận cha</Label>
-            <Select
-              value={formData.parentId || undefined}
-              onValueChange={(value) => handleInputChange("parentId", value === "NONE" ? undefined : value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn bộ phận cha (tùy chọn)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">Không có bộ phận cha</SelectItem>
-                {availableParents.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="managerId">Trưởng bộ phận</Label>
-            <Input
-              id="managerId"
-              value={formData.managerId || ""}
-              onChange={(e) => handleInputChange("managerId", e.target.value)}
-              placeholder="ID trưởng bộ phận"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="employeeCount">Số lượng nhân viên</Label>
-            <Input
-              id="employeeCount"
-              type="number"
-              value={formData.employeeCount}
-              onChange={(e) => handleInputChange("employeeCount", Number.parseInt(e.target.value) || 0)}
-              placeholder="0"
-              min="0"
             />
           </div>
         </div>

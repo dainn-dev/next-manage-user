@@ -57,7 +57,7 @@
         "connection_error_popup_cooldown": 30
     },
     "tts": {
-        "enabled": false,
+        "enabled": true,
         "use_gtts": true,
         "rate": 150,
         "volume": 0.8,

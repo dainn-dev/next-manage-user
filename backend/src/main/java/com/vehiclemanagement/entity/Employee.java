@@ -1,7 +1,6 @@
 package com.vehiclemanagement.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -43,8 +42,7 @@ public class Employee {
     @Column(name = "last_name")
     private String lastName;
     
-    @Email(message = "Email should be valid")
-    @Column(unique = true)
+    @Column
     private String email;
     
     private String phone;

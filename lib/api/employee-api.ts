@@ -302,14 +302,6 @@ class EmployeeApiService {
   }
 
   // Additional validation endpoints
-  async checkEmailExists(email: string): Promise<boolean> {
-    try {
-      await this.request(`/exists/email/${encodeURIComponent(email)}`)
-      return true
-    } catch {
-      return false
-    }
-  }
 
   async validateEmployeeId(employeeId: string): Promise<boolean> {
     return this.request<boolean>(`/validate/employee-id/${encodeURIComponent(employeeId)}`)

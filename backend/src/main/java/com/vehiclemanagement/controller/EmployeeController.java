@@ -223,12 +223,6 @@ public class EmployeeController {
     }
 
     // Additional validation endpoints
-    @GetMapping("/exists/email/{email}")
-    @Operation(summary = "Check if email exists", description = "Check if an email already exists")
-    public ResponseEntity<Boolean> checkEmailExists(@PathVariable String email) {
-        boolean exists = employeeService.checkEmailExists(email);
-        return ResponseEntity.ok(exists);
-    }
 
     @GetMapping("/validate/employee-id/{employeeId}")
     @Operation(summary = "Validate employee ID format", description = "Validate if employee ID format is correct")
