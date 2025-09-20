@@ -248,13 +248,15 @@ class TTSManager:
                 return
             
             # Create Vietnamese message
+            direction = "ra" if panel_type == "exit" else "vào"
+            
             if response_data.get("success", False):
                 if response_data.get("cached", False):
-                    message = f"Biển số xe {license_plate} đã được phát hiện trước đó tại cổng {panel_type}"
+                    message = f"Biển số xe {license_plate} đã được phát hiện trước đó khi {direction}"
                 else:
-                    message = f"Phát hiện biển số xe {license_plate} tại cổng {panel_type}. {response_data.get('message', 'Thành công')}"
+                    message = f"Phát hiện biển số xe {license_plate} khi {direction}. {response_data.get('message', 'Thành công')}"
             else:
-                message = f"Lỗi khi xử lý biển số xe {license_plate} tại cổng {panel_type}. {response_data.get('message', 'Có lỗi xảy ra')}"
+                message = f"Lỗi khi xử lý biển số xe {license_plate} khi {direction}. {response_data.get('message', 'Có lỗi xảy ra')}"
             
             # Use configuration to determine TTS method
             use_gtts = config_manager.get_tts_use_gtts()

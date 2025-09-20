@@ -139,7 +139,7 @@ export function EmployeeTable({
                   <TableCell>{employee.firstName || "-"}</TableCell>
                   <TableCell>{employee.department}</TableCell>
                   <TableCell>{employee.rank || "-"}</TableCell>
-                  <TableCell>{employee.jobTitle || "-"}</TableCell>
+                  <TableCell>{employee.position || "-"}</TableCell>
                   <TableCell>{employee.militaryCivilian || "-"}</TableCell>
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>

@@ -169,10 +169,30 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   // Set selected position when filtered positions are loaded and we have an employee with position
   useEffect(() => {
     if (employee && employee.position && filteredPositions.length > 0) {
-      const position = filteredPositions.find(p => p.name === employee.position)
+      // Try exact match first
+      let position = filteredPositions.find(p => p.name === employee.position)
+      
+      // If no exact match, try case-insensitive match
+      if (!position) {
+        position = filteredPositions.find(p => 
+          p.name.toLowerCase() === employee.position.toLowerCase()
+        )
+      }
+      
+      // If still no match, try partial match
+      if (!position) {
+        position = filteredPositions.find(p => 
+          p.name.toLowerCase().includes(employee.position.toLowerCase()) ||
+          employee.position.toLowerCase().includes(p.name.toLowerCase())
+        )
+      }
+      
       if (position) {
         const convertedPosition = positionApi.convertToPosition(position)
         setSelectedPosition(convertedPosition)
+        console.log('Position synced:', position.name, 'for employee:', employee.position)
+      } else {
+        console.log('Position not found in filtered positions:', employee.position, 'Available:', filteredPositions.map(p => p.name))
       }
     }
   }, [filteredPositions, employee]);
@@ -430,7 +450,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               <div className="space-y-2">
                 <Label htmlFor="jobTitle">Chức vụ *</Label>
                 <Select 
-                  value={selectedPosition?.id || ""} 
+                  value={selectedPosition?.id || undefined} 
                   onValueChange={(value) => {
                     const position = filteredPositions.find(p => p.id === value)
                     if (position) {
@@ -454,7 +474,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                   </SelectTrigger>
                   <SelectContent>
                     {filteredPositions.length === 0 && formData.militaryCivilian && !loadingFilteredPositions && (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="no-positions" disabled>
                         Không có chức vụ phù hợp
                       </SelectItem>
                     )}

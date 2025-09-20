@@ -323,7 +323,8 @@ class APIResponseDialog(QDialog):
     
     def __init__(self, license_plate, panel_type, response_data, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"Phát hiện biển số xe - {panel_type.upper()}")
+        panel_display = "RA" if panel_type.upper() == "EXIT" else "VÀO"
+        self.setWindowTitle(f"Phát hiện biển số xe - {panel_display}")
         self.setModal(True)  # Make it modal to prevent multiple instances
         self.setFixedSize(400, 300)
         
@@ -339,7 +340,8 @@ class APIResponseDialog(QDialog):
         layout.addWidget(header_label)
         
         # Panel type
-        type_label = QLabel(f"Panel: {panel_type.upper()}")
+        panel_display = "RA" if panel_type.upper() == "EXIT" else "VÀO"
+        type_label = QLabel(f"Cổng: {panel_display}")
         type_label.setFont(QFont("Arial", 10))
         type_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(type_label)
@@ -977,7 +979,8 @@ class UnregisteredVehicleDialog(QDialog):
         layout.addWidget(plate_label)
         
         # Panel type
-        type_label = QLabel(f"Loại: {self.panel_type.upper()}")
+        panel_display = "Vào" if self.panel_type.upper() == "ENTRY" else "Ra"
+        type_label = QLabel(f"Loại: {panel_display}")
         type_label.setFont(QFont("Arial", 10))
         type_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(type_label)
@@ -1041,6 +1044,31 @@ class UnregisteredVehicleDialog(QDialog):
         
         layout.addLayout(button_layout)
         self.setLayout(layout)
+        
+        # Speak the unregistered vehicle message
+        self.speak_unregistered_message()
+    
+    def speak_unregistered_message(self):
+        """Speak the unregistered vehicle message"""
+        try:
+            from tts_manager import TTSManager
+            from config_manager import config_manager
+            
+            # Check if TTS is enabled
+            if not config_manager.get_tts_enabled():
+                print("TTS is disabled, not speaking unregistered vehicle message")
+                return
+            
+            # Create TTS manager instance
+            tts_manager = TTSManager()
+            
+            # Speak the message
+            message = "Xe chưa được đăng ký"
+            print(f"Speaking unregistered vehicle message: {message}")
+            tts_manager.speak_async(message)
+            
+        except Exception as e:
+            print(f"Error speaking unregistered vehicle message: {e}")
     
     def on_allow_clicked(self):
         """Handle allow button click"""
@@ -1254,7 +1282,8 @@ class CameraPanel(QGroupBox):
             # Log detected license plate
             if license_plate_text:
                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                log_entry = f"[{timestamp}] {self.panel_type.upper()}: {license_plate_text}"
+                panel_display = "Vào" if self.panel_type.upper() == "ENTRY" else "Ra"
+                log_entry = f"[{timestamp}] {panel_display}: {license_plate_text}"
                 self.log_text.append(log_entry)
                 
         except Exception as e:
@@ -1445,25 +1474,36 @@ class CameraPanel(QGroupBox):
             # This would require WebSocket client implementation in Python
             
             # Create vehicle log entry for external vehicle
+            panel_type_vietnamese = "Vào" if panel_type.upper() == "ENTRY" else "Ra"
+            panel_type_enum = "entry" if panel_type.upper() == "ENTRY" else "exit"
+            
             vehicle_log_data = {
                 "licensePlateNumber": license_plate,
                 "entryExitTime": datetime.now().isoformat(),
-                "type": panel_type.lower(),
+                "type": panel_type_enum,
                 "vehicleType": "external",
                 "driverName": "Khách bên ngoài",
                 "purpose": "Được phép truy cập bởi bảo vệ",
                 "gateLocation": "Main Gate",
-                "notes": f"External vehicle allowed by security - Panel: {panel_type}"
+                "notes": f"External vehicle allowed by security - Panel: {panel_type_vietnamese}"
             }
             
             # Call vehicle-logs API
-            api_url = f"{config_manager.get_api_base_url()}/api/vehicle-logs"
+            base_url = config_manager.get('api.base_url', 'http://localhost:8080')
+            api_url = f"{base_url}/api/vehicle-logs"
             headers = {'Content-Type': 'application/json'}
             
+            print(f"DEBUG: Sending vehicle log data: {vehicle_log_data}")
             response = requests.post(api_url, json=vehicle_log_data, headers=headers, timeout=10)
             
+            print(f"DEBUG: API response status: {response.status_code}")
+            print(f"DEBUG: API response content: {response.text}")
+            
             if response.status_code in [200, 201]:
-                self.log_text.append(f"✅ Đã cho phép xe ngoài {license_plate} - Đã tạo log entry")
+                self.log_text.append(f"✅ Đã cho phép xe ngoài {license_plate}")
+                
+                # Speak success message with TTS
+                self.speak_allow_success_message(license_plate, panel_type_vietnamese)
                 
                 # Show success message
                 from PyQt5.QtWidgets import QMessageBox
@@ -1471,11 +1511,11 @@ class CameraPanel(QGroupBox):
                 msg.setIcon(QMessageBox.Information)
                 msg.setWindowTitle("Thành công")
                 msg.setText(f"Đã cho phép xe {license_plate} truy cập")
-                msg.setInformativeText("Log entry đã được tạo trong hệ thống")
+                # msg.setInformativeText("Log entry đã được tạo trong hệ thống")
                 msg.exec_()
                 
             else:
-                self.log_text.append(f"❌ Lỗi tạo log cho xe ngoài {license_plate}: {response.status_code}")
+                self.log_text.append(f"❌ Lỗi tạo log cho xe ngoài {license_plate}: {response.status_code} - {response.text}")
                 
         except Exception as e:
             self.log_text.append(f"Lỗi cho phép xe ngoài: {str(e)}")
@@ -1483,6 +1523,28 @@ class CameraPanel(QGroupBox):
             # Resume detection
             if self.webcam_thread and self.webcam_thread.isRunning():
                 self.webcam_thread.resume_detection()
+    
+    def speak_allow_success_message(self, license_plate, direction):
+        """Speak success message when vehicle is allowed"""
+        try:
+            from tts_manager import TTSManager
+            from config_manager import config_manager
+            
+            # Check if TTS is enabled
+            if not config_manager.get_tts_enabled():
+                print("TTS is disabled, not speaking allow success message")
+                return
+            
+            # Create TTS manager instance
+            tts_manager = TTSManager()
+            
+            # Create the success message
+            message = f"Đã cho phép xe khách mang biển số {license_plate} {direction} khu vực"
+            print(f"Speaking allow success message: {message}")
+            tts_manager.speak_async(message)
+            
+        except Exception as e:
+            print(f"Error speaking allow success message: {e}")
     
     def handle_scan_again_request(self):
         """Handle scan again request from dialog"""
