@@ -192,11 +192,11 @@ export default function QNCNPage() {
   }
 
   const handleViewDetails = (position: Position) => {
-    console.log("View QNCN position details:", position)
+    alert("Tính năng xem chi tiết sẽ được triển khai sau")
   }
 
   const handleExport = () => {
-    console.log("Export QNCN positions")
+    alert("Tính năng xuất dữ liệu sẽ được triển khai sau")
   }
 
   const getStatistics = () => {

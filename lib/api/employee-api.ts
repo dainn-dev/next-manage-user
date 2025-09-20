@@ -1,4 +1,5 @@
 import type { Employee } from "@/lib/types"
+import { authApi } from "./auth-api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
@@ -86,7 +87,7 @@ class EmployeeApiService {
     
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
+        ...authApi.getAuthHeaders(),
         ...options.headers,
       },
       ...options,
@@ -198,6 +199,7 @@ class EmployeeApiService {
     
     return this.request<EmployeeApiResponse>(`/department/${department}?${params}`)
   }
+
 
   // Get employees by status
   async getEmployeesByStatus(

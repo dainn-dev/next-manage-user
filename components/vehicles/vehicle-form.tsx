@@ -194,7 +194,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
           } else {
             // Direct API call if no callback provided
             const imagePath = await vehicleApi.uploadVehicleImage(vehicleId, selectedImage)
-            console.log("Image uploaded successfully:", imagePath)
+            // Image uploaded successfully
           }
           
           alert("Ảnh xe đã được tải lên thành công!")

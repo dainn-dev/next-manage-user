@@ -40,7 +40,7 @@ export default function ChinhTriQNCNPage() {
     try {
       setLoading(true)
       const data = await dataService.getPositions()
-      const chinhTriPositions = data.filter(pos => pos.level === PositionLevel.CHINH_TRI)
+      const chinhTriPositions = data.filter(pos => pos.filterBy === 'CHUC_VU')
       setPositions(chinhTriPositions)
     } catch (error) {
       console.error("Error loading positions:", error)
@@ -89,8 +89,12 @@ export default function ChinhTriQNCNPage() {
     try {
       if (formMode === "create") {
         const newPosition = await dataService.createPosition({
-          ...position,
-          level: PositionLevel.CHINH_TRI,
+          name: position.name,
+          description: position.description,
+          parentId: position.parentId,
+          isActive: position.isActive,
+          displayOrder: position.displayOrder,
+          filterBy: 'CHUC_VU',
         })
         setPositions(prev => [...prev, newPosition])
         toast({
@@ -175,11 +179,11 @@ export default function ChinhTriQNCNPage() {
   }
 
   const handleViewDetails = (position: Position) => {
-    console.log("View Chính trị (QNCN) position details:", position)
+    alert("Tính năng xem chi tiết sẽ được triển khai sau")
   }
 
   const handleExport = () => {
-    console.log("Export Chính trị (QNCN) positions")
+    alert("Tính năng xuất dữ liệu sẽ được triển khai sau")
   }
 
   const getStatistics = () => {

@@ -23,7 +23,7 @@ public class Position {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     @NotBlank(message = "Position name is required")
     private String name;
     
@@ -40,6 +40,11 @@ public class Position {
     @Column(name = "display_order")
     @Builder.Default
     private Integer displayOrder = 0;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "filter_by")
+    @Builder.Default
+    private FilterType filterBy = FilterType.N_A;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
@@ -58,6 +63,22 @@ public class Position {
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+    }
+    
+    public enum FilterType {
+        CO_QUAN_DON_VI("Cơ quan, đơn vị"),
+        CHUC_VU("Chức vụ"),
+        N_A("N/A");
+        
+        private final String displayName;
+        
+        FilterType(String displayName) {
+            this.displayName = displayName;
+        }
+        
+        public String getDisplayName() {
+            return displayName;
+        }
     }
     
 }

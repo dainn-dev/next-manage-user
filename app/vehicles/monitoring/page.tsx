@@ -29,15 +29,8 @@ export default function VehicleMonitoringPage() {
   const handleVehicleCheck = async (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
     try {
       setIsLoadingEmployeeInfo(true)
-      console.log('=== WebSocket Message Received ===')
-      console.log('Raw message:', message)
-      console.log('Message type:', typeof message)
-      console.log('Message keys:', Object.keys(message))
-      console.log('Stringified message:', JSON.stringify(message, null, 2))
-      
-      // Check if this is the new format with employee info
+      // Process WebSocket message
       const isEmployeeInfo = 'employeeId' in message && 'vehicleId' in message
-      console.log('Is employee info format:', isEmployeeInfo)
       
       let info: EmployeeVehicleInfo
       let licensePlateNumber: string
@@ -46,7 +39,7 @@ export default function VehicleMonitoringPage() {
       
       if (isEmployeeInfo) {
         // New format: employee info is already included
-        console.log('Using NEW format - employee info included in WebSocket message')
+        // Using new format with embedded employee info
         const empMsg = message as EmployeeVehicleCheckMessage
         info = {
           employeeId: empMsg.employeeId,
@@ -84,7 +77,7 @@ export default function VehicleMonitoringPage() {
         timestamp = empMsg.logTime || new Date().toISOString()
       } else {
         // Old format: need to fetch employee info via API
-        console.log('Using OLD format - making API call for employee info')
+        // Using old format, fetching employee info via API
         const oldMsg = message as VehicleCheckMessage
         info = await dataService.getEmployeeInfoByLicensePlate(
           oldMsg.licensePlateNumber, 
@@ -95,8 +88,7 @@ export default function VehicleMonitoringPage() {
         timestamp = oldMsg.timestamp
       }
       
-      console.log('Final processed info:', info)
-      console.log('License plate:', licensePlateNumber, 'Type:', type, 'Timestamp:', timestamp)
+      // Processed vehicle check info successfully
       
       setEmployeeInfo(info)
       
@@ -202,26 +194,22 @@ export default function VehicleMonitoringPage() {
   const loadData = async () => {
     try {
       setLoading(true)
-      console.log('Loading today\'s vehicle logs...')
+      // Debug:('Loading today\'s vehicle logs...')
       
       const [logsData, statsData] = await Promise.all([
         vehicleLogApi.getTodayLogs(0, 100), // Increased size to get more today's logs
         vehicleLogApi.getTodayStatistics()
       ])
       
-      console.log('Received logs data:', logsData)
-      console.log('Total logs for today:', logsData.content.length)
+      // Debug:('Received logs data:', logsData)
+      // Debug:('Total logs for today:', logsData.content.length)
       
       // Sort logs by entryExitTime (newest first)
       const sortedLogs = logsData.content.sort((a, b) => 
         new Date(b.entryExitTime).getTime() - new Date(a.entryExitTime).getTime()
       )
       
-      console.log('Sorted logs (newest first):', sortedLogs.map(log => ({
-        licensePlate: log.licensePlateNumber,
-        time: log.entryExitTime,
-        type: log.type
-      })))
+      // Sorted logs loaded successfully
       
       setLogs(sortedLogs)
       setStatistics(statsData)
@@ -229,7 +217,7 @@ export default function VehicleMonitoringPage() {
       // Auto-select the latest log and load its employee info
       if (sortedLogs.length > 0) {
         const latestLog = sortedLogs[0]
-        console.log('Auto-selecting latest log:', latestLog.licensePlateNumber, latestLog.type)
+        // Debug:('Auto-selecting latest log:', latestLog.licensePlateNumber, latestLog.type)
         setSelectedLog(latestLog)
         
         // Load employee info for the latest log
@@ -240,7 +228,7 @@ export default function VehicleMonitoringPage() {
               latestLog.licensePlateNumber, 
               latestLog.type as 'entry' | 'exit'
             )
-            console.log('Loaded employee info for latest log:', info)
+            // Debug:('Loaded employee info for latest log:', info)
             setEmployeeInfo(info)
           } catch (error) {
             console.error('Error loading employee info for latest log:', error)
@@ -249,7 +237,7 @@ export default function VehicleMonitoringPage() {
           }
         }
       } else {
-        console.log('No logs found for today')
+        // Debug:('No logs found for today')
         setEmployeeInfo(null)
       }
     } catch (error) {

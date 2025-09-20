@@ -8,10 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { dataService } from "@/lib/data-service"
-import { ChevronDown } from "lucide-react"
+import { positionApi, type PositionApiResponse } from "@/lib/api/position-api"
 
 interface EmployeeFormProps {
   employee?: Employee
@@ -22,10 +20,11 @@ interface EmployeeFormProps {
 }
 
 export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }: EmployeeFormProps) {
-  const [positions, setPositions] = useState<Position[]>([])
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
-  const [showPositionDropdown, setShowPositionDropdown] = useState(false)
-  const [formData, setFormData] = useState<Partial<Employee & { location?: string }>>({
+  const [sqQncnOptions, setSqQncnOptions] = useState<PositionApiResponse[]>([])
+  const [filteredPositions, setFilteredPositions] = useState<PositionApiResponse[]>([])
+  const [loadingFilteredPositions, setLoadingFilteredPositions] = useState(false)
+  const [formData, setFormData] = useState<Partial<Employee>>({
     employeeId: employee?.employeeId || "",
     name: employee?.name || "",
     firstName: employee?.firstName || "",
@@ -35,7 +34,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     department: employee?.department || "",
     position: employee?.position || "",
     rank: employee?.rank || "",
-    jobTitle: employee?.jobTitle || "",
     militaryCivilian: employee?.militaryCivilian || "",
     hireDate: employee?.hireDate || "",
     birthDate: employee?.birthDate || "",
@@ -46,163 +44,69 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     status: employee?.status || "active",
     accessLevel: employee?.accessLevel || "general",
     permissions: employee?.permissions || ["read"],
-    location: "",
   })
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // Load positions when component mounts
+  // Load SQ/QNCN options when component mounts
   useEffect(() => {
     if (isOpen) {
-      loadPositions()
+      loadSqQncnOptions()
     }
   }, [isOpen])
 
-  const loadPositions = async () => {
+  const loadSqQncnOptions = async () => {
     try {
-      const positionData = await dataService.getPositions()
-      setPositions(positionData)
+      // Load position menu hierarchy and filter for root positions with null parent
+      const menuData = await positionApi.getPositionMenuHierarchy()
+      // Filter for positions that are root level (parentId is null) which should be SQ/QNCN options
+      const rootPositions = menuData.filter(pos => !pos.parentId)
+      setSqQncnOptions(rootPositions)
     } catch (error) {
-      console.error("Error loading positions:", error)
+      console.error("Error loading SQ/QNCN options:", error)
     }
   }
 
-  // Create hierarchical position structure
-  const buildPositionHierarchy = () => {
-    const hierarchy: any[] = []
-    const positionMap = new Map()
-    
-    // Create map of all positions
-    positions.forEach(pos => {
-      positionMap.set(pos.id, { ...pos, children: [] })
-    })
-    
-    // Build hierarchy
-    positions.forEach(pos => {
-      if (pos.parentId) {
-        const parent = positionMap.get(pos.parentId)
-        if (parent) {
-          parent.children.push(positionMap.get(pos.id))
-        }
+
+  const loadFilteredPositions = async (sqQncnSelection: string) => {
+    if (!sqQncnSelection) {
+      setFilteredPositions([])
+      return
+    }
+
+    setLoadingFilteredPositions(true)
+    try {
+      // Find the selected SQ/QNCN option to get its ID
+      const selectedOption = sqQncnOptions.find(option => option.name === sqQncnSelection)
+      if (selectedOption) {
+        // Call the specific API endpoint for filtered positions
+        const response = await positionApi.getPositionsWithFilters(
+          undefined, // level
+          selectedOption.id, // parentId
+          0, // page
+          100, // size
+          true // leafOnly
+        )
+        setFilteredPositions(response.content)
       } else {
-        hierarchy.push(positionMap.get(pos.id))
+        setFilteredPositions([])
       }
-    })
-    
-    return hierarchy
+    } catch (error) {
+      console.error("Error loading filtered positions:", error)
+      setFilteredPositions([])
+    } finally {
+      setLoadingFilteredPositions(false)
+    }
   }
 
-  const getPositionPath = (position: Position): string => {
-    const path: string[] = []
-    let current = position
-    
-    // Build path from current position to root
-    while (current) {
-      path.unshift(current.name)
-      if (current.parentId) {
-        current = positions.find(p => p.id === current.parentId) as Position
-      } else {
-        break
-      }
-    }
-    
-    return path.join(" > ")
-  }
 
-  const renderPositionOption = (position: Position, level = 0, parentPath = "") => {
-    // Create indentation for hierarchy
-    const indent = "  ".repeat(level)
-    
-    // Different styling based on level
-    const getLevelStyling = () => {
-      switch (level) {
-        case 0:
-          return "font-bold text-gray-900"
-        case 1:
-          return "font-semibold text-gray-800"
-        case 2:
-          return "font-medium text-gray-700"
-        default:
-          return "text-gray-600"
-      }
-    }
-    
-    const getIcon = () => {
-      switch (level) {
-        case 0:
-          return "📋"
-        case 1:
-          return position.name === "Sĩ quan" ? "🎖️" : "🛡️"
-        case 2:
-          return "▪️"
-        default:
-          return "◦"
-      }
-    }
-    
-    return (
-      <SelectItem 
-        key={position.id} 
-        value={position.id} 
-        className={`${getLevelStyling()} hover:bg-blue-50 transition-colors`}
-      >
-        {getIcon()} {indent}{position.name}
-        {position.levelDisplayName && level > 1 && (
-          <span className="text-xs text-gray-500 ml-2">({position.levelDisplayName})</span>
-        )}
-      </SelectItem>
-    )
-  }
-
-  const renderPositionHierarchy = (positions: any[], level = 0, parentPath = ""): any[] => {
-    const items: any[] = []
-    
-    // Sort positions by display order
-    const sortedPositions = [...positions].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-    
-    sortedPositions.forEach(pos => {
-      const currentPath = parentPath ? `${parentPath} > ${pos.name}` : pos.name
-      items.push(renderPositionOption(pos, level, parentPath))
-      
-      if (pos.children && pos.children.length > 0) {
-        items.push(...renderPositionHierarchy(pos.children, level + 1, currentPath))
-      }
-    })
-    return items
-  }
-
-  // Filter positions based on militaryCivilian selection
-  const getFilteredPositions = () => {
-    if (!formData.militaryCivilian) {
-      return buildPositionHierarchy()
-    }
-    
-    const hierarchy = buildPositionHierarchy()
-    const chucVuRoot = hierarchy.find(p => p.name === "Chức vụ")
-    
-    if (!chucVuRoot || !chucVuRoot.children) {
-      return hierarchy
-    }
-    
-    if (formData.militaryCivilian === "SQ") {
-      // Show only Sĩ quan branch
-      const siQuanBranch = chucVuRoot.children.find((c: any) => c.name === "Sĩ quan")
-      return siQuanBranch ? [siQuanBranch] : []
-    } else if (formData.militaryCivilian === "QNCN") {
-      // Show only QNCN branch  
-      const qncnBranch = chucVuRoot.children.find((c: any) => c.name === "QNCN")
-      return qncnBranch ? [qncnBranch] : []
-    }
-    
-    return chucVuRoot.children
-  }
 
   // Sync form data when employee prop changes
   useEffect(() => {
-    console.log('EmployeeForm: employee prop changed', employee?.id, employee?.name);
+    // Employee prop changed
     if (employee) {
-      console.log('EmployeeForm: Setting form data for employee', employee.employeeId, employee.name);
+      // Setting form data for existing employee
       setFormData({
         employeeId: employee.employeeId || "",
         name: employee.name || "",
@@ -213,7 +117,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         department: employee.department || "",
         position: employee.position || "",
         rank: employee.rank || "",
-        jobTitle: employee.jobTitle || "",
         militaryCivilian: employee.militaryCivilian || "",
         hireDate: employee.hireDate || "",
         birthDate: employee.birthDate || "",
@@ -224,20 +127,18 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: employee.status || "active",
         accessLevel: employee.accessLevel || "general",
         permissions: employee.permissions || ["read"],
-        location: employee.location || "",
       });
       
-      // Set selected position if editing employee
-      if (employee.jobTitle) {
-        const position = positions.find(p => p.name === employee.jobTitle)
-        setSelectedPosition(position || null)
+      // Load filtered positions for the militaryCivilian value if editing employee
+      if (employee.militaryCivilian) {
+        loadFilteredPositions(employee.militaryCivilian)
       }
       
       setSelectedImageFile(null);
       setImagePreview(null);
     } else {
       // Reset form when creating new employee
-      console.log('EmployeeForm: Resetting form data for new employee');
+      // Resetting form data for new employee
       setFormData({
         employeeId: "",
         name: "",
@@ -248,7 +149,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         department: "",
         position: "",
         rank: "",
-        jobTitle: "",
         militaryCivilian: "",
         hireDate: "",
         birthDate: "",
@@ -259,7 +159,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: "active",
         accessLevel: "general",
         permissions: ["read"],
-        location: "",
       });
       setSelectedPosition(null);
       setSelectedImageFile(null);
@@ -267,7 +166,18 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     }
   }, [employee]);
 
-  const handleInputChange = (field: keyof (Employee & { location?: string }), value: any) => {
+  // Set selected position when filtered positions are loaded and we have an employee with position
+  useEffect(() => {
+    if (employee && employee.position && filteredPositions.length > 0) {
+      const position = filteredPositions.find(p => p.name === employee.position)
+      if (position) {
+        const convertedPosition = positionApi.convertToPosition(position)
+        setSelectedPosition(convertedPosition)
+      }
+    }
+  }, [filteredPositions, employee]);
+
+  const handleInputChange = (field: keyof Employee, value: any) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value }
       
@@ -283,7 +193,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   }
 
   const handleSubmit = async () => {
-    if (!formData.employeeId || !formData.firstName || !formData.lastName || !formData.jobTitle || !formData.department) {
+    if (!formData.employeeId || !formData.firstName || !formData.lastName || !formData.position || !formData.department) {
       alert("Vui lòng điền đầy đủ thông tin bắt buộc (ID Quân nhân, Họ, Tên, Chức vụ, Cơ quan đơn vị)")
       return
     }
@@ -300,7 +210,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         department: formData.department!,
         position: formData.position!,
         rank: formData.rank || "",
-        jobTitle: formData.jobTitle || "",
         militaryCivilian: formData.militaryCivilian || "",
         hireDate: formData.hireDate || new Date().toISOString().split("T")[0],
         birthDate: formData.birthDate,
@@ -465,16 +374,20 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                   handleInputChange("militaryCivilian", value);
                   // Reset rank and position when changing SQ/QNCN
                   handleInputChange("rank", "");
-                  handleInputChange("jobTitle", "");
                   handleInputChange("position", "");
                   setSelectedPosition(null);
+                  // Load filtered positions based on SQ/QNCN selection
+                  loadFilteredPositions(value);
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="SQ/QNCN" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="SQ">Sĩ quan</SelectItem>
-                    <SelectItem value="QNCN">QNCN</SelectItem>
+                    {sqQncnOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.name}>
+                        {option.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -485,7 +398,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                     <SelectValue placeholder="Chọn cấp bậc" />
                   </SelectTrigger>
                   <SelectContent>
-                    {formData.militaryCivilian === "SQ" && (
+                    {formData.militaryCivilian && (formData.militaryCivilian.includes("Sĩ quan") || formData.militaryCivilian === "SQ") && (
                       <>
                         <SelectItem value="Thiếu Uý">Thiếu Uý</SelectItem>
                         <SelectItem value="Trung Uý">Trung Uý</SelectItem>
@@ -497,7 +410,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                         <SelectItem value="Đại Tá">Đại Tá</SelectItem>
                       </>
                     )}
-                    {formData.militaryCivilian === "QNCN" && (
+                    {formData.militaryCivilian && (formData.militaryCivilian.includes("QNCN") || formData.militaryCivilian === "QNCN") && (
                       <>
                         <SelectItem value="Thiếu Uý">Thiếu Uý</SelectItem>
                         <SelectItem value="Trung Uý">Trung Uý</SelectItem>
@@ -513,59 +426,45 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="jobTitle">Chức vụ *</Label>
                 <Select 
                   value={selectedPosition?.id || ""} 
                   onValueChange={(value) => {
-                    if (value === "no-selection") return
-                    
-                    const position = positions.find(p => p.id === value)
-                    setSelectedPosition(position || null)
-                    handleInputChange("jobTitle", position?.name || "")
-                    handleInputChange("position", position?.name || "")
+                    const position = filteredPositions.find(p => p.id === value)
+                    if (position) {
+                      const convertedPosition = positionApi.convertToPosition(position)
+                      setSelectedPosition(convertedPosition)
+                      handleInputChange("position", position.name)
+                    }
                   }}
+                  disabled={!formData.militaryCivilian || loadingFilteredPositions}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn chức vụ" />
+                    <SelectValue 
+                      placeholder={
+                        !formData.militaryCivilian 
+                          ? "Vui lòng chọn SQ/QNCN trước"
+                          : loadingFilteredPositions 
+                            ? "Đang tải chức vụ..." 
+                            : "Chọn chức vụ"
+                      } 
+                    />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {formData.militaryCivilian ? (
-                      <>
-                        {formData.militaryCivilian === "SQ" && (
-                          <div className="px-2 py-1 text-xs font-semibold text-red-600 bg-red-50 border-b">
-                            Chức vụ Sĩ quan
-                          </div>
-                        )}
-                        {formData.militaryCivilian === "QNCN" && (
-                          <div className="px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-50 border-b">
-                            Chức vụ QNCN
-                          </div>
-                        )}
-                        {renderPositionHierarchy(getFilteredPositions())}
-                      </>
-                    ) : (
-                      <>
-                        <div className="px-2 py-1 text-xs font-medium text-gray-500 bg-gray-50 border-b">
-                          Vui lòng chọn SQ/QNCN trước
-                        </div>
-                        <SelectItem value="no-selection" disabled>
-                          Chọn SQ hoặc QNCN để xem chức vụ
-                        </SelectItem>
-                      </>
+                  <SelectContent>
+                    {filteredPositions.length === 0 && formData.militaryCivilian && !loadingFilteredPositions && (
+                      <SelectItem value="" disabled>
+                        Không có chức vụ phù hợp
+                      </SelectItem>
                     )}
+                    {filteredPositions.map((position) => (
+                      <SelectItem key={position.id} value={position.id}>
+                        {position.parentName ? `${position.name} - ${position.parentName}` : position.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Vị trí</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange("location", e.target.value)}
-                  placeholder="Nhập vị trí làm việc"
-                />
               </div>
             </div>
 

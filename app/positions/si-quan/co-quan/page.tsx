@@ -175,11 +175,11 @@ export default function CoQuanSQPage() {
   }
 
   const handleViewDetails = (position: Position) => {
-    console.log("View CÆ¡ quan (SQ) position details:", position)
+    alert("Tính nang xem chi ti?t s? du?c tri?n khai sau")
   }
 
   const handleExport = () => {
-    console.log("Export CÆ¡ quan (SQ) positions")
+    alert("Tính nang xu?t d? li?u s? du?c tri?n khai sau")
   }
 
   const getStatistics = () => {

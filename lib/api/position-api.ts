@@ -1,6 +1,7 @@
 import type { Position } from '@/lib/types'
+import { authApi } from "./auth-api"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
 export interface PositionApiResponse {
   id: string
@@ -9,10 +10,12 @@ export interface PositionApiResponse {
   parentId?: string
   isActive: boolean
   displayOrder: number
+  filterBy?: 'CO_QUAN_DON_VI' | 'CHUC_VU' | 'N_A'
   createdAt: string
   updatedAt: string
   parentName?: string
   childrenCount?: number
+  children?: PositionApiResponse[]
 }
 
 export interface PositionCreateRequest {
@@ -21,6 +24,7 @@ export interface PositionCreateRequest {
   parentId?: string
   isActive?: boolean
   displayOrder?: number
+  filterBy?: 'CO_QUAN_DON_VI' | 'CHUC_VU' | 'N_A'
 }
 
 export interface PositionUpdateRequest extends PositionCreateRequest {
@@ -44,11 +48,11 @@ export class PositionApi {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${API_BASE_URL}/api/positions${endpoint}`
+    const url = `${API_BASE_URL}/positions${endpoint}`
     
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
+        ...authApi.getAuthHeaders(),
         ...options.headers,
       },
       ...options,
@@ -86,6 +90,11 @@ export class PositionApi {
   // Get all positions with parent information
   async getPositionsWithParent(): Promise<PositionApiResponse[]> {
     return this.request<PositionApiResponse[]>('/with-parent')
+  }
+
+  // Get position menu hierarchy for navigation
+  async getPositionMenuHierarchy(): Promise<PositionApiResponse[]> {
+    return this.request<PositionApiResponse[]>('/menu')
   }
 
   // Get position by ID
@@ -161,7 +170,8 @@ export class PositionApi {
     level?: string,
     parentId?: string,
     page: number = 0,
-    size: number = 10
+    size: number = 10,
+    leafOnly: boolean = false
   ): Promise<{
     content: PositionApiResponse[]
     totalElements: number
@@ -172,6 +182,7 @@ export class PositionApi {
     const params = new URLSearchParams({
       page: page.toString(),
       size: size.toString(),
+      leafOnly: leafOnly.toString(),
     })
     
     if (level) params.append('level', level)
@@ -208,6 +219,39 @@ export class PositionApi {
     return this.request<PositionLevels>('/levels')
   }
 
+  // Get positions with CHUC_VU filter and optional parentId
+  async getChucVuPositions(parentId?: string): Promise<PositionApiResponse[]> {
+    const params = new URLSearchParams()
+    if (parentId) params.append('parentId', parentId)
+    
+    const endpoint = params.toString() ? `/filter/chuc-vu?${params}` : '/filter/chuc-vu'
+    return this.request<PositionApiResponse[]>(endpoint)
+  }
+
+  // Get positions by filter type and optional parentId
+  async getPositionsByFilter(
+    filterBy: 'CO_QUAN_DON_VI' | 'CHUC_VU' | 'N_A',
+    parentId?: string
+  ): Promise<PositionApiResponse[]> {
+    const params = new URLSearchParams({
+      filterBy: filterBy
+    })
+    if (parentId) params.append('parentId', parentId)
+    
+    return this.request<PositionApiResponse[]>(`/filter/by-type?${params}`)
+  }
+
+  // Get leaf positions (positions without children) under a parent
+  async getLeafPositions(parentId?: string): Promise<PositionApiResponse[]> {
+    const response = await this.getPositionsWithFilters(undefined, parentId, 0, 1000, true)
+    return response.content
+  }
+
+  // Get all leaf positions (positions without children) across the entire system
+  async getAllLeafPositions(): Promise<PositionApiResponse[]> {
+    return this.request<PositionApiResponse[]>('/leaf')
+  }
+
   // Convert API response to frontend Position type
   convertToPosition(apiResponse: PositionApiResponse): Position {
     return {
@@ -217,6 +261,7 @@ export class PositionApi {
       parentId: apiResponse.parentId || undefined,
       isActive: apiResponse.isActive,
       displayOrder: apiResponse.displayOrder,
+      filterBy: apiResponse.filterBy || 'N_A',
       createdAt: apiResponse.createdAt,
       updatedAt: apiResponse.updatedAt,
       parentName: apiResponse.parentName,
@@ -232,6 +277,7 @@ export class PositionApi {
       parentId: position.parentId || undefined,
       isActive: position.isActive,
       displayOrder: position.displayOrder,
+      filterBy: position.filterBy || 'N_A',
     }
   }
 }

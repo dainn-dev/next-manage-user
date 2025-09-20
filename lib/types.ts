@@ -53,6 +53,7 @@ export interface Position {
   parentId?: string
   isActive: boolean
   displayOrder: number
+  filterBy?: 'CO_QUAN_DON_VI' | 'CHUC_VU' | 'N_A'
   createdAt: string
   updatedAt: string
   parentName?: string
@@ -60,11 +61,6 @@ export interface Position {
 }
 
 export enum PositionLevel {
-  // Chức vụ hierarchy
-  CHUC_VU = "chuc_vu",
-  SI_QUAN = "si_quan",
-  QNCN = "qncn",
-  
   // Sĩ quan levels
   TRUNG_DOI = "trung_doi",
   DAI_DOI = "dai_doi",
@@ -196,4 +192,81 @@ export interface VehicleMonthlyStats {
   uniqueVehicles: number
   averageDailyRequests: number
   peakDay: { date: string; requestCount: number }
+}
+
+// Authentication types
+export interface LoginRequest {
+  username: string
+  password: string
+}
+
+export interface LoginResponse {
+  token: string
+  tokenType: string
+  username: string
+  email: string
+  role: string
+  expiresAt: string
+  user: User
+}
+
+export interface User {
+  id: string
+  username: string
+  email: string
+  firstName?: string
+  lastName?: string
+  role: UserRole
+  status: UserStatus
+  lastLogin?: string
+  employeeId?: string
+  employeeName?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateUserRequest {
+  username: string
+  email: string
+  password: string
+  firstName?: string
+  lastName?: string
+  role: UserRole
+  status: UserStatus
+  employeeId?: string
+}
+
+export interface UpdateUserRequest {
+  username?: string
+  email?: string
+  password?: string
+  firstName?: string
+  lastName?: string
+  role?: UserRole
+  status?: UserStatus
+  employeeId?: string
+}
+
+export enum UserRole {
+  USER = 'USER',
+  ADMIN = 'ADMIN'
+}
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  LOCKED = 'LOCKED',
+  SUSPENDED = 'SUSPENDED'
+}
+
+export interface UserStatistics {
+  totalUsers: number
+  activeUsers: number
+  inactiveUsers: number
+  lockedUsers: number
+  suspendedUsers: number
+  adminUsers: number
+  regularUsers: number
+  usersByRole: Record<string, number>
+  usersByStatus: Record<string, number>
 }

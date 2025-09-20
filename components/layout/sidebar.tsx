@@ -1,9 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
-import { ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, LogOut } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+import { UserRole } from "@/lib/types"
+import { positionApi, type PositionApiResponse } from "@/lib/api/position-api"
 
 interface NavigationItem {
   key: string
@@ -19,6 +33,11 @@ const navigationItems: NavigationItem[] = [
     icon: "👥"
   },
   {
+    key: "/users",
+    label: "Quản lý người dùng",
+    icon: "👤"
+  },
+  {
     key: "/departments",
     label: "Cơ quan, đơn vị",
     icon: "🏢",
@@ -27,76 +46,6 @@ const navigationItems: NavigationItem[] = [
     key: "/positions",
     label: "Chức vụ",
     icon: "💼",
-    children: [
-      {
-        key: "/positions/si-quan",
-        label: "Sĩ quan",
-        children: [
-          {
-            key: "/positions/si-quan/trung-doi",
-            label: "Trung đội"
-          },
-          {
-            key: "/positions/si-quan/dai-doi",
-            label: "Đại đội"
-          },
-          {
-            key: "/positions/si-quan/tieu-doan",
-            label: "Tiểu đoàn"
-          },
-          {
-            key: "/positions/si-quan/trung-doan",
-            label: "Trung đoàn"
-          },
-          {
-            key: "/positions/si-quan/co-quan",
-            label: "Cơ quan",
-            children: [
-              {
-                key: "/positions/si-quan/co-quan/tham-muu",
-                label: "Tham mưu"
-              },
-              {
-                key: "/positions/si-quan/co-quan/chinh-tri",
-                label: "Chính trị"
-              },
-              {
-                key: "/positions/si-quan/co-quan/hau-can-ky-thuat",
-                label: "Hậu cần - Kỹ thuật"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        key: "/positions/qncn",
-        label: "QNCN",
-        children: [
-          {
-            key: "/positions/qncn/tieu-doan",
-            label: "Tiểu đoàn"
-          },
-          {
-            key: "/positions/qncn/co-quan",
-            label: "Cơ quan",
-            children: [
-              {
-                key: "/positions/qncn/co-quan/tham-muu",
-                label: "Tham mưu"
-              },
-              {
-                key: "/positions/qncn/co-quan/chinh-tri",
-                label: "Chính trị"
-              },
-              {
-                key: "/positions/qncn/co-quan/hau-can-ky-thuat",
-                label: "Hậu cần - Kỹ thuật"
-              }
-            ]
-          }
-        ]
-      }
-    ]
   },
   {
     key: "/vehicles",
@@ -128,10 +77,142 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null)
+  const [positions, setPositions] = useState<PositionApiResponse[]>([])
+  const [loadingPositions, setLoadingPositions] = useState(false)
+  const { user, logout } = useAuth()
+  const { toast } = useToast()
+
+  // Load positions from API
+  useEffect(() => {
+    const loadPositions = async () => {
+      try {
+        setLoadingPositions(true)
+        const positionsData = await positionApi.getPositionMenuHierarchy()
+        setPositions(positionsData)
+      } catch (error) {
+        console.error('Failed to load positions:', error)
+        // Don't show toast error on component mount to avoid spam
+        // User will see "Không có dữ liệu" in the dropdown instead
+      } finally {
+        setLoadingPositions(false)
+      }
+    }
+
+    // Load positions when component mounts
+    loadPositions()
+  }, [toast])
+
+  // Filter navigation items based on user role
+  const filteredNavigationItems = navigationItems.filter(item => {
+    // Show users menu only for admin users
+    if (item.key === "/users") {
+      return user?.role === UserRole.ADMIN
+    }
+    return true
+  })
 
   const handleMenuClick = (key: string) => {
     router.push(key)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast({
+        title: "Đăng xuất thành công",
+        description: "Bạn đã đăng xuất khỏi hệ thống",
+      })
+      router.push("/login")
+    } catch (error) {
+      toast({
+        title: "Lỗi đăng xuất",
+        description: "Có lỗi xảy ra khi đăng xuất",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const getUserInitials = () => {
+    if (!user) return "U"
+    const firstName = user.firstName || ""
+    const lastName = user.lastName || ""
+    if (firstName && lastName) {
+      return (firstName[0] + lastName[0]).toUpperCase()
+    }
+    return user.username[0].toUpperCase()
+  }
+
+  // Convert position API response to navigation path
+  const getPositionPath = (position: PositionApiResponse, parentPath = "/positions"): string => {
+    // Create a URL-friendly slug from the position name
+    const slug = position.name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remove accents
+      .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
+      .replace(/\s+/g, "-") // Replace spaces with hyphens
+      .trim()
+    
+    return `${parentPath}/${slug}`
+  }
+
+  // Handle position menu click based on filterBy property
+  const handlePositionClick = (position: PositionApiResponse) => {
+    if (position.filterBy === 'N_A') {
+      // Don't allow clicking for N/A positions
+      return
+    }
+
+    if (position.filterBy === 'CHUC_VU') {
+      // Navigate to employees page with position filter
+      router.push(`/employees?position=${encodeURIComponent(position.name)}`)
+    } else if (position.filterBy === 'CO_QUAN_DON_VI') {
+      // Navigate to employees page with department filter
+      router.push(`/employees?department=${encodeURIComponent(position.name)}`)
+    } else {
+      // Default behavior - navigate to position page
+      const positionPath = getPositionPath(position)
+      router.push(positionPath)
+    }
+  }
+
+  // Render position dropdown menu items recursively
+  const renderPositionMenuItems = (positions: PositionApiResponse[]): React.ReactNode => {
+    return positions.map((position) => {
+      const hasChildren = position.children && position.children.length > 0
+      const isClickable = position.filterBy !== 'N_A'
+
+      if (hasChildren) {
+        return (
+          <DropdownMenuSub key={position.id}>
+            <DropdownMenuSubTrigger>
+              <span>{position.name}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {renderPositionMenuItems(position.children!)}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )
+      }
+
+      return (
+        <DropdownMenuItem
+          key={position.id}
+          onClick={() => isClickable ? handlePositionClick(position) : undefined}
+          className={`${
+            pathname === getPositionPath(position) || pathname.startsWith(getPositionPath(position))
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : ""
+          } ${!isClickable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+          disabled={!isClickable}
+        >
+          {position.name}
+          {!isClickable && (
+            <span className="ml-2 text-xs text-muted-foreground">(N/A)</span>
+          )}
+        </DropdownMenuItem>
+      )
+    })
   }
 
   return (
@@ -177,108 +258,124 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 p-4 space-y-1">
-        {navigationItems.map((item) => (
+        {filteredNavigationItems.map((item) => (
           <div key={item.key}>
-            <button
-              onClick={() => handleMenuClick(item.key)}
-              className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium ${
-                pathname === item.key
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
-              }`}
-            >
-              <span className="text-base">{item.icon}</span>
-              {!collapsed && <span>{item.label}</span>}
-            </button>
-             {item.children && !collapsed && pathname.startsWith(item.key) && (
-              <div className="ml-6 mt-1 space-y-1">
-                {item.children.map((child) => (
-                  <div key={child.key} className="relative">
-                    <button
-                      onClick={() => handleMenuClick(child.key)}
-                      onMouseEnter={() => setHoveredItem(child.key)}
-                      onMouseLeave={() => setHoveredItem(null)}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-200 flex items-center justify-between ${
-                        pathname === child.key || pathname.startsWith(child.key)
-                          ? "bg-sidebar-accent/10 text-sidebar-accent font-medium"
-                          : "text-muted-foreground hover:bg-muted hover:text-sidebar-foreground"
-                      }`}
-                    >
-                      <span>{child.label}</span>
-                      {child.children && (
-                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                      )}
-                    </button>
-                    
-                    {/* Nested hover menu for children */}
-                    {child.children && hoveredItem === child.key && (
-                      <div 
-                        className="absolute left-full top-0 ml-1 z-50"
-                        onMouseEnter={() => setHoveredItem(child.key)}
-                        onMouseLeave={() => setHoveredItem(null)}
+            {/* Special handling for Chức vụ (Positions) with dropdown */}
+            {item.key === "/positions" && !collapsed ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium ${
+                      pathname.startsWith(item.key)
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
+                    }`}
+                  >
+                    <span className="text-base">{item.icon}</span>
+                    <span className="flex-1">{item.label}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  {loadingPositions ? (
+                    <DropdownMenuItem disabled>
+                      <span>Đang tải...</span>
+                    </DropdownMenuItem>
+                  ) : positions.length > 0 ? (
+                    renderPositionMenuItems(positions)
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={() => handleMenuClick("/positions")}>
+                        <span>📋 Tất cả chức vụ</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled>
+                        <span className="text-xs text-muted-foreground">Không thể tải menu phân cấp</span>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              /* Regular menu items */
+              <>
+                <button
+                  onClick={() => handleMenuClick(item.key)}
+                  className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium ${
+                    pathname === item.key
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  {!collapsed && <span>{item.label}</span>}
+                  {item.children && !collapsed && (
+                    <ChevronRight className="h-4 w-4 ml-auto" />
+                  )}
+                </button>
+                {/* Regular children for non-positions items */}
+                {item.children && !collapsed && pathname.startsWith(item.key) && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {item.children.map((child) => (
+                      <button
+                        key={child.key}
+                        onClick={() => handleMenuClick(child.key)}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-200 ${
+                          pathname === child.key || pathname.startsWith(child.key)
+                            ? "bg-sidebar-accent/10 text-sidebar-accent font-medium"
+                            : "text-muted-foreground hover:bg-muted hover:text-sidebar-foreground"
+                        }`}
                       >
-                        <div className="bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[160px]">
-                          {child.children.map((grandchild) => (
-                            <div key={grandchild.key} className="relative group">
-                              <button
-                                onClick={() => handleMenuClick(grandchild.key)}
-                                className={`w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-100 flex items-center justify-between ${
-                                  pathname === grandchild.key || pathname.startsWith(grandchild.key)
-                                    ? "bg-blue-50 text-blue-600 font-medium"
-                                    : "text-gray-700 hover:text-gray-900"
-                                }`}
-                              >
-                                <span>{grandchild.label}</span>
-                                {grandchild.children && (
-                                  <ChevronRight className="h-3 w-3 text-gray-400" />
-                                )}
-                              </button>
-                              
-                              {/* Third level hover menu */}
-                              {grandchild.children && (
-                                <div className="absolute left-full top-0 ml-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                  <div className="bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[160px]">
-                                    {grandchild.children.map((greatGrandchild) => (
-                                      <button
-                                        key={greatGrandchild.key}
-                                        onClick={() => handleMenuClick(greatGrandchild.key)}
-                                        className={`w-full text-left px-3 py-2 text-sm transition-colors duration-200 hover:bg-gray-100 ${
-                                          pathname === greatGrandchild.key
-                                            ? "bg-green-50 text-green-600 font-medium"
-                                            : "text-gray-700 hover:text-gray-900"
-                                        }`}
-                                      >
-                                        {greatGrandchild.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                        {child.label}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         ))}
       </nav>
 
       <div className="p-6 border-t border-sidebar-border">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 bg-sidebar-accent rounded-full flex items-center justify-center text-sidebar-accent-foreground text-sm font-medium">
-            A
+            {getUserInitials()}
           </div>
           {!collapsed && (
-            <div>
-              <span className="text-sm font-medium text-sidebar-foreground">admin</span>
-              <p className="text-xs text-muted-foreground">Quản trị viên</p>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-sidebar-foreground">
+                {user?.firstName && user?.lastName 
+                  ? `${user.firstName} ${user.lastName}` 
+                  : user?.username || "Người dùng"}
+              </span>
+              <p className="text-xs text-muted-foreground">
+                {user?.role || "Người dùng"}
+              </p>
             </div>
           )}
         </div>
+        {!collapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="w-full justify-start text-muted-foreground hover:text-sidebar-foreground hover:bg-muted"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Đăng xuất
+          </Button>
+        )}
+        {collapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="w-full p-2 text-muted-foreground hover:text-sidebar-foreground hover:bg-muted"
+            title="Đăng xuất"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   )

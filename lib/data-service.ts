@@ -23,6 +23,46 @@ class DataService {
   private departments: Department[] = [...mockDepartments]
   private accessLevels: AccessLevel[] = [...mockAccessLevels]
   private positions: Position[] = [...mockPositions]
+  
+  // Cache for API data to prevent multiple calls
+  private departmentsCache: Department[] | null = null
+  private departmentsCacheTime: number = 0
+  private positionsCache: Position[] | null = null
+  private positionsCacheTime: number = 0
+  private employeesCache: Employee[] | null = null
+  private employeesCacheTime: number = 0
+  private readonly CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+  
+  // Promise cache to prevent multiple simultaneous calls
+  private departmentsPromise: Promise<Department[]> | null = null
+  private employeesPromise: Promise<Employee[]> | null = null
+  
+  // Clear departments cache
+  clearDepartmentsCache(): void {
+    this.departmentsCache = null
+    this.departmentsCacheTime = 0
+    this.departmentsPromise = null
+  }
+  
+  // Clear positions cache
+  clearPositionsCache(): void {
+    this.positionsCache = null
+    this.positionsCacheTime = 0
+  }
+  
+  // Clear employees cache
+  clearEmployeesCache(): void {
+    this.employeesCache = null
+    this.employeesCacheTime = 0
+    this.employeesPromise = null
+  }
+  
+  // Clear all caches
+  clearAllCaches(): void {
+    this.clearDepartmentsCache()
+    this.clearPositionsCache()
+    this.clearEmployeesCache()
+  }
   private vehicles: Vehicle[] = [
     {
       id: "1",
@@ -142,8 +182,39 @@ class DataService {
 
   // Employee operations
   async getEmployees(): Promise<Employee[]> {
+    const now = Date.now()
+    
+    // Return cached data if it's still valid
+    if (this.employeesCache && (now - this.employeesCacheTime) < this.CACHE_DURATION) {
+      return this.employeesCache
+    }
+    
+    // If there's already a request in progress, return that promise
+    if (this.employeesPromise) {
+      return this.employeesPromise
+    }
+    
+    // Create a new promise and cache it
+    this.employeesPromise = this.fetchEmployeesFromAPI(now)
+    
     try {
-      return await employeeApi.getAllEmployeesList()
+      const result = await this.employeesPromise
+      return result
+    } finally {
+      // Clear the promise cache after the request completes
+      this.employeesPromise = null
+    }
+  }
+  
+  private async fetchEmployeesFromAPI(now: number): Promise<Employee[]> {
+    try {
+      const apiEmployees = await employeeApi.getAllEmployeesList()
+      
+      // Cache the result
+      this.employeesCache = apiEmployees
+      this.employeesCacheTime = now
+      
+      return apiEmployees
     } catch (error) {
       console.error('Failed to fetch employees from API, falling back to mock data:', error)
       return this.employees
@@ -152,9 +223,40 @@ class DataService {
 
   // Department operations
   async getDepartments(): Promise<Department[]> {
+    const now = Date.now()
+    
+    // Return cached data if it's still valid
+    if (this.departmentsCache && (now - this.departmentsCacheTime) < this.CACHE_DURATION) {
+      return this.departmentsCache
+    }
+    
+    // If there's already a request in progress, return that promise
+    if (this.departmentsPromise) {
+      return this.departmentsPromise
+    }
+    
+    // Create a new promise and cache it
+    this.departmentsPromise = this.fetchDepartmentsFromAPI(now)
+    
+    try {
+      const result = await this.departmentsPromise
+      return result
+    } finally {
+      // Clear the promise cache after the request completes
+      this.departmentsPromise = null
+    }
+  }
+  
+  private async fetchDepartmentsFromAPI(now: number): Promise<Department[]> {
     try {
       const apiDepartments = await departmentApi.getAllDepartmentsList()
-      return apiDepartments.map(dept => departmentApi.convertToDepartment(dept))
+      const departments = apiDepartments
+      
+      // Cache the result
+      this.departmentsCache = departments
+      this.departmentsCacheTime = now
+      
+      return departments
     } catch (error) {
       console.error('Failed to fetch departments from API, falling back to mock data:', error)
       return this.departments
@@ -164,7 +266,7 @@ class DataService {
   async getDepartment(id: string): Promise<Department | undefined> {
     try {
       const apiDepartment = await departmentApi.getDepartmentById(id)
-      return departmentApi.convertToDepartment(apiDepartment)
+      return apiDepartment
     } catch (error) {
       console.error('Failed to fetch department:', error)
       // Fallback to mock data
@@ -174,14 +276,12 @@ class DataService {
 
   async createDepartment(department: Omit<Department, "id" | "createdAt" | "updatedAt">): Promise<Department> {
     try {
-      const apiRequest = departmentApi.convertToApiRequest({
-        ...department,
-        id: '',
-        createdAt: '',
-        updatedAt: '',
-      } as Department)
-      const apiResponse = await departmentApi.createDepartment(apiRequest)
-      return departmentApi.convertToDepartment(apiResponse)
+      const apiResponse = await departmentApi.createDepartment(department)
+      
+      // Clear departments cache since we added a new department
+      this.clearDepartmentsCache()
+      
+      return apiResponse
     } catch (error) {
       console.error('Failed to create department:', error)
       // Fallback to mock data behavior
@@ -202,9 +302,12 @@ class DataService {
       if (!existingDepartment) return null
 
       const updatedDepartment = { ...existingDepartment, ...updates }
-      const apiRequest = departmentApi.convertToApiRequest(updatedDepartment)
-      const apiResponse = await departmentApi.updateDepartment(id, { ...apiRequest, id })
-      return departmentApi.convertToDepartment(apiResponse)
+      const apiResponse = await departmentApi.updateDepartment(id, updatedDepartment)
+      
+      // Clear departments cache since we updated a department
+      this.clearDepartmentsCache()
+      
+      return apiResponse
     } catch (error) {
       console.error('Failed to update department:', error)
       // Fallback to mock data behavior
@@ -223,6 +326,10 @@ class DataService {
   async deleteDepartment(id: string): Promise<boolean> {
     try {
       await departmentApi.deleteDepartment(id)
+      
+      // Clear departments cache since we deleted a department
+      this.clearDepartmentsCache()
+      
       return true
     } catch (error) {
       console.error('Failed to delete department:', error)
@@ -290,9 +397,22 @@ class DataService {
 
   // Position operations
   async getPositions(): Promise<Position[]> {
+    const now = Date.now()
+    
+    // Return cached data if it's still valid
+    if (this.positionsCache && (now - this.positionsCacheTime) < this.CACHE_DURATION) {
+      return this.positionsCache
+    }
+    
     try {
       const apiPositions = await positionApi.getAllPositionsList()
-      return apiPositions.map(pos => positionApi.convertToPosition(pos))
+      const positions = apiPositions.map(pos => positionApi.convertToPosition(pos))
+      
+      // Cache the result
+      this.positionsCache = positions
+      this.positionsCacheTime = now
+      
+      return positions
     } catch (error) {
       console.error('Failed to fetch positions:', error)
       // Fallback to mock data
@@ -332,7 +452,12 @@ class DataService {
         childrenCount: 0,
       } as Position)
       const apiResponse = await positionApi.createPosition(apiRequest)
-      return positionApi.convertToPosition(apiResponse)
+      const newPosition = positionApi.convertToPosition(apiResponse)
+      
+      // Clear positions cache since we added a new position
+      this.clearPositionsCache()
+      
+      return newPosition
     } catch (error) {
       console.error('Failed to create position:', error)
       // Fallback to mock data behavior
@@ -353,10 +478,15 @@ class DataService {
       const existingPosition = await this.getPosition(id)
       if (!existingPosition) return null
 
-      const updatedPosition = { ...existingPosition, ...updates }
-      const apiRequest = positionApi.convertToApiRequest(updatedPosition)
+      const updatedPositionData = { ...existingPosition, ...updates }
+      const apiRequest = positionApi.convertToApiRequest(updatedPositionData)
       const apiResponse = await positionApi.updatePosition(id, { ...apiRequest, id })
-      return positionApi.convertToPosition(apiResponse)
+      const updatedPosition = positionApi.convertToPosition(apiResponse)
+      
+      // Clear positions cache since we updated a position
+      this.clearPositionsCache()
+      
+      return updatedPosition
     } catch (error) {
       console.error('Failed to update position:', error)
       // Fallback to mock data behavior
@@ -375,6 +505,10 @@ class DataService {
   async deletePosition(id: string): Promise<boolean> {
     try {
       await positionApi.deletePosition(id)
+      
+      // Clear positions cache since we deleted a position
+      this.clearPositionsCache()
+      
       return true
     } catch (error) {
       console.error('Failed to delete position:', error)
@@ -430,6 +564,10 @@ class DataService {
   async bulkDeletePositions(positionIds: string[]): Promise<boolean> {
     try {
       await positionApi.bulkDeletePositions(positionIds)
+      
+      // Clear positions cache since we deleted multiple positions
+      this.clearPositionsCache()
+      
       return true
     } catch (error) {
       console.error('Failed to bulk delete positions:', error)

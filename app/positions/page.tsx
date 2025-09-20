@@ -70,9 +70,9 @@ export default function PositionsPage() {
       )
     }
 
-    // Level filter
+    // Level filter - using filterBy property instead
     if (levelFilter !== "all") {
-      filtered = filtered.filter(pos => pos.level.toString() === levelFilter)
+      filtered = filtered.filter(pos => pos.filterBy === levelFilter)
     }
 
     setFilteredPositions(filtered)
@@ -97,13 +97,9 @@ export default function PositionsPage() {
           name: position.name,
           description: position.description,
           parentId: position.parentId,
-          level: position.level,
-          minSalary: position.minSalary,
-          maxSalary: position.maxSalary,
           isActive: position.isActive,
           displayOrder: position.displayOrder,
-          levelDisplayName: position.levelDisplayName,
-          childrenCount: position.childrenCount,
+          filterBy: position.filterBy,
         })
         setPositions(prev => [...prev, newPosition])
         toast({
@@ -188,13 +184,13 @@ export default function PositionsPage() {
   }
 
   const handleViewDetails = (position: Position) => {
-    // TODO: Implement position details view
-    console.log("View position details:", position)
+    // Position details view to be implemented
+    alert("Tính năng xem chi tiết sẽ được triển khai sau")
   }
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log("Export positions")
+    // Export functionality to be implemented
+    alert("Tính năng xuất dữ liệu sẽ được triển khai sau")
   }
 
   const getStatistics = () => {

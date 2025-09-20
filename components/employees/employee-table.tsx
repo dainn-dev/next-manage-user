@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Users } from "lucide-react" // Import Users component
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, Download, Edit, Trash2, UserPlus, MoreHorizontal, Eye } from "lucide-react"
+import { Search, Filter, Download, Edit, Trash2, UserPlus, MoreHorizontal, Eye, Users } from "lucide-react"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
 import { BulkOperationsDialog } from "@/components/employees/bulk-operations-dialog"
@@ -225,7 +224,7 @@ export function EmployeeTable({
           isOpen={showAdvancedExport}
           onClose={() => setShowAdvancedExport(false)}
           onExport={(options) => {
-            console.log("Export options:", options)
+            // Export options selected
           }}
         />
       )}
@@ -235,7 +234,7 @@ export function EmployeeTable({
           isOpen={showImport}
           onClose={() => setShowImport(false)}
           onImport={(options) => {
-            console.log("Import options:", options)
+            // Import options selected
           }}
         />
       )}

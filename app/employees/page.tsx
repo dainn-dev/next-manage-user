@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import type { Employee, Department } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
 import { EmployeeTable } from "@/components/employees/employee-table"
@@ -15,6 +16,8 @@ import { Search, Download, Plus, RefreshCw, Trash2, Users, TrendingUp, UserCheck
 import { useToast } from "@/hooks/use-toast"
 
 export default function EmployeesPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [employees, setEmployees] = useState<Employee[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
@@ -33,24 +36,35 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, []) // Only load data once when component mounts
+
+  // Handle URL parameters for filtering
+  useEffect(() => {
+    const positionParam = searchParams.get('position')
+    const departmentParam = searchParams.get('department')
+    
+    if (positionParam) {
+      setPositionFilter(positionParam)
+    }
+    if (departmentParam) {
+      setDepartmentFilter(departmentParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     filterEmployees()
-  }, [employees, searchTerm, statusFilter, departmentFilter, rankFilter, positionFilter, militaryCivilianFilter])
+  }, [employees, searchTerm, statusFilter, departmentFilter, rankFilter, positionFilter, militaryCivilianFilter, searchParams])
 
   const loadData = async () => {
-    // Prevent multiple simultaneous calls (but allow initial load)
-    if (loading && employees.length > 0) return
-    
     try {
       setLoading(true)
       setError(null)
       const { employeeApi } = await import("@/lib/api/employee-api")
-      const [employeesData, departmentsData] = await Promise.all([
-        employeeApi.getAllEmployeesList(),
-        Promise.resolve(dataService.getDepartments()) // Keep departments from mock for now
-      ])
+      
+      // Always load all employees from the existing API endpoint
+      const employeesData = await employeeApi.getAllEmployeesList()
+      const departmentsData = await Promise.resolve(dataService.getDepartments()) // Keep departments from mock for now
+      
       setEmployees(employeesData)
       setDepartments(departmentsData)
     } catch (err) {
@@ -68,6 +82,20 @@ export default function EmployeesPage() {
 
   const filterEmployees = () => {
     let filtered = [...employees]
+
+    // URL parameter filters (from sidebar dropdown)
+    const positionParam = searchParams.get('position')
+    const departmentParam = searchParams.get('department')
+    
+    if (positionParam) {
+      filtered = filtered.filter(emp => 
+        emp.position === positionParam || emp.jobTitle === positionParam
+      )
+    }
+    
+    if (departmentParam) {
+      filtered = filtered.filter(emp => emp.department === departmentParam)
+    }
 
     // Search filter
     if (searchTerm) {
@@ -109,26 +137,20 @@ export default function EmployeesPage() {
   }
 
   const handleEdit = (employee: Employee) => {
-    console.log('handleEdit called for employee:', employee.id, employee.name)
     setSelectedEmployee(employee)
     setIsFormOpen(true)
   }
 
   const handleDelete = async (employeeId: string) => {
-    console.log('handleDelete called with ID:', employeeId)
     if (confirm("Bạn có chắc chắn muốn xóa nhân viên này?")) {
       try {
-        console.log('User confirmed deletion, calling API...')
         const { employeeApi } = await import("@/lib/api/employee-api")
         await employeeApi.deleteEmployee(employeeId)
-        console.log('Employee deleted successfully, reloading data...')
         await loadData()
       } catch (err) {
         setError('Không thể xóa nhân viên')
         console.error('Error deleting employee:', err)
       }
-    } else {
-      console.log('User cancelled deletion')
     }
   }
 
@@ -217,8 +239,7 @@ export default function EmployeesPage() {
   }
 
   const handleExport = () => {
-    // TODO: Implement export functionality
-    console.log("Export employees")
+    // Export functionality to be implemented
     toast({
       title: "Thông báo",
       description: "Tính năng xuất dữ liệu đang được phát triển",
@@ -289,6 +310,29 @@ export default function EmployeesPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Quản lý Quân nhân</h1>
           <p className="text-muted-foreground text-lg">Quản lý thông tin và hoạt động của quân nhân trong đơn vị</p>
+          {/* Show filter indicator */}
+          {(searchParams.get('position') || searchParams.get('department')) && (
+            <div className="mt-2 flex items-center gap-2">
+              {searchParams.get('position') && (
+                <Badge variant="secondary" className="text-sm">
+                  📋 Đang lọc theo chức vụ: {searchParams.get('position')}
+                </Badge>
+              )}
+              {searchParams.get('department') && (
+                <Badge variant="secondary" className="text-sm">
+                  🏢 Đang lọc theo đơn vị: {searchParams.get('department')}
+                </Badge>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => router.push('/employees')}
+                className="h-6 px-2 text-xs"
+              >
+                Xóa bộ lọc
+              </Button>
+            </div>
+          )}
         </div>
         <Button onClick={handleAddNew}>
           <Plus className="h-4 w-4 mr-2" />

@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
 import type { Position } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
 import { useToast } from "@/hooks/use-toast"
@@ -25,6 +24,7 @@ export function PositionForm({ isOpen, onClose, onSave, position, mode }: Positi
     positionName: "",
     parentPositionCode: "",
     description: "",
+    filterBy: "N_A" as "CO_QUAN_DON_VI" | "CHUC_VU" | "N_A",
   })
   const [availablePositions, setAvailablePositions] = useState<Position[]>([])
   const [loading, setLoading] = useState(false)
@@ -40,12 +40,14 @@ export function PositionForm({ isOpen, onClose, onSave, position, mode }: Positi
           positionName: position.name,
           parentPositionCode: position.parentId || "",
           description: position.description || "",
+          filterBy: (position as any).filterBy || "N_A",
         })
       } else {
         setFormData({
           positionName: "",
           parentPositionCode: "",
           description: "",
+          filterBy: "N_A",
         })
       }
     }
@@ -66,7 +68,7 @@ export function PositionForm({ isOpen, onClose, onSave, position, mode }: Positi
     setLoading(true)
 
     try {
-      const parentPosition = formData.parentPositionCode 
+      const parentPosition = formData.parentPositionCode
         ? availablePositions.find(p => p.id === formData.parentPositionCode)
         : null
 
@@ -76,8 +78,9 @@ export function PositionForm({ isOpen, onClose, onSave, position, mode }: Positi
         description: formData.description || "",
         parentId: formData.parentPositionCode || undefined,
         parentName: parentPosition?.name,
-        isActive: true,
-        displayOrder: 0,
+        isActive: mode === "edit" ? position?.isActive ?? true : true,
+        displayOrder: mode === "edit" ? position?.displayOrder ?? 0 : 0,
+        filterBy: formData.filterBy,
         childrenCount: mode === "edit" ? position?.childrenCount || 0 : 0,
         createdAt: mode === "edit" ? position?.createdAt || "" : "",
         updatedAt: mode === "edit" ? position?.updatedAt || "" : "",
@@ -114,7 +117,7 @@ export function PositionForm({ isOpen, onClose, onSave, position, mode }: Positi
             {mode === "create" ? "Thêm chức vụ mới" : "Chỉnh sửa chức vụ"}
           </DialogTitle>
           <DialogDescription>
-            {mode === "create" 
+            {mode === "create"
               ? "Nhập thông tin để tạo chức vụ mới trong hệ thống"
               : "Cập nhật thông tin chức vụ"
             }
@@ -133,24 +136,43 @@ export function PositionForm({ isOpen, onClose, onSave, position, mode }: Positi
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="parentPosition">Chức vụ cấp cao</Label>
-            <Select
-              value={formData.parentPositionCode || undefined}
-              onValueChange={(value) => handleInputChange("parentPositionCode", value === "NONE" ? "" : value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn chức vụ cấp cao (tùy chọn)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">Không có chức vụ cấp cao</SelectItem>
-                {availablePositions.map((pos) => (
-                  <SelectItem key={pos.id} value={pos.id}>
-                    {pos.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="parentPosition">Chức vụ cấp cao</Label>
+                <Select
+                  value={formData.parentPositionCode || undefined}
+                  onValueChange={(value) => handleInputChange("parentPositionCode", value === "NONE" ? "" : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn chức vụ cấp cao (tùy chọn)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NONE">Không có chức vụ cấp cao</SelectItem>
+                    {availablePositions.map((pos) => (
+                      <SelectItem key={pos.id} value={pos.id}>
+                        {pos.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="filterBy">Lọc theo</Label>
+              <Select
+                value={formData.filterBy}
+                onValueChange={(value: "CO_QUAN_DON_VI" | "CHUC_VU" | "N_A") => handleInputChange("filterBy", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn loại lọc" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CO_QUAN_DON_VI">Cơ quan, đơn vị</SelectItem>
+                  <SelectItem value="CHUC_VU">Chức vụ</SelectItem>
+                  <SelectItem value="N_A">N/A</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">
