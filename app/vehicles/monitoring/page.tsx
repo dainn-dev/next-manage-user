@@ -626,12 +626,12 @@ export default function VehicleMonitoringPage() {
                       </div>
                     )}
                   </div>
-                <div className="text-lg font-medium text-gray-700 mb-2 truncate" title={log.driverName || 'Lê Văn B'}>
-                  {log.driverName || 'Lê Văn B'}
+                <div className="text-lg font-medium text-gray-700 mb-2 truncate" title={log.employeeName || 'Khách'}>
+                  {log.employeeName || 'Khách'}
                 </div>
-                <div className="text-base text-gray-500 mb-2 truncate" title={log.employeeName || 'N/A'}>
+                {/* <div className="text-base text-gray-500 mb-2 truncate" title={log.employeeName || 'N/A'}>
                   {log.employeeName || 'N/A'}
-                </div>
+                </div> */}
                 {log.employeeDepartment && (
                   <div className="text-sm text-gray-400 mb-2 truncate" title={log.employeeDepartment}>
                     {log.employeeDepartment}
