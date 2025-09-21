@@ -18,8 +18,6 @@ export interface EmployeeApiResponse {
 export interface EmployeeCreateRequest {
   employeeId: string
   name: string
-  firstName: string
-  lastName: string
   email: string
   phone: string
   department: string
@@ -39,6 +37,7 @@ export interface EmployeeCreateRequest {
   rank?: string
   jobTitle?: string
   militaryCivilian?: string
+  vehicleType?: "car" | "motorbike" | "truck" | "bus"
 }
 
 export interface EmployeeStatistics {

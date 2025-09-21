@@ -96,23 +96,20 @@ export function UserTable({
   }
 
   const getUserInitials = (user: User) => {
-    if (user.firstName && user.lastName) {
-      return (user.firstName[0] + user.lastName[0]).toUpperCase()
-    } else if (user.firstName) {
-      return user.firstName[0].toUpperCase()
-    } else if (user.lastName) {
-      return user.lastName[0].toUpperCase()
+    if (user.fullName) {
+      const names = user.fullName.trim().split(' ')
+      if (names.length >= 2) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase()
+      } else {
+        return names[0][0].toUpperCase()
+      }
     }
     return user.username[0].toUpperCase()
   }
 
   const getUserDisplayName = (user: User) => {
-    if (user.firstName && user.lastName) {
-      return `${user.lastName} ${user.firstName}`
-    } else if (user.firstName) {
-      return user.firstName
-    } else if (user.lastName) {
-      return user.lastName
+    if (user.fullName) {
+      return user.fullName
     }
     return user.username
   }

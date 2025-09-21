@@ -94,6 +94,23 @@ export function EmployeeTable({
     }
   }
 
+  const getVehicleTypeDisplay = (vehicleType?: Employee["vehicleType"]) => {
+    if (!vehicleType) return "N/A"
+    
+    switch (vehicleType) {
+      case "car":
+        return "Ô tô"
+      case "motorbike":
+        return "Xe máy"
+      case "truck":
+        return "Xe tải"
+      case "bus":
+        return "Xe buýt"
+      default:
+        return vehicleType
+    }
+  }
+
   return (
     <div className="space-y-4">
 
@@ -109,12 +126,12 @@ export function EmployeeTable({
                 />
               </TableHead>
               <TableHead>ID Quân nhân</TableHead>
-              <TableHead>Tên</TableHead>
-              <TableHead>Họ</TableHead>
+              <TableHead>Họ và Tên</TableHead>
               <TableHead>Cơ quan. đơn vị</TableHead>
               <TableHead>Cấp bậc</TableHead>
               <TableHead>Chức vụ</TableHead>
               <TableHead>SQ/QNCN</TableHead>
+              <TableHead>Phương tiện</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead className="w-32">Hoạt động</TableHead>
             </TableRow>
@@ -142,11 +159,11 @@ export function EmployeeTable({
                   </TableCell>
                   <TableCell className="font-medium">{employee.employeeId}</TableCell>
                   <TableCell>{employee.name}</TableCell>
-                  <TableCell>{employee.firstName || "-"}</TableCell>
                   <TableCell>{employee.department}</TableCell>
                   <TableCell>{employee.rank || "-"}</TableCell>
                   <TableCell>{employee.position || "-"}</TableCell>
                   <TableCell>{employee.militaryCivilian || "-"}</TableCell>
+                  <TableCell>{getVehicleTypeDisplay(employee.vehicleType)}</TableCell>
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

@@ -1,6 +1,7 @@
 package com.vehiclemanagement.dto;
 
 import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.Vehicle;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -54,11 +55,12 @@ public class EmployeeDto {
     private String avatar;
     private Employee.AccessLevel accessLevel;
     private List<String> permissions;
+    private Vehicle.VehicleType vehicleType;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    // Constructor from entity
-    public EmployeeDto(Employee employee) {
+    // Constructor from entity with vehicle type
+    public EmployeeDto(Employee employee, Vehicle.VehicleType vehicleType) {
         this.id = employee.getId();
         this.employeeId = employee.getEmployeeId();
         this.name = employee.getName();
@@ -83,7 +85,13 @@ public class EmployeeDto {
         this.avatar = employee.getAvatar();
         this.accessLevel = employee.getAccessLevel();
         this.permissions = employee.getPermissions();
+        this.vehicleType = vehicleType;
         this.createdAt = employee.getCreatedAt();
         this.updatedAt = employee.getUpdatedAt();
+    }
+    
+    // Constructor from entity (backward compatibility)
+    public EmployeeDto(Employee employee) {
+        this(employee, null);
     }
 }

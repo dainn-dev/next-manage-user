@@ -2,8 +2,6 @@ export interface Employee {
   id: string
   employeeId: string
   name: string
-  firstName?: string
-  lastName?: string
   email: string
   phone: string
   department: string
@@ -23,6 +21,7 @@ export interface Employee {
   accessLevel: "general" | "restricted" | "admin"
   permissions: string[]
   location?: string // Vị trí làm việc
+  vehicleType?: "car" | "motorbike" | "truck" | "bus" // Phương tiện
   createdAt: string
   updatedAt: string
 }
@@ -211,8 +210,7 @@ export interface User {
   id: string
   username: string
   email: string
-  firstName?: string
-  lastName?: string
+  fullName?: string
   role: UserRole
   status: UserStatus
   lastLogin?: string
@@ -226,8 +224,7 @@ export interface CreateUserRequest {
   username: string
   email: string
   password: string
-  firstName?: string
-  lastName?: string
+  fullName?: string
   role: UserRole
   status: UserStatus
   employeeId?: string
@@ -237,8 +234,7 @@ export interface UpdateUserRequest {
   username?: string
   email?: string
   password?: string
-  firstName?: string
-  lastName?: string
+  fullName?: string
   role?: UserRole
   status?: UserStatus
   employeeId?: string

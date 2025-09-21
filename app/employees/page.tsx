@@ -165,8 +165,6 @@ export default function EmployeesPage() {
       const apiEmployeeData = {
         employeeId: employeeData.employeeId,
         name: employeeData.name,
-        firstName: employeeData.firstName || "",
-        lastName: employeeData.lastName || "",
         email: employeeData.email,
         phone: employeeData.phone,
         department: employeeData.department,
@@ -185,6 +183,7 @@ export default function EmployeesPage() {
         rank: employeeData.rank,
         jobTitle: employeeData.jobTitle,
         militaryCivilian: employeeData.militaryCivilian,
+        vehicleType: employeeData.vehicleType,
       }
       
       if (selectedEmployee) {

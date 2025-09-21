@@ -3,6 +3,7 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.EmployeeDto;
 import com.vehiclemanagement.dto.EmployeeStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,12 +37,14 @@ public class EmployeeService {
     private ImageProcessingUtil imageProcessingUtil;
 
     public Page<EmployeeDto> getAllEmployees(Pageable pageable) {
-        return employeeRepository.findAll(pageable).map(EmployeeDto::new);
+        Page<Object[]> results = employeeRepository.findAllWithVehicleType(pageable);
+        return results.map(this::mapToEmployeeDto);
     }
 
     public List<EmployeeDto> getAllEmployeesList() {
-        return employeeRepository.findAll().stream()
-                .map(EmployeeDto::new)
+        List<Object[]> results = employeeRepository.findAllWithVehicleTypeList();
+        return results.stream()
+                .map(this::mapToEmployeeDto)
                 .collect(Collectors.toList());
     }
 
@@ -58,21 +61,21 @@ public class EmployeeService {
     }
 
     public Page<EmployeeDto> searchEmployees(String searchTerm, Pageable pageable) {
-        return employeeRepository.findByNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrEmployeeIdContainingIgnoreCase(
-                searchTerm, searchTerm, searchTerm, pageable)
-                .map(EmployeeDto::new);
+        Page<Object[]> results = employeeRepository.findByNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrEmployeeIdContainingIgnoreCaseWithVehicleType(
+                searchTerm, searchTerm, searchTerm, pageable);
+        return results.map(this::mapToEmployeeDto);
     }
 
     public Page<EmployeeDto> getEmployeesByDepartment(String department, Pageable pageable) {
-        return employeeRepository.findByDepartmentIgnoreCase(department, pageable)
-                .map(EmployeeDto::new);
+        Page<Object[]> results = employeeRepository.findByDepartmentIgnoreCaseWithVehicleType(department, pageable);
+        return results.map(this::mapToEmployeeDto);
     }
 
     public Page<EmployeeDto> getEmployeesByStatus(String status, Pageable pageable) {
         try {
-            Employee.EmployeeStatus employeeStatus = Employee.EmployeeStatus.valueOf(status.toLowerCase());
-            return employeeRepository.findByStatus(employeeStatus, pageable)
-                    .map(EmployeeDto::new);
+            Employee.EmployeeStatus employeeStatus = Employee.EmployeeStatus.valueOf(status.toUpperCase());
+            Page<Object[]> results = employeeRepository.findByStatusWithVehicleType(employeeStatus, pageable);
+            return results.map(this::mapToEmployeeDto);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid status: " + status);
         }
@@ -303,5 +306,12 @@ public class EmployeeService {
             newEmployeesThisMonth,
             newEmployeesThisYear
         );
+    }
+    
+    // Helper method to map Object[] to EmployeeDto
+    private EmployeeDto mapToEmployeeDto(Object[] result) {
+        Employee employee = (Employee) result[0];
+        Vehicle.VehicleType vehicleType = (Vehicle.VehicleType) result[1];
+        return new EmployeeDto(employee, vehicleType);
     }
 }

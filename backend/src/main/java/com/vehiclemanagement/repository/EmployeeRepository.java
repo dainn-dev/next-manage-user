@@ -63,4 +63,34 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     long countByDepartmentIgnoreCase(String department);
     
     Optional<Employee> findByName(String name);
+    
+    // New methods to get employees with vehicle information
+    @Query("SELECT e, v.vehicleType FROM Employee e " +
+           "LEFT JOIN Vehicle v ON e.id = v.employee.id")
+    Page<Object[]> findAllWithVehicleType(Pageable pageable);
+    
+    @Query("SELECT e, v.vehicleType FROM Employee e " +
+           "LEFT JOIN Vehicle v ON e.id = v.employee.id")
+    List<Object[]> findAllWithVehicleTypeList();
+    
+    @Query("SELECT e, v.vehicleType FROM Employee e " +
+           "LEFT JOIN Vehicle v ON e.id = v.employee.id " +
+           "WHERE LOWER(e.name) LIKE LOWER(CONCAT('%', :name, '%')) OR " +
+           "LOWER(e.email) LIKE LOWER(CONCAT('%', :email, '%')) OR " +
+           "LOWER(e.employeeId) LIKE LOWER(CONCAT('%', :employeeId, '%'))")
+    Page<Object[]> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCaseOrEmployeeIdContainingIgnoreCaseWithVehicleType(
+            @Param("name") String name, 
+            @Param("email") String email, 
+            @Param("employeeId") String employeeId, 
+            Pageable pageable);
+    
+    @Query("SELECT e, v.vehicleType FROM Employee e " +
+           "LEFT JOIN Vehicle v ON e.id = v.employee.id " +
+           "WHERE LOWER(e.department) = LOWER(:department)")
+    Page<Object[]> findByDepartmentIgnoreCaseWithVehicleType(@Param("department") String department, Pageable pageable);
+    
+    @Query("SELECT e, v.vehicleType FROM Employee e " +
+           "LEFT JOIN Vehicle v ON e.id = v.employee.id " +
+           "WHERE e.status = :status")
+    Page<Object[]> findByStatusWithVehicleType(@Param("status") Employee.EmployeeStatus status, Pageable pageable);
 }

@@ -34,8 +34,7 @@ export function UserForm({
     email: "",
     password: "",
     confirmPassword: "",
-    firstName: "",
-    lastName: "",
+    fullName: "",
     role: UserRole.USER,
     status: UserStatus.ACTIVE,
     employeeId: "",
@@ -53,8 +52,7 @@ export function UserForm({
         email: user.email || "",
         password: "",
         confirmPassword: "",
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
+        fullName: user.fullName || "",
         role: user.role || UserRole.USER,
         status: user.status || UserStatus.ACTIVE,
         employeeId: user.employeeId || "none",
@@ -65,8 +63,7 @@ export function UserForm({
         email: "",
         password: "",
         confirmPassword: "",
-        firstName: "",
-        lastName: "",
+        fullName: "",
         role: UserRole.USER,
         status: UserStatus.ACTIVE,
         employeeId: "none",
@@ -129,8 +126,7 @@ export function UserForm({
       const userData: CreateUserRequest | UpdateUserRequest = {
         username: formData.username.trim(),
         email: formData.email.trim(),
-        firstName: formData.firstName.trim() || undefined,
-        lastName: formData.lastName.trim() || undefined,
+        fullName: formData.fullName.trim() || undefined,
         role: formData.role,
         status: formData.status,
         employeeId: formData.employeeId === "none" ? undefined : formData.employeeId || undefined,
@@ -222,24 +218,14 @@ export function UserForm({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">Tên</Label>
+                  <Label htmlFor="fullName">Họ và Tên</Label>
                   <Input
-                    id="firstName"
-                    placeholder="Nhập tên"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange("firstName", e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Họ</Label>
-                  <Input
-                    id="lastName"
-                    placeholder="Nhập họ"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange("lastName", e.target.value)}
+                    id="fullName"
+                    placeholder="Nhập họ và tên đầy đủ"
+                    value={formData.fullName}
+                    onChange={(e) => handleInputChange("fullName", e.target.value)}
                   />
                 </div>
               </div>

@@ -134,10 +134,13 @@ export function Sidebar() {
 
   const getUserInitials = () => {
     if (!user) return "U"
-    const firstName = user.firstName || ""
-    const lastName = user.lastName || ""
-    if (firstName && lastName) {
-      return (firstName[0] + lastName[0]).toUpperCase()
+    if (user.fullName) {
+      const names = user.fullName.trim().split(' ')
+      if (names.length >= 2) {
+        return (names[0][0] + names[names.length - 1][0]).toUpperCase()
+      } else {
+        return names[0][0].toUpperCase()
+      }
     }
     return user.username[0].toUpperCase()
   }
@@ -344,8 +347,8 @@ export function Sidebar() {
           {!collapsed && (
             <div className="flex-1">
               <span className="text-sm font-medium text-sidebar-foreground">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}` 
+                {user?.fullName 
+                  ? user.fullName 
                   : user?.username || "Người dùng"}
               </span>
               <p className="text-xs text-muted-foreground">

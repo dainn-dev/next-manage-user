@@ -27,8 +27,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   const [formData, setFormData] = useState<Partial<Employee>>({
     employeeId: employee?.employeeId || "",
     name: employee?.name || "",
-    firstName: employee?.firstName || "",
-    lastName: employee?.lastName || "",
     email: employee?.email || "",
     phone: employee?.phone || "",
     department: employee?.department || "",
@@ -110,8 +108,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
       setFormData({
         employeeId: employee.employeeId || "",
         name: employee.name || "",
-        firstName: employee.firstName || "",
-        lastName: employee.lastName || "",
         email: employee.email || "",
         phone: employee.phone || "",
         department: employee.department || "",
@@ -142,8 +138,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
       setFormData({
         employeeId: "",
         name: "",
-        firstName: "",
-        lastName: "",
         email: "",
         phone: "",
         department: "",
@@ -198,23 +192,12 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   }, [filteredPositions, employee]);
 
   const handleInputChange = (field: keyof Employee, value: any) => {
-    setFormData((prev) => {
-      const newData = { ...prev, [field]: value }
-      
-      // Auto-generate full name from firstName + lastName
-      if (field === 'firstName' || field === 'lastName') {
-        const firstName = field === 'firstName' ? value : prev.firstName || ''
-        const lastName = field === 'lastName' ? value : prev.lastName || ''
-        newData.name = `${firstName} ${lastName}`.trim()
-      }
-      
-      return newData
-    })
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   const handleSubmit = async () => {
-    if (!formData.employeeId || !formData.firstName || !formData.lastName || !formData.position || !formData.department) {
-      alert("Vui lòng điền đầy đủ thông tin bắt buộc (ID Quân nhân, Họ, Tên, Chức vụ, Cơ quan đơn vị)")
+    if (!formData.employeeId || !formData.name || !formData.position || !formData.department) {
+      alert("Vui lòng điền đầy đủ thông tin bắt buộc (ID Quân nhân, Họ và Tên, Chức vụ, Cơ quan đơn vị)")
       return
     }
 
@@ -223,8 +206,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
       const savedEmployee = await onSave({
         employeeId: formData.employeeId!,
         name: formData.name!,
-        firstName: formData.firstName!,
-        lastName: formData.lastName!,
         email: formData.email || "",
         phone: formData.phone || "",
         department: formData.department!,
@@ -292,23 +273,14 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">Họ *</Label>
+                <Label htmlFor="name">Họ và Tên *</Label>
                 <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange("firstName", e.target.value)}
-                  placeholder="Họ"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Tên *</Label>
-                <Input 
-                  id="lastName" 
-                  value={formData.lastName} 
-                  onChange={(e) => handleInputChange("lastName", e.target.value)} 
-                  placeholder="Tên"
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  placeholder="Nhập họ và tên đầy đủ"
                 />
               </div>
             </div>
