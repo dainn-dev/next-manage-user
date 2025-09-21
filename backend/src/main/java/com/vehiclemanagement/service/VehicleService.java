@@ -8,6 +8,7 @@ import com.vehiclemanagement.dto.VehicleLogDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
+import com.vehiclemanagement.util.ImageProcessingUtil;
 // import com.vehiclemanagement.entity.EntryExitRequest; // Removed
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
@@ -28,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -46,6 +48,9 @@ public class VehicleService {
     
     @Autowired
     private WebSocketService webSocketService;
+    
+    @Autowired
+    private ImageProcessingUtil imageProcessingUtil;
     
     // @Autowired
     // private EntryExitRequestRepository entryExitRequestRepository; // Removed
@@ -409,12 +414,9 @@ public class VehicleService {
                 throw new IllegalArgumentException("File must be an image. Content type: " + contentType);
             }
             
-            // Generate unique filename
-            String originalFilename = imageFile.getOriginalFilename();
-            String fileExtension = originalFilename != null && originalFilename.contains(".") 
-                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                    : ".jpg";
-            String filename = "vehicle_" + vehicleId + "_" + System.currentTimeMillis() + fileExtension;
+            // Generate unique filename with correct extension
+            // Always use .jpg since ImageProcessingUtil converts all images to JPG
+            String filename = "vehicle_" + vehicleId + "_" + System.currentTimeMillis() + ".jpg";
             
             System.out.println("Generated filename: " + filename);
             
@@ -427,12 +429,14 @@ public class VehicleService {
                 Files.createDirectories(uploadDir);
             }
             
-            // Save file
+            // Process and save image (convert to JPG format)
             Path filePath = uploadDir.resolve(filename);
             System.out.println("Full file path: " + filePath.toAbsolutePath());
             
-            Files.copy(imageFile.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("File saved successfully");
+            // Process the image to ensure it's in JPG format and optimized
+            byte[] processedImageData = imageProcessingUtil.processImage(imageFile);
+            Files.write(filePath, processedImageData, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            System.out.println("Image processed and saved successfully as JPG");
             
             // Update vehicle with image path
             String imagePath = "/uploads/vehicles/" + filename;
