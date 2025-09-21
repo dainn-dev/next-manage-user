@@ -37,7 +37,6 @@ export const getImageUrl = (imagePath?: string) => {
   const normalizedPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`
   
   const fullUrl = `${baseUrl}${normalizedPath}`
-  console.log('🖼️ Image URL generated:', { imagePath, baseUrl, fullUrl })
   
   return fullUrl
 }

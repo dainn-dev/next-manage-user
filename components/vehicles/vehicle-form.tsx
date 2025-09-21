@@ -32,7 +32,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
     color: vehicle?.color || "",
     year: vehicle?.year || undefined,
     registrationDate: vehicle?.registrationDate || "",
-    status: vehicle?.status || "approved",
+    status: vehicle?.status || "rejected",
     notes: vehicle?.notes || "",
     imagePath: vehicle?.imagePath || "",
   })
@@ -58,15 +58,13 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
         color: vehicle.color || "",
         year: vehicle.year || undefined,
         registrationDate: vehicle.registrationDate || "",
-        status: vehicle.status || "approved",
+        status: vehicle.status || "rejected",
         notes: vehicle.notes || "",
         imagePath: vehicle.imagePath || "",
       })
-      setImagePreview(
-        vehicle.imagePath 
-          ? getImageUrl(vehicle.imagePath)
-          : null
-      )
+      
+      const imageUrl = vehicle.imagePath ? getImageUrl(vehicle.imagePath) : null
+      setImagePreview(imageUrl)
       setSelectedImage(null)
     } else {
       // Reset form for new vehicle
@@ -80,7 +78,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
         color: "",
         year: undefined,
         registrationDate: "",
-        status: "approved",
+        status: "rejected",
         notes: "",
         imagePath: "",
       })
@@ -167,7 +165,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
         color: formData.color,
         year: formData.year,
         registrationDate: formData.registrationDate || new Date().toISOString().split('T')[0],
-        status: formData.status || "approved",
+        status: formData.status || "rejected",
         notes: formData.notes,
         imagePath: formData.imagePath,
       }
@@ -349,6 +347,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
             {/* Image Upload Section */}
             <div className="space-y-2">
               <Label>Hình ảnh xe</Label>
+              
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                 {imagePreview ? (
                   <div className="relative">
@@ -356,6 +355,13 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
                       src={imagePreview}
                       alt="Vehicle preview"
                       className="w-full h-48 object-cover rounded-lg"
+                      onError={(e) => {
+                        // Try to reload the image after a short delay
+                        setTimeout(() => {
+                          const img = e.target as HTMLImageElement;
+                          img.src = img.src + '?t=' + Date.now();
+                        }, 1000);
+                      }}
                     />
                     <Button
                       type="button"

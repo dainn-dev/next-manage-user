@@ -41,7 +41,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     address: employee?.address || "",
     emergencyContact: employee?.emergencyContact || "",
     emergencyPhone: employee?.emergencyPhone || "",
-    status: employee?.status || "active",
+    status: employee?.status || "HOAT_DONG",
     accessLevel: employee?.accessLevel || "general",
     permissions: employee?.permissions || ["read"],
   })
@@ -124,7 +124,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         address: employee.address || "",
         emergencyContact: employee.emergencyContact || "",
         emergencyPhone: employee.emergencyPhone || "",
-        status: employee.status || "active",
+        status: employee.status || "HOAT_DONG",
         accessLevel: employee.accessLevel || "general",
         permissions: employee.permissions || ["read"],
       });
@@ -156,7 +156,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         address: "",
         emergencyContact: "",
         emergencyPhone: "",
-        status: "active",
+        status: "HOAT_DONG",
         accessLevel: "general",
         permissions: ["read"],
       });
@@ -237,7 +237,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         address: formData.address,
         emergencyContact: formData.emergencyContact,
         emergencyPhone: formData.emergencyPhone,
-        status: formData.status || "active",
+        status: formData.status || "HOAT_DONG",
         accessLevel: formData.accessLevel || "general",
         permissions: formData.permissions || ["read"],
       });
@@ -360,6 +360,23 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                         {dept.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="status">Trạng thái</Label>
+                <Select value={formData.status} onValueChange={(value) => handleInputChange("status", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
+                    <SelectItem value="TRANH_THU">Tranh thủ</SelectItem>
+                    <SelectItem value="PHEP">Phép</SelectItem>
+                    <SelectItem value="LY_DO_KHAC">Lý do Khác</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

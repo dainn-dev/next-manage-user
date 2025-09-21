@@ -86,7 +86,7 @@ public class Employee {
     
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    private EmployeeStatus status = EmployeeStatus.active;
+    private EmployeeStatus status = EmployeeStatus.HOAT_DONG;
     
     private String avatar;
     
@@ -125,7 +125,7 @@ public class Employee {
     }
     
     public enum EmployeeStatus {
-        active, inactive, terminated
+        HOAT_DONG, TRANH_THU, PHEP, LY_DO_KHAC
     }
     
     public enum AccessLevel {

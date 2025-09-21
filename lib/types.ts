@@ -18,7 +18,7 @@ export interface Employee {
   emergencyContact?: string
   emergencyPhone?: string
   salary?: number
-  status: "active" | "inactive" | "terminated"
+  status: "HOAT_DONG" | "TRANH_THU" | "PHEP" | "LY_DO_KHAC"
   avatar?: string
   accessLevel: "general" | "restricted" | "admin"
   permissions: string[]

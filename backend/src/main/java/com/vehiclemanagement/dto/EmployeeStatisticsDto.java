@@ -5,8 +5,9 @@ import java.util.Map;
 public class EmployeeStatisticsDto {
     private long totalEmployees;
     private long activeEmployees;
-    private long inactiveEmployees;
-    private long terminatedEmployees;
+    private long tranhThuEmployees;
+    private long phepEmployees;
+    private long lyDoKhacEmployees;
     private Map<String, Long> employeesByDepartment;
     private Map<String, Long> employeesByStatus;
     private Map<String, Long> employeesByAccessLevel;
@@ -17,14 +18,15 @@ public class EmployeeStatisticsDto {
     // Constructors
     public EmployeeStatisticsDto() {}
 
-    public EmployeeStatisticsDto(long totalEmployees, long activeEmployees, long inactiveEmployees, 
-                                long terminatedEmployees, Map<String, Long> employeesByDepartment,
+    public EmployeeStatisticsDto(long totalEmployees, long activeEmployees, long tranhThuEmployees, 
+                                long phepEmployees, long lyDoKhacEmployees, Map<String, Long> employeesByDepartment,
                                 Map<String, Long> employeesByStatus, Map<String, Long> employeesByAccessLevel,
                                 double averageAge, long newEmployeesThisMonth, long newEmployeesThisYear) {
         this.totalEmployees = totalEmployees;
         this.activeEmployees = activeEmployees;
-        this.inactiveEmployees = inactiveEmployees;
-        this.terminatedEmployees = terminatedEmployees;
+        this.tranhThuEmployees = tranhThuEmployees;
+        this.phepEmployees = phepEmployees;
+        this.lyDoKhacEmployees = lyDoKhacEmployees;
         this.employeesByDepartment = employeesByDepartment;
         this.employeesByStatus = employeesByStatus;
         this.employeesByAccessLevel = employeesByAccessLevel;
@@ -50,20 +52,28 @@ public class EmployeeStatisticsDto {
         this.activeEmployees = activeEmployees;
     }
 
-    public long getInactiveEmployees() {
-        return inactiveEmployees;
+    public long getTranhThuEmployees() {
+        return tranhThuEmployees;
     }
 
-    public void setInactiveEmployees(long inactiveEmployees) {
-        this.inactiveEmployees = inactiveEmployees;
+    public void setTranhThuEmployees(long tranhThuEmployees) {
+        this.tranhThuEmployees = tranhThuEmployees;
     }
 
-    public long getTerminatedEmployees() {
-        return terminatedEmployees;
+    public long getPhepEmployees() {
+        return phepEmployees;
     }
 
-    public void setTerminatedEmployees(long terminatedEmployees) {
-        this.terminatedEmployees = terminatedEmployees;
+    public void setPhepEmployees(long phepEmployees) {
+        this.phepEmployees = phepEmployees;
+    }
+
+    public long getLyDoKhacEmployees() {
+        return lyDoKhacEmployees;
+    }
+
+    public void setLyDoKhacEmployees(long lyDoKhacEmployees) {
+        this.lyDoKhacEmployees = lyDoKhacEmployees;
     }
 
     public Map<String, Long> getEmployeesByDepartment() {

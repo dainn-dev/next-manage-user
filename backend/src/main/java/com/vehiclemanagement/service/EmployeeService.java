@@ -100,7 +100,7 @@ public class EmployeeService {
         employee.setHireDate(employeeDto.getHireDate());
         employee.setBirthDate(employeeDto.getBirthDate());
         employee.setGender(employeeDto.getGender());
-        employee.setStatus(employeeDto.getStatus() != null ? employeeDto.getStatus() : Employee.EmployeeStatus.active);
+        employee.setStatus(employeeDto.getStatus() != null ? employeeDto.getStatus() : Employee.EmployeeStatus.HOAT_DONG);
         employee.setAccessLevel(employeeDto.getAccessLevel() != null ? employeeDto.getAccessLevel() : Employee.AccessLevel.general);
         employee.setAddress(employeeDto.getAddress());
         employee.setAvatar(employeeDto.getAvatar());
@@ -259,9 +259,10 @@ public class EmployeeService {
     // Statistics methods
     public EmployeeStatisticsDto getEmployeeStatistics() {
         long totalEmployees = employeeRepository.count();
-        long activeEmployees = employeeRepository.countByStatus(Employee.EmployeeStatus.active);
-        long inactiveEmployees = employeeRepository.countByStatus(Employee.EmployeeStatus.inactive);
-        long terminatedEmployees = employeeRepository.countByStatus(Employee.EmployeeStatus.terminated);
+        long activeEmployees = employeeRepository.countByStatus(Employee.EmployeeStatus.HOAT_DONG);
+        long tranhThuEmployees = employeeRepository.countByStatus(Employee.EmployeeStatus.TRANH_THU);
+        long phepEmployees = employeeRepository.countByStatus(Employee.EmployeeStatus.PHEP);
+        long lyDoKhacEmployees = employeeRepository.countByStatus(Employee.EmployeeStatus.LY_DO_KHAC);
         
         // Get employees by department
         List<Object[]> deptCounts = employeeRepository.countByDepartment();
@@ -272,9 +273,10 @@ public class EmployeeService {
         
         // Get employees by status
         Map<String, Long> employeesByStatus = new HashMap<>();
-        employeesByStatus.put("active", activeEmployees);
-        employeesByStatus.put("inactive", inactiveEmployees);
-        employeesByStatus.put("terminated", terminatedEmployees);
+        employeesByStatus.put("HOAT_DONG", activeEmployees);
+        employeesByStatus.put("TRANH_THU", tranhThuEmployees);
+        employeesByStatus.put("PHEP", phepEmployees);
+        employeesByStatus.put("LY_DO_KHAC", lyDoKhacEmployees);
         
         // Get employees by access level (simplified)
         Map<String, Long> employeesByAccessLevel = new HashMap<>();
@@ -291,8 +293,9 @@ public class EmployeeService {
         return new EmployeeStatisticsDto(
             totalEmployees,
             activeEmployees,
-            inactiveEmployees,
-            terminatedEmployees,
+            tranhThuEmployees,
+            phepEmployees,
+            lyDoKhacEmployees,
             employeesByDepartment,
             employeesByStatus,
             employeesByAccessLevel,

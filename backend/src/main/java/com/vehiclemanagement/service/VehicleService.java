@@ -479,7 +479,6 @@ public class VehicleService {
             // This handles cases where license plates may have different formatting (e.g., "ABC-123" vs "ABC123")
             Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber)
                     .orElse(null);
-            
             if (vehicle == null) {
                 String notFoundMessage = "Xe với biển số " + licensePlateNumber + " chưa được đăng ký trong hệ thống";
                 
@@ -506,17 +505,20 @@ public class VehicleService {
             
             String message;
             if (isApproved) {
+                // Get employee name for the message
+                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "Không xác định";
+                
                 // Update vehicle status based on type
                 if ("entry".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.entered);
                     vehicleRepository.save(vehicle);
-                    message = "Xe biển số " + licensePlateNumber + " được phép vào";
+                    message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " được phép vào cổng";
                 } else if ("exit".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.exited);
                     vehicleRepository.save(vehicle);
-                    message = "Xe biển số " + licensePlateNumber + " được phép ra";
+                    message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " được phép ra cổng";
                 } else {
-                    message = "Xe biển số " + licensePlateNumber + " được phép ra vào";
+                    message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " được phép ra vào cổng";
                 }
                 
                 // Create vehicle log entry for approved access
@@ -533,8 +535,10 @@ public class VehicleService {
                 }
                 
             } else {
+                // Get employee name for the denied message
+                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "Không xác định";
                 String statusText = getStatusText(vehicle.getStatus()) =="Entered" ? "đã vào" : "đã ra";
-                message = "Xe biển số " + licensePlateNumber + " không được phép ra vào (Trạng thái: " + statusText + ")";
+                message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " không được phép ra vào (Trạng thái: " + statusText + ")";
                 
                 // Send WebSocket message for denied access
                 webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message);

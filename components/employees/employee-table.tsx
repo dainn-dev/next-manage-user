@@ -73,16 +73,22 @@ export function EmployeeTable({
 
   const getStatusBadge = (status: Employee["status"]) => {
     switch (status) {
-      case "active":
+      case "HOAT_DONG":
         return (
           <Badge variant="default" className="bg-green-100 text-green-800">
             Hoạt động
           </Badge>
         )
-      case "inactive":
-        return <Badge variant="secondary">Không hoạt động</Badge>
-      case "terminated":
-        return <Badge variant="destructive">Đã nghỉ việc</Badge>
+      case "TRANH_THU":
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+          Tranh thủ
+        </Badge>
+      case "PHEP":
+        return <Badge variant="outline" className="bg-blue-100 text-blue-800">
+          Phép
+        </Badge>
+      case "LY_DO_KHAC":
+        return <Badge variant="destructive">Lý do Khác</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }

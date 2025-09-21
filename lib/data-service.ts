@@ -10,7 +10,6 @@ import type {
   VehicleMonthlyStats,
   DepartmentStatistics,
 } from "./types"
-import { mockEmployees, mockDepartments, mockAccessLevels, mockPositions } from "./mock-data"
 import { vehicleApi } from "./api/vehicle-api"
 import { employeeApi } from "./api/employee-api"
 import { vehicleStatisticsApi } from "./api/vehicle-statistics-api"
@@ -19,10 +18,6 @@ import { positionApi } from "./api/position-api"
 import { vehicleLogApi, type EmployeeVehicleInfo } from "./api/vehicle-log-api"
 
 class DataService {
-  private employees: Employee[] = [...mockEmployees]
-  private departments: Department[] = [...mockDepartments]
-  private accessLevels: AccessLevel[] = [...mockAccessLevels]
-  private positions: Position[] = [...mockPositions]
   
   // Cache for API data to prevent multiple calls
   private departmentsCache: Department[] | null = null
@@ -216,8 +211,8 @@ class DataService {
       
       return apiEmployees
     } catch (error) {
-      console.error('Failed to fetch employees from API, falling back to mock data:', error)
-      return this.employees
+      console.error('Failed to fetch employees from API:', error)
+      throw new Error('Unable to fetch employees data')
     }
   }
 
@@ -258,8 +253,8 @@ class DataService {
       
       return departments
     } catch (error) {
-      console.error('Failed to fetch departments from API, falling back to mock data:', error)
-      return this.departments
+      console.error('Failed to fetch departments from API:', error)
+      throw new Error('Unable to fetch departments data')
     }
   }
 
@@ -269,8 +264,7 @@ class DataService {
       return apiDepartment
     } catch (error) {
       console.error('Failed to fetch department:', error)
-      // Fallback to mock data
-      return this.departments.find((dept) => dept.id === id)
+      throw new Error(`Unable to fetch department with id: ${id}`)
     }
   }
 
@@ -284,15 +278,7 @@ class DataService {
       return apiResponse
     } catch (error) {
       console.error('Failed to create department:', error)
-      // Fallback to mock data behavior
-      const newDepartment: Department = {
-        ...department,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-      this.departments.push(newDepartment)
-      return newDepartment
+      throw new Error('Unable to create department')
     }
   }
 
@@ -310,16 +296,7 @@ class DataService {
       return apiResponse
     } catch (error) {
       console.error('Failed to update department:', error)
-      // Fallback to mock data behavior
-      const index = this.departments.findIndex((dept) => dept.id === id)
-      if (index === -1) return null
-
-      this.departments[index] = {
-        ...this.departments[index],
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      }
-      return this.departments[index]
+      throw new Error('Unable to update department')
     }
   }
 
@@ -333,12 +310,7 @@ class DataService {
       return true
     } catch (error) {
       console.error('Failed to delete department:', error)
-      // Fallback to mock data behavior
-      const index = this.departments.findIndex((dept) => dept.id === id)
-      if (index === -1) return false
-
-      this.departments.splice(index, 1)
-      return true
+      throw new Error('Unable to delete department')
     }
   }
 
@@ -347,12 +319,7 @@ class DataService {
       return await departmentApi.getDepartmentEmployees(departmentId)
     } catch (error) {
       console.error('Failed to fetch department employees:', error)
-      // Fallback to filtering mock employees by department name
-      const department = this.departments.find(d => d.id === departmentId)
-      if (department) {
-        return this.employees.filter(emp => emp.department === department.name)
-      }
-      return []
+      throw new Error('Unable to fetch department employees')
     }
   }
 
@@ -361,38 +328,30 @@ class DataService {
       return await departmentApi.getDepartmentStatistics()
     } catch (error) {
       console.error('Failed to fetch department statistics:', error)
-      // Fallback to calculated statistics
-      const total = this.departments.length
-      const totalEmployees = this.departments.reduce((sum, dept) => sum + dept.employeeCount, 0)
-      const avgEmployees = total > 0 ? totalEmployees / total : 0
-      
-      const largest = this.departments.reduce((max, dept) => 
-        dept.employeeCount > max.employeeCount ? dept : max, this.departments[0] || { name: '', employeeCount: 0 })
-
-      return {
-        totalDepartments: total,
-        totalEmployees,
-        averageEmployeesPerDepartment: Math.round(avgEmployees),
-        largestDepartment: {
-          name: largest.name,
-          employeeCount: largest.employeeCount,
-        },
-      }
+      throw new Error('Unable to fetch department statistics')
     }
   }
 
-  searchDepartments(query: string): Department[] {
-    const lowercaseQuery = query.toLowerCase()
-    return this.departments.filter(
-      (dept) =>
-        dept.name.toLowerCase().includes(lowercaseQuery) ||
-        (dept.description && dept.description.toLowerCase().includes(lowercaseQuery))
-    )
+  async searchDepartments(query: string): Promise<Department[]> {
+    try {
+      const departments = await this.getDepartments()
+      const lowercaseQuery = query.toLowerCase()
+      return departments.filter(
+        (dept) =>
+          dept.name.toLowerCase().includes(lowercaseQuery) ||
+          (dept.description && dept.description.toLowerCase().includes(lowercaseQuery))
+      )
+    } catch (error) {
+      console.error('Failed to search departments:', error)
+      throw new Error('Unable to search departments')
+    }
   }
 
   // Access level operations
-  getAccessLevels(): AccessLevel[] {
-    return this.accessLevels
+  async getAccessLevels(): Promise<AccessLevel[]> {
+    // Access levels are typically static configuration, but we can make this async for consistency
+    // If you need dynamic access levels, implement an API endpoint
+    throw new Error('Access levels functionality not implemented')
   }
 
   // Position operations
@@ -415,8 +374,7 @@ class DataService {
       return positions
     } catch (error) {
       console.error('Failed to fetch positions:', error)
-      // Fallback to mock data
-      return this.positions
+      throw new Error('Unable to fetch positions data')
     }
   }
 
@@ -426,8 +384,7 @@ class DataService {
       return apiPositions.map(pos => positionApi.convertToPosition(pos))
     } catch (error) {
       console.error('Failed to fetch positions with parent:', error)
-      // Fallback to regular positions
-      return this.getPositions()
+      throw new Error('Unable to fetch positions with parent data')
     }
   }
 
@@ -437,8 +394,7 @@ class DataService {
       return positionApi.convertToPosition(apiPosition)
     } catch (error) {
       console.error('Failed to fetch position:', error)
-      // Fallback to mock data
-      return this.positions.find((pos) => pos.id === id)
+      throw new Error(`Unable to fetch position with id: ${id}`)
     }
   }
 
@@ -460,16 +416,7 @@ class DataService {
       return newPosition
     } catch (error) {
       console.error('Failed to create position:', error)
-      // Fallback to mock data behavior
-      const newPosition: Position = {
-        ...position,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        childrenCount: 0,
-      }
-      this.positions.push(newPosition)
-      return newPosition
+      throw new Error('Unable to create position')
     }
   }
 
@@ -489,16 +436,7 @@ class DataService {
       return updatedPosition
     } catch (error) {
       console.error('Failed to update position:', error)
-      // Fallback to mock data behavior
-      const index = this.positions.findIndex((pos) => pos.id === id)
-      if (index === -1) return null
-
-      this.positions[index] = {
-        ...this.positions[index],
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      }
-      return this.positions[index]
+      throw new Error('Unable to update position')
     }
   }
 
@@ -512,12 +450,7 @@ class DataService {
       return true
     } catch (error) {
       console.error('Failed to delete position:', error)
-      // Fallback to mock data behavior
-      const index = this.positions.findIndex((pos) => pos.id === id)
-      if (index === -1) return false
-
-      this.positions.splice(index, 1)
-      return true
+      throw new Error('Unable to delete position')
     }
   }
 
@@ -527,7 +460,7 @@ class DataService {
       return apiPositions.map(pos => positionApi.convertToPosition(pos))
     } catch (error) {
       console.error('Failed to fetch positions by level:', error)
-      return this.positions.filter(pos => pos.level === level)
+      throw new Error('Unable to fetch positions by level')
     }
   }
 
@@ -537,7 +470,7 @@ class DataService {
       return apiPositions.map(pos => positionApi.convertToPosition(pos))
     } catch (error) {
       console.error('Failed to fetch active positions:', error)
-      return this.positions.filter(pos => pos.isActive)
+      throw new Error('Unable to fetch active positions')
     }
   }
 
@@ -547,7 +480,7 @@ class DataService {
       return apiPositions.map(pos => positionApi.convertToPosition(pos))
     } catch (error) {
       console.error('Failed to fetch root positions:', error)
-      return this.positions.filter(pos => !pos.parentId)
+      throw new Error('Unable to fetch root positions')
     }
   }
 
@@ -557,7 +490,7 @@ class DataService {
       return apiPositions.map(pos => positionApi.convertToPosition(pos))
     } catch (error) {
       console.error('Failed to fetch child positions:', error)
-      return this.positions.filter(pos => pos.parentId === parentId)
+      throw new Error('Unable to fetch child positions')
     }
   }
 
@@ -571,11 +504,7 @@ class DataService {
       return true
     } catch (error) {
       console.error('Failed to bulk delete positions:', error)
-      // Fallback to individual deletes
-      for (const id of positionIds) {
-        await this.deletePosition(id)
-      }
-      return true
+      throw new Error('Unable to bulk delete positions')
     }
   }
 
@@ -584,34 +513,23 @@ class DataService {
       return await positionApi.getPositionStatistics()
     } catch (error) {
       console.error('Failed to fetch position statistics:', error)
-      // Fallback to calculated statistics
-      const total = this.positions.length
-      const active = this.positions.filter(pos => pos.isActive).length
-      const inactive = total - active
-      const root = this.positions.filter(pos => !pos.parentId).length
-      
-      const byLevel: Record<string, number> = {}
-      this.positions.forEach(pos => {
-        byLevel[pos.levelDisplayName || pos.level] = (byLevel[pos.levelDisplayName || pos.level] || 0) + 1
-      })
-
-      return {
-        totalPositions: total,
-        activePositions: active,
-        inactivePositions: inactive,
-        rootPositions: root,
-        positionsByLevel: byLevel,
-      }
+      throw new Error('Unable to fetch position statistics')
     }
   }
 
-  searchPositions(query: string): Position[] {
-    const lowercaseQuery = query.toLowerCase()
-    return this.positions.filter(
-      (pos) =>
-        pos.name.toLowerCase().includes(lowercaseQuery) ||
-        (pos.description && pos.description.toLowerCase().includes(lowercaseQuery))
-    )
+  async searchPositions(query: string): Promise<Position[]> {
+    try {
+      const positions = await this.getPositions()
+      const lowercaseQuery = query.toLowerCase()
+      return positions.filter(
+        (pos) =>
+          pos.name.toLowerCase().includes(lowercaseQuery) ||
+          (pos.description && pos.description.toLowerCase().includes(lowercaseQuery))
+      )
+    } catch (error) {
+      console.error('Failed to search positions:', error)
+      throw new Error('Unable to search positions')
+    }
   }
 
   // Vehicle operations

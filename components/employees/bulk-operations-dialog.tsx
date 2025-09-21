@@ -209,9 +209,10 @@ export function BulkOperationsDialog({
                   <SelectValue placeholder="Chọn trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Hoạt động</SelectItem>
-                  <SelectItem value="inactive">Không hoạt động</SelectItem>
-                  <SelectItem value="terminated">Đã nghỉ việc</SelectItem>
+                  <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
+                  <SelectItem value="TRANH_THU">Tranh thủ</SelectItem>
+                  <SelectItem value="PHEP">Phép</SelectItem>
+                  <SelectItem value="LY_DO_KHAC">Lý do Khác</SelectItem>
                 </SelectContent>
               </Select>
             </div>

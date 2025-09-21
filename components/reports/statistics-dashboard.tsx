@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Users, Building2, UserCheck, Clock } from "lucide-react"
+import { Users, Building2, UserCheck, Clock, UserX, Calendar } from "lucide-react"
 import type { Employee, Department } from "@/lib/types"
 
 interface StatisticsDashboardProps {
@@ -11,16 +11,17 @@ interface StatisticsDashboardProps {
 }
 
 export function StatisticsDashboard({ employees, departments }: StatisticsDashboardProps) {
-  const activeEmployees = employees.filter((emp) => emp.status === "active").length
-  const inactiveEmployees = employees.filter((emp) => emp.status === "inactive").length
-  const terminatedEmployees = employees.filter((emp) => emp.status === "terminated").length
+  const activeEmployees = employees.filter((emp) => emp.status === "HOAT_DONG").length
+  const tranhThuEmployees = employees.filter((emp) => emp.status === "TRANH_THU").length
+  const phepEmployees = employees.filter((emp) => emp.status === "PHEP").length
+  const lyDoKhacEmployees = employees.filter((emp) => emp.status === "LY_DO_KHAC").length
   const totalDepartments = departments.length
 
   const departmentStats = departments
     .map((dept) => ({
       name: dept.name,
       employeeCount: employees.filter((emp) => emp.department === dept.name).length,
-      activeCount: employees.filter((emp) => emp.department === dept.name && emp.status === "active").length,
+      activeCount: employees.filter((emp) => emp.department === dept.name && emp.status === "HOAT_DONG").length,
     }))
     .sort((a, b) => b.employeeCount - a.employeeCount)
 
@@ -42,7 +43,7 @@ export function StatisticsDashboard({ employees, departments }: StatisticsDashbo
           <CardContent>
             <div className="text-2xl font-bold">{employees.length}</div>
             <p className="text-xs text-muted-foreground">
-              {activeEmployees} hoạt động, {inactiveEmployees + terminatedEmployees} không hoạt động
+              {activeEmployees} hoạt động, {tranhThuEmployees} tranh thủ, {phepEmployees} phép, {lyDoKhacEmployees} lý do khác
             </p>
           </CardContent>
         </Card>
@@ -62,6 +63,32 @@ export function StatisticsDashboard({ employees, departments }: StatisticsDashbo
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tranh thủ</CardTitle>
+            <UserX className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">{tranhThuEmployees}</div>
+            <p className="text-xs text-muted-foreground">
+              {((tranhThuEmployees / employees.length) * 100).toFixed(1)}% tổng số
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Phép</CardTitle>
+            <Calendar className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{phepEmployees}</div>
+            <p className="text-xs text-muted-foreground">
+              {((phepEmployees / employees.length) * 100).toFixed(1)}% tổng số
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng Cơ quan, đơn vị</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -73,13 +100,13 @@ export function StatisticsDashboard({ employees, departments }: StatisticsDashbo
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nghỉ việc</CardTitle>
+            <CardTitle className="text-sm font-medium">Lý do Khác</CardTitle>
             <Clock className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{terminatedEmployees}</div>
+            <div className="text-2xl font-bold text-red-600">{lyDoKhacEmployees}</div>
             <p className="text-xs text-muted-foreground">
-              {((terminatedEmployees / employees.length) * 100).toFixed(1)}% tổng số
+              {((lyDoKhacEmployees / employees.length) * 100).toFixed(1)}% tổng số
             </p>
           </CardContent>
         </Card>

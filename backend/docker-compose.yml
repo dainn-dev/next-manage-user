@@ -44,6 +44,8 @@ services:
       - file_storage:/app/temp
       # Volume for CSV templates and exports
       - csv_storage:/app/csv
+      # Volume for uploaded images
+      - uploads_storage:/app/uploads
     networks:
       - vehicle-management-network
     restart: unless-stopped
@@ -52,6 +54,7 @@ volumes:
   postgres_data:
   file_storage:
   csv_storage:
+  uploads_storage:
 
 networks:
   vehicle-management-network:
