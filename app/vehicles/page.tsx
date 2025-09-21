@@ -14,8 +14,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Download, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings } from "lucide-react"
+import { Search, Download, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings, Filter } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
 
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -37,6 +38,9 @@ export default function VehiclesPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [sortBy, setSortBy] = useState('createdAt')
   const [sortDir, setSortDir] = useState('desc')
+  
+  // Filter bar state
+  const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
   
   const { toast } = useToast()
 
@@ -270,12 +274,27 @@ export default function VehiclesPage() {
   }
 
   const handleExport = () => {
-    // Export functionality to be implemented
-    alert("Tính năng xuất dữ liệu sẽ được triển khai sau")
-    toast({
-      title: "Thông báo",
-      description: "Tính năng xuất dữ liệu đang được phát triển",
-    })
+    try {
+      const filename = `danh_sach_xe_${new Date().toISOString().split('T')[0]}`
+      const success = exportVehiclesToExcel(vehicles, filename)
+      
+       if (success) {
+         toast({
+           title: "Xuất file thành công",
+           description: `Đã xuất ${vehicles.length} xe ra file CSV (có thể mở bằng Excel)`,
+           variant: "default",
+         })
+       } else {
+         throw new Error('Export failed')
+       }
+     } catch (error) {
+       console.error('Export error:', error)
+       toast({
+         title: "Lỗi xuất file",
+         description: "Có lỗi xảy ra khi xuất dữ liệu. Vui lòng thử lại.",
+         variant: "destructive",
+       })
+     }
   }
 
   const getStatistics = () => {
@@ -362,10 +381,10 @@ export default function VehiclesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Quản lý xe</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Quản lý xe</h1>
           <p className="text-muted-foreground text-lg">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
         </div>
-        <Button onClick={handleAddNew}>
+        <Button onClick={handleAddNew} className="shadow-sm hover:shadow-md transition-all duration-200">
           <Plus className="h-4 w-4 mr-2" />
           Thêm xe mới
         </Button>
@@ -388,10 +407,10 @@ export default function VehiclesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Đã duyệt</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.approved}</div>
+            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
             <p className="text-xs text-muted-foreground">
               Xe được phép hoạt động
             </p>
@@ -400,10 +419,10 @@ export default function VehiclesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Đã ra</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.exited}</div>
+            <div className="text-2xl font-bold text-blue-600">{stats.exited}</div>
             <p className="text-xs text-muted-foreground">
               Xe đã rời khỏi khu vực
             </p>
@@ -412,10 +431,10 @@ export default function VehiclesPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tỷ lệ duyệt</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
+            <Settings className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-purple-600">
               {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">
@@ -426,88 +445,129 @@ export default function VehiclesPage() {
       </div>
 
       {/* Search and Filter Bar */}
-      <div className="bg-white border rounded-lg p-6 mb-6 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Search Section */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Search className="h-4 w-4" />
-              Tìm kiếm
-            </Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Nhập biển số, chủ xe, loại xe..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              />
-            </div>
-          </div>
-
-          {/* Status Filter */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Trạng thái
-            </Label>
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-              <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                <SelectValue placeholder="Chọn trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">🚗 Tất cả</SelectItem>
-                <SelectItem value="approved">✅ Duyệt</SelectItem>
-                <SelectItem value="rejected">❌ Không được phép</SelectItem>
-                <SelectItem value="exited">🚪 Đã ra</SelectItem>
-                <SelectItem value="entered">🏠 Đã vào</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Type Filter */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Car className="h-4 w-4" />
-              Loại xe
-            </Label>
-            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)}>
-              <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                <SelectValue placeholder="Chọn loại xe" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">🚗 Tất cả</SelectItem>
-                <SelectItem value="car">🚗 Ô tô</SelectItem>
-                <SelectItem value="motorbike">🏍️ Xe máy</SelectItem>
-                <SelectItem value="truck">🚛 Xe tải</SelectItem>
-                <SelectItem value="bus">🚌 Xe bus</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3 mt-6 pt-4 border-t border-gray-100">
-          <Button variant="outline" size="sm" onClick={() => loadData()} className="flex items-center gap-2">
+      <div className="bg-white border rounded-lg mb-6 shadow-sm">
+        {/* Action Buttons - Inline */}
+        <div className="flex flex-wrap gap-4 p-6 border-b border-gray-100 bg-gray-50/50">
+          <Button
+            variant={isFilterBarOpen ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
+            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
+          >
+            <Filter className="h-4 w-4" />
+            {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+            {isFilterBarOpen ? (
+              <span className="ml-1 text-sm">▼</span>
+            ) : (
+              <span className="ml-1 text-sm">▶</span>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => loadData()} 
+            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
+          >
             <RefreshCw className="h-4 w-4" />
             Làm mới dữ liệu
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExport} className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleExport} 
+            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
+          >
             <Download className="h-4 w-4" />
             Xuất Excel
           </Button>
         </div>
+
+        {/* Collapsible Filter Content */}
+        {isFilterBarOpen && (
+          <div className="p-6 bg-white">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
+              <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm xe theo tiêu chí cụ thể</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Search Section */}
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Search className="h-4 w-4 text-blue-600" />
+                  Tìm kiếm
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Nhập biển số, chủ xe, loại xe..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  Trạng thái
+                </Label>
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
+                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">🚗 Tất cả</SelectItem>
+                    <SelectItem value="approved">✅ Duyệt</SelectItem>
+                    <SelectItem value="rejected">❌ Không được phép</SelectItem>
+                    <SelectItem value="exited">🚪 Đã ra</SelectItem>
+                    <SelectItem value="entered">🏠 Đã vào</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Type Filter */}
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Car className="h-4 w-4 text-purple-600" />
+                  Loại xe
+                </Label>
+                <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)}>
+                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                    <SelectValue placeholder="Chọn loại xe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">🚗 Tất cả</SelectItem>
+                    <SelectItem value="car">🚗 Ô tô</SelectItem>
+                    <SelectItem value="motorbike">🏍️ Xe máy</SelectItem>
+                    <SelectItem value="truck">🚛 Xe tải</SelectItem>
+                    <SelectItem value="bus">🚌 Xe bus</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Bar */}
       {selectedVehicles.length > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg mb-6">
-          <Badge variant="secondary">
-            {selectedVehicles.length} đã chọn
-          </Badge>
-          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+              {selectedVehicles.length} xe đã chọn
+            </Badge>
+          </div>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            onClick={handleBulkDelete}
+            className="shadow-sm hover:shadow-md transition-all duration-200"
+          >
             <Trash2 className="h-4 w-4 mr-2" />
-            Xóa
+            Xóa đã chọn
           </Button>
         </div>
       )}

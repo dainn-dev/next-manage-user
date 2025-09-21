@@ -18,7 +18,6 @@ interface ExportOptions {
   format: string
   includeHeaders: boolean
   encoding: string
-  password?: string
   encryptFile: boolean
   maxRecords: number
 }
@@ -28,7 +27,6 @@ export function ExportDialog({ isOpen, onClose, onExport }: ExportDialogProps) {
     format: "EXCEL",
     includeHeaders: true,
     encoding: "UTF-8",
-    password: "",
     encryptFile: false,
     maxRecords: 100000,
   })
@@ -42,20 +40,10 @@ export function ExportDialog({ isOpen, onClose, onExport }: ExportDialogProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Xuất mẫu sinh trắc học</DialogTitle>
+          <DialogTitle>Xuất báo cáo</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-3">
-            <Label>Mật khẩu người dùng</Label>
-            <Input
-              type="password"
-              value={exportOptions.password}
-              onChange={(e) => setExportOptions((prev) => ({ ...prev, password: e.target.value }))}
-              placeholder="Nhập mật khẩu"
-            />
-          </div>
-
           <div className="space-y-3">
             <Label>Mã hóa tập tin</Label>
             <Input

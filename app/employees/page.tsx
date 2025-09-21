@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Search, Download, Plus, RefreshCw, Trash2, Users, TrendingUp, UserCheck, Edit, Shield, Crown, Briefcase } from "lucide-react"
+import { Search, Download, Plus, RefreshCw, Trash2, Users, TrendingUp, UserCheck, Edit, Shield, Crown, Briefcase, Filter } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { exportEmployeesToExcel } from "@/lib/utils/excel-export"
 
 export default function EmployeesPage() {
   const searchParams = useSearchParams()
@@ -27,11 +28,12 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "terminated">("all")
+  const [statusFilter, setStatusFilter] = useState<"all" | "HOAT_DONG" | "TRANH_THU" | "PHEP" | "LY_DO_KHAC">("all")
   const [departmentFilter, setDepartmentFilter] = useState<"all" | string>("all")
   const [rankFilter, setRankFilter] = useState<"all" | string>("all")
   const [positionFilter, setPositionFilter] = useState<"all" | string>("all")
   const [militaryCivilianFilter, setMilitaryCivilianFilter] = useState<"all" | string>("all")
+  const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -239,18 +241,35 @@ export default function EmployeesPage() {
   }
 
   const handleExport = () => {
-    // Export functionality to be implemented
-    toast({
-      title: "Thông báo",
-      description: "Tính năng xuất dữ liệu đang được phát triển",
-    })
+    try {
+      const filename = `danh_sach_nhan_vien_${new Date().toISOString().split('T')[0]}`
+      const success = exportEmployeesToExcel(employees, filename)
+      
+       if (success) {
+         toast({
+           title: "Xuất file thành công",
+           description: `Đã xuất ${employees.length} nhân viên ra file CSV (có thể mở bằng Excel)`,
+           variant: "default",
+         })
+       } else {
+         throw new Error('Export failed')
+       }
+     } catch (error) {
+       console.error('Export error:', error)
+       toast({
+         title: "Lỗi xuất file",
+         description: "Có lỗi xảy ra khi xuất dữ liệu. Vui lòng thử lại.",
+         variant: "destructive",
+       })
+     }
   }
 
   const getStatistics = () => {
     const total = employees.length
-    const active = employees.filter(emp => emp.status === "active").length
-    const inactive = employees.filter(emp => emp.status === "inactive").length
-    const terminated = employees.filter(emp => emp.status === "terminated").length
+    const active = employees.filter(emp => emp.status === "HOAT_DONG").length
+    const tranhThu = employees.filter(emp => emp.status === "TRANH_THU").length
+    const phep = employees.filter(emp => emp.status === "PHEP").length
+    const lyDoKhac = employees.filter(emp => emp.status === "LY_DO_KHAC").length
     const avgAge = employees.length > 0 ? 
       Math.round(employees.reduce((sum, emp) => {
         if (emp.birthDate) {
@@ -260,7 +279,7 @@ export default function EmployeesPage() {
         return sum
       }, 0) / employees.filter(emp => emp.birthDate).length) : 0
 
-    return { total, active, inactive, terminated, avgAge }
+    return { total, active, tranhThu, phep, lyDoKhac, avgAge }
   }
 
   if (loading) {
@@ -306,10 +325,10 @@ export default function EmployeesPage() {
   return (
     <div className="p-8 bg-background min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Quản lý Quân nhân</h1>
-          <p className="text-muted-foreground text-lg">Quản lý thông tin và hoạt động của quân nhân trong đơn vị</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">Quản lý Quân nhân</h1>
+            <p className="text-muted-foreground text-lg">Quản lý thông tin và hoạt động của quân nhân trong đơn vị</p>
           {/* Show filter indicator */}
           {(searchParams.get('position') || searchParams.get('department')) && (
             <div className="mt-2 flex items-center gap-2">
@@ -341,7 +360,7 @@ export default function EmployeesPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng quân nhân</CardTitle>
@@ -368,18 +387,6 @@ export default function EmployeesPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tuổi trung bình</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgAge || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Tuổi TB của quân nhân
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tỷ lệ hoạt động</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -395,51 +402,96 @@ export default function EmployeesPage() {
       </div>
 
        {/* Search and Filter Bar */}
-       <div className="bg-white border rounded-lg p-6 mb-6 shadow-sm">
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+       <div className="bg-white border rounded-lg mb-6 shadow-sm">
+         {/* Action Buttons - Inline */}
+         <div className="flex flex-wrap gap-4 p-6 border-b border-gray-100 bg-gray-50/50">
+           <Button
+             variant={isFilterBarOpen ? "default" : "outline"}
+             size="sm"
+             onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
+             className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
+           >
+             <Filter className="h-4 w-4" />
+             {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+             {isFilterBarOpen ? (
+               <span className="ml-1 text-sm">▼</span>
+             ) : (
+               <span className="ml-1 text-sm">▶</span>
+             )}
+           </Button>
+           <Button 
+             variant="outline" 
+             size="sm" 
+             onClick={loadData} 
+             className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
+           >
+             <RefreshCw className="h-4 w-4" />
+             Làm mới dữ liệu
+           </Button>
+           <Button 
+             variant="outline" 
+             size="sm" 
+             onClick={handleExport} 
+             className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
+           >
+             <Download className="h-4 w-4" />
+             Xuất Excel
+           </Button>
+         </div>
+
+         {/* Collapsible Filter Content */}
+         {isFilterBarOpen && (
+           <div className="p-6 bg-white">
+             <div className="mb-4">
+               <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
+               <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm quân nhân theo tiêu chí cụ thể</p>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
           {/* Search Section */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Search className="h-4 w-4" />
+              <Search className="h-4 w-4 text-blue-600" />
               Tìm kiếm
             </Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Nhập tên, mã, email, đơn vị..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
               />
             </div>
           </div>
 
           {/* Status Filter */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <UserCheck className="h-4 w-4" />
+              <UserCheck className="h-4 w-4 text-green-600" />
               Trạng thái
             </Label>
             <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-              <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
                 <SelectValue placeholder="Chọn trạng thái" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">🔄 Tất cả</SelectItem>
-                <SelectItem value="active">✅ Hoạt động</SelectItem>
-                <SelectItem value="inactive">⏸️ Không hoạt động</SelectItem>
-              </SelectContent>
+               <SelectContent>
+                 <SelectItem value="all">🔄 Tất cả</SelectItem>
+                 <SelectItem value="HOAT_DONG">✅ Hoạt động</SelectItem>
+                 <SelectItem value="TRANH_THU">⏸️ Tranh thủ</SelectItem>
+                 <SelectItem value="PHEP">📅 Phép</SelectItem>
+                 <SelectItem value="LY_DO_KHAC">❌ Lý do khác</SelectItem>
+               </SelectContent>
             </Select>
           </div>
 
           {/* Department Filter */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 text-purple-600" />
               Đơn vị
             </Label>
             <Select value={departmentFilter} onValueChange={(value) => setDepartmentFilter(value)}>
-              <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+              <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
                 <SelectValue placeholder="Chọn đơn vị" />
               </SelectTrigger>
               <SelectContent>
@@ -453,16 +505,16 @@ export default function EmployeesPage() {
             </Select>
            </div>
 
-           {/* Rank Filter */}
-           <div className="space-y-2">
-             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-               <Crown className="h-4 w-4" />
-               Cấp bậc
-             </Label>
-             <Select value={rankFilter} onValueChange={(value) => setRankFilter(value)}>
-               <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                 <SelectValue placeholder="Chọn cấp bậc" />
-               </SelectTrigger>
+            {/* Rank Filter */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Crown className="h-4 w-4 text-yellow-600" />
+                Cấp bậc
+              </Label>
+              <Select value={rankFilter} onValueChange={(value) => setRankFilter(value)}>
+                <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                  <SelectValue placeholder="Chọn cấp bậc" />
+                </SelectTrigger>
                <SelectContent>
                  <SelectItem value="all">🎖️ Tất cả cấp bậc</SelectItem>
                  {Array.from(new Set(employees.map(emp => emp.rank).filter(Boolean))).map((rank) => (
@@ -474,16 +526,16 @@ export default function EmployeesPage() {
              </Select>
            </div>
 
-           {/* Position Filter */}
-           <div className="space-y-2">
-             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-               <Briefcase className="h-4 w-4" />
-               Chức vụ
-             </Label>
-             <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value)}>
-               <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                 <SelectValue placeholder="Chọn chức vụ" />
-               </SelectTrigger>
+            {/* Position Filter */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Briefcase className="h-4 w-4 text-indigo-600" />
+                Chức vụ
+              </Label>
+              <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value)}>
+                <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                  <SelectValue placeholder="Chọn chức vụ" />
+                </SelectTrigger>
                <SelectContent>
                  <SelectItem value="all">💼 Tất cả chức vụ</SelectItem>
                  {Array.from(new Set(employees.map(emp => emp.position).filter(Boolean))).map((position) => (
@@ -495,48 +547,45 @@ export default function EmployeesPage() {
              </Select>
            </div>
 
-           {/* Military/Civilian Filter */}
-           <div className="space-y-2">
-             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-               <Shield className="h-4 w-4" />
-               SQ/QNCN
-             </Label>
-             <Select value={militaryCivilianFilter} onValueChange={(value) => setMilitaryCivilianFilter(value)}>
-               <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                 <SelectValue placeholder="Chọn loại" />
-               </SelectTrigger>
+            {/* Military/Civilian Filter */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-red-600" />
+                SQ/QNCN
+              </Label>
+              <Select value={militaryCivilianFilter} onValueChange={(value) => setMilitaryCivilianFilter(value)}>
+                <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                  <SelectValue placeholder="Chọn loại" />
+                </SelectTrigger>
                <SelectContent>
                  <SelectItem value="all">👥 Tất cả</SelectItem>
                  <SelectItem value="SQ">👥 Sĩ Quan</SelectItem>
                  <SelectItem value="QNCN">👥 QNCN</SelectItem>
                </SelectContent>
              </Select>
+             </div>
+             </div>
            </div>
-         </div>
-
-         {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3 mt-6 pt-4 border-t border-gray-100">
-          <Button variant="outline" size="sm" onClick={loadData} className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Làm mới dữ liệu
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExport} className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Xuất Excel
-          </Button>
-
-        </div>
-      </div>
+         )}
+       </div>
 
       {/* Action Bar */}
       {selectedEmployees.length > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg mb-6">
-          <Badge variant="secondary">
-            {selectedEmployees.length} đã chọn
-          </Badge>
-          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+              {selectedEmployees.length} quân nhân đã chọn
+            </Badge>
+          </div>
+          <Button 
+            variant="destructive" 
+            size="sm" 
+            onClick={handleBulkDelete}
+            className="shadow-sm hover:shadow-md transition-all duration-200"
+          >
             <Trash2 className="h-4 w-4 mr-2" />
-            Xóa
+            Xóa đã chọn
           </Button>
         </div>
       )}

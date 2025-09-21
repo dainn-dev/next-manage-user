@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Filter, Download, Car as CarIcon, MoreHorizontal, Edit, Trash2, Eye, Check, X } from "lucide-react"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { getImageUrl } from "@/lib/api/config"
 
 interface VehicleTableProps {
   vehicles: Vehicle[]
@@ -54,6 +56,8 @@ export function VehicleTable({
   const [statusFilter, setStatusFilter] = useState("")
   const [showAdvancedExport, setShowAdvancedExport] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showImagePreview, setShowImagePreview] = useState(false)
+  const [previewVehicle, setPreviewVehicle] = useState<Vehicle | null>(null)
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -69,6 +73,11 @@ export function VehicleTable({
     } else {
       setSelectedVehicles((prev) => prev.filter((id) => id !== vehicleId))
     }
+  }
+
+  const handleImagePreview = (vehicle: Vehicle) => {
+    setPreviewVehicle(vehicle)
+    setShowImagePreview(true)
   }
 
   // Client-side filtering for current page
@@ -198,6 +207,26 @@ export function VehicleTable({
                             const menu = document.getElementById(`menu-${vehicle.id}`)
                             if (menu) {
                               menu.classList.remove('hidden')
+                              
+                              // Smart positioning: check if we're near the end of the table
+                              const tableBody = menu.closest('tbody')
+                              const allRows = tableBody?.querySelectorAll('tr')
+                              const currentRow = menu.closest('tr')
+                              const currentIndex = currentRow ? Array.from(allRows || []).indexOf(currentRow) : -1
+                              const totalRows = allRows?.length || 0
+                              
+                              // Show menu above if we're in the last 3 rows of the table
+                              const isNearEnd = currentIndex >= totalRows - 3
+                              
+                              if (isNearEnd) {
+                                menu.style.top = 'auto'
+                                menu.style.bottom = '100%'
+                                menu.style.marginBottom = '4px'
+                              } else {
+                                menu.style.top = '100%'
+                                menu.style.bottom = 'auto'
+                                menu.style.marginBottom = '0'
+                              }
                             }
                           }}
                           onMouseLeave={() => {
@@ -220,6 +249,11 @@ export function VehicleTable({
                           <div
                             id={`menu-${vehicle.id}`}
                             className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md transition-all duration-150"
+                            style={{
+                              // Initial positioning - will be adjusted dynamically
+                              top: '100%',
+                              bottom: 'auto'
+                            }}
                             onMouseEnter={() => {
                               // Keep menu open when hovering over it
                               const menu = document.getElementById(`menu-${vehicle.id}`)
@@ -258,6 +292,20 @@ export function VehicleTable({
                               >
                                 <Check className="h-4 w-4 mr-2" />
                                 Duyệt
+                              </div>
+                            )}
+
+                            {/* Image Preview Action */}
+                            {vehicle.imagePath && (
+                              <div
+                                className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                                onClick={() => {
+                                  handleImagePreview(vehicle)
+                                  document.getElementById(`menu-${vehicle.id}`)?.classList.add('hidden')
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Xem ảnh xe
                               </div>
                             )}
 
@@ -372,6 +420,70 @@ export function VehicleTable({
           }}
         />
       )}
+
+      {/* Image Preview Dialog */}
+      <Dialog open={showImagePreview} onOpenChange={setShowImagePreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">
+              Ảnh xe - {previewVehicle?.licensePlate}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4">
+            {previewVehicle?.imagePath ? (
+              <div className="relative w-full max-w-2xl">
+                <img
+                  src={getImageUrl(previewVehicle.imagePath) || ''}
+                  alt={`Ảnh xe ${previewVehicle.licensePlate}`}
+                  className="w-full h-auto rounded-lg shadow-lg"
+                  onError={(e) => {
+                    const img = e.target as HTMLImageElement;
+                    img.src = '/placeholder.jpg';
+                    img.alt = 'Không thể tải ảnh';
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center space-y-2 text-muted-foreground">
+                <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                  <CarIcon className="h-8 w-8" />
+                </div>
+                <p>Không có ảnh xe</p>
+              </div>
+            )}
+            
+            {/* Vehicle Info */}
+            {previewVehicle && (
+              <div className="w-full max-w-2xl p-4 bg-muted/50 rounded-lg">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium">Biển số:</span>
+                    <p className="text-muted-foreground">{previewVehicle.licensePlate}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Chủ xe:</span>
+                    <p className="text-muted-foreground">{previewVehicle.employeeName}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Loại xe:</span>
+                    <p className="text-muted-foreground">{getVehicleTypeLabel(previewVehicle.vehicleType)}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Trạng thái:</span>
+                    <div className="mt-1">{getStatusBadge(previewVehicle.status)}</div>
+                  </div>
+                  {previewVehicle.brand && previewVehicle.model && (
+                    <div className="col-span-2">
+                      <span className="font-medium">Hãng/Model:</span>
+                      <p className="text-muted-foreground">{previewVehicle.brand} {previewVehicle.model}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

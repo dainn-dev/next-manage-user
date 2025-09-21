@@ -115,7 +115,7 @@ export function EmployeeTable({
               <TableHead>Cấp bậc</TableHead>
               <TableHead>Chức vụ</TableHead>
               <TableHead>SQ/QNCN</TableHead>
-              <TableHead>Chế độ xác minh</TableHead>
+              <TableHead>Trạng thái</TableHead>
               <TableHead className="w-32">Hoạt động</TableHead>
             </TableRow>
           </TableHeader>
@@ -149,23 +149,74 @@ export function EmployeeTable({
                   <TableCell>{employee.militaryCivilian || "-"}</TableCell>
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">              
-                      <div className="relative">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="relative group"
+                        onMouseEnter={() => {
+                          const menu = document.getElementById(`menu-${employee.id}`)
+                          if (menu) {
+                            menu.classList.remove('hidden')
+                            
+                            // Smart positioning: check if we're near the end of the table
+                            const tableBody = menu.closest('tbody')
+                            const allRows = tableBody?.querySelectorAll('tr')
+                            const currentRow = menu.closest('tr')
+                            const currentIndex = currentRow ? Array.from(allRows || []).indexOf(currentRow) : -1
+                            const totalRows = allRows?.length || 0
+                            
+                            // Show menu above if we're in the last 3 rows of the table
+                            const isNearEnd = currentIndex >= totalRows - 3
+                            
+                            if (isNearEnd) {
+                              menu.style.top = 'auto'
+                              menu.style.bottom = '100%'
+                              menu.style.marginBottom = '4px'
+                            } else {
+                              menu.style.top = '100%'
+                              menu.style.bottom = 'auto'
+                              menu.style.marginBottom = '0'
+                            }
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          // Add small delay before hiding
+                          setTimeout(() => {
+                            const menu = document.getElementById(`menu-${employee.id}`)
+                            if (menu && !menu.matches(':hover')) {
+                              menu.classList.add('hidden')
+                            }
+                          }, 200)
+                        }}
+                      >
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => {
-                            const menu = document.getElementById(`menu-${employee.id}`)
-                            if (menu) {
-                              menu.classList.toggle('hidden')
-                            }
-                          }}
+                          className="h-8 w-8 p-0 group-hover:bg-accent transition-colors duration-150"
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                         <div 
                           id={`menu-${employee.id}`}
-                          className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                          className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md transition-all duration-150"
+                          style={{
+                            // Initial positioning - will be adjusted dynamically
+                            top: '100%',
+                            bottom: 'auto'
+                          }}
+                          onMouseEnter={() => {
+                            // Keep menu open when hovering over it
+                            const menu = document.getElementById(`menu-${employee.id}`)
+                            if (menu) {
+                              menu.classList.remove('hidden')
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            // Hide menu when leaving
+                            const menu = document.getElementById(`menu-${employee.id}`)
+                            if (menu) {
+                              menu.classList.add('hidden')
+                            }
+                          }}
                         >
                           <div 
                             className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"

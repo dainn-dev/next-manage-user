@@ -72,6 +72,9 @@ export default function UsersPage() {
     regularUsers: 0,
   })
 
+  // Filter bar state
+  const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
+
   const { user: currentUser } = useAuth()
   const { toast } = useToast()
 
@@ -335,15 +338,15 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Quản lý người dùng</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Quản lý người dùng</h1>
           <p className="text-muted-foreground text-lg">Quản lý tài khoản người dùng và quyền hạn trong hệ thống</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+          <Button variant="outline" onClick={handleRefresh} disabled={loading} className="shadow-sm hover:shadow-md transition-all duration-200">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Làm mới
           </Button>
-          <Button onClick={() => setIsFormOpen(true)}>
+          <Button onClick={() => setIsFormOpen(true)} className="shadow-sm hover:shadow-md transition-all duration-200">
             <Plus className="h-4 w-4 mr-2" />
             Thêm người dùng
           </Button>
@@ -359,6 +362,9 @@ export default function UsersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statistics.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Tài khoản trong hệ thống
+            </p>
           </CardContent>
         </Card>
 
@@ -369,6 +375,9 @@ export default function UsersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{statistics.activeUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Người dùng đang hoạt động
+            </p>
           </CardContent>
         </Card>
 
@@ -379,6 +388,9 @@ export default function UsersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{statistics.adminUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Có quyền quản trị
+            </p>
           </CardContent>
         </Card>
 
@@ -389,104 +401,146 @@ export default function UsersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{statistics.lockedUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Tài khoản bị khóa
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters and Search */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Filter className="h-5 w-5" />
-            <span>Bộ lọc và tìm kiếm</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Tìm kiếm</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Tìm theo tên, email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+      {/* Search and Filter Bar */}
+      <div className="bg-white border rounded-lg mb-6 shadow-sm">
+        {/* Action Buttons - Inline */}
+        <div className="flex flex-wrap gap-4 p-6 border-b border-gray-100 bg-gray-50/50">
+          <Button
+            variant={isFilterBarOpen ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
+            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
+          >
+            <Filter className="h-4 w-4" />
+            {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+            {isFilterBarOpen ? (
+              <span className="ml-1 text-sm">▼</span>
+            ) : (
+              <span className="ml-1 text-sm">▶</span>
+            )}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Làm mới dữ liệu
+          </Button>
+        </div>
+
+        {/* Collapsible Filter Content */}
+        {isFilterBarOpen && (
+          <div className="p-6 bg-white">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
+              <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm người dùng theo tiêu chí cụ thể</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Search className="h-4 w-4 text-blue-600" />
+                  Tìm kiếm
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Tìm theo tên, email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-purple-600" />
+                  Vai trò
+                </Label>
+                <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as "all" | UserRole)}>
+                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                    <SelectValue placeholder="Tất cả vai trò" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">👥 Tất cả vai trò</SelectItem>
+                    <SelectItem value={UserRole.USER}>👤 Người dùng</SelectItem>
+                    <SelectItem value={UserRole.ADMIN}>🛡️ Quản trị viên</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-green-600" />
+                  Trạng thái
+                </Label>
+                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | UserStatus)}>
+                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                    <SelectValue placeholder="Tất cả trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">🔄 Tất cả trạng thái</SelectItem>
+                    <SelectItem value={UserStatus.ACTIVE}>✅ Hoạt động</SelectItem>
+                    <SelectItem value={UserStatus.INACTIVE}>⏸️ Không hoạt động</SelectItem>
+                    <SelectItem value={UserStatus.LOCKED}>🔒 Bị khóa</SelectItem>
+                    <SelectItem value={UserStatus.SUSPENDED}>⏳ Tạm khóa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold text-gray-700">&nbsp;</Label>
+                <Button 
+                  variant="outline" 
+                  onClick={clearFilters} 
+                  className="w-full h-11 border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-lg shadow-sm transition-all duration-200"
+                >
+                  🗑️ Xóa bộ lọc
+                </Button>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label>Vai trò</Label>
-              <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as "all" | UserRole)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tất cả vai trò" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả vai trò</SelectItem>
-                  <SelectItem value={UserRole.USER}>Người dùng</SelectItem>
-                  <SelectItem value={UserRole.ADMIN}>Quản trị viên</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Trạng thái</Label>
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | UserStatus)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tất cả trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                  <SelectItem value={UserStatus.ACTIVE}>Hoạt động</SelectItem>
-                  <SelectItem value={UserStatus.INACTIVE}>Không hoạt động</SelectItem>
-                  <SelectItem value={UserStatus.LOCKED}>Bị khóa</SelectItem>
-                  <SelectItem value={UserStatus.SUSPENDED}>Tạm khóa</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>&nbsp;</Label>
-              <Button variant="outline" onClick={clearFilters} className="w-full">
-                Xóa bộ lọc
-              </Button>
-            </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
       {/* Bulk Actions */}
       {selectedUsers.length > 0 && (
-        <Card className="mb-6">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Badge variant="secondary">
-                  {selectedUsers.length} người dùng đã chọn
-                </Badge>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsBulkDialogOpen(true)}
-                >
-                  <MoreHorizontal className="h-4 w-4 mr-2" />
-                  Thao tác hàng loạt
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedUsers([])}
-                >
-                  Bỏ chọn
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+              {selectedUsers.length} người dùng đã chọn
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsBulkDialogOpen(true)}
+              className="shadow-sm hover:shadow-md transition-all duration-200"
+            >
+              <MoreHorizontal className="h-4 w-4 mr-2" />
+              Thao tác hàng loạt
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedUsers([])}
+              className="shadow-sm hover:shadow-md transition-all duration-200"
+            >
+              Bỏ chọn
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Users Table */}

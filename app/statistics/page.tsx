@@ -13,18 +13,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Download, RefreshCw, Users, Building2, Car, Shield, TrendingUp, Activity, UserCheck, Building, Briefcase } from "lucide-react"
+import { exportStatisticsToExcel } from "@/lib/utils/excel-export"
+import { useToast } from "@/hooks/use-toast"
 
 export default function StatisticsPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [positions, setPositions] = useState<Position[]>([])
+  const [vehicles, setVehicles] = useState<any[]>([])
   const [vehicleStatistics, setVehicleStatistics] = useState<VehicleStatistics | null>(null)
   const [userStatistics, setUserStatistics] = useState<UserStatistics | null>(null)
   const [positionStatistics, setPositionStatistics] = useState<PositionStatistics | null>(null)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     loadData()
@@ -34,11 +38,12 @@ export default function StatisticsPage() {
     try {
       setLoading(true)
       setError(null)
-      const [employeesData, departmentsData, usersData, positionsData, vehicleStats, userStats, positionStats] = await Promise.all([
+      const [employeesData, departmentsData, usersData, positionsData, vehiclesData, vehicleStats, userStats, positionStats] = await Promise.all([
         dataService.getEmployees(),
         Promise.resolve(dataService.getDepartments()),
         userApi.getAllUsersList().catch(() => []),
         positionApi.getAllPositionsList().then(positions => positions.map(p => positionApi.convertToPosition(p))).catch(() => []),
+        dataService.getVehicles(0, 1000).then(response => response.vehicles).catch(() => []),
         dataService.getVehicleStatistics(),
         userApi.getUserStatistics().catch(() => null),
         positionApi.getPositionStatistics().catch(() => null)
@@ -47,6 +52,7 @@ export default function StatisticsPage() {
       setDepartments(departmentsData)
       setUsers(usersData)
       setPositions(positionsData)
+      setVehicles(vehiclesData)
       setVehicleStatistics(vehicleStats)
       setUserStatistics(userStats)
       setPositionStatistics(positionStats)
@@ -59,8 +65,40 @@ export default function StatisticsPage() {
   }
 
   const handleExport = (options: any) => {
-    // Simulate export process
-    alert(`Đang xuất dữ liệu định dạng ${options.format}...`)
+    try {
+      const filename = `bao_cao_thong_ke_${new Date().toISOString().split('T')[0]}`
+      
+      // Prepare data for export
+      const exportData = {
+        employees,
+        vehicles,
+        departments,
+        users,
+        positions,
+        vehicleStats: vehicleStatistics,
+        userStats: userStatistics,
+        positionStats: positionStatistics
+      }
+      
+      const success = exportStatisticsToExcel(exportData, filename)
+      
+      if (success) {
+        toast({
+          title: "Xuất báo cáo thành công",
+          description: "Đã xuất báo cáo thống kê tổng quan ra file CSV (có thể mở bằng Excel)",
+          variant: "default",
+        })
+      } else {
+        throw new Error('Export failed')
+      }
+    } catch (error) {
+      console.error('Export error:', error)
+      toast({
+        title: "Lỗi xuất báo cáo",
+        description: "Có lỗi xảy ra khi xuất báo cáo. Vui lòng thử lại.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleRefresh = () => {
@@ -215,7 +253,7 @@ export default function StatisticsPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm">Quân nhân hoạt động</span>
                   <Badge variant="default" className="bg-green-100 text-green-800">
-                    {safeEmployees.filter(e => e.status === 'active').length} / {safeEmployees.length}
+                    {safeEmployees.filter(e => e.status === 'HOAT_DONG').length} / {safeEmployees.length}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
