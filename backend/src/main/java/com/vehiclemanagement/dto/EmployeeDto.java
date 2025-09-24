@@ -3,6 +3,7 @@ package com.vehiclemanagement.dto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Vehicle;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -37,8 +38,6 @@ public class EmployeeDto {
     
     @NotBlank(message = "Department is required")
     private String department;
-    
-    private UUID departmentId;
     private String position;
     private UUID positionId;
     private String rank;
@@ -69,7 +68,6 @@ public class EmployeeDto {
         this.email = employee.getEmail();
         this.phone = employee.getPhone();
         this.department = employee.getDepartment();
-        this.departmentId = employee.getDepartmentId();
         this.position = employee.getPosition();
         this.positionId = employee.getPositionId();
         this.rank = employee.getRank();

@@ -49,11 +49,11 @@ export default function EmployeesPage() {
     if (positionParam) {
       setPositionFilter(positionParam)
     }
-    
     if (positionIdParam) {
-      setPositionFilter(positionIdParam)
+      // We need to find the position name from the ID
+      // For now, we'll handle this in the filterEmployees function
+      console.log('Position ID from URL:', positionIdParam)
     }
-    
     if (departmentParam) {
       setDepartmentFilter(departmentParam)
     }
@@ -63,15 +63,6 @@ export default function EmployeesPage() {
     filterEmployees()
   }, [employees, searchTerm, statusFilter, departmentFilter, rankFilter, positionFilter, militaryCivilianFilter, searchParams])
 
-  // Handle positionId API call
-  useEffect(() => {
-    const positionIdParam = searchParams.get('positionId')
-    
-    if (positionIdParam) {
-      loadEmployeesByPositionId(positionIdParam)
-    }
-  }, [searchParams])
-
   const loadData = async () => {
     try {
       setLoading(true)
@@ -80,89 +71,28 @@ export default function EmployeesPage() {
       
       // Always load all employees from the existing API endpoint
       const employeesData = await employeeApi.getAllEmployeesList()
+      const departmentsData = await Promise.resolve(dataService.getDepartments()) // Keep departments from mock for now
       
-      // Extract unique departments from employee data
-      const departmentMap = new Map()
-      employeesData.forEach(emp => {
-        if (emp.department) {
-          const key = emp.department
-          if (!departmentMap.has(key)) {
-            departmentMap.set(key, {
-              id: emp.departmentId || `dept-${departmentMap.size}`,
-              name: emp.department,
-              description: `Department: ${emp.department}`,
-              employeeCount: 0,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            })
-          }
-          departmentMap.get(key).employeeCount++
-        }
-      })
-      const uniqueDepartments = Array.from(departmentMap.values())
+      // Log departments for debugging
+      console.log("Loaded departments:", departmentsData.map(d => d.name));
+      
+      // Log sample employee data to check if positionId is populated
+      if (employeesData.length > 0) {
+        console.log("Sample employee data:", {
+          name: employeesData[0].name,
+          position: employeesData[0].position,
+          positionId: employeesData[0].positionId
+        });
+      }
       
       setEmployees(employeesData)
-      setDepartments(uniqueDepartments)
+      setDepartments(departmentsData)
     } catch (err) {
       setError('Không thể tải dữ liệu nhân viên')
       console.error('Error loading employees data:', err)
       toast({
         title: "Lỗi",
         description: "Không thể tải dữ liệu nhân viên",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadEmployeesByPositionId = async (positionId: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const { employeeApi } = await import("@/lib/api/employee-api")
-      
-      // Use the new API endpoint to get employees by position ID
-      const response = await employeeApi.getEmployeesByPositionId(positionId)
-      const employeesData = response.content
-      
-      // Extract unique departments from the filtered employee data
-      const departmentMap = new Map()
-      employeesData.forEach(emp => {
-        if (emp.department) {
-          const key = emp.department
-          if (!departmentMap.has(key)) {
-            departmentMap.set(key, {
-              id: emp.departmentId || `dept-${departmentMap.size}`,
-              name: emp.department,
-              description: `Department: ${emp.department}`,
-              employeeCount: 0,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            })
-          }
-          departmentMap.get(key).employeeCount++
-        }
-      })
-      const uniqueDepartments = Array.from(departmentMap.values())
-      
-      setEmployees(employeesData)
-      setDepartments(uniqueDepartments)
-      
-      // Clear other filters when using positionId
-      setSearchTerm("")
-      setStatusFilter("all")
-      setDepartmentFilter("all")
-      setRankFilter("all")
-      setPositionFilter("all")
-      setMilitaryCivilianFilter("all")
-      
-    } catch (err) {
-      setError('Không thể tải dữ liệu nhân viên theo chức vụ')
-      console.error('Error loading employees by position ID:', err)
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải dữ liệu nhân viên theo chức vụ",
         variant: "destructive",
       })
     } finally {
@@ -178,22 +108,28 @@ export default function EmployeesPage() {
     const positionIdParam = searchParams.get('positionId')
     const departmentParam = searchParams.get('department')
     
-    // Skip filtering if we're using positionId API call
+    if (positionParam) {
+      filtered = filtered.filter(emp => 
+        emp.position === positionParam || emp.jobTitle === positionParam
+      )
+    }
+    
     if (positionIdParam) {
-      // When using positionId API, we already have the filtered results
-      // Just apply local filters (search, status, etc.)
-      filtered = [...employees]
-    } else {
-      // Apply URL parameter filters for other cases
-      if (positionParam) {
-        filtered = filtered.filter(emp => 
-          emp.position === positionParam || emp.jobTitle === positionParam
-        )
-      }
-      
-      if (departmentParam) {
-        filtered = filtered.filter(emp => emp.department === departmentParam)
-      }
+      // Filter by positionId - we need to match the positionId field in the employee data
+      console.log('Filtering by positionId:', positionIdParam)
+      console.log('Employees before positionId filter:', filtered.length)
+      filtered = filtered.filter(emp => {
+        const matches = emp.positionId === positionIdParam
+        if (matches) {
+          console.log('Found matching employee:', emp.name, 'positionId:', emp.positionId)
+        }
+        return matches
+      })
+      console.log('Employees after positionId filter:', filtered.length)
+    }
+    
+    if (departmentParam) {
+      filtered = filtered.filter(emp => emp.department === departmentParam)
     }
 
     // Search filter
@@ -246,20 +182,9 @@ export default function EmployeesPage() {
         const { employeeApi } = await import("@/lib/api/employee-api")
         await employeeApi.deleteEmployee(employeeId)
         await loadData()
-        
-        // Show success toast
-        toast({
-          title: "Xóa thành công",
-          description: "Nhân viên đã được xóa thành công!",
-        })
       } catch (err) {
         setError('Không thể xóa nhân viên')
         console.error('Error deleting employee:', err)
-        toast({
-          title: "Lỗi",
-          description: "Không thể xóa nhân viên",
-          variant: "destructive",
-        })
       }
     }
   }
@@ -276,9 +201,8 @@ export default function EmployeesPage() {
         email: employeeData.email,
         phone: employeeData.phone,
         department: employeeData.department,
-        departmentId: employeeData.departmentId || "",
         position: employeeData.position,
-        positionId: employeeData.positionId || "",
+        positionId: employeeData.positionId,
         hireDate: employeeData.hireDate,
         birthDate: employeeData.birthDate,
         gender: employeeData.gender,
@@ -298,31 +222,38 @@ export default function EmployeesPage() {
       
       if (selectedEmployee) {
         savedEmployee = await employeeApi.updateEmployee(selectedEmployee.id, apiEmployeeData)
+        toast({
+          variant: "success",
+          title: "Cập nhật thành công",
+          description: "Thông tin nhân viên đã được cập nhật thành công.",
+        })
       } else {
         savedEmployee = await employeeApi.createEmployee(apiEmployeeData)
+        toast({
+          variant: "success",
+          title: "Tạo mới thành công",
+          description: "Nhân viên mới đã được thêm vào hệ thống.",
+        })
       }
       
       await loadData()
-      
-      // Show success toast
-      toast({
-        title: selectedEmployee ? "Cập nhật thành công" : "Tạo mới thành công",
-        description: selectedEmployee 
-          ? `Đã cập nhật thông tin nhân viên ${savedEmployee.name}` 
-          : `Đã tạo mới nhân viên ${savedEmployee.name}`,
-      })
-      
       setIsFormOpen(false)
       setSelectedEmployee(undefined)
       return savedEmployee
     } catch (err) {
       setError('Không thể lưu nhân viên')
       console.error('Error saving employee:', err)
+      
+      // Show error toast
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
       toast({
-        title: "Lỗi",
-        description: "Không thể lưu thông tin nhân viên",
         variant: "destructive",
+        title: "Lỗi lưu thông tin",
+        description: selectedEmployee 
+          ? "Không thể cập nhật thông tin nhân viên. Vui lòng thử lại sau."
+          : "Không thể tạo mới nhân viên. Vui lòng thử lại sau.",
       })
+      
       throw err
     }
   }
@@ -643,6 +574,27 @@ export default function EmployeesPage() {
                  {Array.from(new Set(employees.map(emp => emp.rank).filter(Boolean))).map((rank) => (
                    <SelectItem key={rank} value={rank!}>
                      {rank}
+                   </SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+           </div>
+
+            {/* Position Filter */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Briefcase className="h-4 w-4 text-indigo-600" />
+                Chức vụ
+              </Label>
+              <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value)}>
+                <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
+                  <SelectValue placeholder="Chọn chức vụ" />
+                </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="all">💼 Tất cả chức vụ</SelectItem>
+                 {Array.from(new Set(employees.map(emp => emp.position).filter(Boolean))).map((position) => (
+                   <SelectItem key={position} value={position!}>
+                     {position}
                    </SelectItem>
                  ))}
                </SelectContent>

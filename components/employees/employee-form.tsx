@@ -33,7 +33,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     email: employee?.email || "",
     phone: employee?.phone || "",
     department: employee?.department || "",
-    departmentId: employee?.departmentId || "",
     position: employee?.position || "",
     positionId: employee?.positionId || "",
     rank: employee?.rank || "",
@@ -120,7 +119,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         email: employee.email || "",
         phone: employee.phone || "",
         department: employee.department || "",
-        departmentId: employee.departmentId || "",
         position: employee.position || "",
         positionId: employee.positionId || "",
         rank: employee.rank || "",
@@ -158,7 +156,6 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         email: "",
         phone: "",
         department: "",
-        departmentId: "",
         position: "",
         positionId: "",
         rank: "",
@@ -228,15 +225,15 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
       return
     }
 
+
     try {
-      // Save employee data first
-      const savedEmployee = await onSave({
+      // Debug: Log the data being sent
+      const employeeData = {
         employeeId: formData.employeeId!,
         name: formData.name!,
         email: formData.email || "",
         phone: formData.phone || "",
         department: formData.department!,
-        departmentId: formData.departmentId || "",
         position: formData.position!,
         positionId: formData.positionId || "",
         rank: formData.rank || "",
@@ -250,7 +247,13 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: formData.status || "HOAT_DONG",
         accessLevel: formData.accessLevel || "general",
         permissions: formData.permissions || ["read"],
-      });
+      };
+      
+      console.log("🚀 Sending employee data to backend:", employeeData);
+      console.log("🚀 Department being sent:", employeeData.department);
+      
+      // Save employee data first
+      const savedEmployee = await onSave(employeeData);
 
       // Upload image if selected
       if (selectedImageFile && savedEmployee) {
@@ -405,9 +408,23 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               <div className="space-y-2">
                 <Label htmlFor="department">Cơ quan, đơn vị *</Label>
                 <Select value={formData.department} onValueChange={(value) => {
+                  console.log("🔍 Department selection triggered with value:", value);
+                  console.log("🔍 Available departments:", departments.map(d => d.name));
+                  
                   const selectedDept = departments.find(dept => dept.name === value);
-                  handleInputChange("department", value);
-                  handleInputChange("departmentId", selectedDept?.id || "");
+                  console.log("🔍 Found selected department:", selectedDept);
+                  
+                  if (selectedDept) {
+                    handleInputChange("department", value);
+                    console.log("✅ Selected department:", selectedDept.name);
+                  } else {
+                    console.error("❌ Department not found:", value);
+                    toast({
+                      title: "Lỗi",
+                      description: "Không tìm thấy đơn vị được chọn. Vui lòng thử lại.",
+                      variant: "destructive",
+                    });
+                  }
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Department Name" />

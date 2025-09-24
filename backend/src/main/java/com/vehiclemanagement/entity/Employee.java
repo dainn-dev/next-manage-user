@@ -48,9 +48,6 @@ public class Employee {
     @NotBlank(message = "Department is required")
     private String department;
     
-    @Column(name = "department_id")
-    private UUID departmentId;
-    
     private String position;
     
     @Column(name = "position_id")

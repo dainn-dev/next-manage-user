@@ -100,7 +100,6 @@ public class EmployeeService {
         employee.setEmail(employeeDto.getEmail());
         employee.setPhone(employeeDto.getPhone());
         employee.setDepartment(employeeDto.getDepartment());
-        employee.setDepartmentId(employeeDto.getDepartmentId());
         employee.setPosition(employeeDto.getPosition());
         employee.setPositionId(employeeDto.getPositionId());
         employee.setRank(employeeDto.getRank());
@@ -140,7 +139,6 @@ public class EmployeeService {
         existingEmployee.setEmail(employeeDto.getEmail());
         existingEmployee.setPhone(employeeDto.getPhone());
         existingEmployee.setDepartment(employeeDto.getDepartment());
-        existingEmployee.setDepartmentId(employeeDto.getDepartmentId());
         existingEmployee.setPosition(employeeDto.getPosition());
         existingEmployee.setPositionId(employeeDto.getPositionId());
         existingEmployee.setRank(employeeDto.getRank());

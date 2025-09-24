@@ -114,11 +114,7 @@ public class DepartmentService {
         }
         
         // Check if department has employees
-        long employeeCount = employeeRepository.countByDepartmentId(id);
-        // Also check by name for backward compatibility
-        if (employeeCount == 0) {
-            employeeCount = employeeRepository.countByDepartment(department.getName());
-        }
+        long employeeCount = employeeRepository.countByDepartment(department.getName());
         if (employeeCount > 0) {
             throw new IllegalStateException("Cannot delete department with employees. Please reassign employees first.");
         }
@@ -174,13 +170,8 @@ public class DepartmentService {
         Department department = departmentRepository.findById(departmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + departmentId));
         
-        // Try to get employees by department ID first (new way)
-        List<Employee> employees = employeeRepository.findByDepartmentId(departmentId);
-        
-        // If no employees found by ID, try by department name (backward compatibility)
-        if (employees.isEmpty()) {
-            employees = employeeRepository.findByDepartment(department.getName());
-        }
+        // Get employees by department name
+        List<Employee> employees = employeeRepository.findByDepartment(department.getName());
         
         return employees;
     }
@@ -282,11 +273,7 @@ public class DepartmentService {
         Department department = departmentRepository.findById(departmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + departmentId));
         
-        long employeeCount = employeeRepository.countByDepartmentId(departmentId);
-        // Also check by name for backward compatibility
-        if (employeeCount == 0) {
-            employeeCount = employeeRepository.countByDepartment(department.getName());
-        }
+        long employeeCount = employeeRepository.countByDepartment(department.getName());
         department.setEmployeeCount((int) employeeCount);
         departmentRepository.save(department);
     }
