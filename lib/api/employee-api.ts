@@ -21,7 +21,9 @@ export interface EmployeeCreateRequest {
   email: string
   phone: string
   department: string
+  departmentId?: string
   position: string
+  positionId?: string
   hireDate: string
   birthDate?: string
   gender?: string
@@ -219,6 +221,23 @@ class EmployeeApiService {
     return this.request<EmployeeApiResponse>(`/status/${status}?${params}`)
   }
 
+  // Get employees by position ID
+  async getEmployeesByPositionId(
+    positionId: string,
+    page: number = 0,
+    size: number = 10,
+    sortBy: string = 'createdAt',
+    sortDir: string = 'desc'
+  ): Promise<EmployeeApiResponse> {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      size: size.toString(),
+      sort: `${sortBy},${sortDir}`
+    })
+    
+    return this.request<EmployeeApiResponse>(`/position/${positionId}?${params}`)
+  }
+
   // Create new employee
   async createEmployee(employee: EmployeeCreateRequest): Promise<Employee> {
     return this.request<Employee>('', {
@@ -264,16 +283,50 @@ class EmployeeApiService {
 
   // Upload employee image
   async uploadEmployeeImage(id: string, imageFile: File): Promise<Employee> {
+    console.log("API: Starting image upload request");
+    console.log("API: Employee ID:", id);
+    console.log("API: Image file:", {
+      name: imageFile.name,
+      size: imageFile.size,
+      type: imageFile.type
+    });
+
     const formData = new FormData()
     formData.append('image', imageFile)
 
-    return this.request<Employee>(`/${id}/upload-image`, {
+    const url = `${this.baseUrl}/${id}/upload-image`
+    console.log("API: Upload URL:", url);
+    
+    // For FormData, we need to make a direct request without the normal request method
+    // to avoid adding Content-Type headers that would interfere with the boundary
+    const authHeaders = authApi.getAuthHeaders();
+    console.log("API: Original auth headers:", authHeaders);
+    
+    // Remove Content-Type from auth headers to let browser set it for FormData
+    const { 'Content-Type': _, ...headersWithoutContentType } = authHeaders;
+    console.log("API: Headers without Content-Type:", headersWithoutContentType);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        // Don't set Content-Type for FormData, let browser set it with boundary
+        ...headersWithoutContentType,
+        // Don't set Content-Type - let browser set it with boundary for FormData
       },
       body: formData,
     })
+
+    console.log("API: Response status:", response.status);
+    console.log("API: Response headers:", Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("API: Upload failed with error:", errorText);
+      throw new Error(`Upload failed: ${response.status} ${errorText}`)
+    }
+
+    const result = await response.json();
+    console.log("API: Upload successful, result:", result);
+    return result;
   }
 
   // Bulk operations

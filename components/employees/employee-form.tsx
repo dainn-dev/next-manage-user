@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useToast } from "@/hooks/use-toast"
 import type { Employee, Department, Position } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { positionApi, type PositionApiResponse } from "@/lib/api/position-api"
+import { X } from "lucide-react"
 
 interface EmployeeFormProps {
   employee?: Employee
@@ -20,6 +22,7 @@ interface EmployeeFormProps {
 }
 
 export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }: EmployeeFormProps) {
+  const { toast } = useToast()
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
   const [sqQncnOptions, setSqQncnOptions] = useState<PositionApiResponse[]>([])
   const [filteredPositions, setFilteredPositions] = useState<PositionApiResponse[]>([])
@@ -30,7 +33,9 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     email: employee?.email || "",
     phone: employee?.phone || "",
     department: employee?.department || "",
+    departmentId: employee?.departmentId || "",
     position: employee?.position || "",
+    positionId: employee?.positionId || "",
     rank: employee?.rank || "",
     militaryCivilian: employee?.militaryCivilian || "",
     hireDate: employee?.hireDate || "",
@@ -42,6 +47,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     status: employee?.status || "HOAT_DONG",
     accessLevel: employee?.accessLevel || "general",
     permissions: employee?.permissions || ["read"],
+    avatar: employee?.avatar || "",
   })
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -67,7 +73,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   }
 
 
-  const loadFilteredPositions = async (sqQncnSelection: string) => {
+  const loadFilteredPositions = useCallback(async (sqQncnSelection: string) => {
     if (!sqQncnSelection) {
       setFilteredPositions([])
       return
@@ -96,7 +102,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
     } finally {
       setLoadingFilteredPositions(false)
     }
-  }
+  }, [sqQncnOptions])
 
 
 
@@ -104,6 +110,9 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
   useEffect(() => {
     // Employee prop changed
     if (employee) {
+      console.log("Employee data received:", employee);
+      console.log("Employee avatar:", employee.avatar);
+      
       // Setting form data for existing employee
       setFormData({
         employeeId: employee.employeeId || "",
@@ -111,7 +120,9 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         email: employee.email || "",
         phone: employee.phone || "",
         department: employee.department || "",
+        departmentId: employee.departmentId || "",
         position: employee.position || "",
+        positionId: employee.positionId || "",
         rank: employee.rank || "",
         militaryCivilian: employee.militaryCivilian || "",
         hireDate: employee.hireDate || "",
@@ -123,15 +134,21 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: employee.status || "HOAT_DONG",
         accessLevel: employee.accessLevel || "general",
         permissions: employee.permissions || ["read"],
+        avatar: employee.avatar || "",
       });
       
-      // Load filtered positions for the militaryCivilian value if editing employee
-      if (employee.militaryCivilian) {
-        loadFilteredPositions(employee.militaryCivilian)
-      }
+      // Note: Filtered positions will be loaded by useEffect when sqQncnOptions are ready
       
+      // Set image preview for existing employee
+      if (employee.avatar) {
+        const fullImageUrl = getFullImageUrl(employee.avatar);
+        console.log("Setting image preview with URL:", fullImageUrl);
+        setImagePreview(fullImageUrl);
+      } else {
+        console.log("No avatar found for employee, setting imagePreview to null");
+        setImagePreview(null);
+      }
       setSelectedImageFile(null);
-      setImagePreview(null);
     } else {
       // Reset form when creating new employee
       // Resetting form data for new employee
@@ -141,7 +158,9 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         email: "",
         phone: "",
         department: "",
+        departmentId: "",
         position: "",
+        positionId: "",
         rank: "",
         militaryCivilian: "",
         hireDate: "",
@@ -153,12 +172,20 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         status: "HOAT_DONG",
         accessLevel: "general",
         permissions: ["read"],
+        avatar: "",
       });
       setSelectedPosition(null);
       setSelectedImageFile(null);
       setImagePreview(null);
     }
   }, [employee]);
+
+  // Load filtered positions when sqQncnOptions are loaded and we have an employee with militaryCivilian
+  useEffect(() => {
+    if (employee && employee.militaryCivilian && sqQncnOptions.length > 0) {
+      loadFilteredPositions(employee.militaryCivilian)
+    }
+  }, [sqQncnOptions, employee, loadFilteredPositions]);
 
   // Set selected position when filtered positions are loaded and we have an employee with position
   useEffect(() => {
@@ -209,7 +236,9 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
         email: formData.email || "",
         phone: formData.phone || "",
         department: formData.department!,
+        departmentId: formData.departmentId || "",
         position: formData.position!,
+        positionId: formData.positionId || "",
         rank: formData.rank || "",
         militaryCivilian: formData.militaryCivilian || "",
         hireDate: formData.hireDate || new Date().toISOString().split("T")[0],
@@ -225,24 +254,77 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
 
       // Upload image if selected
       if (selectedImageFile && savedEmployee) {
-        await uploadEmployeeImage(savedEmployee.id, selectedImageFile);
+        try {
+          await uploadEmployeeImage(savedEmployee.id, selectedImageFile);
+        } catch (imageError) {
+          console.error("Error uploading image:", imageError);
+          toast({
+            title: "Cảnh báo",
+            description: "Nhân viên đã được lưu nhưng có lỗi khi tải lên ảnh",
+            variant: "destructive",
+          });
+        }
       }
       
       onClose()
     } catch (error) {
       console.error("Error saving employee:", error);
-      alert("Có lỗi xảy ra khi lưu thông tin nhân viên");
+      toast({
+        title: "Lỗi",
+        description: "Có lỗi xảy ra khi lưu thông tin nhân viên",
+        variant: "destructive",
+      });
     }
   }
 
   const uploadEmployeeImage = async (employeeId: string, imageFile: File) => {
     try {
+      console.log("Starting image upload for employee:", employeeId);
+      console.log("Image file details:", {
+        name: imageFile.name,
+        size: imageFile.size,
+        type: imageFile.type
+      });
+      
       const { employeeApi } = await import("@/lib/api/employee-api");
-      return await employeeApi.uploadEmployeeImage(employeeId, imageFile);
+      const result = await employeeApi.uploadEmployeeImage(employeeId, imageFile);
+      
+      console.log("Image upload successful:", result);
+      return result;
     } catch (error) {
-      console.error("Error uploading image:", error);
-      throw new Error("Failed to upload image");
+      console.error("Detailed error uploading image:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error instanceof Error ? error.message : String(error));
+      
+      // Re-throw with more specific error message
+      throw new Error(`Không thể tải lên ảnh: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
     }
+  }
+
+  const clearSelectedImage = () => {
+    setSelectedImageFile(null);
+    setImagePreview(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  }
+
+  const getFullImageUrl = (imagePath: string) => {
+    console.log("getFullImageUrl called with:", imagePath);
+    if (!imagePath) {
+      console.log("No image path provided, returning empty string");
+      return '';
+    }
+    if (imagePath.startsWith('http')) {
+      console.log("Image path is already a full URL, returning as-is");
+      return imagePath;
+    }
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const fullUrl = `${backendUrl}${imagePath}`;
+    console.log("Constructed full URL:", fullUrl);
+    return fullUrl;
   }
 
   return (
@@ -322,7 +404,11 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department">Cơ quan, đơn vị *</Label>
-                <Select value={formData.department} onValueChange={(value) => handleInputChange("department", value)}>
+                <Select value={formData.department} onValueChange={(value) => {
+                  const selectedDept = departments.find(dept => dept.name === value);
+                  handleInputChange("department", value);
+                  handleInputChange("departmentId", selectedDept?.id || "");
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Department Name" />
                   </SelectTrigger>
@@ -384,6 +470,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                   // Reset rank and position when changing SQ/QNCN
                   handleInputChange("rank", "");
                   handleInputChange("position", "");
+                  handleInputChange("positionId", "");
                   setSelectedPosition(null);
                   // Load filtered positions based on SQ/QNCN selection
                   loadFilteredPositions(value);
@@ -441,11 +528,13 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                 <Select 
                   value={selectedPosition?.id || undefined} 
                   onValueChange={(value) => {
+                    if (value === "no-positions") return
                     const position = filteredPositions.find(p => p.id === value)
                     if (position) {
                       const convertedPosition = positionApi.convertToPosition(position)
                       setSelectedPosition(convertedPosition)
                       handleInputChange("position", position.name)
+                      handleInputChange("positionId", position.id)
                     }
                   }}
                   disabled={!formData.militaryCivilian || loadingFilteredPositions}
@@ -501,13 +590,45 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
                     }
                   }}
                 />
+                {!imagePreview && !formData.avatar && (
+                  <div className="mt-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                    <p className="text-gray-500 text-sm">Chưa có ảnh đại diện</p>
+                    <p className="text-xs text-gray-400 mt-1">Chọn ảnh từ máy tính của bạn</p>
+                  </div>
+                )}
                 {(imagePreview || formData.avatar) && (
-                  <div className="mt-2">
-                    <img 
-                      src={imagePreview || formData.avatar} 
-                      alt="Preview" 
-                      className="w-24 h-24 object-cover rounded-lg border"
-                    />
+                  <div className="mt-2 space-y-2">
+                    <Label className="text-sm text-gray-600">Xem trước ảnh:</Label>
+                    <div className="relative inline-block">
+                      <img 
+                        src={imagePreview || getFullImageUrl(formData.avatar || '')} 
+                        alt="Preview" 
+                        className="w-32 h-32 object-cover rounded-lg border shadow-sm"
+                      />
+                      {selectedImageFile && (
+                        <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                          Mới
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute -top-2 -left-2 w-6 h-6 p-0 rounded-full"
+                        onClick={clearSelectedImage}
+                        title="Xóa ảnh đã chọn"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {selectedImageFile 
+                        ? `Ảnh mới: ${selectedImageFile.name}` 
+                        : (formData.avatar || employee?.avatar)
+                          ? "Ảnh hiện tại từ hệ thống" 
+                          : "Không có ảnh"
+                      }
+                    </p>
                   </div>
                 )}
               </div>

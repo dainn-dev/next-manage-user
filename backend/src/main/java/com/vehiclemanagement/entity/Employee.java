@@ -2,7 +2,6 @@ package com.vehiclemanagement.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -14,7 +13,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -54,6 +52,9 @@ public class Employee {
     private UUID departmentId;
     
     private String position;
+    
+    @Column(name = "position_id")
+    private UUID positionId;
     private String rank;
     
     @Column(name = "job_title")

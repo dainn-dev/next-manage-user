@@ -19,7 +19,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.LocalDate;
 
 import java.util.List;
 import java.util.Map;
@@ -81,6 +80,11 @@ public class EmployeeService {
         }
     }
 
+    public Page<EmployeeDto> getEmployeesByPositionId(UUID positionId, Pageable pageable) {
+        return employeeRepository.findByPositionId(positionId, pageable)
+                .map(EmployeeDto::new);
+    }
+
     public EmployeeDto createEmployee(EmployeeDto employeeDto) {
         // Check if employee ID already exists
         if (employeeRepository.findByEmployeeId(employeeDto.getEmployeeId()).isPresent()) {
@@ -96,7 +100,9 @@ public class EmployeeService {
         employee.setEmail(employeeDto.getEmail());
         employee.setPhone(employeeDto.getPhone());
         employee.setDepartment(employeeDto.getDepartment());
+        employee.setDepartmentId(employeeDto.getDepartmentId());
         employee.setPosition(employeeDto.getPosition());
+        employee.setPositionId(employeeDto.getPositionId());
         employee.setRank(employeeDto.getRank());
         employee.setJobTitle(employeeDto.getJobTitle());
         employee.setMilitaryCivilian(employeeDto.getMilitaryCivilian());
@@ -134,7 +140,9 @@ public class EmployeeService {
         existingEmployee.setEmail(employeeDto.getEmail());
         existingEmployee.setPhone(employeeDto.getPhone());
         existingEmployee.setDepartment(employeeDto.getDepartment());
+        existingEmployee.setDepartmentId(employeeDto.getDepartmentId());
         existingEmployee.setPosition(employeeDto.getPosition());
+        existingEmployee.setPositionId(employeeDto.getPositionId());
         existingEmployee.setRank(employeeDto.getRank());
         existingEmployee.setJobTitle(employeeDto.getJobTitle());
         existingEmployee.setMilitaryCivilian(employeeDto.getMilitaryCivilian());

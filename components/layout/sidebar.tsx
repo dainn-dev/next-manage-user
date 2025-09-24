@@ -167,8 +167,8 @@ export function Sidebar() {
     }
 
     if (position.filterBy === 'CHUC_VU') {
-      // Navigate to employees page with position filter
-      router.push(`/employees?position=${encodeURIComponent(position.name)}`)
+      // Navigate to employees page with position filter using position ID for hierarchical context
+      router.push(`/employees?positionId=${position.id}`)
     } else if (position.filterBy === 'CO_QUAN_DON_VI') {
       // Navigate to employees page with department filter
       router.push(`/employees?department=${encodeURIComponent(position.name)}`)

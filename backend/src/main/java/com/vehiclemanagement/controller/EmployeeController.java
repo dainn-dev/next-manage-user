@@ -125,6 +125,23 @@ public class EmployeeController {
         return ResponseEntity.ok(employees);
     }
 
+    @GetMapping("/position/{positionId}")
+    @Operation(summary = "Get employees by position ID", description = "Retrieve employees filtered by position ID")
+    public ResponseEntity<Page<EmployeeDto>> getEmployeesByPositionId(
+            @PathVariable UUID positionId,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size,
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction (asc/desc)") @RequestParam(defaultValue = "desc") String sortDir) {
+        
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? 
+            Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        
+        Page<EmployeeDto> employees = employeeService.getEmployeesByPositionId(positionId, pageable);
+        return ResponseEntity.ok(employees);
+    }
+
     @PostMapping
     @Operation(summary = "Create new employee", description = "Create a new employee")
     public ResponseEntity<EmployeeDto> createEmployee(@Valid @RequestBody EmployeeDto employeeDto) {
@@ -173,12 +190,28 @@ public class EmployeeController {
             @PathVariable UUID id,
             @Parameter(description = "Image file to upload") @RequestParam("image") MultipartFile imageFile) {
         try {
+            System.out.println("Upload request received for employee ID: " + id);
+            System.out.println("Image file details: " + 
+                (imageFile != null ? 
+                    "name=" + imageFile.getOriginalFilename() + 
+                    ", size=" + imageFile.getSize() + 
+                    ", contentType=" + imageFile.getContentType() : 
+                    "null"));
+            
             EmployeeDto updatedEmployee = employeeService.uploadEmployeeImage(id, imageFile);
             return ResponseEntity.ok(updatedEmployee);
         } catch (IOException e) {
+            System.err.println("IOException during image upload: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (IllegalArgumentException e) {
+            System.err.println("IllegalArgumentException during image upload: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            System.err.println("Unexpected error during image upload: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

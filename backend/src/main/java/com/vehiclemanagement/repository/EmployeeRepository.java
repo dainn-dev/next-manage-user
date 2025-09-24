@@ -60,6 +60,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
     
     Page<Employee> findByStatus(Employee.EmployeeStatus status, Pageable pageable);
     
+    Page<Employee> findByPositionId(UUID positionId, Pageable pageable);
+    
     long countByDepartmentIgnoreCase(String department);
     
     Optional<Employee> findByName(String name);

@@ -11,7 +11,7 @@ spring:
       max-request-size: 50MB
       enabled: true
       file-size-threshold: 2KB
-      location: /app/temp
+      location: ${java.io.tmpdir}
       resolve-lazily: false
   
   datasource:

@@ -5,7 +5,9 @@ export interface Employee {
   email: string
   phone: string
   department: string
+  departmentId?: string
   position: string
+  positionId?: string
   rank?: string // Cấp bậc
   jobTitle?: string // Chức vụ
   militaryCivilian?: string // SQ/QNCN

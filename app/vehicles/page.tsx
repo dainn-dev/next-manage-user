@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import type { Vehicle, Employee } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
 import { VehicleTable } from "@/components/vehicles/vehicle-table"
@@ -19,6 +20,8 @@ import { useToast } from "@/hooks/use-toast"
 import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
 
 export default function VehiclesPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | undefined>()
@@ -47,6 +50,42 @@ export default function VehiclesPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  // Handle URL parameters for vehicle editing
+  useEffect(() => {
+    const vehicleId = searchParams.get('id')
+    if (vehicleId && vehicles.length > 0) {
+      const vehicle = vehicles.find(v => v.id === vehicleId)
+      if (vehicle) {
+        console.log("Opening vehicle edit form for ID:", vehicleId)
+        setSelectedVehicle(vehicle)
+        setIsFormOpen(true)
+        
+        // Clean up URL parameter
+        const newSearchParams = new URLSearchParams(searchParams.toString())
+        newSearchParams.delete('id')
+        const newUrl = newSearchParams.toString() 
+          ? `${window.location.pathname}?${newSearchParams.toString()}`
+          : window.location.pathname
+        router.replace(newUrl)
+      } else {
+        console.log("Vehicle not found for ID:", vehicleId)
+        toast({
+          variant: "destructive",
+          title: "Không tìm thấy xe",
+          description: `Không tìm thấy xe với ID: ${vehicleId}`,
+        })
+        
+        // Clean up URL parameter even if vehicle not found
+        const newSearchParams = new URLSearchParams(searchParams.toString())
+        newSearchParams.delete('id')
+        const newUrl = newSearchParams.toString() 
+          ? `${window.location.pathname}?${newSearchParams.toString()}`
+          : window.location.pathname
+        router.replace(newUrl)
+      }
+    }
+  }, [searchParams, vehicles, router, toast])
 
   // Filter vehicles based on search and filter criteria
   const filteredVehicles = vehicles.filter((vehicle) => {
@@ -113,6 +152,12 @@ export default function VehiclesPage() {
   const handleEdit = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle)
     setIsFormOpen(true)
+    
+    // Update URL to include vehicle ID for sharing
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    newSearchParams.set('id', vehicle.id)
+    const newUrl = `${window.location.pathname}?${newSearchParams.toString()}`
+    router.push(newUrl)
   }
 
   const handleDelete = async (vehicleId: string) => {
@@ -140,6 +185,12 @@ export default function VehiclesPage() {
   const handleView = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle)
     setIsFormOpen(true)
+    
+    // Update URL to include vehicle ID for sharing
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    newSearchParams.set('id', vehicle.id)
+    const newUrl = `${window.location.pathname}?${newSearchParams.toString()}`
+    router.push(newUrl)
   }
 
   const handleSave = async (vehicleData: Omit<Vehicle, "id" | "createdAt" | "updatedAt">) => {
@@ -164,6 +215,14 @@ export default function VehiclesPage() {
       await loadData() // Reload the data
       setIsFormOpen(false)
       setSelectedVehicle(undefined)
+      
+      // Clean up URL parameter after successful save
+      const newSearchParams = new URLSearchParams(searchParams.toString())
+      newSearchParams.delete('id')
+      const newUrl = newSearchParams.toString() 
+        ? `${window.location.pathname}?${newSearchParams.toString()}`
+        : window.location.pathname
+      router.replace(newUrl)
     } catch (err) {
       setError('Không thể lưu thông tin xe')
       console.error('Error saving vehicle:', err)
@@ -596,6 +655,14 @@ export default function VehiclesPage() {
         onClose={() => {
           setIsFormOpen(false)
           setSelectedVehicle(undefined)
+          
+          // Clean up URL parameter when closing form
+          const newSearchParams = new URLSearchParams(searchParams.toString())
+          newSearchParams.delete('id')
+          const newUrl = newSearchParams.toString() 
+            ? `${window.location.pathname}?${newSearchParams.toString()}`
+            : window.location.pathname
+          router.replace(newUrl)
         }}
         onSave={handleSave}
       />
