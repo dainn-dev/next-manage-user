@@ -1,16 +1,19 @@
 "use client"
 
-import { useState } from "react"
-import type { Employee } from "@/lib/types"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import type { Employee, Vehicle } from "@/lib/types"
+import { vehicleApi } from "@/lib/api/vehicle-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, Download, Edit, Trash2, UserPlus, MoreHorizontal, Eye, Users } from "lucide-react"
+import { Search, Filter, Download, Edit, Trash2, UserPlus, MoreHorizontal, Eye, Users, Car, Bike, Truck, Bus } from "lucide-react"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
 import { BulkOperationsDialog } from "@/components/employees/bulk-operations-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface EmployeeTableProps {
   employees: Employee[]
@@ -29,6 +32,8 @@ export function EmployeeTable({
   selectedEmployees = [], 
   onSelectionChange 
 }: EmployeeTableProps) {
+  const router = useRouter()
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [localSelectedEmployees, setLocalSelectedEmployees] = useState<string[]>([])
   const [departmentFilter, setDepartmentFilter] = useState("")
@@ -36,6 +41,8 @@ export function EmployeeTable({
   const [showAdvancedExport, setShowAdvancedExport] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showBulkOperations, setShowBulkOperations] = useState(false)
+  const [employeeVehicles, setEmployeeVehicles] = useState<Record<string, Vehicle[]>>({})
+  const [loadingVehicles, setLoadingVehicles] = useState<Record<string, boolean>>({})
 
   const filteredEmployees = employees.filter((employee) => {
     const matchesSearch =
@@ -111,6 +118,65 @@ export function EmployeeTable({
     }
   }
 
+  const getVehicleIcon = (vehicleType?: Employee["vehicleType"]) => {
+    switch (vehicleType) {
+      case "car":
+        return <Car className="h-4 w-4" />
+      case "motorbike":
+        return <Bike className="h-4 w-4" />
+      case "truck":
+        return <Truck className="h-4 w-4" />
+      case "bus":
+        return <Bus className="h-4 w-4" />
+      default:
+        return <Car className="h-4 w-4" />
+    }
+  }
+
+  const getVehiclesForEmployee = async (employeeId: string): Promise<Vehicle[]> => {
+    if (employeeVehicles[employeeId]) {
+      return employeeVehicles[employeeId]
+    }
+
+    if (loadingVehicles[employeeId]) {
+      return []
+    }
+
+    setLoadingVehicles(prev => ({ ...prev, [employeeId]: true }))
+    
+    try {
+      const vehicles = await vehicleApi.getVehiclesByEmployee(employeeId)
+      setEmployeeVehicles(prev => ({ ...prev, [employeeId]: vehicles }))
+      return vehicles
+    } catch (error) {
+      console.error('Error fetching vehicles for employee:', error)
+      setEmployeeVehicles(prev => ({ ...prev, [employeeId]: [] }))
+      return []
+    } finally {
+      setLoadingVehicles(prev => ({ ...prev, [employeeId]: false }))
+    }
+  }
+
+  const handleVehicleClick = async (employee: Employee) => {
+    const employeeId = employee.id
+    
+    // Get vehicles for this employee (will fetch if not already loaded)
+    const vehicles = await getVehiclesForEmployee(employeeId)
+    
+    if (vehicles.length > 0) {
+      // Navigate to vehicle page with the first vehicle's ID
+      const vehicleId = vehicles[0].id
+      router.push(`/vehicles?id=${vehicleId}`)
+    } else {
+      // If no vehicles, show a toast message
+      toast({
+        variant: "destructive",
+        title: "Không có xe",
+        description: `${employee.name} chưa có xe nào được đăng ký.`,
+      })
+    }
+  }
+
   return (
     <div className="space-y-4">
 
@@ -163,7 +229,26 @@ export function EmployeeTable({
                   <TableCell>{employee.rank || "-"}</TableCell>
                   <TableCell>{employee.position || "-"}</TableCell>
                   <TableCell>{employee.militaryCivilian || "-"}</TableCell>
-                  <TableCell>{getVehicleTypeDisplay(employee.vehicleType)}</TableCell>
+                  <TableCell>
+                    {employee.vehicleType ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-150"
+                        onClick={() => handleVehicleClick(employee)}
+                        disabled={loadingVehicles[employee.id]}
+                        title={`Xem thông tin ${getVehicleTypeDisplay(employee.vehicleType)} của ${employee.name}`}
+                      >
+                        {loadingVehicles[employee.id] ? (
+                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          getVehicleIcon(employee.vehicleType)
+                        )}
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
