@@ -134,7 +134,7 @@ class ConfigDialog(QDialog):
         
         # API Endpoint
         self.api_endpoint = QLineEdit()
-        self.api_endpoint.setPlaceholderText("/api/entry-exit-requests/check-vehicle")
+        self.api_endpoint.setPlaceholderText("/api/vehicles/check-vehicle")
         layout.addRow("Điểm cuối API:", self.api_endpoint)
         
         # API Timeout

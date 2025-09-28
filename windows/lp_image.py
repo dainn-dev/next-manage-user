@@ -11,8 +11,8 @@ import argparse
 import function.helper as helper
 from function.json_handler import LicensePlateManager
 
-# Add yolov5 to Python path for local model loading
-yolov5_path = os.path.join(os.path.dirname(__file__), 'model', 'yolov5')
+# Add ultralytics_yolov5_master to Python path for local model loading
+yolov5_path = os.path.join(os.path.dirname(__file__), 'model', 'ultralytics_yolov5_master')
 if yolov5_path not in sys.path:
     sys.path.insert(0, yolov5_path)
 
@@ -30,9 +30,9 @@ try:
 except Exception as e:
     print(f"Warning: Could not add safe globals: {e}")
 
-# Load models using torch.hub with local yolov5 source
-yolo_LP_detect = torch.hub.load('yolov5', 'custom', path='model/LP_detector.pt', force_reload=True, source='local')
-yolo_license_plate = torch.hub.load('yolov5', 'custom', path='model/LP_ocr.pt', force_reload=True, source='local')
+# Load models using torch.hub with local ultralytics_yolov5_master source
+yolo_LP_detect = torch.hub.load(yolov5_path, 'custom', path='model/LP_detector.pt', force_reload=True, source='local')
+yolo_license_plate = torch.hub.load(yolov5_path, 'custom', path='model/LP_ocr.pt', force_reload=True, source='local')
 yolo_license_plate.conf = 0.60
 
 # Initialize license plate manager

@@ -22,7 +22,7 @@ class ConfigManager:
         return {
             "api": {
                 "base_url": "http://localhost:8000",
-                "endpoint": "/api/entry-exit/check-vehicle",
+                "endpoint": "/api/vehicles/check-vehicle",
                 "timeout": 10
             },
             "detection": {
@@ -64,7 +64,11 @@ class ConfigManager:
                 "tcp_transport": False,
                 "connection_timeout": 5000,
                 "read_timeout": 1000,
-                "frame_skip_threshold": 3
+                "frame_skip_threshold": 3,
+                "h264_error_handling": True,
+                "frame_validation": True,
+                "max_resolution_width": 640,
+                "max_resolution_height": 480
             }
         }
     
@@ -129,7 +133,7 @@ class ConfigManager:
     def get_api_url(self) -> str:
         """Get full API URL"""
         base_url = self.get('api.base_url', 'http://localhost:8000')
-        endpoint = self.get('api.endpoint', '/api/entry-exit/check-vehicle')
+        endpoint = self.get('api.endpoint', '/api/vehicles/check-vehicle')
         return f"{base_url}{endpoint}"
     
     def get_api_timeout(self) -> int:
@@ -291,6 +295,20 @@ class ConfigManager:
     def get_rtsp_frame_skip_threshold(self) -> int:
         """Get frame skip threshold for buffer management"""
         return self.get('rtsp_optimization.frame_skip_threshold', 3)
+    
+    def get_rtsp_h264_error_handling(self) -> bool:
+        """Get whether H.264 error handling is enabled"""
+        return self.get('rtsp_optimization.h264_error_handling', True)
+    
+    def get_rtsp_frame_validation(self) -> bool:
+        """Get whether frame validation is enabled"""
+        return self.get('rtsp_optimization.frame_validation', True)
+    
+    def get_rtsp_max_resolution(self) -> tuple:
+        """Get maximum resolution for RTSP streams"""
+        width = self.get('rtsp_optimization.max_resolution_width', 640)
+        height = self.get('rtsp_optimization.max_resolution_height', 480)
+        return (width, height)
 
 
 # Global config manager instance

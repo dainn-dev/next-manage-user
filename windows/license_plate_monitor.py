@@ -6,10 +6,11 @@ import time
 import requests
 import base64
 import json
+import numpy as np
 from datetime import datetime
 
-# Add yolov5 to Python path for local model loading
-yolov5_path = os.path.join(os.path.dirname(__file__), 'model', 'yolov5')
+# Add ultralytics_yolov5_master to Python path for local model loading
+yolov5_path = os.path.join(os.path.dirname(__file__), 'model', 'ultralytics_yolov5_master')
 if os.path.exists(yolov5_path) and yolov5_path not in sys.path:
     sys.path.insert(0, yolov5_path)
     print(f"Added YOLOv5 path: {yolov5_path}")
@@ -562,29 +563,29 @@ class WebcamThread(QThread):
             except Exception as e:
                 print(f"Warning: Could not add safe globals: {e}")
             
-            # Try to load with ultralytics/yolov5 (most reliable)
+            # Try to load with local ultralytics_yolov5_master first (preferred)
             try:
-                print("Loading models with ultralytics/yolov5...")
-                self.yolo_LP_detect = torch.hub.load('ultralytics/yolov5', 'custom', 
-                                                   path=detector_path, force_reload=False, trust_repo=True)
-                self.yolo_license_plate = torch.hub.load('ultralytics/yolov5', 'custom', 
-                                                       path=ocr_path, force_reload=False, trust_repo=True)
-                print("Models loaded successfully with ultralytics/yolov5")
-            except Exception as ultralytics_error:
-                print(f"ultralytics/yolov5 failed: {ultralytics_error}")
-                print("Trying local YOLOv5...")
+                print("Loading models with local ultralytics_yolov5_master...")
+                yolov5_path = os.path.join(os.path.dirname(__file__), 'model', 'ultralytics_yolov5_master')
+                self.yolo_LP_detect = torch.hub.load(yolov5_path, 'custom', 
+                                                   path=detector_path, force_reload=False, source='local')
+                self.yolo_license_plate = torch.hub.load(yolov5_path, 'custom', 
+                                                       path=ocr_path, force_reload=False, source='local')
+                print("Models loaded successfully with local ultralytics_yolov5_master")
+            except Exception as local_error:
+                print(f"Local ultralytics_yolov5_master failed: {local_error}")
+                print("Trying ultralytics/yolov5 as fallback...")
                 
-                # Try local YOLOv5 as fallback
+                # Try ultralytics/yolov5 as fallback
                 try:
-                    yolov5_path = os.path.join(os.path.dirname(__file__), 'model', 'yolov5')
-                    self.yolo_LP_detect = torch.hub.load(yolov5_path, 'custom', 
-                                                       path=detector_path, force_reload=False, source='local')
-                    self.yolo_license_plate = torch.hub.load(yolov5_path, 'custom', 
-                                                           path=ocr_path, force_reload=False, source='local')
-                    print("Models loaded successfully with local YOLOv5")
-                except Exception as local_error:
-                    print(f"Local YOLOv5 also failed: {local_error}")
-                    raise Exception(f"Both ultralytics/yolov5 and local YOLOv5 failed. ultralytics error: {ultralytics_error}, local error: {local_error}")
+                    self.yolo_LP_detect = torch.hub.load('ultralytics/yolov5', 'custom', 
+                                                       path=detector_path, force_reload=False, trust_repo=True)
+                    self.yolo_license_plate = torch.hub.load('ultralytics/yolov5', 'custom', 
+                                                           path=ocr_path, force_reload=False, trust_repo=True)
+                    print("Models loaded successfully with ultralytics/yolov5")
+                except Exception as ultralytics_error:
+                    print(f"ultralytics/yolov5 also failed: {ultralytics_error}")
+                    raise Exception(f"Both local ultralytics_yolov5_master and ultralytics/yolov5 failed. local error: {local_error}, ultralytics error: {ultralytics_error}")
             
             # Set confidence threshold
             if self.yolo_license_plate:
@@ -645,7 +646,7 @@ class WebcamThread(QThread):
             return False, f"Model test failed: {str(e)}"
     
     def _apply_rtsp_optimization(self):
-        """Apply RTSP optimization settings to reduce latency"""
+        """Apply RTSP optimization settings to reduce latency and handle H.264 errors"""
         if not self.is_rtsp_device or not self.cap:
             return
         
@@ -662,6 +663,25 @@ class WebcamThread(QThread):
             read_timeout = config_manager.get_rtsp_read_timeout()
             self.cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, read_timeout)
             
+            # H.264 error handling and optimization parameters
+            if config_manager.get_rtsp_h264_error_handling():
+                try:
+                    # Enable error resilience for H.264 streams
+                    self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
+                    
+                    # Set resolution limits for stability
+                    max_width, max_height = config_manager.get_rtsp_max_resolution()
+                    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, max_width)
+                    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, max_height)
+                    
+                    # Set properties to handle corrupted frames better
+                    self.cap.set(cv2.CAP_PROP_CONVERT_RGB, 1)  # Force RGB conversion
+                    
+                    print(f"H.264 error handling enabled with max resolution: {max_width}x{max_height}")
+                    
+                except Exception as h264_error:
+                    print(f"Warning: Could not set H.264 optimization parameters: {h264_error}")
+            
             # Additional optimizations for low latency
             if config_manager.get_rtsp_low_latency():
                 # Disable auto exposure and other automatic settings that can cause delay
@@ -669,10 +689,35 @@ class WebcamThread(QThread):
                 self.cap.set(cv2.CAP_PROP_FPS, 30)  # Set consistent FPS
                 
             print(f"RTSP optimization applied: buffer_size={buffer_size}, "
-                  f"connection_timeout={connection_timeout}ms, read_timeout={read_timeout}ms")
+                  f"connection_timeout={connection_timeout}ms, read_timeout={read_timeout}ms, "
+                  f"H.264 error handling enabled")
                   
         except Exception as e:
             print(f"Warning: Could not apply all RTSP optimizations: {e}")
+    
+    def _validate_frame(self, frame):
+        """Validate frame quality and handle corrupted frames"""
+        if frame is None:
+            return False
+        
+        # Check if frame has valid dimensions
+        if frame.shape[0] == 0 or frame.shape[1] == 0:
+            return False
+        
+        # Check for completely black or white frames (potential corruption)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if len(frame.shape) == 3 else frame
+        mean_brightness = np.mean(gray)
+        
+        # Skip frames that are too dark or too bright (likely corrupted)
+        if mean_brightness < 5 or mean_brightness > 250:
+            return False
+        
+        # Check for frames with too much noise (high standard deviation might indicate corruption)
+        std_dev = np.std(gray)
+        if std_dev < 2:  # Very low variation might indicate a corrupted frame
+            return False
+        
+        return True
     
     def _should_skip_frame(self):
         """Determine if current frame should be skipped for low latency"""
@@ -737,6 +782,13 @@ class WebcamThread(QThread):
                     else:
                         self.error_occurred.emit(f"Failed to read from camera {self.camera_index}")
                     break
+                
+                # Validate frame quality (especially important for RTSP streams with H.264 errors)
+                if config_manager.get_rtsp_frame_validation() and not self._validate_frame(frame):
+                    self.frames_dropped += 1
+                    if self.is_rtsp_device:
+                        print(f"Skipping corrupted frame from RTSP device {self.camera_index}")
+                    continue
                 
                 # Check if we should skip this frame for low latency (RTSP only)
                 if self._should_skip_frame():
@@ -1063,7 +1115,7 @@ class UnregisteredVehicleDialog(QDialog):
             tts_manager = TTSManager()
             
             # Speak the message
-            message = "Xe chưa được đăng ký"
+            message = f"Xe mang biển số {self.license_plate} chưa được đăng ký"
             print(f"Speaking unregistered vehicle message: {message}")
             tts_manager.speak_async(message)
             
