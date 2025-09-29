@@ -278,29 +278,54 @@ def get_available_cameras():
             if rtsp_url:
                 print(f"Testing RTSP device: {device_name} at {rtsp_url}")
                 
-                # Test RTSP connection with timeout
-                cap = cv2.VideoCapture(rtsp_url)
-                cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000)  # 3 second timeout
-                cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000)  # 1 second read timeout
+                # Test RTSP connection with retry mechanism
+                max_retries = 2
+                connected = False
                 
-                if cap.isOpened():
-                    # Try to read a frame to test the connection
-                    ret, frame = cap.read()
-                    if ret and frame is not None:
-                        # Get stream properties
-                        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-                        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-                        fps = cap.get(cv2.CAP_PROP_FPS)
+                for attempt in range(max_retries):
+                    try:
+                        print(f"Attempt {attempt + 1}/{max_retries} to connect to {device_name}...")
                         
-                        camera_info = f"{device_name} ({int(width)}x{int(height)} @ {int(fps)}fps)"
-                        # Use device_id as the camera identifier for RTSP devices
-                        available_cameras.append((device_id, camera_info))
-                        print(f"✅ RTSP device connected: {device_name}")
-                    else:
-                        print(f"❌ Failed to read frame from RTSP device: {device_name}")
-                    cap.release()
-                else:
-                    print(f"❌ Failed to connect to RTSP device: {device_name}")
+                        # Test RTSP connection with optimized timeout settings
+                        cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
+                        cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 10000)  # 10 second timeout
+                        cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5000)   # 5 second read timeout
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)            # Minimal buffer for low latency
+                        
+                        if cap.isOpened():
+                            # Try to read a frame to test the connection
+                            ret, frame = cap.read()
+                            if ret and frame is not None:
+                                # Get stream properties
+                                width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+                                height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+                                fps = cap.get(cv2.CAP_PROP_FPS)
+                                
+                                camera_info = f"{device_name} ({int(width)}x{int(height)} @ {int(fps)}fps)"
+                                # Use device_id as the camera identifier for RTSP devices
+                                available_cameras.append((device_id, camera_info))
+                                print(f"✅ RTSP device connected: {device_name}")
+                                connected = True
+                            else:
+                                print(f"❌ Failed to read frame from RTSP device: {device_name}")
+                            cap.release()
+                            break  # Exit retry loop if connection successful
+                        else:
+                            print(f"❌ Failed to connect to RTSP device: {device_name} (attempt {attempt + 1})")
+                            cap.release()
+                            
+                    except Exception as e:
+                        print(f"❌ Exception during RTSP connection attempt {attempt + 1}: {str(e)}")
+                        if cap:
+                            cap.release()
+                    
+                    # Wait before retry (except on last attempt)
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(1)
+                
+                if not connected:
+                    print(f"❌ All connection attempts failed for RTSP device: {device_name}")
             else:
                 print(f"❌ No valid URL for RTSP device: {device_name}")
         else:
@@ -649,13 +674,17 @@ class WebcamThread(QThread):
             buffer_size = config_manager.get_rtsp_buffer_size()
             self.cap.set(cv2.CAP_PROP_BUFFERSIZE, buffer_size)
             
-            # Set connection timeout
-            connection_timeout = config_manager.get_rtsp_connection_timeout()
+            # Set connection timeout (increased for better reliability)
+            connection_timeout = max(config_manager.get_rtsp_connection_timeout(), 10000)  # At least 10 seconds
             self.cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, connection_timeout)
             
-            # Set read timeout
-            read_timeout = config_manager.get_rtsp_read_timeout()
+            # Set read timeout (increased for better reliability)
+            read_timeout = max(config_manager.get_rtsp_read_timeout(), 5000)  # At least 5 seconds
             self.cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, read_timeout)
+            
+            # Additional RTSP-specific optimizations
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
+            self.cap.set(cv2.CAP_PROP_FPS, 25)  # Set consistent FPS
             
             # H.264 error handling and optimization parameters
             if config_manager.get_rtsp_h264_error_handling():
@@ -753,8 +782,8 @@ class WebcamThread(QThread):
             
             print(f"Connecting to RTSP device: {self.camera_index} at {self.rtsp_url}")
             
-            # Create VideoCapture with RTSP optimization
-            self.cap = cv2.VideoCapture(self.rtsp_url)
+            # Create VideoCapture with FFMPEG backend for better RTSP support
+            self.cap = cv2.VideoCapture(self.rtsp_url, cv2.CAP_FFMPEG)
             
             # Apply RTSP optimization settings
             self._apply_rtsp_optimization()
