@@ -337,7 +337,6 @@ def get_available_cameras():
 
 class APIResponseDialog(QDialog):
     """Dialog to display API response messages"""
-    scan_again_requested = pyqtSignal()  # Signal to request another scan
     detection_pause_requested = pyqtSignal()  # Signal to pause detection
     detection_resume_requested = pyqtSignal()  # Signal to resume detection
     
@@ -407,24 +406,6 @@ class APIResponseDialog(QDialog):
         # Buttons layout
         button_layout = QHBoxLayout()
         
-        # Quét lại (Scan Again) button
-        self.scan_again_btn = QPushButton("Quét lại")
-        self.scan_again_btn.clicked.connect(self.on_scan_again_clicked)
-        self.scan_again_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ffc107;
-                color: #212529;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #e0a800;
-            }
-        """)
-        button_layout.addWidget(self.scan_again_btn)
-        
         # OK button
         ok_button = QPushButton("OK")
         ok_button.clicked.connect(self.on_ok_clicked)
@@ -452,22 +433,6 @@ class APIResponseDialog(QDialog):
         self.panel_type = panel_type
         
         # Note: Detection is already paused before this dialog is created
-    
-    def on_scan_again_clicked(self):
-        """Handle Quét lại (Scan Again) button click"""
-        try:
-            # Stop any ongoing TTS
-            tts_manager.stop_speaking()
-            
-            # Emit signal to request another scan
-            self.scan_again_requested.emit()
-            
-            # Close this dialog
-            self.accept()
-            
-        except Exception as e:
-            print(f"Error in scan again: {e}")
-            self.accept()
     
     def on_ok_clicked(self):
         """Handle OK button click - stop TTS, resume detection and close dialog"""
@@ -1470,7 +1435,6 @@ class CameraPanel(QGroupBox):
                 main_window = main_window.parent()
             
             dialog = APIResponseDialog(license_plate, panel_type, response_data, main_window)
-            dialog.scan_again_requested.connect(self.handle_scan_again_request)
             # Note: No need to connect pause signal since we pause immediately above
             dialog.detection_resume_requested.connect(self.handle_detection_resume)
             
@@ -1614,41 +1578,6 @@ class CameraPanel(QGroupBox):
             
         except Exception as e:
             print(f"Error speaking allow success message: {e}")
-    
-    def handle_scan_again_request(self):
-        """Handle scan again request from dialog"""
-        try:
-            self.log_text.append("Yêu cầu quét lại - kích hoạt phát hiện mới...")
-            
-            # Force a new detection by clearing all tracking data
-            if self.webcam_thread and hasattr(self.webcam_thread, 'last_detection_time'):
-                # Clear the last detection time to allow immediate re-detection
-                self.webcam_thread.last_detection_time.clear()
-                self.log_text.append("Đã xóa thời gian chờ phát hiện - sẵn sàng quét mới")
-            
-            # Clear the last saved plates to allow re-detection
-            if self.webcam_thread and hasattr(self.webcam_thread, 'last_saved_plates'):
-                self.webcam_thread.last_saved_plates.clear()
-                self.log_text.append("Đã xóa biển số đã lưu - sẽ phát hiện lại")
-            
-            # Clear global detection tracking for this panel
-            global global_detection_times
-            keys_to_remove = [key for key in global_detection_times.keys() if key.endswith(f"_{self.panel_type}")]
-            for key in keys_to_remove:
-                del global_detection_times[key]
-            self.log_text.append(f"Đã xóa theo dõi phát hiện toàn cục cho panel {self.panel_type}")
-            
-            # Clear the detection start times to reset 3-second timer
-            if self.webcam_thread and hasattr(self.webcam_thread, 'plate_detection_start'):
-                self.webcam_thread.plate_detection_start.clear()
-                self.log_text.append("Đã reset bộ đếm thời gian phát hiện - bắt đầu đếm ngược 3 giây")
-            
-            # Clear popup cooldown to allow immediate new popups
-            self.last_popup_time.clear()
-            self.log_text.append("Đã xóa thời gian chờ popup - cho phép popup mới ngay lập tức")
-            
-        except Exception as e:
-            self.log_text.append(f"Lỗi xử lý yêu cầu quét lại: {str(e)}")
     
     def handle_detection_pause(self):
         """Handle detection pause request from dialog"""
