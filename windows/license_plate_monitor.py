@@ -263,42 +263,26 @@ def send_license_plate_to_api(license_plate, panel_type, api_url=None):
 
 
 def get_available_cameras():
-    """Detect and return list of available camera devices including RTSP devices"""
+    """Detect and return list of available RTSP camera devices only"""
     available_cameras = []
     
-    # Test local cameras from 0 to max_cameras
-    max_cameras = config_manager.get_max_cameras()
-    for i in range(max_cameras):
-        cap = cv2.VideoCapture(i)
-        if cap.isOpened():
-            # Try to read a frame to ensure the camera is actually working
-            ret, frame = cap.read()
-            if ret and frame is not None:
-                # Get camera properties for better identification
-                width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-                height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                
-                # Try to get camera name (works on some systems)
-                try:
-                    backend = cap.getBackendName()
-                    camera_info = f"Camera {i} ({int(width)}x{int(height)} @ {int(fps)}fps)"
-                except:
-                    camera_info = f"Camera {i} ({int(width)}x{int(height)})"
-                
-                available_cameras.append((i, camera_info))
-            cap.release()
-    
-    # Add RTSP devices if enabled
+    # Only scan for RTSP devices (skip local camera detection)
     rtsp_devices = config_manager.get_rtsp_devices()
+    print(f"Scanning {len(rtsp_devices)} configured RTSP devices...")
+    
     for device_id, device_config in rtsp_devices.items():
         if device_config.get('enabled', False):
             device_name = device_config.get('name', f'RTSP {device_id}')
             rtsp_url = config_manager.build_rtsp_url(device_id)
             
             if rtsp_url:
-                # Test RTSP connection
+                print(f"Testing RTSP device: {device_name} at {rtsp_url}")
+                
+                # Test RTSP connection with timeout
                 cap = cv2.VideoCapture(rtsp_url)
+                cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 3000)  # 3 second timeout
+                cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000)  # 1 second read timeout
+                
                 if cap.isOpened():
                     # Try to read a frame to test the connection
                     ret, frame = cap.read()
@@ -311,8 +295,18 @@ def get_available_cameras():
                         camera_info = f"{device_name} ({int(width)}x{int(height)} @ {int(fps)}fps)"
                         # Use device_id as the camera identifier for RTSP devices
                         available_cameras.append((device_id, camera_info))
+                        print(f"✅ RTSP device connected: {device_name}")
+                    else:
+                        print(f"❌ Failed to read frame from RTSP device: {device_name}")
                     cap.release()
+                else:
+                    print(f"❌ Failed to connect to RTSP device: {device_name}")
+            else:
+                print(f"❌ No valid URL for RTSP device: {device_name}")
+        else:
+            print(f"⏭️ RTSP device disabled: {device_config.get('name', device_id)}")
     
+    print(f"Found {len(available_cameras)} working RTSP devices")
     return available_cameras
 
 
@@ -737,38 +731,36 @@ class WebcamThread(QThread):
         return False
     
     def run(self):
-        """Main thread loop for webcam capture and processing"""
+        """Main thread loop for RTSP camera capture and processing"""
         try:
             # Check if models are loaded
             if not self.yolo_LP_detect or not self.yolo_license_plate:
                 self.error_occurred.emit("Models not loaded. Cannot start camera processing.")
                 return
             
-            # Determine if this is an RTSP device or local camera
+            # This should always be an RTSP device now (no local cameras)
             rtsp_devices = config_manager.get_rtsp_devices()
-            if str(self.camera_index) in rtsp_devices:
-                # This is an RTSP device
-                self.is_rtsp_device = True
-                self.rtsp_url = config_manager.build_rtsp_url(str(self.camera_index))
-                if not self.rtsp_url:
-                    self.error_occurred.emit(f"Invalid RTSP configuration for device {self.camera_index}")
-                    return
-                
-                # Create VideoCapture with RTSP optimization
-                self.cap = cv2.VideoCapture(self.rtsp_url)
-                
-                # Apply RTSP optimization settings
-                self._apply_rtsp_optimization()
-            else:
-                # This is a local camera
-                self.is_rtsp_device = False
-                self.cap = cv2.VideoCapture(self.camera_index)
+            if str(self.camera_index) not in rtsp_devices:
+                self.error_occurred.emit(f"Device {self.camera_index} not found in RTSP configuration")
+                return
+            
+            # This is an RTSP device
+            self.is_rtsp_device = True
+            self.rtsp_url = config_manager.build_rtsp_url(str(self.camera_index))
+            if not self.rtsp_url:
+                self.error_occurred.emit(f"Invalid RTSP configuration for device {self.camera_index}")
+                return
+            
+            print(f"Connecting to RTSP device: {self.camera_index} at {self.rtsp_url}")
+            
+            # Create VideoCapture with RTSP optimization
+            self.cap = cv2.VideoCapture(self.rtsp_url)
+            
+            # Apply RTSP optimization settings
+            self._apply_rtsp_optimization()
             
             if not self.cap.isOpened():
-                if self.is_rtsp_device:
-                    self.error_occurred.emit(f"Could not connect to RTSP device {self.camera_index} at {self.rtsp_url}")
-                else:
-                    self.error_occurred.emit(f"Could not open camera {self.camera_index}")
+                self.error_occurred.emit(f"Could not connect to RTSP device {self.camera_index} at {self.rtsp_url}")
                 return
             
             self.running = True
@@ -777,17 +769,13 @@ class WebcamThread(QThread):
             while self.running:
                 ret, frame = self.cap.read()
                 if not ret:
-                    if self.is_rtsp_device:
-                        self.error_occurred.emit(f"Failed to read from RTSP device {self.camera_index}")
-                    else:
-                        self.error_occurred.emit(f"Failed to read from camera {self.camera_index}")
+                    self.error_occurred.emit(f"Failed to read from RTSP device {self.camera_index}")
                     break
                 
                 # Validate frame quality (especially important for RTSP streams with H.264 errors)
                 if config_manager.get_rtsp_frame_validation() and not self._validate_frame(frame):
                     self.frames_dropped += 1
-                    if self.is_rtsp_device:
-                        print(f"Skipping corrupted frame from RTSP device {self.camera_index}")
+                    print(f"Skipping corrupted frame from RTSP device {self.camera_index}")
                     continue
                 
                 # Check if we should skip this frame for low latency (RTSP only)
@@ -1193,7 +1181,7 @@ class CameraPanel(QGroupBox):
         self.video_label.setMinimumSize(video_width, video_height)
         self.video_label.setStyleSheet("border: 2px solid gray; background-color: black;")
         self.video_label.setAlignment(Qt.AlignCenter)
-        self.video_label.setText("Chưa kết nối camera")
+        self.video_label.setText("Chưa kết nối RTSP")
         layout.addWidget(self.video_label)
         
         # License plate detection log
@@ -1231,9 +1219,9 @@ class CameraPanel(QGroupBox):
             
             # Clear existing items
             self.camera_combo.clear()
-            self.camera_combo.addItem("Đang quét camera...")
+            self.camera_combo.addItem("Đang quét RTSP...")
             
-            self.log_text.append("🔄 Đang làm mới danh sách camera...")
+            self.log_text.append("🔄 Đang quét thiết bị RTSP...")
             
             # Force UI update
             QApplication.processEvents()
@@ -1245,22 +1233,22 @@ class CameraPanel(QGroupBox):
             self.camera_combo.clear()
             
             if not available_cameras:
-                self.camera_combo.addItem("Không tìm thấy camera")
+                self.camera_combo.addItem("Không tìm thấy thiết bị RTSP")
                 self.camera_combo.setEnabled(False)
-                self.log_text.append("❌ Không phát hiện camera nào. Vui lòng kiểm tra kết nối camera.")
+                self.log_text.append("❌ Không phát hiện thiết bị RTSP nào. Vui lòng kiểm tra cấu hình RTSP.")
             else:
-                # Add available cameras to combobox
+                # Add available RTSP devices to combobox
                 for camera_index, camera_info in available_cameras:
                     self.camera_combo.addItem(camera_info, camera_index)
                 
                 self.camera_combo.setEnabled(True)
-                self.log_text.append(f"✅ Tìm thấy {len(available_cameras)} camera")
+                self.log_text.append(f"✅ Tìm thấy {len(available_cameras)} thiết bị RTSP")
                 
         except Exception as e:
             self.camera_combo.clear()
-            self.camera_combo.addItem("Lỗi phát hiện camera")
+            self.camera_combo.addItem("Lỗi phát hiện RTSP")
             self.camera_combo.setEnabled(False)
-            self.log_text.append(f"❌ Lỗi làm mới camera: {str(e)}")
+            self.log_text.append(f"❌ Lỗi làm mới RTSP: {str(e)}")
         
         finally:
             # Re-enable camera selection and connect button
@@ -1297,10 +1285,10 @@ class CameraPanel(QGroupBox):
             self.camera_combo.setEnabled(False)
             self.refresh_btn.setEnabled(False)
             
-            self.log_text.append(f"Đang kết nối đến {self.camera_combo.currentText()}...")
+            self.log_text.append(f"Đang kết nối đến thiết bị RTSP: {self.camera_combo.currentText()}...")
             
         except Exception as e:
-            self.log_text.append(f"Lỗi kết nối camera: {str(e)}")
+            self.log_text.append(f"Lỗi kết nối RTSP: {str(e)}")
     
     def disconnect_camera(self):
         """Disconnect from camera"""
@@ -1313,9 +1301,9 @@ class CameraPanel(QGroupBox):
         # Re-enable camera selection and refresh
         self.camera_combo.setEnabled(True)
         self.refresh_btn.setEnabled(True)
-        self.video_label.setText("Chưa kết nối camera")
+        self.video_label.setText("Chưa kết nối RTSP")
         self.video_label.setPixmap(QPixmap())
-        self.log_text.append("Đã ngắt kết nối camera")
+        self.log_text.append("Đã ngắt kết nối RTSP")
     
     def update_frame(self, frame, license_plate_text):
         """Update the video display with new frame"""
