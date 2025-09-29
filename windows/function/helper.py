@@ -55,11 +55,40 @@ def read_plate(yolo_license_plate, im):
                 line_2.append(c)
             else:
                 line_1.append(c)
-        for l1 in sorted(line_1, key = lambda x: x[0]):
-            license_plate += str(l1[2])
-        license_plate += "-"
-        for l2 in sorted(line_2, key = lambda x: x[0]):
-            license_plate += str(l2[2])
+        
+        # Sort both lines by x-coordinate
+        line_1_sorted = sorted(line_1, key = lambda x: x[0])
+        line_2_sorted = sorted(line_2, key = lambda x: x[0])
+        
+        # Build strings for both lines
+        line_1_text = ""
+        line_2_text = ""
+        for l1 in line_1_sorted:
+            line_1_text += str(l1[2])
+        for l2 in line_2_sorted:
+            line_2_text += str(l2[2])
+        
+        # Determine correct order based on Vietnamese license plate format
+        # Vietnamese plates typically have letters first (like 64A) then numbers (like 040.75)
+        # Check if line_1 contains letters and line_2 contains numbers, or vice versa
+        line_1_has_letters = any(c.isalpha() for c in line_1_text)
+        line_2_has_letters = any(c.isalpha() for c in line_2_text)
+        
+        print(f"DEBUG: Line 1: '{line_1_text}' (has letters: {line_1_has_letters})")
+        print(f"DEBUG: Line 2: '{line_2_text}' (has letters: {line_2_has_letters})")
+        
+        if line_1_has_letters and not line_2_has_letters:
+            # Line 1 has letters, line 2 has numbers - correct order
+            license_plate = line_1_text + "-" + line_2_text
+            print(f"DEBUG: Using normal order: {license_plate}")
+        elif line_2_has_letters and not line_1_has_letters:
+            # Line 2 has letters, line 1 has numbers - reverse order
+            license_plate = line_2_text + "-" + line_1_text
+            print(f"DEBUG: Using reversed order: {license_plate}")
+        else:
+            # Both lines have mixed content or unclear - use original logic
+            license_plate = line_1_text + "-" + line_2_text
+            print(f"DEBUG: Using original logic: {license_plate}")
     else:
         for l in sorted(center_list, key = lambda x: x[0]):
             license_plate += str(l[2])
