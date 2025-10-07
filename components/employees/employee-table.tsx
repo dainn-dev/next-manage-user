@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Filter, Download, Edit, Trash2, UserPlus, MoreHorizontal, Eye, Users, Car, Bike, Truck, Bus } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
 import { BulkOperationsDialog } from "@/components/employees/bulk-operations-dialog"
@@ -182,7 +183,8 @@ export function EmployeeTable({
 
       {/* Data Table */}
       <div className="border rounded-lg">
-        <Table>
+        <div className="overflow-x-auto">
+          <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">
@@ -251,104 +253,38 @@ export function EmployeeTable({
                   </TableCell>
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="relative group"
-                        onMouseEnter={() => {
-                          const menu = document.getElementById(`menu-${employee.id}`)
-                          if (menu) {
-                            menu.classList.remove('hidden')
-                            
-                            // Smart positioning: check if we're near the end of the table
-                            const tableBody = menu.closest('tbody')
-                            const allRows = tableBody?.querySelectorAll('tr')
-                            const currentRow = menu.closest('tr')
-                            const currentIndex = currentRow ? Array.from(allRows || []).indexOf(currentRow) : -1
-                            const totalRows = allRows?.length || 0
-                            
-                            // Show menu above if we're in the last 3 rows of the table
-                            const isNearEnd = currentIndex >= totalRows - 3
-                            
-                            if (isNearEnd) {
-                              menu.style.top = 'auto'
-                              menu.style.bottom = '100%'
-                              menu.style.marginBottom = '4px'
-                            } else {
-                              menu.style.top = '100%'
-                              menu.style.bottom = 'auto'
-                              menu.style.marginBottom = '0'
-                            }
-                          }
-                        }}
-                        onMouseLeave={() => {
-                          // Add small delay before hiding
-                          setTimeout(() => {
-                            const menu = document.getElementById(`menu-${employee.id}`)
-                            if (menu && !menu.matches(':hover')) {
-                              menu.classList.add('hidden')
-                            }
-                          }, 200)
-                        }}
-                      >
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="h-8 w-8 p-0 group-hover:bg-accent transition-colors duration-150"
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className="h-8 w-8 p-0 hover:bg-accent transition-colors duration-150 rounded-md flex items-center justify-center"
+                          type="button"
                         >
                           <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                        <div 
-                          id={`menu-${employee.id}`}
-                          className="absolute right-0 top-8 hidden z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md transition-all duration-150"
-                          style={{
-                            // Initial positioning - will be adjusted dynamically
-                            top: '100%',
-                            bottom: 'auto'
-                          }}
-                          onMouseEnter={() => {
-                            // Keep menu open when hovering over it
-                            const menu = document.getElementById(`menu-${employee.id}`)
-                            if (menu) {
-                              menu.classList.remove('hidden')
-                            }
-                          }}
-                          onMouseLeave={() => {
-                            // Hide menu when leaving
-                            const menu = document.getElementById(`menu-${employee.id}`)
-                            if (menu) {
-                              menu.classList.add('hidden')
-                            }
-                          }}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48" side="bottom">
+                        <DropdownMenuItem
+                          onClick={() => onEdit(employee)}
                         >
-                          <div 
-                            className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-                            onClick={() => {
-                              onEdit(employee)
-                              document.getElementById(`menu-${employee.id}`)?.classList.add('hidden')
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Chỉnh sửa
-                          </div>
-                          <div 
-                            className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground text-red-600"
-                            onClick={() => {
-                              onDelete(employee.id)
-                              document.getElementById(`menu-${employee.id}`)?.classList.add('hidden')
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Xóa
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Chỉnh sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => onDelete(employee.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Pagination */}

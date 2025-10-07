@@ -600,7 +600,7 @@ class DataService {
 
   async createVehicle(vehicle: Omit<Vehicle, "id" | "createdAt" | "updatedAt">): Promise<Vehicle> {
     try {
-      return await vehicleApi.createVehicle({
+      const response = await vehicleApi.createVehicle({
         employeeId: vehicle.employeeId,
         employeeName: vehicle.employeeName,
         licensePlate: vehicle.licensePlate,
@@ -612,10 +612,11 @@ class DataService {
         fuelType: vehicle.fuelType,
         status: vehicle.status,
         registrationDate: vehicle.registrationDate,
-        lastMaintenanceDate: vehicle.lastMaintenanceDate,
-        nextMaintenanceDate: vehicle.nextMaintenanceDate,
         notes: vehicle.notes,
       })
+      
+      // Return the vehicle from the response
+      return response.vehicle
     } catch (error) {
       console.error('Failed to create vehicle via API, falling back to mock data:', error)
       const newVehicle: Vehicle = {

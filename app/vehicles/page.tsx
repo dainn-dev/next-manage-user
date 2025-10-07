@@ -193,15 +193,16 @@ export default function VehiclesPage() {
     router.push(newUrl)
   }
 
-  const handleSave = async (vehicleData: Omit<Vehicle, "id" | "createdAt" | "updatedAt">) => {
+  const handleSave = async (vehicleData: Omit<Vehicle, "id" | "createdAt" | "updatedAt">): Promise<Vehicle | void> => {
     try {
       if (selectedVehicle) {
-        await dataService.updateVehicle(selectedVehicle.id, vehicleData)
+        const updatedVehicle = await dataService.updateVehicle(selectedVehicle.id, vehicleData)
         toast({
           variant: "success",
           title: "Cập nhật thành công",
           description: "Thông tin xe đã được cập nhật thành công.",
         })
+        return updatedVehicle || undefined
       } else {
         const newVehicle = await dataService.createVehicle(vehicleData)
         
@@ -211,38 +212,28 @@ export default function VehiclesPage() {
           title: "Tạo mới thành công",
           description: "Xe mới đã được thêm vào hệ thống.",
         })
+        return newVehicle
       }
-      await loadData() // Reload the data
-      setIsFormOpen(false)
-      setSelectedVehicle(undefined)
-      
-      // Clean up URL parameter after successful save
-      const newSearchParams = new URLSearchParams(searchParams.toString())
-      newSearchParams.delete('id')
-      const newUrl = newSearchParams.toString() 
-        ? `${window.location.pathname}?${newSearchParams.toString()}`
-        : window.location.pathname
-      router.replace(newUrl)
     } catch (err) {
       setError('Không thể lưu thông tin xe')
       console.error('Error saving vehicle:', err)
-      
-      // Check if it's a duplicate license plate error
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      if (errorMessage.includes('duplicate key') || errorMessage.includes('license_plate')) {
-        toast({
-          variant: "destructive",
-          title: "Biển số xe đã tồn tại",
-          description: "Biển số xe này đã được sử dụng. Vui lòng chọn biển số khác.",
-        })
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Lỗi lưu thông tin",
-          description: "Không thể lưu thông tin xe. Vui lòng thử lại sau.",
-        })
-      }
+      throw err
     }
+  }
+
+  const handleAfterSave = async () => {
+    // Clean up after save
+    await loadData() // Reload the data
+    setIsFormOpen(false)
+    setSelectedVehicle(undefined)
+    
+    // Clean up URL parameter after save
+    const newSearchParams = new URLSearchParams(searchParams.toString())
+    newSearchParams.delete('id')
+    const newUrl = newSearchParams.toString() 
+      ? `${window.location.pathname}?${newSearchParams.toString()}`
+      : window.location.pathname
+    router.replace(newUrl)
   }
 
   const handleAddNew = () => {
@@ -665,6 +656,7 @@ export default function VehiclesPage() {
           router.replace(newUrl)
         }}
         onSave={handleSave}
+        onAfterSave={handleAfterSave}
       />
 
       <BulkOperationsDialog

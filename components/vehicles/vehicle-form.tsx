@@ -19,9 +19,10 @@ interface VehicleFormProps {
   onClose: () => void
   onSave: (vehicle: Omit<Vehicle, "id" | "createdAt" | "updatedAt">) => Promise<Vehicle | void>
   onImageUpload?: (vehicleId: string, imageFile: File) => Promise<void>
+  onAfterSave?: () => void
 }
 
-export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onImageUpload }: VehicleFormProps) {
+export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onImageUpload, onAfterSave }: VehicleFormProps) {
   const [formData, setFormData] = useState<Partial<Vehicle>>({
     employeeId: vehicle?.employeeId || "",
     employeeName: vehicle?.employeeName || "",
@@ -174,7 +175,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
       const savedVehicle = await onSave(vehicleData)
       
       // Upload image if selected
-      if (selectedImage) {
+      if (selectedImage && savedVehicle) {
         setUploadingImage(true)
         try {
           let vehicleId: string
@@ -182,8 +183,8 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
           // Get vehicle ID from either existing vehicle or newly created vehicle
           if (vehicle?.id) {
             vehicleId = vehicle.id
-          } else if (typeof savedVehicle === 'object' && savedVehicle && 'id' in savedVehicle) {
-            vehicleId = (savedVehicle as any).id
+          } else if (savedVehicle && 'id' in savedVehicle) {
+            vehicleId = savedVehicle.id
           } else {
             throw new Error("Cannot determine vehicle ID for image upload")
           }
@@ -203,6 +204,11 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
         } finally {
           setUploadingImage(false)
         }
+      }
+      
+      // Call onAfterSave callback to handle cleanup
+      if (onAfterSave) {
+        onAfterSave()
       }
     } catch (error) {
       console.error("Error saving vehicle:", error)
