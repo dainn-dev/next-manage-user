@@ -526,6 +526,10 @@ class WebcamThread(QThread):
         self.yolo_license_plate = None
         self.lp_manager = None
         self.last_saved_plates = set()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.inference_interval = max(config_manager.get_detection_frame_interval_ms() / 1000.0, 0)
+        self.last_inference_time = 0.0
+        print(f"Using device for inference: {self.device}")
         
         # Load models
         self.load_models()
@@ -574,6 +578,14 @@ class WebcamThread(QThread):
             # Set confidence threshold
             if self.yolo_license_plate:
                 self.yolo_license_plate.conf = confidence_threshold
+            
+            # Move models to selected device and set eval mode
+            if self.yolo_LP_detect:
+                self.yolo_LP_detect.to(self.device)
+                self.yolo_LP_detect.eval()
+            if self.yolo_license_plate:
+                self.yolo_license_plate.to(self.device)
+                self.yolo_license_plate.eval()
             
             # Initialize license plate manager
             self.lp_manager = LicensePlateManager()
@@ -814,6 +826,12 @@ class WebcamThread(QThread):
                           cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                 return frame, ""
             
+            # Throttle expensive inference to configured interval
+            current_time = time.time()
+            if self.inference_interval > 0 and (current_time - self.last_inference_time) < self.inference_interval:
+                return frame, ""
+            self.last_inference_time = current_time
+            
             plates = self.yolo_LP_detect(frame, size=640)
             list_plates = plates.pandas().xyxy[0].values.tolist()
             current_frame_plates = set()
@@ -839,21 +857,27 @@ class WebcamThread(QThread):
                     cv2.rectangle(frame, (int(plate[0]), int(plate[1])), 
                                 (int(plate[2]), int(plate[3])), color=(0, 0, 255), thickness=2)
                     
-                    # Try to read license plate with rotation
-                    lp = ""
-                    for cc in range(0, 2):
-                        for ct in range(0, 2):
-                            lp = helper.read_plate(self.yolo_license_plate, 
-                                                 utils_rotate.deskew(crop_img, cc, ct))
-                            if lp != "unknown":
-                                current_frame_plates.add(lp)
-                                license_plate_text = lp
-                                cv2.putText(frame, lp, (int(plate[0]), int(plate[1]-10)), 
-                                          cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
-                                flag = 1
+                    # Try to read plate without rotation first
+                    lp = helper.read_plate(self.yolo_license_plate, crop_img)
+                    if lp == "unknown":
+                        # Try to read license plate with limited rotations
+                        for cc in range(0, 2):
+                            for ct in range(0, 2):
+                                lp = helper.read_plate(self.yolo_license_plate, 
+                                                     utils_rotate.deskew(crop_img, cc, ct))
+                                if lp != "unknown":
+                                    flag = 1
+                                    break
+                            if flag == 1:
                                 break
-                        if flag == 1:
-                            break
+                    else:
+                        flag = 1
+                    
+                    if lp != "unknown":
+                        current_frame_plates.add(lp)
+                        license_plate_text = lp
+                        cv2.putText(frame, lp, (int(plate[0]), int(plate[1]-10)), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
             
             # Track license plate detection duration
             current_time = time.time()
@@ -1132,6 +1156,21 @@ class UnregisteredVehicleDialog(QDialog):
             event.accept()
 
 
+class CameraScannerThread(QThread):
+    """Background worker to scan for available RTSP cameras without blocking UI"""
+    scan_completed = pyqtSignal(list, str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def run(self):
+        try:
+            available_cameras = get_available_cameras()
+            self.scan_completed.emit(available_cameras, "")
+        except Exception as e:
+            self.scan_completed.emit([], str(e))
+
+
 class CameraPanel(QGroupBox):
     """Individual camera panel widget"""
     def __init__(self, title, panel_type):
@@ -1140,6 +1179,7 @@ class CameraPanel(QGroupBox):
         self.webcam_thread = None
         self.active_dialogs = {}  # Track active popup dialogs to prevent duplicates
         self.last_popup_time = {}  # Track last popup time for each license plate to prevent spam
+        self.scan_thread = None
         self.setup_ui()
     
     def setup_ui(self):
@@ -1186,6 +1226,7 @@ class CameraPanel(QGroupBox):
         self.log_text = QTextEdit()
         self.log_text.setMaximumHeight(100)
         self.log_text.setReadOnly(True)
+        self.log_text.document().setMaximumBlockCount(200)
         layout.addWidget(self.log_text)
         
         self.setLayout(layout)
@@ -1204,6 +1245,9 @@ class CameraPanel(QGroupBox):
     def refresh_cameras(self):
         """Refresh the list of available cameras"""
         try:
+            if self.scan_thread and self.scan_thread.isRunning():
+                return
+            
             # Disable camera selection and connect button during refresh
             self.set_controls_enabled(False)
             
@@ -1220,36 +1264,42 @@ class CameraPanel(QGroupBox):
             # Force UI update
             QApplication.processEvents()
             
-            # Get available cameras (this may take some time for RTSP devices)
-            available_cameras = get_available_cameras()
-            
-            # Clear the "scanning" message
-            self.camera_combo.clear()
-            
-            if not available_cameras:
-                self.camera_combo.addItem("Không tìm thấy thiết bị RTSP")
-                self.camera_combo.setEnabled(False)
-                self.log_text.append("❌ Không phát hiện thiết bị RTSP nào. Vui lòng kiểm tra cấu hình RTSP.")
-            else:
-                # Add available RTSP devices to combobox
-                for camera_index, camera_info in available_cameras:
-                    self.camera_combo.addItem(camera_info, camera_index)
-                
-                self.camera_combo.setEnabled(True)
-                self.log_text.append(f"✅ Tìm thấy {len(available_cameras)} thiết bị RTSP")
+            # Launch background scan thread
+            self.scan_thread = CameraScannerThread(self)
+            self.scan_thread.scan_completed.connect(self.on_camera_scan_completed)
+            self.scan_thread.finished.connect(self.scan_thread.deleteLater)
+            self.scan_thread.start()
                 
         except Exception as e:
-            self.camera_combo.clear()
+            self.on_camera_scan_completed([], str(e))
+    
+    def on_camera_scan_completed(self, available_cameras, error_message):
+        """Handle results from background camera scan"""
+        self.camera_combo.clear()
+        
+        if error_message:
             self.camera_combo.addItem("Lỗi phát hiện RTSP")
             self.camera_combo.setEnabled(False)
-            self.log_text.append(f"❌ Lỗi làm mới RTSP: {str(e)}")
+            self.log_text.append(f"❌ Lỗi làm mới RTSP: {error_message}")
+        elif not available_cameras:
+            self.camera_combo.addItem("Không tìm thấy thiết bị RTSP")
+            self.camera_combo.setEnabled(False)
+            self.log_text.append("❌ Không phát hiện thiết bị RTSP nào. Vui lòng kiểm tra cấu hình RTSP.")
+        else:
+            for camera_index, camera_info in available_cameras:
+                self.camera_combo.addItem(camera_info, camera_index)
+            
+            self.camera_combo.setEnabled(True)
+            self.log_text.append(f"✅ Tìm thấy {len(available_cameras)} thiết bị RTSP")
         
-        finally:
-            # Re-enable camera selection and connect button
-            self.set_controls_enabled(True)
-            # Re-enable refresh button
-            self.refresh_btn.setText("Làm mới")
-            self.refresh_btn.setEnabled(True)
+        # Clear reference once thread finished
+        if self.scan_thread and not self.scan_thread.isRunning():
+            self.scan_thread = None
+        
+        # Re-enable controls
+        self.set_controls_enabled(True)
+        self.refresh_btn.setText("Làm mới")
+        self.refresh_btn.setEnabled(True)
     
     def toggle_connection(self):
         """Toggle camera connection"""

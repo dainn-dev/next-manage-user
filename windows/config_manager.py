@@ -28,7 +28,8 @@ class ConfigManager:
             "detection": {
                 "cooldown": 5,
                 "cache_duration": 300,
-                "max_cameras": 10
+                "max_cameras": 10,
+                "frame_interval_ms": 200
             },
             "rate_limiting": {
                 "max_requests_per_minute": 30,
@@ -183,6 +184,10 @@ class ConfigManager:
     def get_min_detection_duration(self) -> float:
         """Get minimum detection duration in seconds"""
         return self.get('detection.min_detection_duration', 3.0)
+    
+    def get_detection_frame_interval_ms(self) -> int:
+        """Get minimum interval between heavy detections in milliseconds"""
+        return self.get('detection.frame_interval_ms', 200)
     
     def get_window_size(self) -> tuple:
         """Get window size"""
