@@ -70,6 +70,16 @@ def autopad(k, p=None, d=1):
     return p
 
 
+def autocast_context(device_type: str, enabled: bool):
+    """Return appropriate autocast context manager for current PyTorch version."""
+    if not enabled:
+        return contextlib.nullcontext()
+    if hasattr(torch, "amp") and hasattr(torch.amp, "autocast"):
+        # torch.amp.autocast requires a valid device type string ('cuda', 'cpu', 'mps', ...)
+        return torch.amp.autocast(device_type=device_type)
+    return amp.autocast(enabled=True)
+
+
 class Conv(nn.Module):
     """Applies a convolution, batch normalization, and activation function to an input tensor in a neural network."""
 
@@ -876,7 +886,7 @@ class AutoShape(nn.Module):
             p = next(self.model.parameters()) if self.pt else torch.empty(1, device=self.model.device)  # param
             autocast = self.amp and (p.device.type != "cpu")  # Automatic Mixed Precision (AMP) inference
             if isinstance(ims, torch.Tensor):  # torch
-                with amp.autocast(autocast):
+                with autocast_context(p.device.type, autocast):
                     return self.model(ims.to(p.device).type_as(p), augment=augment)  # inference
 
             # Pre-process
@@ -903,7 +913,7 @@ class AutoShape(nn.Module):
             x = np.ascontiguousarray(np.array(x).transpose((0, 3, 1, 2)))  # stack and BHWC to BCHW
             x = torch.from_numpy(x).to(p.device).type_as(p) / 255  # uint8 to fp16/32
 
-        with amp.autocast(autocast):
+        with autocast_context(p.device.type, autocast):
             # Inference
             with dt[1]:
                 y = self.model(x, augment=augment)  # forward

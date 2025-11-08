@@ -174,8 +174,10 @@ class ConfigDialog(QDialog):
         layout = QFormLayout()
         
         # Detection Cooldown
-        self.detection_cooldown = QSpinBox()
-        self.detection_cooldown.setRange(1, 60)
+        self.detection_cooldown = QDoubleSpinBox()
+        self.detection_cooldown.setRange(0.5, 60.0)
+        self.detection_cooldown.setSingleStep(0.1)
+        self.detection_cooldown.setDecimals(1)
         self.detection_cooldown.setSuffix(" giây")
         layout.addRow("Thời gian chờ phát hiện:", self.detection_cooldown)
         
@@ -198,6 +200,13 @@ class ConfigDialog(QDialog):
         self.min_detection_duration.setDecimals(1)
         layout.addRow("Thời gian phát hiện tối thiểu:", self.min_detection_duration)
         
+        # Frame interval between detections (ms)
+        self.detection_frame_interval = QSpinBox()
+        self.detection_frame_interval.setRange(0, 1000)
+        self.detection_frame_interval.setSingleStep(10)
+        self.detection_frame_interval.setSuffix(" ms")
+        layout.addRow("Khoảng thời gian giữa lần suy luận:", self.detection_frame_interval)
+
         widget.setLayout(layout)
         return widget
     
@@ -403,6 +412,7 @@ class ConfigDialog(QDialog):
         self.cache_duration.setValue(config_manager.get('detection.cache_duration', 300))
         self.max_cameras.setValue(config_manager.get('detection.max_cameras', 10))
         self.min_detection_duration.setValue(config_manager.get('detection.min_detection_duration', 3.0))
+        self.detection_frame_interval.setValue(config_manager.get('detection.frame_interval_ms', 200))
         
         # UI settings
         self.window_width.setValue(config_manager.get('ui.window_width', 1400))
@@ -458,6 +468,7 @@ class ConfigDialog(QDialog):
             config_manager.set('detection.cache_duration', self.cache_duration.value())
             config_manager.set('detection.max_cameras', self.max_cameras.value())
             config_manager.set('detection.min_detection_duration', self.min_detection_duration.value())
+            config_manager.set('detection.frame_interval_ms', self.detection_frame_interval.value())
             
             # UI settings
             config_manager.set('ui.window_width', self.window_width.value())
