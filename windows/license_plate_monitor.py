@@ -7,6 +7,7 @@ import requests
 import base64
 import json
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor, CancelledError
 from datetime import datetime
 
 # Add ultralytics_yolov5_master to Python path for local model loading
@@ -531,6 +532,14 @@ class WebcamThread(QThread):
         self.last_inference_time = 0.0
         self.target_fps = max(1, config_manager.get_rtsp_target_fps())
         self.frame_delay_ms = max(1, int(round(1000 / self.target_fps)))
+        self.detection_executor = ThreadPoolExecutor(max_workers=1)
+        self.detection_future = None
+        self.last_detection_boxes = []
+        self.last_detection_text = ""
+        self.last_detection_received_at = 0.0
+        self.last_detected_plates = []
+        self.last_status_message = ""
+        self.overlay_ttl_seconds = 1.5
         print(f"Using device for inference: {self.device}")
         
         # Load models
@@ -792,19 +801,51 @@ class WebcamThread(QThread):
                     self.frames_dropped += 1
                     continue
                 
-                # Process frame for license plate detection
-                processed_frame, license_plate_text = self.process_frame(frame)
+                # Collect completed detection results (if any)
+                if self.detection_future and self.detection_future.done():
+                    try:
+                        detection_payload, detection_text = self.detection_future.result()
+                        self.last_detection_boxes = detection_payload.get("detections", [])
+                        self.last_detected_plates = detection_payload.get("plates", [])
+                        self.last_status_message = detection_payload.get("status_message", "")
+                        self.last_detection_text = detection_text
+                        self.last_detection_received_at = time.time()
+                    except CancelledError:
+                        pass
+                    except Exception as detection_error:
+                        print(f"Detection worker error: {detection_error}")
+                    finally:
+                        self.detection_future = None
                 
-                # Emit the processed frame and any detected license plate
-                self.frame_ready.emit(processed_frame, license_plate_text)
+                # Schedule a new detection job if interval elapsed and no job is running
+                now = time.time()
+                detection_job_running = self.detection_future is not None
+                interval_elapsed = (self.inference_interval == 0) or (now - self.last_inference_time >= self.inference_interval)
+                if not detection_job_running and not self.detection_paused and interval_elapsed:
+                    detection_frame = frame.copy()
+                    self.last_inference_time = now
+                    self.detection_future = self.detection_executor.submit(self.process_frame, detection_frame)
                 
-                # Calculate FPS
+                # Prepare frame for display with overlays
+                display_frame = frame.copy()
+                self._draw_detection_overlay(display_frame)
+                
+                # Calculate FPS overlay
                 new_frame_time = time.time()
                 if prev_frame_time > 0:
                     fps = 1 / (new_frame_time - prev_frame_time)
-                    cv2.putText(processed_frame, f"FPS: {int(fps)}", (10, 30), 
+                    cv2.putText(display_frame, f"FPS: {int(fps)}", (10, 30), 
                               cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                 prev_frame_time = new_frame_time
+                
+                # Determine license plate text to emit (respect overlay TTL)
+                if self.last_detection_received_at > 0 and (time.time() - self.last_detection_received_at) <= self.overlay_ttl_seconds:
+                    license_plate_text = self.last_detection_text
+                else:
+                    license_plate_text = ""
+                
+                # Emit the frame for display
+                self.frame_ready.emit(display_frame, license_plate_text)
                 
                 # Small delay to prevent overwhelming the system
                 self.msleep(self.frame_delay_ms)  # Align with target FPS
@@ -815,141 +856,188 @@ class WebcamThread(QThread):
             if self.cap:
                 self.cap.release()
     
+    def _draw_detection_overlay(self, frame):
+        """Draw latest detection results onto the frame without blocking capture."""
+        if frame is None:
+            return
+        
+        if self.last_detection_received_at == 0:
+            return
+        
+        if (time.time() - self.last_detection_received_at) > self.overlay_ttl_seconds:
+            return
+        
+        status_message = self.last_status_message
+        if status_message:
+            cv2.putText(frame, status_message, (10, 40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        
+        unbounded_labels = []
+        drawn_labels = set()
+        
+        for detection in self.last_detection_boxes:
+            bbox = detection.get("bbox")
+            label = detection.get("label", "")
+            
+            if bbox:
+                x1, y1, x2, y2 = bbox
+                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)),
+                              color=(0, 0, 255), thickness=2)
+                if label:
+                    text_y = int(max(y1 - 10, 30))
+                    cv2.putText(frame, label, (int(x1), text_y),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+                    drawn_labels.add(label)
+            elif label:
+                unbounded_labels.append(label)
+        
+        y_offset = 70
+        labels_to_show = unbounded_labels or self.last_detected_plates
+        for label in labels_to_show:
+            if not label or label in drawn_labels:
+                continue
+            cv2.putText(frame, label, (10, y_offset),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+            y_offset += 35
+        
+        if not labels_to_show and self.last_detection_text and self.last_detection_text not in drawn_labels:
+            cv2.putText(frame, self.last_detection_text, (10, 70),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+    
     def process_frame(self, frame):
         """Process frame for license plate detection"""
+        detection_payload = {
+            "detections": [],
+            "plates": [],
+            "status_message": "",
+            "timestamp": time.time(),
+            "inference_ms": 0.0
+        }
         try:
-            # Check if models are loaded
             if not self.yolo_LP_detect or not self.yolo_license_plate:
-                return frame, ""
+                detection_payload["status_message"] = "MODELS NOT LOADED"
+                return detection_payload, ""
             
-            # Check if detection is paused
             if self.detection_paused:
-                # Add visual indicator that detection is paused
-                cv2.putText(frame, "DETECTION PAUSED", (10, 100), 
-                          cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                return frame, ""
+                detection_payload["status_message"] = "DETECTION PAUSED"
+                return detection_payload, ""
             
-            # Throttle expensive inference to configured interval
-            current_time = time.time()
-            if self.inference_interval > 0 and (current_time - self.last_inference_time) < self.inference_interval:
-                return frame, ""
-            self.last_inference_time = current_time
-            
-            plates = self.yolo_LP_detect(frame, size=640)
-            list_plates = plates.pandas().xyxy[0].values.tolist()
+            inference_start = time.time()
             current_frame_plates = set()
             license_plate_text = ""
+            detection_entries = []
             
-            if len(list_plates) == 0:
-                # Try to read plate from entire frame
+            with torch.no_grad():
+                plates = self.yolo_LP_detect(frame, size=640)
+            list_plates = plates.pandas().xyxy[0].values.tolist()
+            
+            if not list_plates:
                 lp = helper.read_plate(self.yolo_license_plate, frame)
                 if lp != "unknown":
                     current_frame_plates.add(lp)
                     license_plate_text = lp
-                    cv2.putText(frame, lp, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+                    detection_entries.append({
+                        "bbox": None,
+                        "label": lp,
+                        "confidence": None
+                    })
             else:
                 for plate in list_plates:
-                    flag = 0
-                    x = int(plate[0])
-                    y = int(plate[1])
-                    w = int(plate[2] - plate[0])
-                    h = int(plate[3] - plate[1])
-                    crop_img = frame[y:y+h, x:x+w]
+                    x1 = max(int(plate[0]), 0)
+                    y1 = max(int(plate[1]), 0)
+                    x2 = max(int(plate[2]), x1 + 1)
+                    y2 = max(int(plate[3]), y1 + 1)
+                    confidence = float(plate[4]) if len(plate) > 4 else None
                     
-                    # Draw rectangle around detected plate
-                    cv2.rectangle(frame, (int(plate[0]), int(plate[1])), 
-                                (int(plate[2]), int(plate[3])), color=(0, 0, 255), thickness=2)
+                    crop_img = frame[y1:y2, x1:x2]
+                    if crop_img.size == 0:
+                        detection_entries.append({
+                            "bbox": (x1, y1, x2, y2),
+                            "label": "",
+                            "confidence": confidence
+                        })
+                        continue
                     
-                    # Try to read plate without rotation first
-                    lp = helper.read_plate(self.yolo_license_plate, crop_img)
-                    if lp == "unknown":
-                        # Try to read license plate with limited rotations
+                    lp_candidate = helper.read_plate(self.yolo_license_plate, crop_img)
+                    if lp_candidate == "unknown":
                         for cc in range(0, 2):
                             for ct in range(0, 2):
-                                lp = helper.read_plate(self.yolo_license_plate, 
-                                                     utils_rotate.deskew(crop_img, cc, ct))
-                                if lp != "unknown":
-                                    flag = 1
+                                lp_candidate = helper.read_plate(
+                                    self.yolo_license_plate,
+                                    utils_rotate.deskew(crop_img, cc, ct)
+                                )
+                                if lp_candidate != "unknown":
                                     break
-                            if flag == 1:
+                            if lp_candidate != "unknown":
                                 break
-                    else:
-                        flag = 1
                     
-                    if lp != "unknown":
-                        current_frame_plates.add(lp)
-                        license_plate_text = lp
-                        cv2.putText(frame, lp, (int(plate[0]), int(plate[1]-10)), 
-                                  cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+                    if lp_candidate != "unknown":
+                        current_frame_plates.add(lp_candidate)
+                        license_plate_text = lp_candidate
+                    
+                    detection_entries.append({
+                        "bbox": (x1, y1, x2, y2),
+                        "label": lp_candidate if lp_candidate != "unknown" else "",
+                        "confidence": confidence
+                    })
             
-            # Track license plate detection duration
-            current_time = time.time()
+            detection_payload["detections"] = detection_entries
+            detection_payload["plates"] = list(current_frame_plates)
+            detection_payload["timestamp"] = time.time()
+            detection_payload["inference_ms"] = (detection_payload["timestamp"] - inference_start) * 1000.0
+            
+            processing_time = detection_payload["timestamp"]
             for lp in current_frame_plates:
-                # Record when this plate was first detected
                 if lp not in self.plate_detection_start:
-                    self.plate_detection_start[lp] = current_time
+                    self.plate_detection_start[lp] = processing_time
                     print(f"Started tracking license plate: {lp}")
                 
-                # Check if plate has been detected for at least 3 seconds
-                detection_duration = current_time - self.plate_detection_start[lp]
+                detection_duration = processing_time - self.plate_detection_start[lp]
                 
                 if detection_duration >= self.min_detection_duration:
-                    # Plate detected for sufficient time, process it
                     if lp not in self.last_saved_plates:
                         self.lp_manager.add_license_plate(lp)
                         self.last_saved_plates.add(lp)
                     
-                    # Check cooldown for API calls (both local and global)
                     detection_cooldown = config_manager.get_detection_cooldown()
                     global_key = f"{lp}_{self.panel_type}"
                     
-                    # Check both local and global cooldowns
-                    local_cooldown_ok = lp not in self.last_detection_time or (current_time - self.last_detection_time[lp]) > detection_cooldown
-                    global_cooldown_ok = global_key not in global_detection_times or (current_time - global_detection_times[global_key]) > detection_cooldown
+                    local_cooldown_ok = lp not in self.last_detection_time or (processing_time - self.last_detection_time[lp]) > detection_cooldown
+                    global_cooldown_ok = global_key not in global_detection_times or (processing_time - global_detection_times[global_key]) > detection_cooldown
                     
                     if local_cooldown_ok and global_cooldown_ok:
-                        # Check if there's already a pending API call for this license plate
                         pending_key = f"{lp}_{self.panel_type}"
                         if pending_key in self.pending_api_calls:
                             print(f"API call already pending for {lp} - skipping duplicate")
                             continue
                         
-                        # Check if this request is already cached
                         is_cached, cached_response = is_request_cached(lp, self.panel_type)
                         if is_cached:
                             print(f"License plate {lp} - using cached response (cache hit)")
-                            # Emit cached response directly
                             self.api_response_ready.emit(lp, self.panel_type, cached_response)
                         else:
-                            # Check rate limit before making API request
                             rate_limit_ok, rate_limit_error = check_rate_limit()
                             if not rate_limit_ok:
                                 print(f"Rate limit exceeded for {lp}: {rate_limit_error}")
-                                # Create rate limit error response
                                 rate_limit_response = {
                                     "success": False, 
                                     "message": f"Rate limit exceeded. Please wait before trying again. ({rate_limit_error})",
                                     "rate_limited": True
                                 }
-                                # Cache the rate limit response
                                 cache_api_response(lp, self.panel_type, rate_limit_response)
                                 self.api_response_ready.emit(lp, self.panel_type, rate_limit_response)
                             else:
-                                # Mark as pending to prevent duplicates
                                 self.pending_api_calls.add(pending_key)
-                                self.last_detection_time[lp] = current_time
-                                global_detection_times[global_key] = current_time
+                                self.last_detection_time[lp] = processing_time
+                                global_detection_times[global_key] = processing_time
                                 print(f"License plate {lp} detected for {detection_duration:.1f}s - sending to API")
-                                # Send to API in a separate thread to avoid blocking
                                 self.send_to_api_async(lp)
                     else:
                         print(f"License plate {lp} skipped due to cooldown (local: {not local_cooldown_ok}, global: {not global_cooldown_ok})")
                 else:
-                    # Show countdown in console
                     remaining_time = self.min_detection_duration - detection_duration
                     print(f"License plate {lp} detected for {detection_duration:.1f}s (need {remaining_time:.1f}s more)")
             
-            # Clean up plates that are no longer detected
             plates_to_remove = []
             for lp in self.plate_detection_start:
                 if lp not in current_frame_plates:
@@ -959,11 +1047,16 @@ class WebcamThread(QThread):
                 del self.plate_detection_start[lp]
                 print(f"Stopped tracking license plate: {lp}")
             
-            return frame, license_plate_text
+            return detection_payload, license_plate_text
             
         except Exception as e:
-            self.error_occurred.emit(f"Lỗi xử lý khung hình: {str(e)}")
-            return frame, ""
+            error_msg = f"Lỗi xử lý khung hình: {str(e)}"
+            print(error_msg)
+            self.error_occurred.emit(error_msg)
+            detection_payload["status_message"] = "PROCESSING ERROR"
+            detection_payload["detections"] = []
+            detection_payload["plates"] = []
+            return detection_payload, ""
     
     def send_to_api_async(self, license_plate):
         """Send license plate data to API asynchronously"""
@@ -986,6 +1079,8 @@ class WebcamThread(QThread):
     def pause_detection(self):
         """Pause license plate detection while keeping camera running"""
         self.detection_paused = True
+        self.last_status_message = "DETECTION PAUSED"
+        self.last_detection_received_at = time.time()
         print(f"License plate detection paused for {self.panel_type} panel")
     
     def resume_detection(self):
@@ -993,12 +1088,20 @@ class WebcamThread(QThread):
         self.detection_paused = False
         # Clear pending API calls to allow fresh detections
         self.pending_api_calls.clear()
+        self.last_status_message = ""
+        self.last_inference_time = 0.0
         print(f"License plate detection resumed for {self.panel_type} panel")
     
     def stop(self):
         """Stop the webcam thread"""
         self.running = False
         self.wait()
+        try:
+            if self.detection_future and not self.detection_future.done():
+                self.detection_future.cancel()
+            self.detection_executor.shutdown(wait=False)
+        except Exception as e:
+            print(f"Warning: Could not shutdown detection executor: {e}")
 
 
 class UnregisteredVehicleDialog(QDialog):
