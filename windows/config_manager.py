@@ -277,6 +277,10 @@ class ConfigManager:
         """Get RTSP optimization settings"""
         return self.get('rtsp_optimization', {})
     
+    def get_rtsp_target_fps(self) -> int:
+        """Get target FPS for RTSP streams"""
+        return max(1, int(self.get('rtsp_optimization.target_fps', 25)))
+    
     def get_rtsp_buffer_size(self) -> int:
         """Get RTSP buffer size"""
         return self.get('rtsp_optimization.buffer_size', 1)

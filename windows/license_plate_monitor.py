@@ -529,6 +529,8 @@ class WebcamThread(QThread):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.inference_interval = max(config_manager.get_detection_frame_interval_ms() / 1000.0, 0)
         self.last_inference_time = 0.0
+        self.target_fps = max(1, config_manager.get_rtsp_target_fps())
+        self.frame_delay_ms = max(1, int(round(1000 / self.target_fps)))
         print(f"Using device for inference: {self.device}")
         
         # Load models
@@ -661,7 +663,7 @@ class WebcamThread(QThread):
             
             # Additional RTSP-specific optimizations
             self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
-            self.cap.set(cv2.CAP_PROP_FPS, 25)  # Set consistent FPS
+            self.cap.set(cv2.CAP_PROP_FPS, self.target_fps)  # Set consistent FPS
             
             # H.264 error handling and optimization parameters
             if config_manager.get_rtsp_h264_error_handling():
@@ -686,10 +688,11 @@ class WebcamThread(QThread):
             if config_manager.get_rtsp_low_latency():
                 # Disable auto exposure and other automatic settings that can cause delay
                 self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # Manual exposure
-                self.cap.set(cv2.CAP_PROP_FPS, 30)  # Set consistent FPS
+                self.cap.set(cv2.CAP_PROP_FPS, self.target_fps)  # Set consistent FPS
                 
             print(f"RTSP optimization applied: buffer_size={buffer_size}, "
                   f"connection_timeout={connection_timeout}ms, read_timeout={read_timeout}ms, "
+                  f"target_fps={self.target_fps}, frame_delay_ms={self.frame_delay_ms}, "
                   f"H.264 error handling enabled")
                   
         except Exception as e:
@@ -804,7 +807,7 @@ class WebcamThread(QThread):
                 prev_frame_time = new_frame_time
                 
                 # Small delay to prevent overwhelming the system
-                self.msleep(33)  # ~30 FPS
+                self.msleep(self.frame_delay_ms)  # Align with target FPS
                 
         except Exception as e:
             self.error_occurred.emit(f"Error in webcam thread: {str(e)}")
