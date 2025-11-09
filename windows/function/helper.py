@@ -115,11 +115,11 @@ def read_plate(yolo_license_plate, im):
 
 
 def _extract_red_plate_region(image):
-    """Attempt to locate red-background plate region."""
+    """Locate red-background plate region and return crop plus bounding box."""
     try:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     except Exception:
-        return None
+        return None, None, None
 
     # Red spans two ranges in HSV
     lower_red1 = np.array([0, 70, 50])
@@ -136,24 +136,48 @@ def _extract_red_plate_region(image):
 
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return None
+        return None, None, None
 
-    largest = max(contours, key=cv2.contourArea)
-    area = cv2.contourArea(largest)
-    if area < 5000:
-        return None
+    height, width = image.shape[:2]
+    image_area = float(height * width)
 
-    x, y, w, h = cv2.boundingRect(largest)
+    for contour in sorted(contours, key=cv2.contourArea, reverse=True):
+        area = cv2.contourArea(contour)
+        if area < 2500:
+            continue
+        if image_area > 0 and (area / image_area) > 0.5:
+            # Too large, likely entire frame
+            continue
 
-    # Expand bounding box slightly
-    pad_w = int(w * 0.05)
-    pad_h = int(h * 0.05)
-    x0 = max(x - pad_w, 0)
-    y0 = max(y - pad_h, 0)
-    x1 = min(x + w + pad_w, image.shape[1])
-    y1 = min(y + h + pad_h, image.shape[0])
+        x, y, w, h = cv2.boundingRect(contour)
+        if w == 0 or h == 0:
+            continue
 
-    return image[y0:y1, x0:x1]
+        aspect = w / float(h)
+        if aspect < 1.1 or aspect > 4.5:
+            continue
+
+        fill_ratio = area / float(w * h)
+        if fill_ratio < 0.4:
+            continue
+
+        pad_w = int(w * 0.08)
+        pad_h = int(h * 0.08)
+        x0 = max(x - pad_w, 0)
+        y0 = max(y - pad_h, 0)
+        x1 = min(x + w + pad_w, width)
+        y1 = min(y + h + pad_h, height)
+
+        crop = image[y0:y1, x0:x1]
+        bbox = (x0, y0, x1, y1)
+
+        # Also compute polygon points for overlays if needed
+        approx = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
+        polygon = approx.reshape(-1, 2).tolist() if len(approx) >= 4 else None
+
+        return crop, bbox, polygon
+
+    return None, None, None
 
 
 def _ensure_tesseract_configured():
@@ -170,13 +194,14 @@ def read_plate_with_tesseract(image):
     Fallback OCR using Tesseract for non-standard plates such as red-background variants.
     """
     if pytesseract is None:
-        return "unknown"
+        return "unknown", None, None
     try:
         _ensure_tesseract_configured()
-        region = _extract_red_plate_region(image)
-        roi = region if region is not None else image
+        region, bbox, polygon = _extract_red_plate_region(image)
+        if region is None:
+            return "unknown", None, None
 
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
         # Adaptive threshold works better for varying lighting / shadows
@@ -198,12 +223,12 @@ def read_plate_with_tesseract(image):
 
         # Typical Vietnamese temporary plate like TC33-86 (4+ chars, contains digits)
         if len(cleaned) >= 4 and any(ch.isdigit() for ch in cleaned):
-            return cleaned
+            return cleaned, bbox, polygon
 
-        return "unknown"
+        return "unknown", None, None
     except Exception as exc:
         print(f"Tesseract fallback error: {exc}")
-        return "unknown"
+        return "unknown", None, None
 
 
 def _get_easyocr_reader():
@@ -229,15 +254,16 @@ def _get_easyocr_reader():
 def read_plate_with_easyocr(image):
     reader = _get_easyocr_reader()
     if reader is None:
-        return "unknown"
+        return "unknown", None, None
 
     try:
-        region = _extract_red_plate_region(image)
-        roi = region if region is not None else image
+        region, bbox, polygon = _extract_red_plate_region(image)
+        if region is None:
+            return "unknown", None, None
 
-        results = reader.readtext(roi)
+        results = reader.readtext(region)
         if not results:
-            return "unknown"
+            return "unknown", None, None
 
         min_conf = config_manager.get_easyocr_min_confidence()
         texts = []
@@ -249,25 +275,25 @@ def read_plate_with_easyocr(image):
 
         candidate = "".join(texts)
         if len(candidate) >= 4 and any(ch.isdigit() for ch in candidate):
-            return candidate
+            return candidate, bbox, polygon
 
-        return "unknown"
+        return "unknown", None, None
     except Exception as exc:
         print(f"EasyOCR fallback error: {exc}")
-        return "unknown"
+        return "unknown", None, None
 
 
-def read_plate_with_fallback(image) -> Tuple[str, Optional[str]]:
-    """Route to configured fallback OCR and return plate text plus method name."""
+def read_plate_with_fallback(image) -> Tuple[str, Optional[str], Optional[Tuple[int, int, int, int]], Optional[list]]:
+    """Route to configured fallback OCR and return plate text, method name, bbox, and polygon."""
     if not config_manager.get_ocr_fallback_enabled():
-        return "unknown", None
+        return "unknown", None, None, None
 
     method = config_manager.get_ocr_fallback_method().lower()
 
     if method == "easyocr":
-        result = read_plate_with_easyocr(image)
-        return result, "EASYOCR" if result != "unknown" else None
+        result, bbox, polygon = read_plate_with_easyocr(image)
+        return result, "EASYOCR" if result != "unknown" else None, bbox, polygon
 
     # Default to Tesseract
-    result = read_plate_with_tesseract(image)
-    return result, "TESSERACT" if result != "unknown" else None
+    result, bbox, polygon = read_plate_with_tesseract(image)
+    return result, "TESSERACT" if result != "unknown" else None, bbox, polygon

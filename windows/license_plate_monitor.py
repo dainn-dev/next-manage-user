@@ -982,16 +982,19 @@ class WebcamThread(QThread):
                     })
             
             if not current_frame_plates and config_manager.get_ocr_fallback_enabled():
-                fallback_lp, fallback_method = helper.read_plate_with_fallback(frame)
+                fallback_lp, fallback_method, fallback_bbox, fallback_polygon = helper.read_plate_with_fallback(frame)
                 if fallback_lp != "unknown":
                     print(f"{fallback_method or 'FALLBACK'} detected plate: {fallback_lp}")
                     current_frame_plates.add(fallback_lp)
                     license_plate_text = fallback_lp
-                    detection_entries.append({
-                        "bbox": None,
+                    detection_entry = {
+                        "bbox": fallback_bbox,
                         "label": fallback_lp,
                         "confidence": None
-                    })
+                    }
+                    if fallback_polygon:
+                        detection_entry["polygon"] = fallback_polygon
+                    detection_entries.append(detection_entry)
                     if fallback_method:
                         detection_payload["status_message"] = f"{fallback_method} OCR"
 
