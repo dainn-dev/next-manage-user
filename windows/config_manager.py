@@ -52,7 +52,9 @@ class ConfigManager:
                 "tesseract_cmd": "",
                 "easyocr_languages": ["en", "vi"],
                 "easyocr_gpu": False,
-                "easyocr_min_confidence": 0.4
+                "easyocr_min_confidence": 0.4,
+                "google_vision_credentials": "",
+                "google_vision_language_hints": ["vi", "en"]
             },
             "rtsp_devices": {
                 "device_1": {
@@ -350,6 +352,14 @@ class ConfigManager:
     def get_easyocr_min_confidence(self) -> float:
         """Return EasyOCR minimal confidence threshold."""
         return float(self.get('ocr.easyocr_min_confidence', 0.4))
+
+    def get_google_vision_credentials_path(self) -> str:
+        """Return Google Vision credentials file path."""
+        return self.get('ocr.google_vision_credentials', '')
+
+    def get_google_vision_language_hints(self):
+        """Return Google Vision language hints."""
+        return self.get('ocr.google_vision_language_hints', ['vi', 'en'])
 
 
 # Global config manager instance

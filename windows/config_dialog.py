@@ -212,7 +212,7 @@ class ConfigDialog(QDialog):
         layout.addRow("Bật OCR dự phòng:", self.ocr_fallback_enabled)
 
         self.ocr_fallback_method = QComboBox()
-        self.ocr_fallback_method.addItems(["tesseract", "easyocr"])
+        self.ocr_fallback_method.addItems(["tesseract", "easyocr", "google_vision"])
         layout.addRow("Phương pháp OCR dự phòng:", self.ocr_fallback_method)
 
         self.ocr_tesseract_cmd = QLineEdit()
@@ -231,6 +231,14 @@ class ConfigDialog(QDialog):
         self.ocr_easyocr_min_conf.setDecimals(2)
         self.ocr_easyocr_min_conf.setSingleStep(0.05)
         layout.addRow("Ngưỡng tin cậy EasyOCR:", self.ocr_easyocr_min_conf)
+
+        self.ocr_google_credentials = QLineEdit()
+        self.ocr_google_credentials.setPlaceholderText("C:\\path\\to\\service-account.json")
+        layout.addRow("Google Vision Credential:", self.ocr_google_credentials)
+
+        self.ocr_google_language_hints = QLineEdit()
+        self.ocr_google_language_hints.setPlaceholderText("vi,en")
+        layout.addRow("Ngôn ngữ Google Vision:", self.ocr_google_language_hints)
 
         widget.setLayout(layout)
         return widget
@@ -440,7 +448,7 @@ class ConfigDialog(QDialog):
         self.detection_frame_interval.setValue(config_manager.get('detection.frame_interval_ms', 200))
         self.ocr_fallback_enabled.setChecked(config_manager.get('ocr.fallback_enabled', True))
         fallback_method = config_manager.get('ocr.fallback_method', 'tesseract').lower()
-        if fallback_method not in ["tesseract", "easyocr"]:
+        if fallback_method not in ["tesseract", "easyocr", "google_vision"]:
             fallback_method = "tesseract"
         self.ocr_fallback_method.setCurrentText(fallback_method)
         self.ocr_tesseract_cmd.setText(config_manager.get('ocr.tesseract_cmd', ''))
@@ -452,6 +460,13 @@ class ConfigDialog(QDialog):
         self.ocr_easyocr_languages.setText(languages_text)
         self.ocr_easyocr_gpu.setChecked(config_manager.get('ocr.easyocr_gpu', False))
         self.ocr_easyocr_min_conf.setValue(config_manager.get('ocr.easyocr_min_confidence', 0.4))
+        self.ocr_google_credentials.setText(config_manager.get('ocr.google_vision_credentials', ''))
+        gcv_languages = config_manager.get('ocr.google_vision_language_hints', ['vi', 'en'])
+        if isinstance(gcv_languages, list):
+            gcv_languages_text = ",".join(gcv_languages)
+        else:
+            gcv_languages_text = str(gcv_languages)
+        self.ocr_google_language_hints.setText(gcv_languages_text)
         
         # UI settings
         self.window_width.setValue(config_manager.get('ui.window_width', 1400))
@@ -516,6 +531,10 @@ class ConfigDialog(QDialog):
             config_manager.set('ocr.easyocr_languages', languages or ['en'])
             config_manager.set('ocr.easyocr_gpu', self.ocr_easyocr_gpu.isChecked())
             config_manager.set('ocr.easyocr_min_confidence', self.ocr_easyocr_min_conf.value())
+            config_manager.set('ocr.google_vision_credentials', self.ocr_google_credentials.text())
+            gcv_lang_text = self.ocr_google_language_hints.text()
+            gcv_langs = [lang.strip() for lang in gcv_lang_text.split(',') if lang.strip()]
+            config_manager.set('ocr.google_vision_language_hints', gcv_langs or ['vi', 'en'])
             
             # UI settings
             config_manager.set('ui.window_width', self.window_width.value())

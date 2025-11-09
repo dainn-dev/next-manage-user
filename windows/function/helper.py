@@ -17,7 +17,15 @@ try:
 except ImportError:
     easyocr = None
 
+try:
+    from google.cloud import vision
+    from google.oauth2 import service_account
+except ImportError:
+    vision = None
+    service_account = None
+
 _easyocr_reader = None
+_google_vision_client = None
 
 # license plate type classification helper function
 def linear_equation(x1, y1, x2, y2):
@@ -283,6 +291,74 @@ def read_plate_with_easyocr(image):
         return "unknown", None, None
 
 
+def _get_google_vision_client():
+    global _google_vision_client
+    if vision is None:
+        return None
+    if _google_vision_client is not None:
+        return _google_vision_client
+
+    try:
+        credentials_path = config_manager.get_google_vision_credentials_path()
+        if credentials_path:
+            if service_account is None:
+                print("Google Vision credentials provided but google.oauth2 not available.")
+                _google_vision_client = None
+                return _google_vision_client
+            creds = service_account.Credentials.from_service_account_file(credentials_path)
+            _google_vision_client = vision.ImageAnnotatorClient(credentials=creds)
+        else:
+            _google_vision_client = vision.ImageAnnotatorClient()
+    except Exception as exc:
+        print(f"Google Vision initialization error: {exc}")
+        _google_vision_client = None
+    return _google_vision_client
+
+
+def read_plate_with_google_vision(image):
+    client = _get_google_vision_client()
+    if client is None:
+        return "unknown", None, None
+
+    try:
+        region, bbox, polygon = _extract_red_plate_region(image)
+        if region is None:
+            return "unknown", None, None
+
+        success, buffer = cv2.imencode(".png", region)
+        if not success:
+            return "unknown", None, None
+
+        content = buffer.tobytes()
+        image_obj = vision.Image(content=content)
+
+        language_hints = config_manager.get_google_vision_language_hints()
+        if isinstance(language_hints, str):
+            language_hints = [lang.strip() for lang in language_hints.split(',') if lang.strip()]
+
+        context = vision.ImageContext(language_hints=language_hints) if language_hints else None
+
+        response = client.text_detection(image=image_obj, image_context=context)
+        if response.error.message:
+            print(f"Google Vision error: {response.error.message}")
+            return "unknown", None, None
+
+        annotations = response.text_annotations
+        if not annotations:
+            return "unknown", None, None
+
+        # First annotation contains full text
+        text = annotations[0].description if annotations else ""
+        cleaned = re.sub(r"[^A-Z0-9-]", "", text.upper())
+        if len(cleaned) >= 4 and any(ch.isdigit() for ch in cleaned):
+            return cleaned, bbox, polygon
+
+        return "unknown", None, None
+    except Exception as exc:
+        print(f"Google Vision fallback error: {exc}")
+        return "unknown", None, None
+
+
 def read_plate_with_fallback(image) -> Tuple[str, Optional[str], Optional[Tuple[int, int, int, int]], Optional[list]]:
     """Route to configured fallback OCR and return plate text, method name, bbox, and polygon."""
     if not config_manager.get_ocr_fallback_enabled():
@@ -293,6 +369,9 @@ def read_plate_with_fallback(image) -> Tuple[str, Optional[str], Optional[Tuple[
     if method == "easyocr":
         result, bbox, polygon = read_plate_with_easyocr(image)
         return result, "EASYOCR" if result != "unknown" else None, bbox, polygon
+    elif method == "google_vision":
+        result, bbox, polygon = read_plate_with_google_vision(image)
+        return result, "GOOGLE VISION" if result != "unknown" else None, bbox, polygon
 
     # Default to Tesseract
     result, bbox, polygon = read_plate_with_tesseract(image)
