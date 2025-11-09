@@ -1,4 +1,23 @@
 import math
+import re
+from typing import Optional, Tuple
+
+import cv2
+import numpy as np
+
+from config_manager import config_manager
+
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+
+try:
+    import easyocr
+except ImportError:
+    easyocr = None
+
+_easyocr_reader = None
 
 # license plate type classification helper function
 def linear_equation(x1, y1, x2, y2):
@@ -93,3 +112,162 @@ def read_plate(yolo_license_plate, im):
         for l in sorted(center_list, key = lambda x: x[0]):
             license_plate += str(l[2])
     return license_plate
+
+
+def _extract_red_plate_region(image):
+    """Attempt to locate red-background plate region."""
+    try:
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    except Exception:
+        return None
+
+    # Red spans two ranges in HSV
+    lower_red1 = np.array([0, 70, 50])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 70, 50])
+    upper_red2 = np.array([180, 255, 255])
+
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    mask = cv2.bitwise_or(mask1, mask2)
+
+    kernel = np.ones((5, 5), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+
+    largest = max(contours, key=cv2.contourArea)
+    area = cv2.contourArea(largest)
+    if area < 5000:
+        return None
+
+    x, y, w, h = cv2.boundingRect(largest)
+
+    # Expand bounding box slightly
+    pad_w = int(w * 0.05)
+    pad_h = int(h * 0.05)
+    x0 = max(x - pad_w, 0)
+    y0 = max(y - pad_h, 0)
+    x1 = min(x + w + pad_w, image.shape[1])
+    y1 = min(y + h + pad_h, image.shape[0])
+
+    return image[y0:y1, x0:x1]
+
+
+def _ensure_tesseract_configured():
+    if pytesseract is None:
+        return
+
+    custom_cmd = config_manager.get_ocr_tesseract_cmd()
+    if custom_cmd:
+        pytesseract.pytesseract.tesseract_cmd = custom_cmd
+
+
+def read_plate_with_tesseract(image):
+    """
+    Fallback OCR using Tesseract for non-standard plates such as red-background variants.
+    """
+    if pytesseract is None:
+        return "unknown"
+    try:
+        _ensure_tesseract_configured()
+        region = _extract_red_plate_region(image)
+        roi = region if region is not None else image
+
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        # Adaptive threshold works better for varying lighting / shadows
+        thresh = cv2.adaptiveThreshold(
+            gray,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            31,
+            7,
+        )
+
+        kernel = np.ones((3, 3), np.uint8)
+        processed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+        config = "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
+        text = pytesseract.image_to_string(processed, config=config)
+        cleaned = re.sub(r"[^A-Z0-9-]", "", text.upper())
+
+        # Typical Vietnamese temporary plate like TC33-86 (4+ chars, contains digits)
+        if len(cleaned) >= 4 and any(ch.isdigit() for ch in cleaned):
+            return cleaned
+
+        return "unknown"
+    except Exception as exc:
+        print(f"Tesseract fallback error: {exc}")
+        return "unknown"
+
+
+def _get_easyocr_reader():
+    global _easyocr_reader
+    if easyocr is None:
+        return None
+
+    if _easyocr_reader is not None:
+        return _easyocr_reader
+
+    try:
+        languages = config_manager.get_easyocr_languages()
+        if isinstance(languages, str):
+            languages = [lang.strip() for lang in languages.split(',') if lang.strip()]
+        use_gpu = config_manager.get_easyocr_gpu()
+        _easyocr_reader = easyocr.Reader(languages or ['en'], gpu=use_gpu)
+    except Exception as exc:
+        print(f"EasyOCR initialization error: {exc}")
+        _easyocr_reader = None
+    return _easyocr_reader
+
+
+def read_plate_with_easyocr(image):
+    reader = _get_easyocr_reader()
+    if reader is None:
+        return "unknown"
+
+    try:
+        region = _extract_red_plate_region(image)
+        roi = region if region is not None else image
+
+        results = reader.readtext(roi)
+        if not results:
+            return "unknown"
+
+        min_conf = config_manager.get_easyocr_min_confidence()
+        texts = []
+        for _, text, conf in results:
+            if conf >= min_conf:
+                cleaned = re.sub(r"[^A-Z0-9-]", "", text.upper())
+                if cleaned:
+                    texts.append(cleaned)
+
+        candidate = "".join(texts)
+        if len(candidate) >= 4 and any(ch.isdigit() for ch in candidate):
+            return candidate
+
+        return "unknown"
+    except Exception as exc:
+        print(f"EasyOCR fallback error: {exc}")
+        return "unknown"
+
+
+def read_plate_with_fallback(image) -> Tuple[str, Optional[str]]:
+    """Route to configured fallback OCR and return plate text plus method name."""
+    if not config_manager.get_ocr_fallback_enabled():
+        return "unknown", None
+
+    method = config_manager.get_ocr_fallback_method().lower()
+
+    if method == "easyocr":
+        result = read_plate_with_easyocr(image)
+        return result, "EASYOCR" if result != "unknown" else None
+
+    # Default to Tesseract
+    result = read_plate_with_tesseract(image)
+    return result, "TESSERACT" if result != "unknown" else None

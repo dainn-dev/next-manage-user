@@ -207,6 +207,31 @@ class ConfigDialog(QDialog):
         self.detection_frame_interval.setSuffix(" ms")
         layout.addRow("Khoảng thời gian giữa lần suy luận:", self.detection_frame_interval)
 
+        # OCR fallback settings
+        self.ocr_fallback_enabled = QCheckBox()
+        layout.addRow("Bật OCR dự phòng:", self.ocr_fallback_enabled)
+
+        self.ocr_fallback_method = QComboBox()
+        self.ocr_fallback_method.addItems(["tesseract", "easyocr"])
+        layout.addRow("Phương pháp OCR dự phòng:", self.ocr_fallback_method)
+
+        self.ocr_tesseract_cmd = QLineEdit()
+        self.ocr_tesseract_cmd.setPlaceholderText("C:\\Program Files\\Tesseract-OCR\\tesseract.exe")
+        layout.addRow("Đường dẫn Tesseract:", self.ocr_tesseract_cmd)
+
+        self.ocr_easyocr_languages = QLineEdit()
+        self.ocr_easyocr_languages.setPlaceholderText("en,vi")
+        layout.addRow("Ngôn ngữ EasyOCR:", self.ocr_easyocr_languages)
+
+        self.ocr_easyocr_gpu = QCheckBox()
+        layout.addRow("EasyOCR sử dụng GPU:", self.ocr_easyocr_gpu)
+
+        self.ocr_easyocr_min_conf = QDoubleSpinBox()
+        self.ocr_easyocr_min_conf.setRange(0.0, 1.0)
+        self.ocr_easyocr_min_conf.setDecimals(2)
+        self.ocr_easyocr_min_conf.setSingleStep(0.05)
+        layout.addRow("Ngưỡng tin cậy EasyOCR:", self.ocr_easyocr_min_conf)
+
         widget.setLayout(layout)
         return widget
     
@@ -413,6 +438,20 @@ class ConfigDialog(QDialog):
         self.max_cameras.setValue(config_manager.get('detection.max_cameras', 10))
         self.min_detection_duration.setValue(config_manager.get('detection.min_detection_duration', 3.0))
         self.detection_frame_interval.setValue(config_manager.get('detection.frame_interval_ms', 200))
+        self.ocr_fallback_enabled.setChecked(config_manager.get('ocr.fallback_enabled', True))
+        fallback_method = config_manager.get('ocr.fallback_method', 'tesseract').lower()
+        if fallback_method not in ["tesseract", "easyocr"]:
+            fallback_method = "tesseract"
+        self.ocr_fallback_method.setCurrentText(fallback_method)
+        self.ocr_tesseract_cmd.setText(config_manager.get('ocr.tesseract_cmd', ''))
+        languages = config_manager.get('ocr.easyocr_languages', ['en', 'vi'])
+        if isinstance(languages, list):
+            languages_text = ",".join(languages)
+        else:
+            languages_text = str(languages)
+        self.ocr_easyocr_languages.setText(languages_text)
+        self.ocr_easyocr_gpu.setChecked(config_manager.get('ocr.easyocr_gpu', False))
+        self.ocr_easyocr_min_conf.setValue(config_manager.get('ocr.easyocr_min_confidence', 0.4))
         
         # UI settings
         self.window_width.setValue(config_manager.get('ui.window_width', 1400))
@@ -469,6 +508,14 @@ class ConfigDialog(QDialog):
             config_manager.set('detection.max_cameras', self.max_cameras.value())
             config_manager.set('detection.min_detection_duration', self.min_detection_duration.value())
             config_manager.set('detection.frame_interval_ms', self.detection_frame_interval.value())
+            config_manager.set('ocr.fallback_enabled', self.ocr_fallback_enabled.isChecked())
+            config_manager.set('ocr.fallback_method', self.ocr_fallback_method.currentText().lower())
+            config_manager.set('ocr.tesseract_cmd', self.ocr_tesseract_cmd.text())
+            languages_text = self.ocr_easyocr_languages.text()
+            languages = [lang.strip() for lang in languages_text.split(',') if lang.strip()]
+            config_manager.set('ocr.easyocr_languages', languages or ['en'])
+            config_manager.set('ocr.easyocr_gpu', self.ocr_easyocr_gpu.isChecked())
+            config_manager.set('ocr.easyocr_min_confidence', self.ocr_easyocr_min_conf.value())
             
             # UI settings
             config_manager.set('ui.window_width', self.window_width.value())

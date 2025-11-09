@@ -28,3 +28,4 @@ next-env.d.ts
 windows/result/
 windows/build/
 windows/dist/
+.venv_build/
