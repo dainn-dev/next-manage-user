@@ -8,7 +8,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 public class CorsConfig {
@@ -23,7 +22,8 @@ public class CorsConfig {
             "http://127.0.0.1:3000",
             "http://frontend:3000",
             "http://localhost:3001",
-            "http://127.0.0.1:3001"
+            "http://127.0.0.1:3001",
+            "http://192.168.1.60:3000"
         ));
         
         // Allow all headers
