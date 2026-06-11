@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import type { Vehicle, Employee } from "@/lib/types"
+import { UserRole, canApprove, canManageVehicles } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
 import { VehicleTable } from "@/components/vehicles/vehicle-table"
 import { VehicleForm } from "@/components/vehicles/vehicle-form"
@@ -18,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Search, Download, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings, Filter } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
+import { useAuth } from "@/lib/auth-context"
 
 export default function VehiclesPage() {
   const router = useRouter()
@@ -46,6 +48,17 @@ export default function VehiclesPage() {
   const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
   
   const { toast } = useToast()
+  const { user } = useAuth()
+  const userCanManage = canManageVehicles(user?.role)
+  const userCanApprove = canApprove(user?.role)
+
+  const notifyPermissionDenied = useCallback(() => {
+    toast({
+      variant: "destructive",
+      title: "Không có quyền",
+      description: "Tài khoản của bạn chỉ có quyền xem danh sách xe.",
+    })
+  }, [toast])
 
   useEffect(() => {
     loadData()
@@ -150,6 +163,10 @@ export default function VehiclesPage() {
   }
 
   const handleEdit = (vehicle: Vehicle) => {
+    if (!userCanManage) {
+      notifyPermissionDenied()
+      return
+    }
     setSelectedVehicle(vehicle)
     setIsFormOpen(true)
     
@@ -161,6 +178,10 @@ export default function VehiclesPage() {
   }
 
   const handleDelete = async (vehicleId: string) => {
+    if (!userCanManage) {
+      notifyPermissionDenied()
+      return
+    }
     if (confirm("Bạn có chắc chắn muốn xóa xe này?")) {
       try {
         await dataService.deleteVehicle(vehicleId)
@@ -183,6 +204,10 @@ export default function VehiclesPage() {
   }
 
   const handleView = (vehicle: Vehicle) => {
+    if (!userCanManage) {
+      notifyPermissionDenied()
+      return
+    }
     setSelectedVehicle(vehicle)
     setIsFormOpen(true)
     
@@ -194,6 +219,10 @@ export default function VehiclesPage() {
   }
 
   const handleSave = async (vehicleData: Omit<Vehicle, "id" | "createdAt" | "updatedAt">): Promise<Vehicle | void> => {
+    if (!userCanManage) {
+      notifyPermissionDenied()
+      return
+    }
     try {
       if (selectedVehicle) {
         const updatedVehicle = await dataService.updateVehicle(selectedVehicle.id, vehicleData)
@@ -222,6 +251,9 @@ export default function VehiclesPage() {
   }
 
   const handleAfterSave = async () => {
+    if (!userCanManage) {
+      return
+    }
     // Clean up after save
     await loadData() // Reload the data
     setIsFormOpen(false)
@@ -237,12 +269,20 @@ export default function VehiclesPage() {
   }
 
   const handleAddNew = () => {
+    if (!userCanManage) {
+      notifyPermissionDenied()
+      return
+    }
     setSelectedVehicle(undefined)
     setIsFormOpen(true)
   }
 
 
   const handleUpdateVehicle = (vehicleIds: string[]) => {
+    if (!userCanManage) {
+      notifyPermissionDenied()
+      return
+    }
     if (vehicleIds.length !== 1) return
     
     // Only allow single vehicle update
@@ -253,6 +293,10 @@ export default function VehiclesPage() {
   }
 
   const handleApprove = async (vehicle: Vehicle) => {
+    if (!userCanApprove) {
+      notifyPermissionDenied()
+      return
+    }
     try {
       const updatedVehicle = await dataService.updateVehicle(vehicle.id, {
         ...vehicle,
@@ -277,6 +321,10 @@ export default function VehiclesPage() {
   }
 
   const handleReject = async (vehicle: Vehicle) => {
+    if (!userCanApprove) {
+      notifyPermissionDenied()
+      return
+    }
     try {
       const updatedVehicle = await dataService.updateVehicle(vehicle.id, {
         ...vehicle,
@@ -301,6 +349,10 @@ export default function VehiclesPage() {
   }
 
   const handleBulkDelete = async () => {
+    if (!userCanManage) {
+      notifyPermissionDenied()
+      return
+    }
     if (selectedVehicles.length === 0) return
     
     if (confirm(`Bạn có chắc chắn muốn xóa ${selectedVehicles.length} xe đã chọn?`)) {
@@ -324,6 +376,10 @@ export default function VehiclesPage() {
   }
 
   const handleExport = () => {
+    if (!userCanApprove) {
+      notifyPermissionDenied()
+      return
+    }
     try {
       const filename = `danh_sach_xe_${new Date().toISOString().split('T')[0]}`
       const success = exportVehiclesToExcel(vehicles, filename)
@@ -434,7 +490,11 @@ export default function VehiclesPage() {
           <h1 className="text-4xl font-bold text-foreground mb-2">Quản lý xe</h1>
           <p className="text-muted-foreground text-lg">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
         </div>
-        <Button onClick={handleAddNew} className="shadow-sm hover:shadow-md transition-all duration-200">
+        <Button
+          onClick={handleAddNew}
+          className="shadow-sm hover:shadow-md transition-all duration-200"
+          disabled={!userCanManage}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Thêm xe mới
         </Button>
@@ -521,10 +581,11 @@ export default function VehiclesPage() {
             <RefreshCw className="h-4 w-4" />
             Làm mới dữ liệu
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleExport} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            disabled={!userCanApprove}
             className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
           >
             <Download className="h-4 w-4" />
@@ -602,7 +663,7 @@ export default function VehiclesPage() {
       </div>
 
       {/* Action Bar */}
-      {selectedVehicles.length > 0 && (
+      {selectedVehicles.length > 0 && userCanManage && (
         <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
@@ -637,27 +698,30 @@ export default function VehiclesPage() {
             pageSize={pageSize}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
+            userRole={user?.role}
           />
 
-      <VehicleForm
-        vehicle={selectedVehicle}
-        employees={employees}
-        isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false)
-          setSelectedVehicle(undefined)
-          
-          // Clean up URL parameter when closing form
-          const newSearchParams = new URLSearchParams(searchParams.toString())
-          newSearchParams.delete('id')
-          const newUrl = newSearchParams.toString() 
-            ? `${window.location.pathname}?${newSearchParams.toString()}`
-            : window.location.pathname
-          router.replace(newUrl)
-        }}
-        onSave={handleSave}
-        onAfterSave={handleAfterSave}
-      />
+      {userCanManage && (
+        <VehicleForm
+          vehicle={selectedVehicle}
+          employees={employees}
+          isOpen={isFormOpen}
+          onClose={() => {
+            setIsFormOpen(false)
+            setSelectedVehicle(undefined)
+            
+            // Clean up URL parameter when closing form
+            const newSearchParams = new URLSearchParams(searchParams.toString())
+            newSearchParams.delete('id')
+            const newUrl = newSearchParams.toString() 
+              ? `${window.location.pathname}?${newSearchParams.toString()}`
+              : window.location.pathname
+            router.replace(newUrl)
+          }}
+          onSave={handleSave}
+          onAfterSave={handleAfterSave}
+        />
+      )}
 
       <BulkOperationsDialog
         isOpen={showBulkOperations}

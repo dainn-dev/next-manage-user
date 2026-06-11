@@ -18,7 +18,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.web.cors.CorsConfigurationSource;
 import com.vehiclemanagement.util.JwtUtil;
 
 @Configuration
@@ -30,9 +29,9 @@ public class SecurityConfig {
     private JwtUtil jwtUtil;
     
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, UserDetailsService userDetailsService, CorsConfigurationSource corsConfigurationSource) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, UserDetailsService userDetailsService) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            // .cors(cors -> cors.configurationSource(corsConfigurationSource))
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
@@ -45,13 +44,28 @@ public class SecurityConfig {
                 .requestMatchers("/images/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
-                
-                // Admin endpoints
+
+                // Admin only
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN")
-                
+                .requestMatchers(HttpMethod.DELETE, "/api/vehicles/{id}").hasAnyRole("ADMIN")
+
+                // Admin or Approver
+                .requestMatchers(HttpMethod.POST, "/api/vehicles").hasAnyRole("ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/approve").hasAnyRole("ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/reject").hasAnyRole("ADMIN", "APPROVER")
+
+                // Admin, Approver, or Security Officer
+                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs").hasAnyRole("ADMIN", "APPROVER", "SECURITY_OFFICER")
+
+                // Access requests - Admin or Approver (list all / approve / reject)
+                .requestMatchers(HttpMethod.GET, "/api/access-requests").hasAnyRole("ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.GET, "/api/access-requests/pending").hasAnyRole("ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.PUT, "/api/access-requests/*/approve").hasAnyRole("ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.PUT, "/api/access-requests/*/reject").hasAnyRole("ADMIN", "APPROVER")
+
                 // Protected endpoints
                 .requestMatchers("/api/**").authenticated()
-                
+
                 // Default
                 .anyRequest().authenticated()
             )

@@ -243,7 +243,25 @@ export interface UpdateUserRequest {
 
 export enum UserRole {
   USER = 'USER',
+  APPROVER = 'APPROVER',
+  SECURITY_OFFICER = 'SECURITY_OFFICER',
   ADMIN = 'ADMIN'
+}
+
+export function canApprove(role?: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.APPROVER
+}
+
+export function canViewAllLogs(role?: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.SECURITY_OFFICER
+}
+
+export function canCreateRequest(role?: UserRole): boolean {
+  return role === UserRole.USER
+}
+
+export function canManageVehicles(role?: UserRole): boolean {
+  return role === UserRole.ADMIN
 }
 
 export enum UserStatus {

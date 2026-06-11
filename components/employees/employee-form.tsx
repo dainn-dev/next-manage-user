@@ -324,7 +324,7 @@ export function EmployeeForm({ employee, departments, isOpen, onClose, onSave }:
       console.log("Image path is already a full URL, returning as-is");
       return imagePath;
     }
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.60:8080';
     const fullUrl = `${backendUrl}${imagePath}`;
     console.log("Constructed full URL:", fullUrl);
     return fullUrl;

@@ -179,6 +179,20 @@ public class VehicleService {
         return new VehicleDto(updatedVehicle);
     }
     
+    public VehicleDto approveVehicle(UUID id) {
+        Vehicle vehicle = vehicleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+        vehicle.setStatus(Vehicle.VehicleStatus.approved);
+        return new VehicleDto(vehicleRepository.save(vehicle));
+    }
+
+    public VehicleDto rejectVehicle(UUID id) {
+        Vehicle vehicle = vehicleRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+        vehicle.setStatus(Vehicle.VehicleStatus.rejected);
+        return new VehicleDto(vehicleRepository.save(vehicle));
+    }
+
     public void deleteVehicle(UUID id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));

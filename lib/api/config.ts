@@ -4,15 +4,17 @@
  */
 
 // Single source of truth for API configuration
+const DEFAULT_BASE_URL = 'http://192.168.1.60:8080'
+
 const API_CONFIG = {
   // Base URL for the backend API (without /api suffix)
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL,
   
   // Full API URL (with /api suffix)
-  API_URL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') + '/api',
+  API_URL: (process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL) + '/api',
   
   // WebSocket URL
-  WS_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  WS_URL: process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL,
   
   // Timeout for API requests
   TIMEOUT: 10000,
@@ -26,7 +28,7 @@ export const getImageUrl = (imagePath?: string) => {
   if (!imagePath) return null
   
   // Ensure we have a proper base URL
-  const baseUrl = API_CONFIG.BASE_URL || 'http://localhost:8080'
+  const baseUrl = API_CONFIG.BASE_URL || DEFAULT_BASE_URL
   
   // If imagePath already starts with http, return as-is
   if (imagePath.startsWith('http')) {

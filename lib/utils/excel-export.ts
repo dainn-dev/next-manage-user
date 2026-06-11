@@ -203,6 +203,53 @@ function getVehicleStatusLabel(status: string): string {
 }
 
 /**
+ * Export vehicle logs (entry/exit) to Excel
+ */
+export function exportVehicleLogsToExcel(logs: any[], filename: string = 'bao-cao-xe-ra-vao') {
+  const headers = [
+    'STT',
+    'Biển số xe',
+    'Loại',
+    'Thời gian',
+    'Mục đích',
+    'Vị trí cổng',
+    'Lái xe',
+    'Loại xe',
+    'Ghi chú'
+  ]
+
+  const rows = logs.map((log, index) => [
+    index + 1,
+    log.licensePlateNumber || '',
+    log.type === 'entry' ? 'Vào' : 'Ra',
+    log.entryExitTime ? new Date(log.entryExitTime).toLocaleString('vi-VN') : '',
+    log.purpose || '',
+    log.gateLocation || '',
+    log.driverName || '',
+    log.vehicleType === 'internal' ? 'Nội bộ' : 'Bên ngoài',
+    log.notes || ''
+  ])
+
+  try {
+    const csvContent = createCSVContent({ headers, rows })
+    const BOM = '﻿'
+    const blob = new Blob([BOM + csvContent], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    return true
+  } catch (error) {
+    console.error('Error exporting vehicle logs:', error)
+    return false
+  }
+}
+
+/**
  * Export statistics report to Excel
  */
 export function exportStatisticsToExcel(data: {

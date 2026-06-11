@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import type { Vehicle } from "@/lib/types"
+import { UserRole, canApprove, canManageVehicles } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +34,8 @@ interface VehicleTableProps {
   pageSize: number
   onPageChange: (page: number) => void
   onPageSizeChange: (size: number) => void
+  userRole?: UserRole
+  isReadOnly?: boolean
 }
 
 export function VehicleTable({
@@ -49,8 +53,15 @@ export function VehicleTable({
   totalElements,
   pageSize,
   onPageChange,
-  onPageSizeChange
+  onPageSizeChange,
+  userRole,
+  isReadOnly = false
 }: VehicleTableProps) {
+  const router = useRouter()
+  const userCanManage = canManageVehicles(userRole)
+  const userCanApprove = canApprove(userRole)
+  const isUserRole = userRole === UserRole.USER
+  const effectiveReadOnly = isReadOnly || (!userCanManage && !userCanApprove)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([])
   const [typeFilter, setTypeFilter] = useState("")
@@ -60,7 +71,14 @@ export function VehicleTable({
   const [showImagePreview, setShowImagePreview] = useState(false)
   const [previewVehicle, setPreviewVehicle] = useState<Vehicle | null>(null)
 
+  useEffect(() => {
+    if (!userCanManage && selectedVehicles.length > 0) {
+      setSelectedVehicles([])
+    }
+  }, [userCanManage, selectedVehicles])
+
   const handleSelectAll = (checked: boolean) => {
+    if (!userCanManage) return
     if (checked) {
       setSelectedVehicles(filteredVehicles.map((vehicle) => vehicle.id))
     } else {
@@ -69,6 +87,7 @@ export function VehicleTable({
   }
 
   const handleSelectVehicle = (vehicleId: string, checked: boolean) => {
+    if (!userCanManage) return
     if (checked) {
       setSelectedVehicles((prev) => [...prev, vehicleId])
     } else {
@@ -151,8 +170,13 @@ export function VehicleTable({
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedVehicles.length === filteredVehicles.length && filteredVehicles.length > 0}
-                    onCheckedChange={handleSelectAll}
+                    disabled={!userCanManage}
+                    checked={
+                      userCanManage &&
+                      selectedVehicles.length === filteredVehicles.length &&
+                      filteredVehicles.length > 0
+                    }
+                    onCheckedChange={(checked) => handleSelectAll(!!checked)}
                   />
                 </TableHead>
                 <TableHead>Biển số</TableHead>
@@ -183,7 +207,8 @@ export function VehicleTable({
                   <TableRow key={vehicle.id}>
                     <TableCell>
                       <Checkbox
-                        checked={selectedVehicles.includes(vehicle.id)}
+                        disabled={!userCanManage}
+                        checked={userCanManage && selectedVehicles.includes(vehicle.id)}
                         onCheckedChange={(checked) => handleSelectVehicle(vehicle.id, checked as boolean)}
                       />
                     </TableCell>
@@ -201,63 +226,88 @@ export function VehicleTable({
                     <TableCell>{vehicle.year || "-"}</TableCell>
                     <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                      {isUserRole ? (
+                        vehicle.status === "rejected" ? (
                           <button
-                            className="h-8 w-8 p-0 hover:bg-accent transition-colors duration-150 rounded-md flex items-center justify-center"
+                            className="text-xs text-blue-600 hover:underline"
+                            onClick={() => router.push(`/vehicles/requests`)}
                             type="button"
                           >
-                            <MoreHorizontal className="h-4 w-4" />
+                            Yêu cầu
                           </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48" side="bottom">
-                          {/* Conditional approve/reject actions based on status */}
-                          {vehicle.status === "approved" && onReject && (
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => onReject(vehicle)}
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Chỉ xem</span>
+                        )
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="h-8 w-8 p-0 hover:bg-accent transition-colors duration-150 rounded-md flex items-center justify-center"
+                              type="button"
                             >
-                              <X className="h-4 w-4 mr-2" />
-                              Không được phép
-                            </DropdownMenuItem>
-                          )}
-                          {vehicle.status === "rejected" && onApprove && (
-                            <DropdownMenuItem
-                              onClick={() => onApprove(vehicle)}
-                            >
-                              <Check className="h-4 w-4 mr-2" />
-                              Duyệt
-                            </DropdownMenuItem>
-                          )}
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48" side="bottom">
+                            {/* Approve/reject actions — only for ADMIN and APPROVER */}
+                            {userCanApprove && vehicle.status === "approved" && onReject && (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => onReject(vehicle)}
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Không được phép
+                              </DropdownMenuItem>
+                            )}
+                            {userCanApprove && (vehicle.status === "entered" || vehicle.status === "exited") && onReject && (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => onReject(vehicle)}
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Không được phép
+                              </DropdownMenuItem>
+                            )}
+                            {userCanApprove && vehicle.status === "rejected" && onApprove && (
+                              <DropdownMenuItem
+                                onClick={() => onApprove(vehicle)}
+                              >
+                                <Check className="h-4 w-4 mr-2" />
+                                Duyệt
+                              </DropdownMenuItem>
+                            )}
 
-                          {/* Image Preview Action */}
-                          {vehicle.imagePath && (
-                            <DropdownMenuItem
-                              onClick={() => handleImagePreview(vehicle)}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Xem ảnh xe
-                            </DropdownMenuItem>
-                          )}
+                            {/* Image Preview Action */}
+                            {vehicle.imagePath && (
+                              <DropdownMenuItem
+                                onClick={() => handleImagePreview(vehicle)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Xem ảnh xe
+                              </DropdownMenuItem>
+                            )}
 
-                          {/* Always show edit action */}
-                          <DropdownMenuItem
-                            onClick={() => onEdit(vehicle)}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Chỉnh sửa
-                          </DropdownMenuItem>
-                          
-                          {/* Always show delete action */}
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => onDelete(vehicle.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {/* Edit/Delete — only for ADMIN */}
+                            {userCanManage && (
+                              <DropdownMenuItem
+                                onClick={() => onEdit(vehicle)}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Chỉnh sửa
+                              </DropdownMenuItem>
+                            )}
+                            {userCanManage && (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => onDelete(vehicle.id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Xóa
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

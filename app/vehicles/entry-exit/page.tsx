@@ -12,8 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, RefreshCw, Car, TrendingUp, ArrowUp, ArrowDown, Calendar, Download, Plus, Filter, Eye, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { vehicleLogApi, VehicleLogPage, VehicleLog } from "@/lib/api/vehicle-log-api"
+import { exportVehicleLogsToExcel } from "@/lib/utils/excel-export"
+import { useAuth } from "@/lib/auth-context"
+import { canViewAllLogs } from "@/lib/types"
 
 export default function VehicleEntryExitPage() {
+  const { user } = useAuth()
   const [logs, setLogs] = useState<VehicleLog[]>([])
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -142,10 +146,31 @@ export default function VehicleEntryExitPage() {
   }
 
   const handleExport = () => {
-    toast({
-      title: "Thông báo",
-      description: "Tính năng xuất dữ liệu đang được phát triển",
-    })
+    if (logs.length === 0) {
+      toast({
+        title: "Thông báo",
+        description: "Không có dữ liệu để xuất",
+      })
+      return
+    }
+
+    const today = new Date().toISOString().split('T')[0]
+    const filename = `bao-cao-xe-ra-vao-${today}`
+    const success = exportVehicleLogsToExcel(logs, filename)
+
+    if (success) {
+      toast({
+        title: "Xuất file thành công",
+        description: `Đã xuất ${logs.length} bản ghi ra file Excel`,
+        variant: "default",
+      })
+    } else {
+      toast({
+        title: "Lỗi xuất file",
+        description: "Có lỗi xảy ra khi xuất dữ liệu. Vui lòng thử lại.",
+        variant: "destructive",
+      })
+    }
   }
 
   const formatDateTime = (dateString: string) => {
@@ -176,6 +201,11 @@ export default function VehicleEntryExitPage() {
       default: return 'Tất cả'
     }
   }
+
+  const viewAllLogs = canViewAllLogs(user?.role)
+  const visibleLogs = viewAllLogs
+    ? logs
+    : logs.filter((log) => log.employeeName && user?.employeeName && log.employeeName === user.employeeName)
 
   if (loading && logs.length === 0) {
     return (
@@ -364,7 +394,10 @@ export default function VehicleEntryExitPage() {
               <h2 className="text-xl font-semibold text-gray-800 mb-1">Lịch sử ra vào - {getPeriodLabel()}</h2>
               <p className="text-sm text-gray-600 flex items-center gap-2">
                 <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                Tổng số: <span className="font-medium text-blue-600">{totalElements}</span> bản ghi
+                Tổng số: <span className="font-medium text-blue-600">{visibleLogs.length}</span> bản ghi
+                {!viewAllLogs && (
+                  <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Chỉ hiển thị xe của bạn</span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -401,7 +434,7 @@ export default function VehicleEntryExitPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {logs.map((log) => (
+              {visibleLogs.map((log) => (
                 <TableRow key={log.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">
                     <span className="text-sm">{formatDateTime(log.entryExitTime)}</span>
@@ -432,7 +465,7 @@ export default function VehicleEntryExitPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {logs.length === 0 && (
+              {visibleLogs.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Không có dữ liệu thông tin ra vào

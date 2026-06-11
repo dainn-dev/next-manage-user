@@ -63,6 +63,10 @@ const navigationItems: NavigationItem[] = [
       {
         key: "/vehicles/entry-exit",
         label: "Thông tin ra vào"
+      },
+      {
+        key: "/vehicles/requests",
+        label: "Yêu cầu ra vào"
       }
     ]
   },
