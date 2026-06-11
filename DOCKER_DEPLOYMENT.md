@@ -40,14 +40,14 @@ docker-build-push.bat
 export DOCKER_USERNAME=your-username
 
 # Build frontend
-docker build -f Dockerfile.frontend -t $DOCKER_USERNAME/vehicle-management-frontend:latest .
+docker build -f Dockerfile.frontend -t dainndev/vehicle-management-frontend:latest .
 
 # Build backend
-docker build -f backend/Dockerfile -t $DOCKER_USERNAME/vehicle-management-backend:latest backend/
+docker build -f backend/Dockerfile -t dainndev/vehicle-management-backend:latest backend/
 
 # Push to Docker Hub
-docker push $DOCKER_USERNAME/vehicle-management-frontend:latest
-docker push $DOCKER_USERNAME/vehicle-management-backend:latest
+docker push dainndev/vehicle-management-frontend:latest
+docker push dainndev/vehicle-management-backend:latest
 ```
 
 ### 3. Deploy with Docker Compose

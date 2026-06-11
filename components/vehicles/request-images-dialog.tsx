@@ -25,6 +25,7 @@ export function RequestImagesDialog({ isOpen, onClose, requestId }: RequestImage
   const [images, setImages] = useState<RequestImages | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.60:8080'
 
   useEffect(() => {
     if (isOpen && requestId) {
@@ -39,7 +40,7 @@ export function RequestImagesDialog({ isOpen, onClose, requestId }: RequestImage
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`http://localhost:8080/api/entry-exit-requests/${requestId}/images`)
+      const response = await fetch(`${backendUrl}/api/entry-exit-requests/${requestId}/images`)
       
       if (!response.ok) {
         throw new Error('Không thể tải hình ảnh')
@@ -116,7 +117,7 @@ export function RequestImagesDialog({ isOpen, onClose, requestId }: RequestImage
                 {images.hasEntryImage ? (
                   <div className="relative">
                     <img
-                      src={`http://localhost:8080${images.entryImagePath}`}
+                      src={`${backendUrl}${images.entryImagePath}`}
                       alt={`Entry image for ${images.licensePlate}`}
                       className="w-full h-64 object-cover rounded-lg border shadow-sm"
                       onError={(e) => {
@@ -128,7 +129,7 @@ export function RequestImagesDialog({ isOpen, onClose, requestId }: RequestImage
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => window.open(`http://localhost:8080${images.entryImagePath}`, '_blank')}
+                        onClick={() => window.open(`${backendUrl}${images.entryImagePath}`, '_blank')}
                       >
                         <ImageIcon className="h-4 w-4" />
                       </Button>
@@ -158,7 +159,7 @@ export function RequestImagesDialog({ isOpen, onClose, requestId }: RequestImage
                 {images.hasExitImage ? (
                   <div className="relative">
                     <img
-                      src={`http://localhost:8080${images.exitImagePath}`}
+                      src={`${backendUrl}${images.exitImagePath}`}
                       alt={`Exit image for ${images.licensePlate}`}
                       className="w-full h-64 object-cover rounded-lg border shadow-sm"
                       onError={(e) => {
@@ -170,7 +171,7 @@ export function RequestImagesDialog({ isOpen, onClose, requestId }: RequestImage
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => window.open(`http://localhost:8080${images.exitImagePath}`, '_blank')}
+                        onClick={() => window.open(`${backendUrl}${images.exitImagePath}`, '_blank')}
                       >
                         <ImageIcon className="h-4 w-4" />
                       </Button>

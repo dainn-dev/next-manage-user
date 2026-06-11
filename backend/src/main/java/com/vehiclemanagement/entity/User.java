@@ -124,7 +124,7 @@ public class User implements UserDetails {
     
     // Enums
     public enum Role {
-        USER, ADMIN
+        USER, APPROVER, SECURITY_OFFICER, ADMIN
     }
     
     public enum UserStatus {
@@ -145,5 +145,13 @@ public class User implements UserDetails {
     
     public boolean isAdmin() {
         return role == Role.ADMIN;
+    }
+
+    public boolean canApprove() {
+        return role == Role.ADMIN || role == Role.APPROVER;
+    }
+
+    public boolean canViewAllLogs() {
+        return role == Role.ADMIN || role == Role.APPROVER || role == Role.SECURITY_OFFICER;
     }
 }

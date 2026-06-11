@@ -11,9 +11,10 @@
         }
     },
     "detection": {
-        "cooldown": 2,
+        "cooldown": 2.0,
         "cache_duration": 600,
         "max_cameras": 10,
+        "frame_interval_ms": 200,
         "min_detection_duration": 1.0
     },
     "rate_limiting": {
@@ -30,6 +31,17 @@
         "lp_detector": "model/LP_detector_nano_61.pt",
         "lp_ocr": "model/LP_ocr_nano_62.pt",
         "confidence_threshold": 0.6
+    },
+    "ocr": {
+        "fallback_enabled": true,
+        "fallback_method": "easyocr",
+        "tesseract_cmd": "",
+        "easyocr_languages": [
+            "en",
+            "vi"
+        ],
+        "easyocr_gpu": false,
+        "easyocr_min_confidence": 0.4
     },
     "rtsp_devices": {
         "device_1": {

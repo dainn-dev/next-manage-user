@@ -1,5 +1,5 @@
 # Multi-stage build for backend
-FROM maven:3.8.4-openjdk-17 AS builder
+FROM maven:3.9.6-eclipse-temurin-17 AS builder
 
 # Set working directory for backend
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Runtime stage
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /app
 

@@ -46,6 +46,16 @@ class ConfigManager:
                 "lp_ocr": "model/LP_ocr_nano_62.pt",
                 "confidence_threshold": 0.60
             },
+            "ocr": {
+                "fallback_enabled": True,
+                "fallback_method": "tesseract",
+                "tesseract_cmd": "",
+                "easyocr_languages": ["en", "vi"],
+                "easyocr_gpu": False,
+                "easyocr_min_confidence": 0.4,
+                "google_vision_credentials": "",
+                "google_vision_language_hints": ["vi", "en"]
+            },
             "rtsp_devices": {
                 "device_1": {
                     "enabled": False,
@@ -318,6 +328,38 @@ class ConfigManager:
         width = self.get('rtsp_optimization.max_resolution_width', 640)
         height = self.get('rtsp_optimization.max_resolution_height', 480)
         return (width, height)
+
+    def get_ocr_fallback_enabled(self) -> bool:
+        """Return whether OCR fallback is enabled."""
+        return self.get('ocr.fallback_enabled', True)
+
+    def get_ocr_fallback_method(self) -> str:
+        """Return configured OCR fallback method."""
+        return self.get('ocr.fallback_method', 'tesseract')
+
+    def get_ocr_tesseract_cmd(self) -> str:
+        """Return custom Tesseract executable path."""
+        return self.get('ocr.tesseract_cmd', '')
+
+    def get_easyocr_languages(self):
+        """Return EasyOCR languages list."""
+        return self.get('ocr.easyocr_languages', ['en', 'vi'])
+
+    def get_easyocr_gpu(self) -> bool:
+        """Return EasyOCR GPU usage flag."""
+        return self.get('ocr.easyocr_gpu', False)
+
+    def get_easyocr_min_confidence(self) -> float:
+        """Return EasyOCR minimal confidence threshold."""
+        return float(self.get('ocr.easyocr_min_confidence', 0.4))
+
+    def get_google_vision_credentials_path(self) -> str:
+        """Return Google Vision credentials file path."""
+        return self.get('ocr.google_vision_credentials', '')
+
+    def get_google_vision_language_hints(self):
+        """Return Google Vision language hints."""
+        return self.get('ocr.google_vision_language_hints', ['vi', 'en'])
 
 
 # Global config manager instance
