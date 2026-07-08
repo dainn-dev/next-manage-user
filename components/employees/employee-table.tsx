@@ -12,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Filter, Download, Edit, Trash2, UserPlus, MoreHorizontal, Eye, Users, Car, Bike, Truck, Bus } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
-import { ImportDialog } from "@/components/reports/import-dialog"
 import { BulkOperationsDialog } from "@/components/employees/bulk-operations-dialog"
 import { useToast } from "@/hooks/use-toast"
 
@@ -40,7 +39,6 @@ export function EmployeeTable({
   const [departmentFilter, setDepartmentFilter] = useState("")
   const [nameFilter, setNameFilter] = useState("")
   const [showAdvancedExport, setShowAdvancedExport] = useState(false)
-  const [showImport, setShowImport] = useState(false)
   const [showBulkOperations, setShowBulkOperations] = useState(false)
   const [employeeVehicles, setEmployeeVehicles] = useState<Record<string, Vehicle[]>>({})
   const [loadingVehicles, setLoadingVehicles] = useState<Record<string, boolean>>({})
@@ -181,6 +179,19 @@ export function EmployeeTable({
   return (
     <div className="space-y-4">
 
+      {/* Toolbar */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowAdvancedExport(true)}
+          className="flex items-center gap-2"
+        >
+          <Download className="h-4 w-4" />
+          Xuất nâng cao
+        </Button>
+      </div>
+
       {/* Data Table */}
       <div className="border rounded-lg">
         <div className="overflow-x-auto">
@@ -318,19 +329,7 @@ export function EmployeeTable({
         <AdvancedExportDialog
           isOpen={showAdvancedExport}
           onClose={() => setShowAdvancedExport(false)}
-          onExport={(options) => {
-            // Export options selected
-          }}
-        />
-      )}
-
-      {showImport && (
-        <ImportDialog
-          isOpen={showImport}
-          onClose={() => setShowImport(false)}
-          onImport={(options) => {
-            // Import options selected
-          }}
+          entity="employee"
         />
       )}
 

@@ -14,6 +14,8 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
                 .allowedHeaders("*")
+                // Expose Content-Disposition so browser JS can read the download filename
+                .exposedHeaders("Content-Disposition")
                 .allowCredentials(true)
                 .maxAge(3600);
     }

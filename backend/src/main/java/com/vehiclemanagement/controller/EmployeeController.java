@@ -5,6 +5,7 @@ import com.vehiclemanagement.dto.EmployeeStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
+import com.vehiclemanagement.service.EmployeeExportService;
 import com.vehiclemanagement.service.EmployeeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,8 +16,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
@@ -36,6 +39,9 @@ public class EmployeeController {
 
     @Autowired
     private EmployeeRepository employeeRepository;
+
+    @Autowired
+    private EmployeeExportService employeeExportService;
 
     @GetMapping
     @Operation(summary = "Get all employees with pagination", description = "Retrieve a paginated list of all employees")
@@ -270,5 +276,24 @@ public class EmployeeController {
     public ResponseEntity<EmployeeStatisticsDto> getEmployeeStatistics() {
         EmployeeStatisticsDto stats = employeeService.getEmployeeStatistics();
         return ResponseEntity.ok(stats);
+    }
+
+    @GetMapping("/export")
+    @Operation(summary = "Export employees (selectable columns)",
+            description = "Export all employees to Excel/CSV. Pass 'fields' (comma-separated column ids) to select "
+                    + "columns; omit for all. Format 'excel' (default) or 'csv'.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    public ResponseEntity<byte[]> exportEmployees(
+            @Parameter(description = "Column ids to include (comma-separated); omit for all")
+            @RequestParam(required = false) List<String> fields,
+            @Parameter(description = "excel or csv") @RequestParam(defaultValue = "excel") String format) {
+        byte[] data = employeeExportService.export(fields, format);
+        boolean csv = "csv".equalsIgnoreCase(format);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(csv
+                ? "text/csv; charset=UTF-8"
+                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "danh-sach-quan-nhan." + (csv ? "csv" : "xlsx"));
+        return new ResponseEntity<>(data, headers, HttpStatus.OK);
     }
 }

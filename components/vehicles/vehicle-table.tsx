@@ -160,7 +160,28 @@ export function VehicleTable({
   return (
     <div className="space-y-4">
 
-
+      {(userCanManage || userCanApprove) && (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4 rotate-180" />
+            Nhập xe
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdvancedExport(true)}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Xuất nâng cao
+          </Button>
+        </div>
+      )}
 
       {/* Data Table */}
       <div className="border rounded-lg">
@@ -378,9 +399,8 @@ export function VehicleTable({
         <AdvancedExportDialog
           isOpen={showAdvancedExport}
           onClose={() => setShowAdvancedExport(false)}
-          onExport={(options) => {
-            // Export options selected
-          }}
+          entity="vehicle"
+          onExported={() => onRefresh?.()}
         />
       )}
 
@@ -388,9 +408,7 @@ export function VehicleTable({
         <ImportDialog
           isOpen={showImport}
           onClose={() => setShowImport(false)}
-          onImport={(options) => {
-            // Import options selected
-          }}
+          onImported={() => onRefresh?.()}
         />
       )}
 

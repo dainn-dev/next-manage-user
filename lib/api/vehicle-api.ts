@@ -47,6 +47,20 @@ export interface VehicleCreateResponse {
   message: string
 }
 
+export interface VehicleImportRowError {
+  row: number
+  licensePlate?: string
+  message: string
+}
+
+export interface VehicleImportResult {
+  totalRows: number
+  successCount: number
+  skippedCount: number
+  failureCount: number
+  errors: VehicleImportRowError[]
+}
+
 class VehicleApiService {
   private baseUrl = `${API_BASE_URL}/vehicles`
   private requestCache = new Map<string, Promise<any>>()
@@ -277,6 +291,49 @@ class VehicleApiService {
     }
     
     return response.text() // Returns the image path
+  }
+
+  // Download the .xlsx bulk-import template
+  async downloadImportTemplate(): Promise<Blob> {
+    const { 'Content-Type': _ct, ...headers } = authApi.getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/export/template`, { headers })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    return response.blob()
+  }
+
+  // Export vehicles (selectable columns) to Excel/CSV -> Blob
+  async exportVehicles(fields: string[], format: 'excel' | 'csv' = 'excel'): Promise<Blob> {
+    const params = new URLSearchParams()
+    if (fields.length) params.append('fields', fields.join(','))
+    params.append('format', format)
+    const { 'Content-Type': _ct, ...headers } = authApi.getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/export?${params.toString()}`, { headers })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    return response.blob()
+  }
+
+  // Bulk import vehicles from an Excel/CSV file
+  async importVehicles(file: File): Promise<VehicleImportResult> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    // Let the browser set the multipart Content-Type (with boundary)
+    const { 'Content-Type': _ct, ...headers } = authApi.getAuthHeaders()
+
+    const response = await fetch(`${this.baseUrl}/import`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(errorText || `HTTP error! status: ${response.status}`)
+    }
+    return response.json()
   }
 }
 

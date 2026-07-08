@@ -56,6 +56,14 @@ public class SecurityConfig {
 
                 // Admin, Approver, or Security Officer
                 .requestMatchers(HttpMethod.GET, "/api/vehicle-logs").hasAnyRole("ADMIN", "APPROVER", "SECURITY_OFFICER")
+                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs/export/**").hasAnyRole("ADMIN", "APPROVER", "SECURITY_OFFICER")
+
+                // Vehicle export (template / selectable columns) / bulk import - Admin or Approver
+                .requestMatchers(HttpMethod.GET, "/api/vehicles/export", "/api/vehicles/export/**").hasAnyRole("ADMIN", "APPROVER")
+                .requestMatchers(HttpMethod.POST, "/api/vehicles/import").hasAnyRole("ADMIN", "APPROVER")
+
+                // Employee export (selectable columns) - Admin or Approver
+                .requestMatchers(HttpMethod.GET, "/api/employees/export").hasAnyRole("ADMIN", "APPROVER")
 
                 // Access requests - Admin or Approver (list all / approve / reject)
                 .requestMatchers(HttpMethod.GET, "/api/access-requests").hasAnyRole("ADMIN", "APPROVER")

@@ -364,6 +364,19 @@ class EmployeeApiService {
     return this.request<EmployeeStatistics>('/stats/overview')
   }
 
+  // Export employees (selectable columns) to Excel/CSV -> Blob
+  async exportEmployees(fields: string[], format: 'excel' | 'csv' = 'excel'): Promise<Blob> {
+    const params = new URLSearchParams()
+    if (fields.length) params.append('fields', fields.join(','))
+    params.append('format', format)
+    const { 'Content-Type': _ct, ...headers } = authApi.getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/export?${params.toString()}`, { headers })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    return response.blob()
+  }
+
   // Cancel all pending requests
   cancelAllRequests(): void {
     this.abortControllers.forEach((controller) => {

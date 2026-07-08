@@ -4,7 +4,10 @@ import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleCheckRequest;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
+import com.vehiclemanagement.dto.VehicleImportResult;
 import com.vehiclemanagement.entity.Vehicle;
+import com.vehiclemanagement.service.VehicleExportService;
+import com.vehiclemanagement.service.VehicleImportService;
 import com.vehiclemanagement.service.VehicleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,7 +19,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +37,13 @@ public class VehicleController {
     
     @Autowired
     private VehicleService vehicleService;
-    
+
+    @Autowired
+    private VehicleImportService vehicleImportService;
+
+    @Autowired
+    private VehicleExportService vehicleExportService;
+
     @GetMapping
     @Operation(summary = "Get all vehicles", description = "Retrieve all vehicles with optional pagination and sorting")
     public ResponseEntity<Page<VehicleDto>> getAllVehicles(
@@ -253,5 +264,48 @@ public class VehicleController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error uploading image: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/export/template")
+    @Operation(summary = "Download vehicle import template",
+            description = "Download an .xlsx template (header + example row) for bulk vehicle import")
+    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    public ResponseEntity<byte[]> exportImportTemplate() {
+        byte[] data = vehicleImportService.generateTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "vehicle-import-template.xlsx");
+        return new ResponseEntity<>(data, headers, HttpStatus.OK);
+    }
+
+    @PostMapping("/import")
+    @Operation(summary = "Bulk import vehicles",
+            description = "Import vehicles from an Excel (.xlsx/.xls) or CSV file. Rows are created independently; "
+                    + "already-existing plates are skipped and per-row errors are reported.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    public ResponseEntity<VehicleImportResult> importVehicles(
+            @Parameter(description = "Excel/CSV file to import", required = true)
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(vehicleImportService.importVehicles(file));
+    }
+
+    @GetMapping("/export")
+    @Operation(summary = "Export vehicles (selectable columns)",
+            description = "Export all vehicles to Excel/CSV. Pass 'fields' (comma-separated column ids) to select "
+                    + "columns; omit for all. Format 'excel' (default) or 'csv'.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    public ResponseEntity<byte[]> exportVehicles(
+            @Parameter(description = "Column ids to include (comma-separated); omit for all")
+            @RequestParam(required = false) List<String> fields,
+            @Parameter(description = "excel or csv") @RequestParam(defaultValue = "excel") String format) {
+        byte[] data = vehicleExportService.export(fields, format);
+        boolean csv = "csv".equalsIgnoreCase(format);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(csv
+                ? "text/csv; charset=UTF-8"
+                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "danh-sach-xe." + (csv ? "csv" : "xlsx"));
+        return new ResponseEntity<>(data, headers, HttpStatus.OK);
     }
 }

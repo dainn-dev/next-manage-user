@@ -41,6 +41,37 @@ export interface VehicleLogPage {
   last: boolean
 }
 
+export interface VehicleLogExportFilter {
+  licensePlate?: string
+  type?: 'entry' | 'exit'
+  vehicleType?: 'internal' | 'external'
+  driverName?: string
+  startDate?: string
+  endDate?: string
+}
+
+// Fetch a server-generated export (Excel/CSV) of the full filtered log set and
+// return it as a Blob for download. Auth is via the standard JWT header.
+async function fetchLogExport(format: 'excel' | 'csv', filter: VehicleLogExportFilter): Promise<Blob> {
+  const params = new URLSearchParams()
+  if (filter.licensePlate) params.append('licensePlate', filter.licensePlate)
+  if (filter.type) params.append('type', filter.type)
+  if (filter.vehicleType) params.append('vehicleType', filter.vehicleType)
+  if (filter.driverName) params.append('driverName', filter.driverName)
+  if (filter.startDate) params.append('startDate', filter.startDate)
+  if (filter.endDate) params.append('endDate', filter.endDate)
+
+  const qs = params.toString()
+  const response = await fetch(
+    `${API_BASE_URL}/vehicle-logs/export/${format}${qs ? `?${qs}` : ''}`,
+    { headers: { ...authApi.getAuthHeaders() } }
+  )
+  if (!response.ok) {
+    throw new Error('Failed to export vehicle logs')
+  }
+  return response.blob()
+}
+
 export interface VehicleLogStatistics {
   entryCount: number
   exitCount: number
@@ -98,6 +129,16 @@ export const vehicleLogApi = {
       throw new Error('Failed to fetch vehicle logs')
     }
     return response.json()
+  },
+
+  // Export the full filtered log set to Excel (.xlsx) via the backend
+  exportLogsExcel: async (filter: VehicleLogExportFilter = {}): Promise<Blob> => {
+    return fetchLogExport('excel', filter)
+  },
+
+  // Export the full filtered log set to CSV via the backend
+  exportLogsCsv: async (filter: VehicleLogExportFilter = {}): Promise<Blob> => {
+    return fetchLogExport('csv', filter)
   },
 
   // Get all vehicle logs as list

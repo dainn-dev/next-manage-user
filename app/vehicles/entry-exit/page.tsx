@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, RefreshCw, Car, TrendingUp, ArrowUp, ArrowDown, Calendar, Download, Plus, Filter, Eye, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { vehicleLogApi, VehicleLogPage, VehicleLog } from "@/lib/api/vehicle-log-api"
-import { exportVehicleLogsToExcel } from "@/lib/utils/excel-export"
+import { vehicleLogApi, VehicleLogPage, VehicleLog, VehicleLogExportFilter } from "@/lib/api/vehicle-log-api"
+import { downloadBlob } from "@/lib/utils/download-blob"
+import { ExportDialog } from "@/components/reports/export-dialog"
 import { useAuth } from "@/lib/auth-context"
 import { canViewAllLogs } from "@/lib/types"
 
@@ -33,7 +34,8 @@ export default function VehicleEntryExitPage() {
   
   // Filter bar state
   const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
-  
+  const [showExportDialog, setShowExportDialog] = useState(false)
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -145,26 +147,77 @@ export default function VehicleEntryExitPage() {
     setCurrentPage(0)
   }
 
+  // Build the export filter from the current search/period state. When no
+  // explicit date range is set, derive one from the active period tab so the
+  // export matches what the user is looking at.
+  const computeExportFilter = (): VehicleLogExportFilter => {
+    let start = startDate ? new Date(startDate).toISOString() : undefined
+    let end = endDate ? new Date(endDate).toISOString() : undefined
+
+    if (!start || !end) {
+      const now = new Date()
+      let s: Date, e: Date
+      switch (periodFilter) {
+        case 'weekly': {
+          const startOfWeek = new Date(now)
+          startOfWeek.setDate(now.getDate() - now.getDay())
+          s = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate())
+          e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+          break
+        }
+        case 'monthly':
+          s = new Date(now.getFullYear(), now.getMonth(), 1)
+          e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+          break
+        default:
+          s = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+      }
+      start = start || s.toISOString()
+      end = end || e.toISOString()
+    }
+
+    return {
+      licensePlate: searchTerm || undefined,
+      type: typeFilter !== "all" ? typeFilter : undefined,
+      vehicleType: vehicleTypeFilter !== "all" ? vehicleTypeFilter : undefined,
+      startDate: start,
+      endDate: end,
+    }
+  }
+
   const handleExport = () => {
-    if (logs.length === 0) {
+    setShowExportDialog(true)
+  }
+
+  const handleExportConfirmed = async (options: { format: string }) => {
+    const format = (options.format || "EXCEL").toUpperCase()
+    if (format !== "EXCEL" && format !== "CSV") {
       toast({
-        title: "Thông báo",
-        description: "Không có dữ liệu để xuất",
+        title: "Chưa hỗ trợ",
+        description: `Định dạng ${format} chưa được hỗ trợ. Vui lòng chọn EXCEL hoặc CSV.`,
+        variant: "destructive",
       })
       return
     }
 
-    const today = new Date().toISOString().split('T')[0]
-    const filename = `bao-cao-xe-ra-vao-${today}`
-    const success = exportVehicleLogsToExcel(logs, filename)
+    try {
+      const filter = computeExportFilter()
+      const isCsv = format === "CSV"
+      const blob = isCsv
+        ? await vehicleLogApi.exportLogsCsv(filter)
+        : await vehicleLogApi.exportLogsExcel(filter)
 
-    if (success) {
+      const today = new Date().toISOString().split('T')[0]
+      downloadBlob(blob, `bao-cao-xe-ra-vao-${today}.${isCsv ? 'csv' : 'xlsx'}`)
+
       toast({
         title: "Xuất file thành công",
-        description: `Đã xuất ${logs.length} bản ghi ra file Excel`,
+        description: `Đã xuất dữ liệu ra file ${isCsv ? 'CSV' : 'Excel'}`,
         variant: "default",
       })
-    } else {
+    } catch (error) {
+      console.error('Error exporting vehicle logs:', error)
       toast({
         title: "Lỗi xuất file",
         description: "Có lỗi xảy ra khi xuất dữ liệu. Vui lòng thử lại.",
@@ -231,10 +284,12 @@ export default function VehicleEntryExitPage() {
           <p className="text-muted-foreground text-lg">Quản lý và theo dõi lịch sử ra vào của xe</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleExport} variant="outline" className="shadow-sm hover:shadow-md transition-all duration-200">
-            <Download className="h-4 w-4 mr-2" />
-            Xuất Excel
-          </Button>
+          {viewAllLogs && (
+            <Button onClick={handleExport} variant="outline" className="shadow-sm hover:shadow-md transition-all duration-200">
+              <Download className="h-4 w-4 mr-2" />
+              Xuất báo cáo
+            </Button>
+          )}
           <Button onClick={loadData} variant="outline" className="shadow-sm hover:shadow-md transition-all duration-200">
             <RefreshCw className="h-4 w-4 mr-2" />
             Làm mới
@@ -287,15 +342,17 @@ export default function VehicleEntryExitPage() {
             <RefreshCw className="h-4 w-4" />
             Làm mới dữ liệu
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleExport} 
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
-          >
-            <Download className="h-4 w-4" />
-            Xuất Excel
-          </Button>
+          {viewAllLogs && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
+            >
+              <Download className="h-4 w-4" />
+              Xuất báo cáo
+            </Button>
+          )}
         </div>
 
         {/* Collapsible Filter Content */}
@@ -523,6 +580,14 @@ export default function VehicleEntryExitPage() {
           </div>
         )}
       </div>
+
+      {showExportDialog && (
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          onExport={handleExportConfirmed}
+        />
+      )}
     </div>
   )
 }
