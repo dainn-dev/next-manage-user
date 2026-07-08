@@ -56,10 +56,19 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        # `prometheus` exposes /actuator/prometheus for scraping (Phase 4.1).
+        # The actuator surface is permitAll in SecurityConfig (probes + scraping);
+        # the metrics carry no PII (aggregate counts + gate names only). In
+        # production restrict :8080/actuator/** at the network layer so only the
+        # Prometheus server can reach it.
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when-authorized
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 logging:
   level:

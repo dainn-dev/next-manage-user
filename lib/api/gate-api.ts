@@ -23,6 +23,19 @@ export interface Gate {
 // missed beat without flapping. `disabled` gates are never shown as online.
 export const GATE_HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000
 
+// Mirrors the backend GateHealthDto (com.vehiclemanagement.dto.GateHealthDto). The
+// backend computes `online` and `secondsSinceHeartbeat` against the same staleness
+// window the offline scheduler uses, so the dashboard can trust these directly.
+export interface GateHealth {
+  id: string
+  name: string
+  location?: string
+  status: "online" | "offline" | "disabled"
+  lastHeartbeatAt?: string
+  secondsSinceHeartbeat?: number | null
+  online: boolean
+}
+
 export function isGateOnline(gate: Gate, now: number = Date.now()): boolean {
   if (gate.status === "disabled") return false
   if (!gate.lastHeartbeatAt) return false
@@ -39,6 +52,19 @@ export const gateApi = {
     })
     if (!response.ok) {
       throw new Error("Failed to fetch gates")
+    }
+    return response.json()
+  },
+
+  // GET /api/gates/health — per-gate health summary for the dashboard. Requires an
+  // ADMIN / APPROVER / SECURITY_OFFICER JWT. Returns each gate with a computed
+  // `online` flag and `secondsSinceHeartbeat`.
+  getGateHealth: async (): Promise<GateHealth[]> => {
+    const response = await fetch(`${API_BASE_URL}/gates/health`, {
+      headers: { ...authApi.getAuthHeaders() },
+    })
+    if (!response.ok) {
+      throw new Error("Failed to fetch gate health")
     }
     return response.json()
   },

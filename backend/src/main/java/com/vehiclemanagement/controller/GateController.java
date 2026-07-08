@@ -1,6 +1,7 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.GateDto;
+import com.vehiclemanagement.dto.GateHealthDto;
 import com.vehiclemanagement.dto.GateHeartbeatRequest;
 import com.vehiclemanagement.dto.GateRegisterRequest;
 import com.vehiclemanagement.dto.VehicleLogDto;
@@ -75,6 +76,17 @@ public class GateController {
     @ApiResponse(responseCode = "200", description = "Successfully retrieved gates")
     public ResponseEntity<List<GateDto>> list() {
         return ResponseEntity.ok(gateService.list());
+    }
+
+    @GetMapping("/health")
+    @Operation(summary = "Per-gate health summary",
+            description = "Aggregate health of every gate: status, last heartbeat, seconds since "
+                    + "the last heartbeat and a computed online flag (heartbeat within the "
+                    + "configured staleness window). Backs the health dashboard.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER', 'SECURITY_OFFICER')")
+    @ApiResponse(responseCode = "200", description = "Per-gate health list")
+    public ResponseEntity<List<GateHealthDto>> health() {
+        return ResponseEntity.ok(gateService.health());
     }
 
     @GetMapping("/{id}")

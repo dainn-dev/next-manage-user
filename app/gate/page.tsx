@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DoorOpen, MapPin, RefreshCw, Radio, Monitor } from "lucide-react"
+import { Activity, DoorOpen, MapPin, RefreshCw, Radio, Monitor } from "lucide-react"
 import { gateApi, isGateOnline, type Gate } from "@/lib/api/gate-api"
 import { ErrorBoundary } from "@/components/error-boundary"
 
@@ -71,10 +71,18 @@ function GateList() {
               )}
             </p>
           </div>
-          <Button variant="outline" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link href="/gate/health">
+              <Button variant="outline">
+                <Activity className="h-4 w-4 mr-2" />
+                Sức khỏe cổng
+              </Button>
+            </Link>
+            <Button variant="outline" onClick={load} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Làm mới
+            </Button>
+          </div>
         </div>
 
         {error && (

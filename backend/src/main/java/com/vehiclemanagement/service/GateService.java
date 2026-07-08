@@ -1,6 +1,7 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.GateDto;
+import com.vehiclemanagement.dto.GateHealthDto;
 import com.vehiclemanagement.dto.GateRegisterRequest;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
@@ -12,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -87,6 +89,38 @@ public class GateService {
         return gateRepository.findAll(Sort.by(Sort.Direction.ASC, "name")).stream()
                 .map(GateDto::new)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Per-gate health summary: each gate with its computed freshness. The offline
+     * threshold reuses {@code gate.heartbeat-timeout-seconds} — the same window the
+     * {@link #markStaleGatesOffline()} scheduler uses — so the {@code online} flag
+     * here agrees with the persisted status even between scheduler ticks.
+     */
+    @Transactional(readOnly = true)
+    public List<GateHealthDto> health() {
+        LocalDateTime now = LocalDateTime.now();
+        return gateRepository.findAll(Sort.by(Sort.Direction.ASC, "name")).stream()
+                .map(gate -> toHealth(gate, now))
+                .collect(Collectors.toList());
+    }
+
+    private GateHealthDto toHealth(Gate gate, LocalDateTime now) {
+        Long secondsSince = gate.getLastHeartbeatAt() == null
+                ? null
+                : Math.max(0, Duration.between(gate.getLastHeartbeatAt(), now).getSeconds());
+        boolean online = gate.getStatus() != Gate.GateStatus.disabled
+                && secondsSince != null
+                && secondsSince <= heartbeatTimeoutSeconds;
+        return GateHealthDto.builder()
+                .id(gate.getId())
+                .name(gate.getName())
+                .location(gate.getLocation())
+                .status(gate.getStatus())
+                .lastHeartbeatAt(gate.getLastHeartbeatAt())
+                .secondsSinceHeartbeat(secondsSince)
+                .online(online)
+                .build();
     }
 
     /**

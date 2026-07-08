@@ -27,4 +27,9 @@ public interface GateRepository extends JpaRepository<Gate, UUID> {
      * given cutoff — candidates to mark offline. Disabled gates are excluded.
      */
     List<Gate> findByStatusAndLastHeartbeatAtBefore(Gate.GateStatus status, LocalDateTime cutoff);
+
+    /**
+     * Count gates in the given status. Backs the {@code gate_up} Prometheus gauge.
+     */
+    long countByStatus(Gate.GateStatus status);
 }

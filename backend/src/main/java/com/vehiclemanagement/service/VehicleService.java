@@ -10,6 +10,8 @@ import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.util.ImageProcessingUtil;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 // import com.vehiclemanagement.entity.EntryExitRequest; // Removed
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
@@ -55,7 +57,18 @@ public class VehicleService {
     
     @Autowired
     private ImageProcessingUtil imageProcessingUtil;
-    
+
+    @Autowired
+    private MeterRegistry meterRegistry;
+
+    /**
+     * Meter names for the vehicle-access-check metrics (Phase 4.1). The counter is
+     * named {@code vehicle_check}; the Prometheus registry appends the {@code _total}
+     * suffix, so it is scraped as {@code vehicle_check_total{gate,result}}.
+     */
+    private static final String VEHICLE_CHECK = "vehicle_check";
+    private static final String VEHICLE_CHECK_LATENCY = "vehicle_check_latency";
+
     // @Autowired
     // private EntryExitRequestRepository entryExitRequestRepository; // Removed
     
@@ -370,6 +383,20 @@ public class VehicleService {
     @Transactional
     public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type, UUID gateId) {
         Gate gate = resolveGate(gateId);
+        // Time every check (approved / denied / not-found / error) and record it as
+        // vehicle_check_latency; the per-outcome counters are bumped inside
+        // performVehicleCheck where the result is known (Phase 4.1).
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            return performVehicleCheck(licensePlateNumber, type, gate);
+        } finally {
+            sample.stop(Timer.builder(VEHICLE_CHECK_LATENCY)
+                    .description("Latency of vehicle access checks, in seconds")
+                    .register(meterRegistry));
+        }
+    }
+
+    private VehicleCheckResponse performVehicleCheck(String licensePlateNumber, String type, Gate gate) {
         try {
             // Find vehicle by license plate with normalized search
             // This handles cases where license plates may have different formatting (e.g., "ABC-123" vs "ABC123")
@@ -386,6 +413,7 @@ public class VehicleService {
                     System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
                 }
 
+                recordCheck(gate, "not_found");
                 return new VehicleCheckResponse(
                     false,
                     notFoundMessage,
@@ -430,6 +458,7 @@ public class VehicleService {
                     webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
                 }
 
+                recordCheck(gate, "approved");
             } else {
                 // Get employee name for the denied message
                 String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "KhÃ´ng xÃ¡c Ä‘á»‹nh";
@@ -438,16 +467,18 @@ public class VehicleService {
                 
                 // Send WebSocket message for denied access
                 webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
+                recordCheck(gate, "denied");
             }
-            
+
             return new VehicleCheckResponse(
                 isApproved,
                 message,
                 licensePlateNumber,
                 type
             );
-            
+
         } catch (Exception e) {
+            recordCheck(gate, "error");
             String errorMessage = "Lá»—i kiá»ƒm tra xe: " + e.getMessage();
             
             // Send WebSocket message for error
@@ -513,6 +544,17 @@ public class VehicleService {
 
     private UUID gateId(Gate gate) {
         return gate != null ? gate.getId() : null;
+    }
+
+    /**
+     * Bump the {@code vehicle_check_total{gate,result}} counter for one access check.
+     * {@code result} is one of {@code approved | denied | not_found | error}; the gate
+     * tag falls back to {@code none} for gate-less (backward-compatible) checks.
+     */
+    private void recordCheck(Gate gate, String result) {
+        meterRegistry.counter(VEHICLE_CHECK,
+                "gate", gate != null ? gate.getName() : "none",
+                "result", result).increment();
     }
     
     /**
