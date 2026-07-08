@@ -33,7 +33,10 @@ class ConfigManager:
                 "camera_rtsp": "",
                 "panel_type": "entry",
                 "device_id": "device_1",
-                "heartbeat_interval": 30
+                "heartbeat_interval": 30,
+                "send_snapshot": True,
+                "snapshot_max_width": 640,
+                "snapshot_jpeg_quality": 80
             },
             "detection": {
                 "cooldown": 5,
@@ -223,6 +226,18 @@ class ConfigManager:
     def get_gate_heartbeat_interval(self) -> int:
         """Get the heartbeat interval in seconds."""
         return max(5, int(self.get('gate.heartbeat_interval', 30)))
+
+    def get_gate_send_snapshot(self) -> bool:
+        """Whether the edge attaches the cropped plate image to check-vehicle (Phase 4.2)."""
+        return bool(self.get('gate.send_snapshot', True))
+
+    def get_gate_snapshot_max_width(self) -> int:
+        """Max width (px) the snapshot is downscaled to before sending; 0 disables resizing."""
+        return max(0, int(self.get('gate.snapshot_max_width', 640)))
+
+    def get_gate_snapshot_jpeg_quality(self) -> int:
+        """JPEG quality (1-100) used to encode the snapshot before sending."""
+        return min(100, max(1, int(self.get('gate.snapshot_jpeg_quality', 80))))
 
     def get_api_use_cookies(self) -> bool:
         """Get whether to use cookies for API authentication"""

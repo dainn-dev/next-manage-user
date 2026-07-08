@@ -37,6 +37,11 @@ class DetectionCore:
         self.plate_detection_start = {}   # plate -> first-seen timestamp
         self.last_detection_time = {}     # plate -> last time we forwarded it
 
+        # Cropped plate region (BGR numpy array) from the most recent frame each
+        # plate was read on, so the caller can attach it as snapshot evidence
+        # (Phase 4.2). Rebuilt every _read_plates call.
+        self.last_plate_crops = {}        # plate -> numpy image
+
         self.yolo_lp_detect = None
         self.yolo_license_plate = None
         self.load_models()
@@ -76,8 +81,15 @@ class DetectionCore:
 
     # ----------------------------------------------------------- inference
     def _read_plates(self, frame):
-        """Run detection + OCR and return the set of raw plate strings on this frame."""
+        """Run detection + OCR and return the set of raw plate strings on this frame.
+
+        Also records, in ``self.last_plate_crops``, the cropped plate region each
+        plate was read from (the detector box crop, or the whole frame when there
+        is no box / the whole-frame fallback fires) so the caller can forward it
+        as snapshot evidence.
+        """
         plates = set()
+        crops = {}
 
         with torch.no_grad():
             result = self.yolo_lp_detect(frame, size=640)
@@ -87,6 +99,7 @@ class DetectionCore:
             lp = helper.read_plate(self.yolo_license_plate, frame)
             if lp != "unknown":
                 plates.add(lp)
+                crops[lp] = frame
         else:
             for box in boxes:
                 x1, y1 = max(int(box[0]), 0), max(int(box[1]), 0)
@@ -107,6 +120,8 @@ class DetectionCore:
                             break
                 if lp != "unknown":
                     plates.add(lp)
+                    # Store the original (non-deskewed) crop as readable evidence.
+                    crops[lp] = crop
 
         # Whole-frame OCR fallback (tesseract / easyocr / google vision).
         if not plates and self.config.get_ocr_fallback_enabled():
@@ -114,8 +129,15 @@ class DetectionCore:
             if fallback_lp != "unknown":
                 print(f"{method or 'FALLBACK'} OCR detected plate: {fallback_lp}")
                 plates.add(fallback_lp)
+                crops[fallback_lp] = frame
 
+        self.last_plate_crops = crops
         return plates
+
+    def get_last_crop(self, plate):
+        """Return the cropped plate image (BGR numpy array) captured for ``plate``
+        on the most recent ``_read_plates`` call, or ``None`` if unavailable."""
+        return self.last_plate_crops.get(plate)
 
     def process_frame(self, frame):
         """Detect plates in ``frame`` and return the list confirmed on this frame.

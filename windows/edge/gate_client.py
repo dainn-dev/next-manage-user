@@ -49,6 +49,13 @@ class GateClient:
                   "The backend will reject gate calls with 401 once GATE_API_KEY is configured.")
         return headers
 
+    def _multipart_headers(self):
+        """Headers for a multipart POST: like ``_headers`` but without the JSON
+        Content-Type so ``requests`` can set the multipart boundary itself."""
+        headers = self._headers()
+        headers.pop("Content-Type", None)
+        return headers
+
     def _proxies(self, url):
         # Bypass any system proxy for loopback so localhost dev works.
         if "localhost" in url or "127.0.0.1" in url:
@@ -150,8 +157,13 @@ class GateClient:
         return True, None
 
     # ---------------------------------------------------------- check vehicle
-    def check_vehicle(self, license_plate, panel_type, gate_id=None):
+    def check_vehicle(self, license_plate, panel_type, gate_id=None, snapshot=None):
         """POST a detected plate to the backend, with caching + rate limiting.
+
+        When ``snapshot`` (JPEG bytes) is supplied the request is sent as multipart
+        so the backend can store it as evidence and link it to the created log
+        (Phase 4.2); otherwise a plain JSON body is sent as before. The snapshot
+        does not affect the cache key (it has no bearing on the approval result).
 
         Returns a response dict shaped like the desktop app's:
         ``{success, message, approved?, cached?, rate_limited?, connection_error?}``.
@@ -175,10 +187,18 @@ class GateClient:
             payload["gateId"] = gate_id
 
         try:
-            resp = requests.post(
-                url, json=payload, headers=self._headers(),
-                timeout=self.config.get_api_timeout(), proxies=self._proxies(url),
-            )
+            if snapshot:
+                # Multipart: form fields + the cropped plate JPEG.
+                files = {"snapshot": ("plate.jpg", snapshot, "image/jpeg")}
+                resp = requests.post(
+                    url, data=payload, files=files, headers=self._multipart_headers(),
+                    timeout=self.config.get_api_timeout(), proxies=self._proxies(url),
+                )
+            else:
+                resp = requests.post(
+                    url, json=payload, headers=self._headers(),
+                    timeout=self.config.get_api_timeout(), proxies=self._proxies(url),
+                )
             self._request_times.append(time.time())
 
             if resp.status_code == 200:

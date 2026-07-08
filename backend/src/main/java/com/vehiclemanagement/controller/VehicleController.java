@@ -235,6 +235,34 @@ public class VehicleController {
         }
     }
     
+    @PostMapping(value = "/check-vehicle", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Check vehicle access with an evidence snapshot",
+            description = "Multipart variant of check-vehicle (Phase 4.2). Behaves exactly like the JSON "
+                    + "endpoint (mutates vehicle state, creates a VehicleLog, pushes a WebSocket event) and "
+                    + "additionally accepts an optional 'snapshot' image part. When present, the snapshot is "
+                    + "stored and linked to the created log via VehicleLog.imagePath. The snapshot is optional: "
+                    + "omitting it is equivalent to the JSON endpoint. Requires the X-Gate-Key header.")
+    @SecurityRequirement(name = "X-Gate-Key")
+    public ResponseEntity<VehicleCheckResponse> checkVehicleMultipart(
+            @Parameter(description = "License plate number to check", required = true)
+            @RequestParam("licensePlateNumber") String licensePlateNumber,
+            @Parameter(description = "Type of access: entry or exit", required = true)
+            @RequestParam("type") String type,
+            @Parameter(description = "Optional id of the gate the request originated from")
+            @RequestParam(value = "gateId", required = false) UUID gateId,
+            @Parameter(description = "Optional cropped license-plate JPEG captured at the gate")
+            @RequestParam(value = "snapshot", required = false) MultipartFile snapshot) {
+        try {
+            VehicleCheckResponse response = vehicleService.checkVehicleAccess(
+                    licensePlateNumber, type, gateId, snapshot);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            VehicleCheckResponse response = new VehicleCheckResponse(
+                    false, "Xe không tồn tại hoặc có lỗi xảy ra", licensePlateNumber, type);
+            return ResponseEntity.ok(response);
+        }
+    }
+
     @PutMapping("/{id}/approve")
     @Operation(summary = "Approve vehicle", description = "Approve a vehicle access request")
     @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")

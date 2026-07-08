@@ -7,12 +7,17 @@ import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -42,6 +47,14 @@ class VehicleServiceGateTest {
 
     @Mock
     private WebSocketService webSocketService;
+
+    @Mock
+    private SnapshotStorageService snapshotStorageService;
+
+    // Real (not mocked) registry so the Phase 4.1 timing/counter calls in
+    // checkVehicleAccess work without stubbing every metric interaction.
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private VehicleService vehicleService;
@@ -134,5 +147,49 @@ class VehicleServiceGateTest {
 
         // Unknown gate resolves to null -> event published to the global topic only.
         verify(webSocketService).sendVehicleCheckMessage(monitorInfo, (UUID) null);
+    }
+
+    @Test
+    void checkWithSnapshot_storesEvidenceAndLinksItOnTheLog() {
+        String plate = "76M5-4400";
+        UUID gateId = UUID.randomUUID();
+        Gate gate = Gate.builder().id(gateId).name("Cong chinh").location("Khu A").build();
+        Vehicle vehicle = approvedVehicle(plate);
+        MultipartFile snapshot = new MockMultipartFile(
+                "snapshot", "plate.jpg", "image/jpeg", new byte[]{1, 2, 3});
+        String storedPath = "/uploads/snapshots/plate_76M54400_1.jpg";
+
+        when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.of(vehicle));
+        when(gateRepository.findById(gateId)).thenReturn(Optional.of(gate));
+        when(snapshotStorageService.store(snapshot, plate)).thenReturn(storedPath);
+        when(vehicleLogService.getEmployeeInfoByLicensePlate(eq(plate), any(), eq(gate)))
+                .thenReturn(new Object());
+
+        VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry", gateId, snapshot);
+
+        assertTrue(response.isApproved());
+
+        // The snapshot is stored and its web path lands on the created log.
+        verify(snapshotStorageService).store(snapshot, plate);
+        ArgumentCaptor<VehicleLogDto> logCaptor = ArgumentCaptor.forClass(VehicleLogDto.class);
+        verify(vehicleLogService).createVehicleLog(logCaptor.capture());
+        assertEquals(storedPath, logCaptor.getValue().getImagePath());
+    }
+
+    @Test
+    void checkWithoutSnapshot_leavesLogImageless() {
+        String plate = "76M5-5500";
+        Vehicle vehicle = approvedVehicle(plate);
+
+        when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.of(vehicle));
+        when(vehicleLogService.getEmployeeInfoByLicensePlate(eq(plate), any(), eq((Gate) null)))
+                .thenReturn(new Object());
+
+        VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry");
+
+        assertTrue(response.isApproved());
+        ArgumentCaptor<VehicleLogDto> logCaptor = ArgumentCaptor.forClass(VehicleLogDto.class);
+        verify(vehicleLogService).createVehicleLog(logCaptor.capture());
+        assertNull(logCaptor.getValue().getImagePath());
     }
 }

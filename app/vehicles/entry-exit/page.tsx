@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, RefreshCw, Car, TrendingUp, ArrowUp, ArrowDown, Calendar, Download, Plus, Filter, Eye, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { vehicleLogApi, VehicleLogPage, VehicleLog, VehicleLogExportFilter } from "@/lib/api/vehicle-log-api"
+import { getImageUrl } from "@/lib/api/config"
 import { downloadBlob } from "@/lib/utils/download-blob"
 import { ExportDialog } from "@/components/reports/export-dialog"
 import { useAuth } from "@/lib/auth-context"
@@ -488,6 +489,7 @@ export default function VehicleEntryExitPage() {
                 <TableHead>Chủ xe</TableHead>
                 <TableHead>Mục đích</TableHead>
                 <TableHead>Cổng</TableHead>
+                <TableHead>Ảnh</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -520,11 +522,29 @@ export default function VehicleEntryExitPage() {
                   <TableCell>
                     <span className="text-sm">{log.gateLocation || 'N/A'}</span>
                   </TableCell>
+                  <TableCell>
+                    {log.imagePath ? (
+                      <a
+                        href={getImageUrl(log.imagePath) || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Nhấn để phóng to ảnh biển số"
+                      >
+                        <img
+                          src={getImageUrl(log.imagePath) || '/placeholder.jpg'}
+                          alt={`Ảnh biển số ${log.licensePlateNumber}`}
+                          className="h-10 w-16 object-cover rounded border hover:opacity-80 transition-opacity"
+                        />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
               {visibleLogs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Không có dữ liệu thông tin ra vào
                   </TableCell>
                 </TableRow>

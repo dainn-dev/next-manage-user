@@ -59,6 +59,9 @@ public class VehicleService {
     private ImageProcessingUtil imageProcessingUtil;
 
     @Autowired
+    private SnapshotStorageService snapshotStorageService;
+
+    @Autowired
     private MeterRegistry meterRegistry;
 
     /**
@@ -370,7 +373,7 @@ public class VehicleService {
      */
     @Transactional
     public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type) {
-        return checkVehicleAccess(licensePlateNumber, type, null);
+        return checkVehicleAccess(licensePlateNumber, type, (UUID) null);
     }
 
     /**
@@ -382,13 +385,27 @@ public class VehicleService {
      */
     @Transactional
     public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type, UUID gateId) {
+        return checkVehicleAccess(licensePlateNumber, type, gateId, null);
+    }
+
+    /**
+     * Check if a vehicle is approved for access, optionally attaching an evidence
+     * {@code snapshot} (Phase 4.2). When the check results in an approved access a
+     * {@link VehicleLog} is created and, if a snapshot is present, it is stored and
+     * linked via {@link VehicleLog#getImagePath()}. The snapshot is optional: a
+     * {@code null}/empty one leaves the log image-less exactly as before, and a
+     * storage failure never fails the check.
+     */
+    @Transactional
+    public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type, UUID gateId,
+                                                   MultipartFile snapshot) {
         Gate gate = resolveGate(gateId);
         // Time every check (approved / denied / not-found / error) and record it as
         // vehicle_check_latency; the per-outcome counters are bumped inside
         // performVehicleCheck where the result is known (Phase 4.1).
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            return performVehicleCheck(licensePlateNumber, type, gate);
+            return performVehicleCheck(licensePlateNumber, type, gate, snapshot);
         } finally {
             sample.stop(Timer.builder(VEHICLE_CHECK_LATENCY)
                     .description("Latency of vehicle access checks, in seconds")
@@ -396,7 +413,8 @@ public class VehicleService {
         }
     }
 
-    private VehicleCheckResponse performVehicleCheck(String licensePlateNumber, String type, Gate gate) {
+    private VehicleCheckResponse performVehicleCheck(String licensePlateNumber, String type, Gate gate,
+                                                     MultipartFile snapshot) {
         try {
             // Find vehicle by license plate with normalized search
             // This handles cases where license plates may have different formatting (e.g., "ABC-123" vs "ABC123")
@@ -445,8 +463,8 @@ public class VehicleService {
                     message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " Ä‘Æ°á»£c phÃ©p ra vÃ o cá»•ng";
                 }
                 
-                // Create vehicle log entry for approved access
-                createVehicleLogEntry(vehicle, type, gate);
+                // Create vehicle log entry for approved access (with optional snapshot evidence)
+                createVehicleLogEntry(vehicle, type, gate, snapshot);
 
                 // Get employee info and send to WebSocket
                 try {
@@ -501,13 +519,17 @@ public class VehicleService {
     /**
      * Create a vehicle log entry for access events. When {@code gate} is non-null
      * the log is tagged with the gate and its location; otherwise it falls back to
-     * the historical default gate location.
+     * the historical default gate location. When {@code snapshot} is present it is
+     * stored (best-effort) and linked as the log's {@code imagePath} (Phase 4.2).
      */
-    private void createVehicleLogEntry(Vehicle vehicle, String type, Gate gate) {
+    private void createVehicleLogEntry(Vehicle vehicle, String type, Gate gate, MultipartFile snapshot) {
         try {
             String gateLocation = gate != null && gate.getLocation() != null && !gate.getLocation().isBlank()
                     ? gate.getLocation()
                     : "Main Gate"; // Default gate location for gate-less (backward-compatible) checks
+            // Persist the evidence snapshot if one was sent; a null result (no
+            // snapshot or a storage failure) simply leaves the log image-less.
+            String imagePath = snapshotStorageService.store(snapshot, vehicle.getLicensePlate());
             VehicleLogDto logDto = VehicleLogDto.builder()
                     .licensePlateNumber(vehicle.getLicensePlate())
                     .vehicleId(vehicle.getId())
@@ -519,6 +541,7 @@ public class VehicleService {
                     .purpose("Truy cáº­p xe tá»± Ä‘á»™ng")
                     .gateLocation(gateLocation)
                     .gateId(gate != null ? gate.getId() : null)
+                    .imagePath(imagePath)
                     .notes("Auto-generated log entry from vehicle access check")
                     .createdAt(LocalDateTime.now())
                     .build();

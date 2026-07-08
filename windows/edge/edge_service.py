@@ -103,12 +103,37 @@ class EdgeService:
         return cap
 
     # -------------------------------------------------------------- results
+    def _encode_snapshot(self, crop):
+        """Encode a cropped plate image (BGR numpy array) to JPEG bytes, downscaled
+        to the configured max width. Returns None if there is nothing to encode."""
+        if crop is None or getattr(crop, "size", 0) == 0:
+            return None
+        try:
+            max_w = self.config.get_gate_snapshot_max_width()
+            h, w = crop.shape[:2]
+            if max_w and w > max_w:
+                scale = max_w / float(w)
+                crop = cv2.resize(crop, (max_w, max(1, int(h * scale))))
+            quality = self.config.get_gate_snapshot_jpeg_quality()
+            ok, buf = cv2.imencode(".jpg", crop, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+            if not ok:
+                return None
+            return buf.tobytes()
+        except Exception as exc:
+            print(f"WARNING: failed to encode snapshot for evidence: {exc}")
+            return None
+
     def _handle_confirmed(self, plates):
+        send_snapshot = self.config.get_gate_send_snapshot()
         for lp in plates:
             print(f"Confirmed plate '{lp}' ({self.panel_type}) -> sending to backend")
-            resp = self.client.check_vehicle(lp, self.panel_type, self.gate_id)
+            snapshot = None
+            if send_snapshot and self.detector is not None:
+                snapshot = self._encode_snapshot(self.detector.get_last_crop(lp))
+            resp = self.client.check_vehicle(lp, self.panel_type, self.gate_id, snapshot=snapshot)
             tag = "OK" if resp.get("success") else "FAIL"
-            print(f"  [{tag}] {resp.get('message')} approved={resp.get('approved')}")
+            snap_tag = " +snapshot" if snapshot else ""
+            print(f"  [{tag}]{snap_tag} {resp.get('message')} approved={resp.get('approved')}")
 
     # ----------------------------------------------------------------- run
     def run(self):

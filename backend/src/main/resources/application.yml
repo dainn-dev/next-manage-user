@@ -52,6 +52,15 @@ jwt:
 gate:
   api-key: ${GATE_API_KEY:}
 
+# Evidence snapshots (Phase 4.2): the cropped license-plate image the edge sends
+# with a check-vehicle call is written under snapshot-dir and served by the
+# /uploads/** static handler (see WebConfig). Keep snapshot-dir under ./uploads
+# so snapshot-url-prefix resolves to a served path; if you relocate storage,
+# change both together (and add a matching resource handler).
+storage:
+  snapshot-dir: ${SNAPSHOT_DIR:uploads/snapshots}
+  snapshot-url-prefix: ${SNAPSHOT_URL_PREFIX:/uploads/snapshots}
+
 management:
   endpoints:
     web:
