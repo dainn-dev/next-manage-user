@@ -31,6 +31,8 @@ public class VehicleStatisticsDto {
     @Schema(description = "Vehicle count by fuel type")
     private Map<String, Long> fuelTypeStats;
 
+    @Schema(description = "Entry/exit request statistics (today)")
+    private EntryExitStatsDto entryExitStats;
 
     @Schema(description = "Daily statistics")
     private List<VehicleDailyStatsDto> dailyStats;
@@ -118,6 +120,13 @@ public class VehicleStatisticsDto {
         this.fuelTypeStats = fuelTypeStats;
     }
 
+    public EntryExitStatsDto getEntryExitStats() {
+        return entryExitStats;
+    }
+
+    public void setEntryExitStats(EntryExitStatsDto entryExitStats) {
+        this.entryExitStats = entryExitStats;
+    }
 
     public List<VehicleDailyStatsDto> getDailyStats() {
         return dailyStats;
@@ -166,8 +175,11 @@ public class VehicleStatisticsDto {
         @Schema(description = "Number of pending requests")
         private long pendingCount;
 
-        @Schema(description = "Number of rejected requests")
+@Schema(description = "Number of rejected requests")
         private long rejectedCount;
+
+        @Schema(description = "Number of completed requests (vehicle exited)")
+        private long completedCount;
 
         @Schema(description = "Number of unique vehicles")
         private long uniqueVehicles;
@@ -176,7 +188,7 @@ public class VehicleStatisticsDto {
         public VehicleDailyStatsDto() {}
 
         public VehicleDailyStatsDto(LocalDate date, long entryCount, long exitCount, long totalRequests,
-                                   long approvedCount, long pendingCount, long rejectedCount, long uniqueVehicles) {
+                                    long approvedCount, long pendingCount, long rejectedCount, long uniqueVehicles) {
             this.date = date;
             this.entryCount = entryCount;
             this.exitCount = exitCount;
@@ -244,6 +256,14 @@ public class VehicleStatisticsDto {
             this.rejectedCount = rejectedCount;
         }
 
+        public long getCompletedCount() {
+            return completedCount;
+        }
+
+        public void setCompletedCount(long completedCount) {
+            this.completedCount = completedCount;
+        }
+
         public long getUniqueVehicles() {
             return uniqueVehicles;
         }
@@ -284,8 +304,14 @@ public class VehicleStatisticsDto {
         @Schema(description = "Number of rejected requests")
         private long rejectedCount;
 
+        @Schema(description = "Number of completed requests (vehicle exited)")
+        private long completedCount;
+
         @Schema(description = "Number of unique vehicles")
         private long uniqueVehicles;
+
+        @Schema(description = "Average number of requests per day")
+        private double averageDailyRequests;
 
         // Constructors
         public VehicleWeeklyStatsDto() {}
@@ -378,12 +404,28 @@ public class VehicleStatisticsDto {
             this.rejectedCount = rejectedCount;
         }
 
+        public long getCompletedCount() {
+            return completedCount;
+        }
+
+        public void setCompletedCount(long completedCount) {
+            this.completedCount = completedCount;
+        }
+
         public long getUniqueVehicles() {
             return uniqueVehicles;
         }
 
         public void setUniqueVehicles(long uniqueVehicles) {
             this.uniqueVehicles = uniqueVehicles;
+        }
+
+        public double getAverageDailyRequests() {
+            return averageDailyRequests;
+        }
+
+        public void setAverageDailyRequests(double averageDailyRequests) {
+            this.averageDailyRequests = averageDailyRequests;
         }
     }
 
@@ -413,8 +455,17 @@ public class VehicleStatisticsDto {
         @Schema(description = "Number of rejected requests")
         private long rejectedCount;
 
+        @Schema(description = "Number of completed requests (vehicle exited)")
+        private long completedCount;
+
         @Schema(description = "Number of unique vehicles")
         private long uniqueVehicles;
+
+        @Schema(description = "Average number of requests per day")
+        private double averageDailyRequests;
+
+        @Schema(description = "Peak day of the month")
+        private PeakDayDto peakDay;
 
         // Constructors
         public VehicleMonthlyStatsDto() {}
@@ -498,12 +549,154 @@ public class VehicleStatisticsDto {
             this.rejectedCount = rejectedCount;
         }
 
+        public long getCompletedCount() {
+            return completedCount;
+        }
+
+        public void setCompletedCount(long completedCount) {
+            this.completedCount = completedCount;
+        }
+
         public long getUniqueVehicles() {
             return uniqueVehicles;
         }
 
         public void setUniqueVehicles(long uniqueVehicles) {
             this.uniqueVehicles = uniqueVehicles;
+        }
+
+        public double getAverageDailyRequests() {
+            return averageDailyRequests;
+        }
+
+        public void setAverageDailyRequests(double averageDailyRequests) {
+            this.averageDailyRequests = averageDailyRequests;
+        }
+
+        public PeakDayDto getPeakDay() {
+            return peakDay;
+        }
+
+        public void setPeakDay(PeakDayDto peakDay) {
+            this.peakDay = peakDay;
+        }
+    }
+
+    @Schema(description = "Entry/exit request statistics")
+    public static class EntryExitStatsDto {
+        @Schema(description = "Total number of requests")
+        private long totalRequests;
+
+        @Schema(description = "Number of approved requests")
+        private long approvedRequests;
+
+        @Schema(description = "Number of pending requests")
+        private long pendingRequests;
+
+        @Schema(description = "Number of completed requests (vehicle exited)")
+        private long completedRequests;
+
+        @Schema(description = "Number of entry requests")
+        private long entryRequests;
+
+        @Schema(description = "Number of exit requests")
+        private long exitRequests;
+
+        // Constructors
+        public EntryExitStatsDto() {}
+
+        public EntryExitStatsDto(long totalRequests, long approvedRequests, long pendingRequests,
+                                 long completedRequests, long entryRequests, long exitRequests) {
+            this.totalRequests = totalRequests;
+            this.approvedRequests = approvedRequests;
+            this.pendingRequests = pendingRequests;
+            this.completedRequests = completedRequests;
+            this.entryRequests = entryRequests;
+            this.exitRequests = exitRequests;
+        }
+
+        // Getters and Setters
+        public long getTotalRequests() {
+            return totalRequests;
+        }
+
+        public void setTotalRequests(long totalRequests) {
+            this.totalRequests = totalRequests;
+        }
+
+        public long getApprovedRequests() {
+            return approvedRequests;
+        }
+
+        public void setApprovedRequests(long approvedRequests) {
+            this.approvedRequests = approvedRequests;
+        }
+
+        public long getPendingRequests() {
+            return pendingRequests;
+        }
+
+        public void setPendingRequests(long pendingRequests) {
+            this.pendingRequests = pendingRequests;
+        }
+
+        public long getCompletedRequests() {
+            return completedRequests;
+        }
+
+        public void setCompletedRequests(long completedRequests) {
+            this.completedRequests = completedRequests;
+        }
+
+        public long getEntryRequests() {
+            return entryRequests;
+        }
+
+        public void setEntryRequests(long entryRequests) {
+            this.entryRequests = entryRequests;
+        }
+
+        public long getExitRequests() {
+            return exitRequests;
+        }
+
+        public void setExitRequests(long exitRequests) {
+            this.exitRequests = exitRequests;
+        }
+    }
+
+    @Schema(description = "Peak day in a period")
+    public static class PeakDayDto {
+        @Schema(description = "Date of the peak day")
+        @JsonFormat(pattern = "yyyy-MM-dd")
+        private LocalDate date;
+
+        @Schema(description = "Number of requests on the peak day")
+        private long requestCount;
+
+        // Constructors
+        public PeakDayDto() {}
+
+        public PeakDayDto(LocalDate date, long requestCount) {
+            this.date = date;
+            this.requestCount = requestCount;
+        }
+
+        // Getters and Setters
+        public LocalDate getDate() {
+            return date;
+        }
+
+        public void setDate(LocalDate date) {
+            this.date = date;
+        }
+
+        public long getRequestCount() {
+            return requestCount;
+        }
+
+        public void setRequestCount(long requestCount) {
+            this.requestCount = requestCount;
         }
     }
 }
