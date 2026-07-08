@@ -153,7 +153,7 @@ def encode_image_to_base64(image):
 
 
 def send_license_plate_to_api(license_plate, panel_type, api_url=None):
-    """Send license plate data to API with caching and rate limiting (GET request)"""
+    """Send license plate data to API with caching and rate limiting (POST request)"""
     try:
         # Clean expired cache entries first
         clean_expired_cache()
@@ -181,21 +181,28 @@ def send_license_plate_to_api(license_plate, panel_type, api_url=None):
         if api_url is None:
             api_url = config_manager.get_api_url()
         
-        # Prepare headers for GET request
+        # Prepare headers for POST request. X-Gate-Key authenticates the gate
+        # app against the backend's public (permitAll) check-vehicle endpoint.
         headers = {
             "Accept": "application/json",
+            "Content-Type": "application/json",
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0",
         }
+        gate_key = config_manager.get_gate_key()
+        if gate_key:
+            headers["X-Gate-Key"] = gate_key
+        else:
+            print("WARNING: api.gate_key not set - backend will reject the check-vehicle request (401) once GATE_API_KEY is configured.")
         
         # Prepare cookies if enabled
         cookies = {}
         if config_manager.get_api_use_cookies():
             cookies = config_manager.get_api_cookies()
         
-        # Prepare query parameters for GET request
-        params = {
+        # Prepare JSON body for POST request
+        payload = {
             "licensePlateNumber": license_plate,
             "type": panel_type
         }
@@ -203,14 +210,16 @@ def send_license_plate_to_api(license_plate, panel_type, api_url=None):
         timeout = config_manager.get_api_timeout()
         
         # Debug: Print request details
-        print(f"DEBUG: Sending GET request to: {api_url}")
-        print(f"DEBUG: Query parameters: {params}")
+        print(f"DEBUG: Sending POST request to: {api_url}")
+        print(f"DEBUG: Payload: {payload}")
+        print(f"DEBUG: X-Gate-Key provided: {bool(gate_key)}")
         
         # Disable proxies for localhost requests
         proxies = {'http': None, 'https': None} if 'localhost' in api_url or '127.0.0.1' in api_url else None
         
-        # Make GET request instead of POST
-        response = requests.get(api_url, params=params, headers=headers, cookies=cookies, timeout=timeout, proxies=proxies)
+        # Send the plate as a JSON body (POST). The endpoint mutates vehicle
+        # status and pushes a WebSocket event, so POST (not GET) is correct.
+        response = requests.post(api_url, json=payload, headers=headers, cookies=cookies, timeout=timeout, proxies=proxies)
         
         # Debug: Print response details
         print(f"DEBUG: Response status: {response.status_code}")

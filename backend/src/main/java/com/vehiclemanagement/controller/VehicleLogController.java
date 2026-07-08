@@ -5,6 +5,7 @@ import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.service.VehicleLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -140,7 +141,8 @@ public class VehicleLogController {
     }
     
     @PostMapping
-    @Operation(summary = "Create vehicle log", description = "Create a new vehicle entry/exit log")
+    @Operation(summary = "Create vehicle log", description = "Create a new vehicle entry/exit log. Requires the X-Gate-Key header for applications writing log entries from the gate.")
+    @SecurityRequirement(name = "X-Gate-Key")
     public ResponseEntity<VehicleLogDto> createVehicleLog(@RequestBody VehicleLogDto vehicleLogDto) {
         VehicleLogDto createdLog = vehicleLogService.createVehicleLog(vehicleLogDto);
         return ResponseEntity.ok(createdLog);

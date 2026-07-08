@@ -288,17 +288,23 @@ export const vehicleLogApi = {
     return response.json()
   },
 
-  // Check vehicle (triggers WebSocket notification)
+  // Check vehicle (triggers WebSocket notification). Sends the side-effecting
+  // check as POST with an X-Gate-Key header (NEXT_PUBLIC_GATE_API_KEY). The
+  // backend gate filter rejects the request with 401 when the header is
+  // missing/invalid, so this value must match the backend GATE_API_KEY.
   checkVehicle: async (licensePlateNumber: string, type: 'entry' | 'exit', additionalData?: {
     driverName?: string
     purpose?: string
     gateLocation?: string
     notes?: string
   }) => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-check`, {
+    const response = await fetch(`${API_BASE_URL}/vehicles/check-vehicle`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(process.env.NEXT_PUBLIC_GATE_API_KEY
+          ? { 'X-Gate-Key': process.env.NEXT_PUBLIC_GATE_API_KEY }
+          : {}),
       },
       body: JSON.stringify({
         licensePlateNumber,
@@ -312,9 +318,21 @@ export const vehicleLogApi = {
     return response.json()
   },
 
-  // Test vehicle check endpoint
+  // Test vehicle check endpoint (POST + X-Gate-Key, same contract as checkVehicle)
   testVehicleCheck: async (licensePlateNumber: string, type: 'entry' | 'exit') => {
-    const response = await fetch(`${API_BASE_URL}/vehicle-check/test?licensePlateNumber=${encodeURIComponent(licensePlateNumber)}&type=${type.toLowerCase()}`)
+    const response = await fetch(`${API_BASE_URL}/vehicles/check-vehicle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.NEXT_PUBLIC_GATE_API_KEY
+          ? { 'X-Gate-Key': process.env.NEXT_PUBLIC_GATE_API_KEY }
+          : {}),
+      },
+      body: JSON.stringify({
+        licensePlateNumber,
+        type: type.toLowerCase()
+      })
+    })
     if (!response.ok) {
       throw new Error('Failed to test vehicle check')
     }

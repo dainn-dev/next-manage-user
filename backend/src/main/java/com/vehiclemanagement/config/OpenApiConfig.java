@@ -1,9 +1,11 @@
 package com.vehiclemanagement.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +35,14 @@ public class OpenApiConfig {
                         new Server()
                                 .url("https://api.vehiclemanagement.com")
                                 .description("Production server")
-                ));
+                ))
+                .components(new Components().addSecuritySchemes("X-Gate-Key",
+                        new SecurityScheme()
+                                .type(SecurityScheme.Type.APIKEY)
+                                .in(SecurityScheme.In.HEADER)
+                                .name("X-Gate-Key")
+                                .description("Shared secret required by the parking-gate detection app "
+                                        + "for side-effecting public endpoints "
+                                        + "(POST /api/vehicles/check-vehicle, POST /api/vehicle-logs).")));
     }
 }

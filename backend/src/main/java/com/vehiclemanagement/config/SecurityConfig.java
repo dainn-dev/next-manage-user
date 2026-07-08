@@ -70,11 +70,17 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider(userDetailsService))
-            .addFilterBefore(jwtAuthenticationFilter(userDetailsService), UsernamePasswordAuthenticationFilter.class);
-        
+            .addFilterBefore(jwtAuthenticationFilter(userDetailsService), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(gateApiKeyAuthFilter(), JwtAuthenticationFilter.class);
+
         return http.build();
     }
-    
+
+    @Bean
+    public GateApiKeyAuthFilter gateApiKeyAuthFilter() {
+        return new GateApiKeyAuthFilter();
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);

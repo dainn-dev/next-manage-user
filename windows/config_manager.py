@@ -23,7 +23,8 @@ class ConfigManager:
             "api": {
                 "base_url": "http://localhost:8080",
                 "endpoint": "/api/vehicles/check-vehicle",
-                "timeout": 10
+                "timeout": 10,
+                "gate_key": ""
             },
             "detection": {
                 "cooldown": 5,
@@ -154,6 +155,19 @@ class ConfigManager:
     def get_api_use_query_params(self) -> bool:
         """Get whether to use query parameters for API"""
         return self.get('api.use_query_params', False)
+
+    def get_gate_key(self) -> str:
+        """Get the X-Gate-Key shared secret sent to the gate endpoints.
+
+        Resolution order: api.gate_key in config.json first (convenient for a
+        desktop client), then the GATE_API_KEY environment variable. Returns an
+        empty string when neither is set; the backend will reject the request
+        with 401 once GATE_API_KEY is configured there.
+        """
+        key = self.get('api.gate_key', '')
+        if not key:
+            key = os.environ.get('GATE_API_KEY', '')
+        return key or ''
     
     def get_api_use_cookies(self) -> bool:
         """Get whether to use cookies for API authentication"""
