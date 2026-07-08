@@ -221,12 +221,12 @@ public class VehicleController {
     }
 
     @PostMapping("/check-vehicle")
-    @Operation(summary = "Check vehicle access", description = "Check if a vehicle with the given license plate is approved for access and update its status. Mutates vehicle state (approved->entered->exited), creates a VehicleLog and pushes a WebSocket notification. Requires the X-Gate-Key header for applications calling from the parking gate.")
+    @Operation(summary = "Check vehicle access", description = "Check if a vehicle with the given license plate is approved for access and update its status. Mutates vehicle state (approved->entered->exited), creates a VehicleLog and pushes a WebSocket notification. Pass an optional gateId to tag the log with the originating gate and fan the WebSocket event out to the per-gate topic /topic/gate/{gateId}/check in addition to /topic/vehicle-check. Requires the X-Gate-Key header for applications calling from the parking gate.")
     @SecurityRequirement(name = "X-Gate-Key")
     public ResponseEntity<VehicleCheckResponse> checkVehiclePost(@Valid @RequestBody VehicleCheckRequest request) {
         try {
             VehicleCheckResponse response = vehicleService.checkVehicleAccess(
-                    request.getLicensePlateNumber(), request.getType());
+                    request.getLicensePlateNumber(), request.getType(), request.getGateId());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             VehicleCheckResponse response = new VehicleCheckResponse(

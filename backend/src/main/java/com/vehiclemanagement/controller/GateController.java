@@ -3,7 +3,9 @@ package com.vehiclemanagement.controller;
 import com.vehiclemanagement.dto.GateDto;
 import com.vehiclemanagement.dto.GateHeartbeatRequest;
 import com.vehiclemanagement.dto.GateRegisterRequest;
+import com.vehiclemanagement.dto.VehicleLogDto;
 import com.vehiclemanagement.service.GateService;
+import com.vehiclemanagement.service.VehicleLogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,10 +14,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +30,9 @@ public class GateController {
 
     @Autowired
     private GateService gateService;
+
+    @Autowired
+    private VehicleLogService vehicleLogService;
 
     // ---- Edge-facing endpoints (protected by X-Gate-Key header) ----
 
@@ -94,5 +101,23 @@ public class GateController {
             @Parameter(description = "Gate ID") @PathVariable UUID id,
             @Parameter(description = "Updated gate configuration") @RequestBody GateDto request) {
         return ResponseEntity.ok(gateService.updateConfig(id, request));
+    }
+
+    @GetMapping("/{id}/recent-checks")
+    @Operation(summary = "Replay recent check events for a gate",
+            description = "Returns vehicle check logs for this gate created after the given "
+                    + "timestamp, newest first. Backs reliable delivery: a per-gate UI that lost "
+                    + "its WebSocket connection replays missed events on reconnect. When 'since' is "
+                    + "omitted it defaults to the start of the current day.")
+    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER', 'SECURITY_OFFICER')")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Recent checks for the gate")
+    })
+    public ResponseEntity<List<VehicleLogDto>> recentChecks(
+            @Parameter(description = "Gate ID") @PathVariable UUID id,
+            @Parameter(description = "Only return checks after this ISO-8601 timestamp (defaults to start of today)")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime since) {
+        return ResponseEntity.ok(vehicleLogService.getRecentChecksByGate(id, since));
     }
 }

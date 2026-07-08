@@ -68,6 +68,13 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
                                     @Param("endDate") LocalDateTime endDate,
                                     Pageable pageable);
     
+    // Recent checks for a gate since a timestamp — used by the reliable-delivery
+    // replay endpoint so a reconnecting per-gate UI can recover events missed
+    // while the WebSocket was down.
+    @Query("SELECT vl FROM VehicleLog vl WHERE vl.gate.id = :gateId " +
+           "AND vl.entryExitTime > :since ORDER BY vl.entryExitTime DESC")
+    List<VehicleLog> findByGateSince(@Param("gateId") UUID gateId, @Param("since") LocalDateTime since);
+
     // Statistics queries
     @Query("SELECT COUNT(vl) FROM VehicleLog vl WHERE vl.type = :type AND DATE(vl.entryExitTime) = :date")
     long countByTypeAndDate(@Param("type") VehicleLog.LogType type, @Param("date") LocalDate date);

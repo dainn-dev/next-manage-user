@@ -6,12 +6,14 @@ import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.dto.VehicleLogDto;
 import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.util.ImageProcessingUtil;
 // import com.vehiclemanagement.entity.EntryExitRequest; // Removed
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.EmployeeRepository;
+import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 // import com.vehiclemanagement.repository.EntryExitRequestRepository; // Removed
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +43,10 @@ public class VehicleService {
     
     @Autowired
     private EmployeeRepository employeeRepository;
-    
+
+    @Autowired
+    private GateRepository gateRepository;
+
     @Autowired
     private VehicleLogService vehicleLogService;
     
@@ -352,6 +357,19 @@ public class VehicleService {
      */
     @Transactional
     public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type) {
+        return checkVehicleAccess(licensePlateNumber, type, null);
+    }
+
+    /**
+     * Check if a vehicle is approved for access, optionally attributing the event
+     * to the gate identified by {@code gateId}. When a gate is supplied the
+     * created {@link VehicleLog} is tagged with it and every WebSocket event is
+     * fanned out to the per-gate topic in addition to the global topic. A
+     * {@code null} {@code gateId} preserves the original behaviour.
+     */
+    @Transactional
+    public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type, UUID gateId) {
+        Gate gate = resolveGate(gateId);
         try {
             // Find vehicle by license plate with normalized search
             // This handles cases where license plates may have different formatting (e.g., "ABC-123" vs "ABC123")
@@ -359,19 +377,19 @@ public class VehicleService {
                     .orElse(null);
             if (vehicle == null) {
                 String notFoundMessage = "Xe vá»›i biá»ƒn sá»‘ " + licensePlateNumber + " chÆ°a Ä‘Æ°á»£c Ä‘Äƒng kÃ½ trong há»‡ thá»‘ng";
-                
+
                 // Send WebSocket message for vehicle not found
                 try {
-                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, notFoundMessage);
+                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, notFoundMessage, gateId(gate));
                 } catch (Exception wsException) {
                     // Log WebSocket error but don't fail the response
                     System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
                 }
-                
+
                 return new VehicleCheckResponse(
-                    false, 
-                    notFoundMessage, 
-                    licensePlateNumber, 
+                    false,
+                    notFoundMessage,
+                    licensePlateNumber,
                     type
                 );
             }
@@ -400,18 +418,18 @@ public class VehicleService {
                 }
                 
                 // Create vehicle log entry for approved access
-                createVehicleLogEntry(vehicle, type);
-                
+                createVehicleLogEntry(vehicle, type, gate);
+
                 // Get employee info and send to WebSocket
                 try {
                     VehicleLog.LogType logType = "entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit;
-                    Object monitorInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, logType);
-                    webSocketService.sendVehicleCheckMessage(monitorInfo);
+                    Object monitorInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, logType, gate);
+                    webSocketService.sendVehicleCheckMessage(monitorInfo, gateId(gate));
                 } catch (Exception e) {
                     // Fallback to simple message if employee info fails
-                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message);
+                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
                 }
-                
+
             } else {
                 // Get employee name for the denied message
                 String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "KhÃ´ng xÃ¡c Ä‘á»‹nh";
@@ -419,7 +437,7 @@ public class VehicleService {
                 message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " khÃ´ng Ä‘Æ°á»£c phÃ©p ra vÃ o (Tráº¡ng thÃ¡i: " + statusText + ")";
                 
                 // Send WebSocket message for denied access
-                webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message);
+                webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
             }
             
             return new VehicleCheckResponse(
@@ -434,7 +452,7 @@ public class VehicleService {
             
             // Send WebSocket message for error
             try {
-                webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, errorMessage);
+                webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, errorMessage, gateId(gate));
             } catch (Exception wsException) {
                 // Log WebSocket error but don't fail the response
                 System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
@@ -450,10 +468,15 @@ public class VehicleService {
     }
     
     /**
-     * Create a vehicle log entry for access events
+     * Create a vehicle log entry for access events. When {@code gate} is non-null
+     * the log is tagged with the gate and its location; otherwise it falls back to
+     * the historical default gate location.
      */
-    private void createVehicleLogEntry(Vehicle vehicle, String type) {
+    private void createVehicleLogEntry(Vehicle vehicle, String type, Gate gate) {
         try {
+            String gateLocation = gate != null && gate.getLocation() != null && !gate.getLocation().isBlank()
+                    ? gate.getLocation()
+                    : "Main Gate"; // Default gate location for gate-less (backward-compatible) checks
             VehicleLogDto logDto = VehicleLogDto.builder()
                     .licensePlateNumber(vehicle.getLicensePlate())
                     .vehicleId(vehicle.getId())
@@ -463,17 +486,33 @@ public class VehicleService {
                     .vehicleType(VehicleLog.VehicleCategory.internal) // Assuming internal vehicles since they're registered
                     .driverName(vehicle.getEmployee().getName())
                     .purpose("Truy cáº­p xe tá»± Ä‘á»™ng")
-                    .gateLocation("Main Gate") // Default gate location, could be parameterized later
+                    .gateLocation(gateLocation)
+                    .gateId(gate != null ? gate.getId() : null)
                     .notes("Auto-generated log entry from vehicle access check")
                     .createdAt(LocalDateTime.now())
                     .build();
-            
+
             vehicleLogService.createVehicleLog(logDto);
-            
+
         } catch (Exception e) {
             // Log the error but don't fail the vehicle check process
             System.err.println("Failed to create vehicle log entry: " + e.getMessage());
         }
+    }
+
+    /**
+     * Resolve the gate for a check request. An unknown id is treated as "no gate"
+     * so a stale/invalid gateId never fails the access check.
+     */
+    private Gate resolveGate(UUID gateId) {
+        if (gateId == null) {
+            return null;
+        }
+        return gateRepository.findById(gateId).orElse(null);
+    }
+
+    private UUID gateId(Gate gate) {
+        return gate != null ? gate.getId() : null;
     }
     
     /**

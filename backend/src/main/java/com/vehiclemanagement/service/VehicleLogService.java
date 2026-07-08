@@ -3,9 +3,11 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.VehicleLogDto;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.repository.EmployeeRepository;
+import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +43,10 @@ public class VehicleLogService {
     
     @Autowired
     private EmployeeRepository employeeRepository;
-    
+
+    @Autowired
+    private GateRepository gateRepository;
+
     public Page<VehicleLogDto> getAllVehicleLogs(Pageable pageable) {
         Page<VehicleLog> logs = vehicleLogRepository.findAll(pageable);
         return logs.map(this::convertToDto);
@@ -114,9 +119,39 @@ public class VehicleLogService {
             Optional<Employee> securityGuard = employeeRepository.findById(vehicleLogDto.getSecurityGuardId());
             securityGuard.ifPresent(vehicleLog::setSecurityGuard);
         }
-        
+
+        // Associate the originating gate when supplied (Phase 3.2). Backward
+        // compatible: a null gateId leaves the log gate-less as before, and an
+        // unknown id is ignored rather than failing the write.
+        if (vehicleLogDto.getGateId() != null) {
+            Optional<Gate> gate = gateRepository.findById(vehicleLogDto.getGateId());
+            if (gate.isPresent()) {
+                vehicleLog.setGate(gate.get());
+                // Fall back the free-text gateLocation to the gate's location so
+                // existing consumers that read gateLocation keep working.
+                if ((vehicleLog.getGateLocation() == null || vehicleLog.getGateLocation().isBlank())
+                        && gate.get().getLocation() != null) {
+                    vehicleLog.setGateLocation(gate.get().getLocation());
+                }
+            }
+        }
+
         VehicleLog savedLog = vehicleLogRepository.save(vehicleLog);
         return convertToDto(savedLog);
+    }
+
+    /**
+     * Replay events for a single gate created after {@code since}, newest first.
+     * Backs the reliable-delivery replay endpoint: a per-gate UI that dropped its
+     * WebSocket connection calls this on reconnect to recover missed check events.
+     * A {@code null} {@code since} defaults to the start of the current day.
+     */
+    @Transactional(readOnly = true)
+    public List<VehicleLogDto> getRecentChecksByGate(UUID gateId, LocalDateTime since) {
+        LocalDateTime from = since != null ? since : LocalDate.now().atStartOfDay();
+        return vehicleLogRepository.findByGateSince(gateId, from).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
     
     public VehicleLogDto updateVehicleLog(UUID id, VehicleLogDto vehicleLogDto) {
@@ -415,6 +450,8 @@ public class VehicleLogService {
                 .driverName(vehicleLog.getDriverName())
                 .purpose(vehicleLog.getPurpose())
                 .gateLocation(vehicleLog.getGateLocation())
+                .gateId(vehicleLog.getGate() != null ? vehicleLog.getGate().getId() : null)
+                .gateName(vehicleLog.getGate() != null ? vehicleLog.getGate().getName() : null)
                 .securityGuardId(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getId() : null)
                 .securityGuardName(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getName() : null)
                 .notes(vehicleLog.getNotes())
@@ -434,6 +471,10 @@ public class VehicleLogService {
     }
     
     public Object getEmployeeInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type) {
+        return getEmployeeInfoByLicensePlate(licensePlateNumber, type, null);
+    }
+
+    public Object getEmployeeInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type, Gate gate) {
         // Find the vehicle by license plate using normalized search
         Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber);
         
@@ -489,9 +530,15 @@ public class VehicleLogService {
             public final String logTime = latestLog != null ? latestLog.getEntryExitTime().toString() : null;
             public final String driverName = latestLog != null ? latestLog.getDriverName() : null;
             public final String purpose = latestLog != null ? latestLog.getPurpose() : null;
-            public final String gateLocation = latestLog != null ? latestLog.getGateLocation() : null;
+            public final String gateLocation = gate != null && gate.getLocation() != null
+                    ? gate.getLocation()
+                    : (latestLog != null ? latestLog.getGateLocation() : null);
             public final String notes = latestLog != null ? latestLog.getNotes() : null;
             public final String vehicleImagePath = vehicle.getImagePath();
+
+            // Gate identity (Phase 3.2) so the frontend can attribute the event to a gate.
+            public final String gateId = gate != null ? gate.getId().toString() : null;
+            public final String gateName = gate != null ? gate.getName() : null;
         };
     }
 

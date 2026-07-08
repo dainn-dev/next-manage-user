@@ -29,6 +29,8 @@ public class VehicleLogDto {
     private String driverName;
     private String purpose;
     private String gateLocation;
+    private UUID gateId;
+    private String gateName;
     private UUID securityGuardId;
     private String securityGuardName;
     private String notes;
