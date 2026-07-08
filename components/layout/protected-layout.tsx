@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Sidebar } from "./sidebar"
 import { useAuth } from "@/lib/auth-context"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 interface ProtectedLayoutProps {
   children: React.ReactNode
@@ -47,7 +48,9 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   return (
     <div className="flex h-screen">
       <Sidebar />
-      <main className="flex-1 overflow-auto bg-white">{children}</main>
+      <main className="flex-1 overflow-auto bg-white">
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </main>
     </div>
   )
 }

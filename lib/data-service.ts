@@ -17,6 +17,11 @@ import { departmentApi } from "./api/department-api"
 import { positionApi } from "./api/position-api"
 import { vehicleLogApi, type EmployeeVehicleInfo } from "./api/vehicle-log-api"
 
+// Mock fallback is only used in development for fast iteration.
+// In production, API errors are re-thrown so the UI can surface them
+// (error boundary / toast) instead of silently rendering stale mock data.
+const isDev = process.env.NODE_ENV !== "production"
+
 class DataService {
   
   // Cache for API data to prevent multiple calls
@@ -58,7 +63,10 @@ class DataService {
     this.clearPositionsCache()
     this.clearEmployeesCache()
   }
-  private vehicles: Vehicle[] = [
+  // Mock vehicle data — only populated in development so a downed backend
+  // can still be worked around locally. In production this stays empty and
+  // API errors propagate to the caller.
+  private vehicles: Vehicle[] = isDev ? [
     {
       id: "1",
       employeeId: "1",
@@ -173,7 +181,7 @@ class DataService {
       createdAt: "2024-03-20T11:00:00Z",
       updatedAt: "2024-03-20T11:00:00Z",
     },
-  ]
+  ] : []
 
   // Employee operations
   async getEmployees(): Promise<Employee[]> {
@@ -533,32 +541,6 @@ class DataService {
   }
 
   // Vehicle operations
-  async getVehicles(page: number = 0, size: number = 10, sort: string = 'createdAt', direction: string = 'desc'): Promise<{
-    vehicles: Vehicle[]
-    totalElements: number
-    totalPages: number
-    currentPage: number
-    pageSize: number
-  }> {
-    try {
-      return await vehicleApi.getAllVehiclesPaginated(page, size, sort, direction)
-    } catch (error) {
-      console.error('Failed to fetch vehicles from API, falling back to mock data:', error)
-      // Calculate pagination for mock data
-      const startIndex = page * size
-      const endIndex = startIndex + size
-      const paginatedVehicles = this.vehicles.slice(startIndex, endIndex)
-      
-      return {
-        vehicles: paginatedVehicles,
-        totalElements: this.vehicles.length,
-        totalPages: Math.ceil(this.vehicles.length / size),
-        currentPage: page,
-        pageSize: size
-      }
-    }
-  }
-
   async getVehicles(page: number = 0, size: number = 10, sort: string = 'updatedAt', direction: string = 'desc'): Promise<{
     vehicles: Vehicle[]
     totalElements: number
@@ -574,8 +556,11 @@ class DataService {
         currentPage: response.number
       }
     } catch (error) {
-      console.error('Failed to fetch vehicles from API, falling back to mock data:', error)
-      // Fallback to mock data with pagination simulation
+      console.error('Failed to fetch vehicles from API:', error)
+      if (!isDev) {
+        throw error
+      }
+      // Dev-only fallback to mock data with pagination simulation
       const startIndex = page * size
       const endIndex = startIndex + size
       const paginatedVehicles = this.vehicles.slice(startIndex, endIndex)
@@ -593,7 +578,10 @@ class DataService {
     try {
       return await vehicleApi.getVehicleById(id)
     } catch (error) {
-      console.error('Failed to fetch vehicle from API, falling back to mock data:', error)
+      console.error('Failed to fetch vehicle from API:', error)
+      if (!isDev) {
+        throw error
+      }
       return this.vehicles.find((vehicle) => vehicle.id === id)
     }
   }
@@ -618,7 +606,10 @@ class DataService {
       // Return the vehicle from the response
       return response.vehicle
     } catch (error) {
-      console.error('Failed to create vehicle via API, falling back to mock data:', error)
+      console.error('Failed to create vehicle via API:', error)
+      if (!isDev) {
+        throw error
+      }
       const newVehicle: Vehicle = {
         ...vehicle,
         id: Date.now().toString(),
@@ -654,7 +645,10 @@ class DataService {
 
       return await vehicleApi.updateVehicle(id, updatedData)
     } catch (error) {
-      console.error('Failed to update vehicle via API, falling back to mock data:', error)
+      console.error('Failed to update vehicle via API:', error)
+      if (!isDev) {
+        throw error
+      }
       const index = this.vehicles.findIndex((vehicle) => vehicle.id === id)
       if (index === -1) return null
 
@@ -672,7 +666,10 @@ class DataService {
       await vehicleApi.deleteVehicle(id)
       return true
     } catch (error) {
-      console.error('Failed to delete vehicle via API, falling back to mock data:', error)
+      console.error('Failed to delete vehicle via API:', error)
+      if (!isDev) {
+        throw error
+      }
       const index = this.vehicles.findIndex((vehicle) => vehicle.id === id)
       if (index === -1) return false
 
