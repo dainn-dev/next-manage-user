@@ -2,13 +2,20 @@
     "api": {
         "base_url": "http://localhost:8080",
         "endpoint": "/api/vehicles/check-vehicle",
-        "timeout": 10
+        "timeout": 10,
+        "use_query_params": true,
+        "use_cookies": true,
+        "cookies": {
+            "access_token": "PLACEHOLDER_ACCESS_TOKEN",
+            "refresh_token": "PLACEHOLDER_REFRESH_TOKEN"
+        }
     },
     "detection": {
-        "cooldown": 5,
-        "cache_duration": 300,
+        "cooldown": 2.0,
+        "cache_duration": 600,
         "max_cameras": 10,
-        "frame_interval_ms": 200
+        "frame_interval_ms": 200,
+        "min_detection_duration": 1.0
     },
     "rate_limiting": {
         "max_requests_per_minute": 30,
@@ -25,16 +32,27 @@
         "lp_ocr": "model/LP_ocr_nano_62.pt",
         "confidence_threshold": 0.6
     },
+    "ocr": {
+        "fallback_enabled": true,
+        "fallback_method": "easyocr",
+        "tesseract_cmd": "",
+        "easyocr_languages": [
+            "en",
+            "vi"
+        ],
+        "easyocr_gpu": false,
+        "easyocr_min_confidence": 0.4
+    },
     "rtsp_devices": {
         "device_1": {
             "enabled": false,
             "name": "RTSP Device 1",
-            "url": "rtsp://username:password@192.168.1.100:554/stream1"
+            "url": "rtsp://username:password@192.168.0.100:554/stream1"
         },
         "device_2": {
             "enabled": false,
             "name": "RTSP Device 2",
-            "url": "rtsp://username:password@192.168.1.101:554/stream1"
+            "url": "rtsp://username:password@192.168.0.101:554/stream1"
         }
     },
     "rtsp_optimization": {
@@ -42,12 +60,23 @@
         "drop_frames": true,
         "low_latency": true,
         "tcp_transport": false,
-        "connection_timeout": 5000,
-        "read_timeout": 1000,
+        "connection_timeout": 15000,
+        "read_timeout": 8000,
         "frame_skip_threshold": 3,
         "h264_error_handling": true,
         "frame_validation": true,
         "max_resolution_width": 640,
         "max_resolution_height": 480
+    },
+    "error_handling": {
+        "connection_error_cache_duration": 300,
+        "connection_error_popup_cooldown": 30
+    },
+    "tts": {
+        "enabled": true,
+        "use_gtts": true,
+        "rate": 150,
+        "volume": 0.8,
+        "language": "vi"
     }
 }

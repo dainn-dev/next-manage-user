@@ -15,9 +15,9 @@ spring:
       resolve-lazily: false
   
   datasource:
-    url: jdbc:postgresql://localhost:5432/vehicle_management
-    username: postgres
-    password: password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vehicle_management}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
   
   jpa:
@@ -42,8 +42,8 @@ spring:
 
 # JWT Configuration
 jwt:
-  secret: mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm
-  expiration: 86400 # 24 hours in seconds
+  secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm}
+  expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
 
 management:
   endpoints:

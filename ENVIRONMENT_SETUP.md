@@ -18,12 +18,31 @@ This document explains how to set up environment variables for the Vehicle Manag
 ### Frontend (Next.js)
 - **`.env.local`** - Local development environment variables
 - **`.env.production`** - Production environment variables
+- **`.env.example`** - Minimal committed template (API URL only)
 - **`sample.env`** - Template with all available environment variables
 
 ### Backend (Spring Boot)
-- **`application.yml`** - Default configuration
-- **`application-docker.yml`** - Docker-specific configuration
+- **`backend/.env.example`** - Committed template with `SPRING_DATASOURCE_*` and `JWT_SECRET` placeholders
+- **`application.yml`** - Default configuration (reads DB URL/credentials and `jwt.secret` from env with defaults)
+- **`application-docker.yml`** - Docker-specific configuration (same env overrides)
 - Environment variables can override YAML values using the `SPRING_` prefix
+
+### License Plate Monitor (Python detection app)
+- **`windows/config.json`** - Active config (runtime). API `base_url` defaults to `http://localhost:8080`.
+- **`windows/config.example.json`** - Committed template with placeholder values (port 8080, no real secrets). Copy to `windows/config.json` and fill in real RTSP credentials / auth cookies.
+
+## Quick Setup (copy templates)
+
+```bash
+# Frontend
+cp .env.example .env.local        # minimal; or: cp sample.env .env.local
+
+# Backend
+cp backend/.env.example .env      # then fill in real DB + JWT values
+
+# Detection app
+cp windows/config.example.json windows/config.json
+```
 
 ## Required Environment Variables
 

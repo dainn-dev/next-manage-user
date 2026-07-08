@@ -21,7 +21,7 @@ class ConfigManager:
         """Load default configuration"""
         return {
             "api": {
-                "base_url": "http://localhost:8000",
+                "base_url": "http://localhost:8080",
                 "endpoint": "/api/vehicles/check-vehicle",
                 "timeout": 10
             },
@@ -143,7 +143,7 @@ class ConfigManager:
     
     def get_api_url(self) -> str:
         """Get full API URL"""
-        base_url = self.get('api.base_url', 'http://localhost:8000')
+        base_url = self.get('api.base_url', 'http://localhost:8080')
         endpoint = self.get('api.endpoint', '/api/vehicles/check-vehicle')
         return f"{base_url}{endpoint}"
     

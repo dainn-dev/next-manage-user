@@ -4,7 +4,10 @@
  */
 
 // Single source of truth for API configuration
-const DEFAULT_BASE_URL = 'http://192.168.1.60:8080'
+// Override via NEXT_PUBLIC_API_URL env var (see .env.example). Defaults to the
+// backend's local Jetty port (8080) so a fresh checkout works without a .env
+// file and without a hard-coded LAN IP that breaks off-network.
+const DEFAULT_BASE_URL = 'http://localhost:8080'
 
 const API_CONFIG = {
   // Base URL for the backend API (without /api suffix)
