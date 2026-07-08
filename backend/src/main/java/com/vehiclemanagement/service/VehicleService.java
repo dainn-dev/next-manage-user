@@ -24,7 +24,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.WeekFields;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -122,7 +121,7 @@ public class VehicleService {
             return new VehicleCreateResponse(
                 new VehicleDto(existingVehicle), 
                 true, 
-                "Không tạo được xe " + vehicleDto.getLicensePlate() + ", vì đã tồn tại trong hệ thống"
+                "KhÃ´ng táº¡o Ä‘Æ°á»£c xe " + vehicleDto.getLicensePlate() + ", vÃ¬ Ä‘Ã£ tá»“n táº¡i trong há»‡ thá»‘ng"
             );
         }
         
@@ -149,7 +148,7 @@ public class VehicleService {
         return new VehicleCreateResponse(
             new VehicleDto(savedVehicle), 
             false, 
-            "Xe đã được tạo thành công"
+            "Xe Ä‘Ã£ Ä‘Æ°á»£c táº¡o thÃ nh cÃ´ng"
         );
     }
     
@@ -217,190 +216,51 @@ public class VehicleService {
     
     public VehicleStatisticsDto getVehicleStatistics() {
         List<Vehicle> vehicles = vehicleRepository.findAll();
-        // List<EntryExitRequest> requests = entryExitRequestRepository.findAll(); // Removed
-        List<Object> requests = new ArrayList<>(); // Empty list for compatibility
-        
+
         // Basic vehicle stats
         long totalVehicles = vehicles.size();
         long approvedVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.approved).count();
         long rejectedVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.rejected).count();
         long exitedVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.exited).count();
         long enteredVehicles = vehicles.stream().filter(v -> v.getStatus() == Vehicle.VehicleStatus.entered).count();
-        
+
         // Vehicle type stats
         Map<String, Long> vehicleTypeStats = vehicles.stream()
                 .filter(v -> v.getVehicleType() != null)
                 .collect(Collectors.groupingBy(v -> v.getVehicleType().toString(), Collectors.counting()));
-        
+
         // Fuel type stats
         Map<String, Long> fuelTypeStats = vehicles.stream()
                 .filter(v -> v.getFuelType() != null)
                 .collect(Collectors.groupingBy(v -> v.getFuelType().toString(), Collectors.counting()));
-        
-        // Entry/Exit stats - Removed, using empty stats
-        // VehicleStatisticsDto.EntryExitStatsDto entryExitStats = new VehicleStatisticsDto.EntryExitStatsDto(...); // Removed
-        
-        // Generate empty time-based stats (entry/exit requests removed)
-        List<VehicleStatisticsDto.VehicleDailyStatsDto> dailyStats = new ArrayList<>();
-        List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats = new ArrayList<>();
-        List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats = new ArrayList<>();
-        
-        return new VehicleStatisticsDto(
-                totalVehicles, approvedVehicles, rejectedVehicles, exitedVehicles, enteredVehicles,
-                vehicleTypeStats, fuelTypeStats, dailyStats, weeklyStats, monthlyStats
+
+        // Log-based time series (daily/weekly/monthly)
+        VehicleLogService.LogBasedStatistics logStats = vehicleLogService.getLogBasedStatistics();
+
+        // Entry/Exit stats today: VehicleLog entries are only created on approved
+        // gate access, so every logged request counts as approved. A request is
+        // considered completed once the vehicle exits.
+        long entryRequests = vehicleLogService.getTodayEntryCount();
+        long exitRequests = vehicleLogService.getTodayExitCount();
+        long totalRequests = entryRequests + exitRequests;
+        VehicleStatisticsDto.EntryExitStatsDto entryExitStats = new VehicleStatisticsDto.EntryExitStatsDto(
+                totalRequests,
+                totalRequests, // approvedRequests
+                0,             // pendingRequests
+                exitRequests,  // completedRequests
+                entryRequests,
+                exitRequests
         );
+
+        VehicleStatisticsDto dto = new VehicleStatisticsDto(
+                totalVehicles, approvedVehicles, rejectedVehicles, exitedVehicles, enteredVehicles,
+                vehicleTypeStats, fuelTypeStats,
+                logStats.getDailyStats(), logStats.getWeeklyStats(), logStats.getMonthlyStats()
+        );
+        dto.setEntryExitStats(entryExitStats);
+        return dto;
     }
-    
-    /* Removed - EntryExitRequest methods
-    private List<VehicleStatisticsDto.VehicleDailyStatsDto> generateDailyStats(List<EntryExitRequest> requests) {
-        Map<LocalDate, VehicleStatisticsDto.VehicleDailyStatsDto> dailyMap = new HashMap<>();
-        Map<LocalDate, Set<String>> uniqueVehiclesPerDay = new HashMap<>();
-        
-        for (EntryExitRequest request : requests) {
-            LocalDate date = request.getRequestTime().toLocalDate();
-            
-            dailyMap.computeIfAbsent(date, d -> new VehicleStatisticsDto.VehicleDailyStatsDto(
-                    d, 0, 0, 0, 0, 0, 0, 0
-            ));
-            uniqueVehiclesPerDay.computeIfAbsent(date, d -> new HashSet<>());
-            
-            VehicleStatisticsDto.VehicleDailyStatsDto dayStats = dailyMap.get(date);
-            uniqueVehiclesPerDay.get(date).add(request.getVehicle().getId().toString());
-            
-            dayStats.setTotalRequests(dayStats.getTotalRequests() + 1);
-            if (request.getRequestType() == EntryExitRequest.RequestType.entry) {
-                dayStats.setEntryCount(dayStats.getEntryCount() + 1);
-            } else {
-                dayStats.setExitCount(dayStats.getExitCount() + 1);
-            }
-            
-            switch (request.getStatus()) {
-                case approved:
-                    dayStats.setApprovedCount(dayStats.getApprovedCount() + 1);
-                    break;
-                case pending:
-                    dayStats.setPendingCount(dayStats.getPendingCount() + 1);
-                    break;
-                case rejected:
-                    dayStats.setRejectedCount(dayStats.getRejectedCount() + 1);
-                    break;
-            }
-        }
-        
-        // Set unique vehicles count
-        dailyMap.forEach((date, stats) -> {
-            stats.setUniqueVehicles(uniqueVehiclesPerDay.get(date).size());
-        });
-        
-        return dailyMap.values().stream()
-                .sorted(Comparator.comparing(VehicleStatisticsDto.VehicleDailyStatsDto::getDate))
-                .collect(Collectors.toList());
-    }
-    
-    private List<VehicleStatisticsDto.VehicleWeeklyStatsDto> generateWeeklyStats(List<EntryExitRequest> requests) {
-        Map<String, VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyMap = new HashMap<>();
-        Map<String, Set<String>> uniqueVehiclesPerWeek = new HashMap<>();
-        
-        WeekFields weekFields = WeekFields.of(Locale.getDefault());
-        
-        for (EntryExitRequest request : requests) {
-            LocalDate requestDate = request.getRequestTime().toLocalDate();
-            int week = requestDate.get(weekFields.weekOfYear());
-            int year = requestDate.getYear();
-            String weekKey = year + "-W" + week;
-            
-            // Calculate start and end dates of the week
-            LocalDate startDate = requestDate.with(weekFields.dayOfWeek(), 1);
-            LocalDate endDate = startDate.plusDays(6);
-            
-            weeklyMap.computeIfAbsent(weekKey, k -> new VehicleStatisticsDto.VehicleWeeklyStatsDto(
-                    week, startDate, endDate, 0, 0, 0, 0, 0, 0, 0
-            ));
-            uniqueVehiclesPerWeek.computeIfAbsent(weekKey, k -> new HashSet<>());
-            
-            VehicleStatisticsDto.VehicleWeeklyStatsDto weekStats = weeklyMap.get(weekKey);
-            uniqueVehiclesPerWeek.get(weekKey).add(request.getVehicle().getId().toString());
-            
-            weekStats.setTotalRequests(weekStats.getTotalRequests() + 1);
-            if (request.getRequestType() == EntryExitRequest.RequestType.entry) {
-                weekStats.setEntryCount(weekStats.getEntryCount() + 1);
-            } else {
-                weekStats.setExitCount(weekStats.getExitCount() + 1);
-            }
-            
-            switch (request.getStatus()) {
-                case approved:
-                    weekStats.setApprovedCount(weekStats.getApprovedCount() + 1);
-                    break;
-                case pending:
-                    weekStats.setPendingCount(weekStats.getPendingCount() + 1);
-                    break;
-                case rejected:
-                    weekStats.setRejectedCount(weekStats.getRejectedCount() + 1);
-                    break;
-            }
-        }
-        
-        // Set unique vehicles count
-        weeklyMap.forEach((weekKey, stats) -> {
-            stats.setUniqueVehicles(uniqueVehiclesPerWeek.get(weekKey).size());
-        });
-        
-        return weeklyMap.values().stream()
-                .sorted(Comparator.comparing(VehicleStatisticsDto.VehicleWeeklyStatsDto::getStartDate))
-                .collect(Collectors.toList());
-    }
-    
-    private List<VehicleStatisticsDto.VehicleMonthlyStatsDto> generateMonthlyStats(List<EntryExitRequest> requests) {
-        Map<String, VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyMap = new HashMap<>();
-        Map<String, Set<String>> uniqueVehiclesPerMonth = new HashMap<>();
-        
-        for (EntryExitRequest request : requests) {
-            LocalDate requestDate = request.getRequestTime().toLocalDate();
-            int month = requestDate.getMonthValue();
-            int year = requestDate.getYear();
-            String monthKey = year + "-" + month;
-            
-            monthlyMap.computeIfAbsent(monthKey, k -> new VehicleStatisticsDto.VehicleMonthlyStatsDto(
-                    month, year, 0, 0, 0, 0, 0, 0, 0
-            ));
-            uniqueVehiclesPerMonth.computeIfAbsent(monthKey, k -> new HashSet<>());
-            
-            VehicleStatisticsDto.VehicleMonthlyStatsDto monthStats = monthlyMap.get(monthKey);
-            uniqueVehiclesPerMonth.get(monthKey).add(request.getVehicle().getId().toString());
-            
-            monthStats.setTotalRequests(monthStats.getTotalRequests() + 1);
-            if (request.getRequestType() == EntryExitRequest.RequestType.entry) {
-                monthStats.setEntryCount(monthStats.getEntryCount() + 1);
-            } else {
-                monthStats.setExitCount(monthStats.getExitCount() + 1);
-            }
-            
-            switch (request.getStatus()) {
-                case approved:
-                    monthStats.setApprovedCount(monthStats.getApprovedCount() + 1);
-                    break;
-                case pending:
-                    monthStats.setPendingCount(monthStats.getPendingCount() + 1);
-                    break;
-                case rejected:
-                    monthStats.setRejectedCount(monthStats.getRejectedCount() + 1);
-                    break;
-            }
-        }
-        
-        // Set unique vehicles count
-        monthlyMap.forEach((monthKey, stats) -> {
-            stats.setUniqueVehicles(uniqueVehiclesPerMonth.get(monthKey).size());
-        });
-        
-        return monthlyMap.values().stream()
-                .sorted(Comparator.comparing(VehicleStatisticsDto.VehicleMonthlyStatsDto::getYear)
-                        .thenComparing(VehicleStatisticsDto.VehicleMonthlyStatsDto::getMonth))
-                .collect(Collectors.toList());
-    }
-    */ // End of removed EntryExitRequest methods
-    
+
     /**
      * Upload vehicle image and update image path
      */
@@ -498,7 +358,7 @@ public class VehicleService {
             Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber)
                     .orElse(null);
             if (vehicle == null) {
-                String notFoundMessage = "Xe với biển số " + licensePlateNumber + " chưa được đăng ký trong hệ thống";
+                String notFoundMessage = "Xe vá»›i biá»ƒn sá»‘ " + licensePlateNumber + " chÆ°a Ä‘Æ°á»£c Ä‘Äƒng kÃ½ trong há»‡ thá»‘ng";
                 
                 // Send WebSocket message for vehicle not found
                 try {
@@ -524,19 +384,19 @@ public class VehicleService {
             String message;
             if (isApproved) {
                 // Get employee name for the message
-                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "Không xác định";
+                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "KhÃ´ng xÃ¡c Ä‘á»‹nh";
                 
                 // Update vehicle status based on type
                 if ("entry".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.entered);
                     vehicleRepository.save(vehicle);
-                    message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " được phép vào cổng";
+                    message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " Ä‘Æ°á»£c phÃ©p vÃ o cá»•ng";
                 } else if ("exit".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.exited);
                     vehicleRepository.save(vehicle);
-                    message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " được phép ra cổng";
+                    message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " Ä‘Æ°á»£c phÃ©p ra cá»•ng";
                 } else {
-                    message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " được phép ra vào cổng";
+                    message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " Ä‘Æ°á»£c phÃ©p ra vÃ o cá»•ng";
                 }
                 
                 // Create vehicle log entry for approved access
@@ -554,9 +414,9 @@ public class VehicleService {
                 
             } else {
                 // Get employee name for the denied message
-                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "Không xác định";
-                String statusText = getStatusText(vehicle.getStatus()) =="Entered" ? "đã vào" : "đã ra";
-                message = "Xe biển số " + licensePlateNumber + " của đồng chí " + employeeName + " không được phép ra vào (Trạng thái: " + statusText + ")";
+                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "KhÃ´ng xÃ¡c Ä‘á»‹nh";
+                String statusText = getStatusText(vehicle.getStatus()) =="Entered" ? "Ä‘Ã£ vÃ o" : "Ä‘Ã£ ra";
+                message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " khÃ´ng Ä‘Æ°á»£c phÃ©p ra vÃ o (Tráº¡ng thÃ¡i: " + statusText + ")";
                 
                 // Send WebSocket message for denied access
                 webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message);
@@ -570,7 +430,7 @@ public class VehicleService {
             );
             
         } catch (Exception e) {
-            String errorMessage = "Lỗi kiểm tra xe: " + e.getMessage();
+            String errorMessage = "Lá»—i kiá»ƒm tra xe: " + e.getMessage();
             
             // Send WebSocket message for error
             try {
@@ -602,7 +462,7 @@ public class VehicleService {
                     .type("entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit)
                     .vehicleType(VehicleLog.VehicleCategory.internal) // Assuming internal vehicles since they're registered
                     .driverName(vehicle.getEmployee().getName())
-                    .purpose("Truy cập xe tự động")
+                    .purpose("Truy cáº­p xe tá»± Ä‘á»™ng")
                     .gateLocation("Main Gate") // Default gate location, could be parameterized later
                     .notes("Auto-generated log entry from vehicle access check")
                     .createdAt(LocalDateTime.now())
