@@ -42,7 +42,7 @@ spring:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
 
 management:

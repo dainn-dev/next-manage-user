@@ -38,7 +38,7 @@ services:
       SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE: 50MB
       SPRING_SERVLET_MULTIPART_ENABLED: true
       # JWT configuration
-      JWT_SECRET: mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION: 86400
     ports:
       - "8080:8080"
