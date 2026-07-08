@@ -11,6 +11,15 @@
             "refresh_token": "PLACEHOLDER_REFRESH_TOKEN"
         }
     },
+    "gate": {
+        "id": "",
+        "name": "Cong Chinh",
+        "location": "Cong so 1",
+        "camera_rtsp": "",
+        "panel_type": "entry",
+        "device_id": "device_1",
+        "heartbeat_interval": 30
+    },
     "detection": {
         "cooldown": 2.0,
         "cache_duration": 600,

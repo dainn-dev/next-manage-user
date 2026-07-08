@@ -26,6 +26,15 @@ class ConfigManager:
                 "timeout": 10,
                 "gate_key": ""
             },
+            "gate": {
+                "id": "",
+                "name": "",
+                "location": "",
+                "camera_rtsp": "",
+                "panel_type": "entry",
+                "device_id": "device_1",
+                "heartbeat_interval": 30
+            },
             "detection": {
                 "cooldown": 5,
                 "cache_duration": 300,
@@ -169,6 +178,52 @@ class ConfigManager:
             key = os.environ.get('GATE_API_KEY', '')
         return key or ''
     
+    def get_api_base_url(self) -> str:
+        """Get the backend base URL (no trailing endpoint)."""
+        return self.get('api.base_url', 'http://localhost:8080').rstrip('/')
+
+    # ---- Gate (edge service) configuration ----
+
+    def get_gate_id(self) -> str:
+        """Get the persisted gate id (empty until the edge registers)."""
+        return self.get('gate.id', '') or ''
+
+    def set_gate_id(self, gate_id: str) -> bool:
+        """Persist the gate id returned by /api/gates/register to config.json."""
+        self.set('gate.id', gate_id or '')
+        return self.save_config()
+
+    def get_gate_name(self) -> str:
+        """Get the human-readable gate name used at registration."""
+        return self.get('gate.name', '') or ''
+
+    def get_gate_location(self) -> str:
+        """Get the gate location string."""
+        return self.get('gate.location', '') or ''
+
+    def get_gate_camera_rtsp(self) -> str:
+        """Get the RTSP URL reported to the backend at registration.
+
+        Falls back to the configured edge device URL when unset so the backend
+        record stays meaningful without duplicating the URL in two places.
+        """
+        rtsp = self.get('gate.camera_rtsp', '') or ''
+        if not rtsp:
+            rtsp = self.get_rtsp_device_url(self.get_gate_device_id())
+        return rtsp
+
+    def get_gate_panel_type(self) -> str:
+        """Get the direction this gate reports: 'entry' or 'exit'."""
+        return (self.get('gate.panel_type', 'entry') or 'entry').lower()
+
+    def get_gate_device_id(self) -> str:
+        """Get the rtsp_devices key the edge service should stream from."""
+        return self.get('gate.device_id', 'device_1') or 'device_1'
+
+    def get_gate_heartbeat_interval(self) -> int:
+        """Get the heartbeat interval in seconds."""
+        return max(5, int(self.get('gate.heartbeat_interval', 30)))
+
     def get_api_use_cookies(self) -> bool:
         """Get whether to use cookies for API authentication"""
         return self.get('api.use_cookies', False)

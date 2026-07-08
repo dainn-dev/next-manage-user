@@ -1,0 +1,18 @@
+# Dependencies for the headless edge service (run_edge.py).
+# Deliberately excludes the desktop-only stack (PyQt5, pyttsx3, gTTS, pygame,
+# matplotlib, seaborn) so the service can run on a slim/GUI-less host.
+opencv-python
+numpy<2.0
+Pillow
+torch
+torchvision
+tqdm
+pyyaml
+requests
+pandas
+ultralytics
+scipy
+# Optional OCR fallbacks — install only the one referenced by ocr.fallback_method:
+#   easyocr           # ocr.fallback_method = "easyocr"
+#   pytesseract       # ocr.fallback_method = "tesseract" (needs the tesseract binary)
+#   google-cloud-vision  # ocr.fallback_method = "google_vision"
