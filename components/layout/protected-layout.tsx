@@ -44,6 +44,13 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     return <>{children}</>
   }
 
+  // Per-gate kiosk (/gate/<id>) runs full-screen without the admin sidebar so it
+  // reads as a dedicated display. Auth is still enforced above. The gate list
+  // (/gate) keeps the normal chrome.
+  if (pathname?.startsWith('/gate/')) {
+    return <ErrorBoundary>{children}</ErrorBoundary>
+  }
+
   // Show main app layout with sidebar
   return (
     <div className="flex h-screen">

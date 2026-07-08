@@ -10,6 +10,8 @@ export interface VehicleCheckMessage {
   type: string
   timestamp: string
   message: string
+  // Present when the backend fanned the event out to a per-gate topic (Phase 3.2).
+  gateId?: string
 }
 
 // Extended interface for employee info from backend
@@ -28,7 +30,7 @@ export interface EmployeeVehicleCheckMessage {
   email: string
   location?: string
   avatar?: string
-  
+
   // Vehicle information
   vehicleId: string
   licensePlateNumber: string
@@ -39,7 +41,7 @@ export interface EmployeeVehicleCheckMessage {
   year?: number
   registrationDate?: string
   expiryDate?: string
-  
+
   // Latest log information
   logId?: string
   logType: string
@@ -50,39 +52,89 @@ export interface EmployeeVehicleCheckMessage {
   notes?: string
 }
 
-export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => void) => {
+export const DEFAULT_VEHICLE_CHECK_TOPIC = '/topic/vehicle-check'
+
+// Build the per-gate STOMP topic. Must match WebSocketService.gateTopic on the
+// backend: "/topic/gate/{gateId}/check".
+export const gateCheckTopic = (gateId: string) => `/topic/gate/${gateId}/check`
+
+export interface UseWebSocketOptions {
+  // STOMP destination to subscribe to. Defaults to the global vehicle-check
+  // topic. Pass gateCheckTopic(gateId) for a per-gate kiosk. Changing the topic
+  // tears down and re-establishes the connection.
+  topic?: string
+  // Fired every time the STOMP connection is (re)established — including after an
+  // automatic reconnect. A per-gate kiosk uses this to replay events it may have
+  // missed while disconnected via GET /api/gates/{id}/recent-checks.
+  onConnect?: () => void
+}
+
+const RECONNECT_DELAY_MS = 5000
+
+export const useWebSocket = (
+  onVehicleCheck?: (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => void,
+  options?: UseWebSocketOptions,
+) => {
   const clientRef = useRef<Client | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const callbackRef = useRef(onVehicleCheck)
+  const onConnectRef = useRef(options?.onConnect)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isConnectingRef = useRef(false)
+  const unmountedRef = useRef(false)
+  const connectFnRef = useRef<() => void>()
 
-  // Update callback ref when it changes
+  const topic = options?.topic ?? DEFAULT_VEHICLE_CHECK_TOPIC
+  const topicRef = useRef(topic)
+
+  // Keep the latest callbacks/topic without forcing a reconnect on every render.
   useEffect(() => {
     callbackRef.current = onVehicleCheck
   }, [onVehicleCheck])
 
   useEffect(() => {
+    onConnectRef.current = options?.onConnect
+  }, [options?.onConnect])
+
+  useEffect(() => {
+    topicRef.current = topic
+  }, [topic])
+
+  useEffect(() => {
+    unmountedRef.current = false
+
+    const scheduleReconnect = () => {
+      if (unmountedRef.current) return
+      if (reconnectTimeoutRef.current) return
+      reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = null
+        console.log('Attempting to reconnect WebSocket...')
+        connect()
+      }, RECONNECT_DELAY_MS)
+    }
+
     const connect = () => {
       // Prevent multiple simultaneous connections
+      if (unmountedRef.current) return
       if (isConnectingRef.current || clientRef.current?.connected) {
         return
       }
 
       isConnectingRef.current = true
-      console.log('Attempting WebSocket connection...')
+      console.log('Attempting WebSocket connection to', topicRef.current)
 
       // Create WebSocket connection using SockJS
       const socket = new SockJS(getWsUrl())
-      
+
       const client = new Client({
         webSocketFactory: () => socket,
         connectHeaders: {},
         debug: (str) => {
           console.log('WebSocket Debug:', str)
         },
-        // Disable automatic reconnect to prevent continuous connect/disconnect
+        // We manage reconnection ourselves (below) so we can re-subscribe to the
+        // active topic and fire onConnect for replay.
         reconnectDelay: 0,
         heartbeatIncoming: 10000,
         heartbeatOutgoing: 10000,
@@ -94,16 +146,22 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
         setConnectionError(null)
         isConnectingRef.current = false
 
-        // Subscribe to vehicle check topic
-        client.subscribe('/topic/vehicle-check', (message) => {
+        client.subscribe(topicRef.current, (message) => {
           try {
             const vehicleCheckData = JSON.parse(message.body)
-            console.log('Received vehicle check:', vehicleCheckData)
             callbackRef.current?.(vehicleCheckData)
           } catch (error) {
             console.error('Error parsing vehicle check message:', error)
           }
         })
+
+        // Notify the consumer AFTER the subscription is live so any replay it
+        // triggers cannot race ahead of live events.
+        try {
+          onConnectRef.current?.()
+        } catch (error) {
+          console.error('Error in WebSocket onConnect handler:', error)
+        }
       }
 
       client.onStompError = (frame) => {
@@ -111,12 +169,7 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
         setConnectionError(frame.headers['message'] || 'Connection error')
         setIsConnected(false)
         isConnectingRef.current = false
-        
-        // Schedule reconnect after 10 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Attempting to reconnect...')
-          connect()
-        }, 10000)
+        scheduleReconnect()
       }
 
       client.onWebSocketError = (event) => {
@@ -124,6 +177,14 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
         setConnectionError('WebSocket connection failed')
         setIsConnected(false)
         isConnectingRef.current = false
+        scheduleReconnect()
+      }
+
+      client.onWebSocketClose = () => {
+        console.log('WebSocket closed')
+        setIsConnected(false)
+        isConnectingRef.current = false
+        scheduleReconnect()
       }
 
       client.onDisconnect = () => {
@@ -136,13 +197,18 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
       client.activate()
     }
 
+    // Expose the current connect() to the manual reconnect() below.
+    connectFnRef.current = connect
+
     // Initial connection
     connect()
 
-    // Cleanup on unmount
+    // Cleanup on unmount / topic change
     return () => {
+      unmountedRef.current = true
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
+        reconnectTimeoutRef.current = null
       }
       if (clientRef.current) {
         clientRef.current.deactivate()
@@ -150,7 +216,9 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
       }
       isConnectingRef.current = false
     }
-  }, []) // Remove onVehicleCheck from dependency array
+    // Reconnect from scratch when the target topic changes (e.g. switching gate).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic])
 
   const sendMessage = (destination: string, body: any) => {
     if (clientRef.current && isConnected) {
@@ -163,77 +231,20 @@ export const useWebSocket = (onVehicleCheck?: (message: VehicleCheckMessage | Em
     }
   }
 
+  // Manual reconnect: drop the current client and immediately re-run connect().
   const reconnect = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
     if (clientRef.current) {
       clientRef.current.deactivate()
       clientRef.current = null
     }
     isConnectingRef.current = false
-    
-    // Wait a bit before reconnecting
     setTimeout(() => {
-      const connect = () => {
-        if (isConnectingRef.current || clientRef.current?.connected) {
-          return
-        }
-
-        isConnectingRef.current = true
-        console.log('Manual reconnection attempt...')
-
-        const socket = new SockJS(getWsUrl())
-        
-        const client = new Client({
-          webSocketFactory: () => socket,
-          connectHeaders: {},
-          debug: (str) => console.log('WebSocket Debug:', str),
-          reconnectDelay: 0,
-          heartbeatIncoming: 10000,
-          heartbeatOutgoing: 10000,
-        })
-
-        client.onConnect = (frame) => {
-          console.log('WebSocket reconnected successfully:', frame)
-          setIsConnected(true)
-          setConnectionError(null)
-          isConnectingRef.current = false
-
-          client.subscribe('/topic/vehicle-check', (message) => {
-            try {
-              const vehicleCheckData = JSON.parse(message.body)
-              console.log('Received vehicle check:', vehicleCheckData)
-              callbackRef.current?.(vehicleCheckData)
-            } catch (error) {
-              console.error('Error parsing vehicle check message:', error)
-            }
-          })
-        }
-
-        client.onStompError = (frame) => {
-          console.error('WebSocket STOMP error on reconnect:', frame.headers['message'])
-          setConnectionError(frame.headers['message'] || 'Connection error')
-          setIsConnected(false)
-          isConnectingRef.current = false
-        }
-
-        client.onWebSocketError = (event) => {
-          console.error('WebSocket error on reconnect:', event)
-          setConnectionError('WebSocket connection failed')
-          setIsConnected(false)
-          isConnectingRef.current = false
-        }
-
-        client.onDisconnect = () => {
-          console.log('WebSocket disconnected on reconnect')
-          setIsConnected(false)
-          isConnectingRef.current = false
-        }
-
-        clientRef.current = client
-        client.activate()
-      }
-      
-      connect()
-    }, 1000)
+      connectFnRef.current?.()
+    }, 500)
   }
 
   return {

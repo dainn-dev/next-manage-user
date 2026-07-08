@@ -71,6 +71,11 @@ const navigationItems: NavigationItem[] = [
     ]
   },
   {
+    key: "/gate",
+    label: "Cổng kiosk",
+    icon: "🚪",
+  },
+  {
     key: "/statistics",
     label: "Thống kê",
     icon: "📊",
