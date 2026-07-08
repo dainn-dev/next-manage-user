@@ -21,6 +21,17 @@ import {
   AlertCircle
 } from "lucide-react"
 import type { VehicleStatistics, VehicleDailyStats, VehicleWeeklyStats, VehicleMonthlyStats } from "@/lib/types"
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts"
 
 interface VehicleStatisticsDashboardProps {
   statistics: VehicleStatistics
@@ -94,8 +105,35 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
 
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "—"
     return new Date(dateString).toLocaleDateString("vi-VN")
   }
+
+  const getPeriodLabel = (item: VehicleDailyStats | VehicleWeeklyStats | VehicleMonthlyStats): string => {
+    if (timeFilter === "day") return formatDate((item as VehicleDailyStats).date)
+    if (timeFilter === "week") return `Tuần ${(item as VehicleWeeklyStats).week}`
+    return `${(item as VehicleMonthlyStats).month}/${(item as VehicleMonthlyStats).year}`
+  }
+
+  const chartData = filteredData.map((item) => ({
+    label: getPeriodLabel(item),
+    entryCount: item.entryCount,
+    exitCount: item.exitCount,
+    uniqueVehicles: item.uniqueVehicles,
+    totalRequests: item.totalRequests,
+    approvedCount: item.approvedCount,
+    pendingCount: item.pendingCount,
+  }))
+
+  const isWeekOrMonth = timeFilter === "week" || timeFilter === "month"
+  const averageDaily =
+    isWeekOrMonth && filteredData.length > 0
+      ? (filteredData[0] as VehicleWeeklyStats).averageDailyRequests
+      : 0
+  const peakDay =
+    timeFilter === "month" && filteredData.length > 0
+      ? (filteredData[0] as VehicleMonthlyStats).peakDay
+      : null
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -268,29 +306,50 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    {filteredData.reduce((sum, item) => sum + item.totalRequests, 0)}
+                    {chartData.reduce((sum, item) => sum + item.totalRequests, 0)}
                   </div>
                   <p className="text-sm text-muted-foreground">Tổng yêu cầu</p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-green-600">
-                    {filteredData.reduce((sum, item) => sum + item.approvedCount, 0)}
+                    {chartData.reduce((sum, item) => sum + item.approvedCount, 0)}
                   </div>
                   <p className="text-sm text-muted-foreground">Đã duyệt</p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-yellow-600">
-                    {filteredData.reduce((sum, item) => sum + item.pendingCount, 0)}
+                    {chartData.reduce((sum, item) => sum + item.pendingCount, 0)}
                   </div>
                   <p className="text-sm text-muted-foreground">Chờ duyệt</p>
                 </div>
                 <div className="text-center p-4 border rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">
-                    {Math.round(filteredData.reduce((sum, item) => sum + item.uniqueVehicles, 0) / filteredData.length) || 0}
+                    {chartData.length > 0 ? Math.round(chartData.reduce((sum, item) => sum + item.uniqueVehicles, 0) / chartData.length) : 0}
                   </div>
                   <p className="text-sm text-muted-foreground">Xe trung bình</p>
                 </div>
               </div>
+
+              {isWeekOrMonth && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-indigo-600">
+                      {averageDaily.toFixed(1)}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Trung bình yêu cầu/ngày</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-amber-600">
+                      {peakDay ? peakDay.requestCount : 0}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {timeFilter === "month" && peakDay?.date
+                        ? `Ngày cao điểm (${formatDate(peakDay.date)})`
+                        : "Ngày cao điểm"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="details" className="space-y-4">
@@ -320,38 +379,29 @@ export function VehicleStatisticsDashboard({ statistics }: VehicleStatisticsDash
             </TabsContent>
 
             <TabsContent value="trends" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {chartData.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  Chưa có dữ liệu xu hướng cho khoảng thời gian này.
+                </div>
+              ) : (
                 <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-2">Xu hướng yêu cầu vào</h4>
-                  <div className="space-y-2">
-                    {filteredData.slice(0, 5).map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span>
-                          {timeFilter === "day" && formatDate((item as VehicleDailyStats).date)}
-                          {timeFilter === "week" && (item as VehicleWeeklyStats).week}
-                          {timeFilter === "month" && `${(item as VehicleMonthlyStats).month} ${(item as VehicleMonthlyStats).year}`}
-                        </span>
-                        <span className="font-medium">{item.entryCount}</span>
-                      </div>
-                    ))}
+                  <h4 className="font-medium mb-4">Xu hướng lượt vào / ra & số xe</h4>
+                  <div style={{ width: "100%", height: 320 }}>
+                    <ResponsiveContainer>
+                      <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="entryCount" name="Lượt vào" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="exitCount" name="Lượt ra" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                        <Line dataKey="uniqueVehicles" name="Số xe" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-medium mb-2">Xu hướng yêu cầu ra</h4>
-                  <div className="space-y-2">
-                    {filteredData.slice(0, 5).map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span>
-                          {timeFilter === "day" && formatDate((item as VehicleDailyStats).date)}
-                          {timeFilter === "week" && (item as VehicleWeeklyStats).week}
-                          {timeFilter === "month" && `${(item as VehicleMonthlyStats).month} ${(item as VehicleMonthlyStats).year}`}
-                        </span>
-                        <span className="font-medium">{item.exitCount}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

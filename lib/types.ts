@@ -136,6 +136,15 @@ export interface Vehicle {
 }
 
 
+export interface EntryExitStats {
+  totalRequests: number
+  approvedRequests: number
+  pendingRequests: number
+  completedRequests: number
+  entryRequests: number
+  exitRequests: number
+}
+
 export interface VehicleStatistics {
   totalVehicles: number
   activeVehicles: number
@@ -144,6 +153,7 @@ export interface VehicleStatistics {
   retiredVehicles: number
   vehicleTypeStats: Record<string, number>
   fuelTypeStats: Record<string, number>
+  entryExitStats: EntryExitStats
   dailyStats: VehicleDailyStats[]
   weeklyStats: VehicleWeeklyStats[]
   monthlyStats: VehicleMonthlyStats[]

@@ -11,6 +11,8 @@ import { vehicleLogApi, VehicleLogStatistics, VehicleLog, EmployeeVehicleInfo } 
 import { useWebSocket, VehicleCheckMessage, EmployeeVehicleCheckMessage } from "@/hooks/use-websocket"
 import { dataService } from "@/lib/data-service"
 import { getImageUrl } from "@/lib/api/config"
+import { RealtimeGateDashboard } from "@/components/vehicles/realtime-gate-dashboard"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 export default function VehicleMonitoringPage() {
   const [logs, setLogs] = useState<VehicleLog[]>([])
@@ -24,11 +26,15 @@ export default function VehicleMonitoringPage() {
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null)
   const [employeeInfo, setEmployeeInfo] = useState<EmployeeVehicleInfo | null>(null)
   const [isLoadingEmployeeInfo, setIsLoadingEmployeeInfo] = useState(false)
+  const [realtimePulse, setRealtimePulse] = useState(0)
   const { toast } = useToast()
 
   // WebSocket handler for vehicle check events
   const handleVehicleCheck = async (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
     try {
+      // Bump the realtime dashboard refresh pulse so its counters update as soon
+      // as a gate vehicle-check event arrives over WebSocket.
+      setRealtimePulse((p) => p + 1)
       setIsLoadingEmployeeInfo(true)
       // Process WebSocket message
       const isEmployeeInfo = 'employeeId' in message && 'vehicleId' in message
@@ -363,6 +369,13 @@ export default function VehicleMonitoringPage() {
             </div>
           </div>
       </div>
+
+        {/* Realtime gate dashboard - updates via WS (pulse) + 30s polling */}
+        <div className="mb-6">
+          <ErrorBoundary>
+            <RealtimeGateDashboard pulse={realtimePulse} />
+          </ErrorBoundary>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Personnel Information */}
