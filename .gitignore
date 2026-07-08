@@ -30,3 +30,4 @@ windows/result/
 windows/build/
 windows/dist/
 .venv_build/
+.opencode/*

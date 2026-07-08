@@ -1,6 +1,7 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleLogDto;
+import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
@@ -9,6 +10,7 @@ import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,9 +18,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.WeekFields;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -166,7 +175,230 @@ public class VehicleLogService {
     public long getTodayUniqueVehicles() {
         return vehicleLogRepository.countDistinctVehiclesByDate(LocalDate.now());
     }
-    
+
+    // Log-based statistics
+
+    /**
+     * Holder for the three log-based statistics arrays consumed by the vehicle
+     * statistics overview endpoint.
+     */
+    public static class LogBasedStatistics {
+        private final List<VehicleStatisticsDto.VehicleDailyStatsDto> dailyStats;
+        private final List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats;
+        private final List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats;
+
+        public LogBasedStatistics(List<VehicleStatisticsDto.VehicleDailyStatsDto> dailyStats,
+                                  List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats,
+                                  List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats) {
+            this.dailyStats = dailyStats;
+            this.weeklyStats = weeklyStats;
+            this.monthlyStats = monthlyStats;
+        }
+
+        public List<VehicleStatisticsDto.VehicleDailyStatsDto> getDailyStats() {
+            return dailyStats;
+        }
+
+        public List<VehicleStatisticsDto.VehicleWeeklyStatsDto> getWeeklyStats() {
+            return weeklyStats;
+        }
+
+        public List<VehicleStatisticsDto.VehicleMonthlyStatsDto> getMonthlyStats() {
+            return monthlyStats;
+        }
+    }
+
+    // Upper bound for a single bulk fetch of vehicle logs in a statistics window.
+    // VehicleLog is append-only gate traffic; a single site does not approach this
+    // within the 30d / 12w / 12m windows. Picked as a safe constant rather than
+    // unbounded since VehicleLogRepository only exposes paged fetchers.
+    private static final int STATS_FETCH_LIMIT = 100_000;
+
+    /**
+     * Build daily (last 30 days), weekly (last 12 weeks) and monthly (last 12
+     * months) statistics from {@link VehicleLog} using existing repository
+     * queries. {@code approvedCount}/{@code pendingCount}/{@code rejectedCount}
+     * are always 0 because {@link VehicleLog} has no status field (logs are only
+     * created for approved gate access). {@code completedCount} mirrors the exit
+     * count (a visit completes when the vehicle exits).
+     */
+    public LogBasedStatistics getLogBasedStatistics() {
+        return new LogBasedStatistics(getDailyLogStats(), getWeeklyLogStats(), getMonthlyLogStats());
+    }
+
+    public List<VehicleStatisticsDto.VehicleDailyStatsDto> getDailyLogStats() {
+        LocalDate today = LocalDate.now();
+        LocalDate start = today.minusDays(29);
+        List<VehicleLog> logs = fetchLogs(start, today);
+
+        Map<LocalDate, List<VehicleLog>> byDate = logs.stream()
+                .collect(Collectors.groupingBy(l -> l.getEntryExitTime().toLocalDate()));
+
+        List<VehicleStatisticsDto.VehicleDailyStatsDto> result = new ArrayList<>(30);
+        for (int i = 0; i < 30; i++) {
+            LocalDate day = start.plusDays(i);
+            List<VehicleLog> dayLogs = byDate.getOrDefault(day, List.of());
+            result.add(buildDailyStats(day, dayLogs));
+        }
+        return result;
+    }
+
+    public List<VehicleStatisticsDto.VehicleWeeklyStatsDto> getWeeklyLogStats() {
+        LocalDate today = LocalDate.now();
+        WeekFields weekFields = WeekFields.of(Locale.getDefault());
+        LocalDate startOfWeek = today.minusDays(today.getDayOfWeek().getValue() - 1L);
+        LocalDate start = startOfWeek.minusWeeks(11);
+        List<VehicleLog> logs = fetchLogs(start, today);
+
+        List<VehicleStatisticsDto.VehicleWeeklyStatsDto> result = new ArrayList<>(12);
+        for (int i = 0; i < 12; i++) {
+            LocalDate weekStart = start.plusWeeks(i);
+            LocalDate weekEnd = weekStart.plusDays(6);
+            if (weekStart.isAfter(today)) {
+                break;
+            }
+            if (weekEnd.isAfter(today)) {
+                weekEnd = today;
+            }
+            LocalDate wStart = weekStart;
+            LocalDate wEnd = weekEnd;
+            List<VehicleLog> weekLogs = logs.stream()
+                    .filter(l -> {
+                        LocalDate d = l.getEntryExitTime().toLocalDate();
+                        return !d.isBefore(wStart) && !d.isAfter(wEnd);
+                    })
+                    .collect(Collectors.toList());
+
+            long entryCount = countByType(weekLogs, VehicleLog.LogType.entry);
+            long exitCount = countByType(weekLogs, VehicleLog.LogType.exit);
+            long totalRequests = entryCount + exitCount;
+            long uniqueVehicles = weekLogs.stream()
+                    .map(VehicleLog::getLicensePlateNumber)
+                    .distinct()
+                    .count();
+            long days = (int) (weekEnd.toEpochDay() - weekStart.toEpochDay()) + 1;
+            double averageDailyRequests = days > 0 ? (double) totalRequests / days : 0.0;
+
+            VehicleStatisticsDto.VehicleWeeklyStatsDto dto = new VehicleStatisticsDto.VehicleWeeklyStatsDto();
+            dto.setWeek(weekStart.get(weekFields.weekOfYear()));
+            dto.setStartDate(weekStart);
+            dto.setEndDate(weekEnd);
+            dto.setEntryCount(entryCount);
+            dto.setExitCount(exitCount);
+            dto.setTotalRequests(totalRequests);
+            dto.setApprovedCount(0);
+            dto.setPendingCount(0);
+            dto.setRejectedCount(0);
+            dto.setCompletedCount(exitCount);
+            dto.setUniqueVehicles(uniqueVehicles);
+            dto.setAverageDailyRequests(averageDailyRequests);
+            result.add(dto);
+        }
+        return result;
+    }
+
+    public List<VehicleStatisticsDto.VehicleMonthlyStatsDto> getMonthlyLogStats() {
+        LocalDate today = LocalDate.now();
+        LocalDate startMonth = today.withDayOfMonth(1).minusMonths(11);
+        List<VehicleLog> logs = fetchLogs(startMonth, today);
+
+        List<VehicleStatisticsDto.VehicleMonthlyStatsDto> result = new ArrayList<>(12);
+        for (int i = 0; i < 12; i++) {
+            LocalDate monthStart = startMonth.plusMonths(i);
+            if (monthStart.isAfter(today.withDayOfMonth(1))) {
+                break;
+            }
+            LocalDate monthEnd = monthStart.plusMonths(1).minusDays(1);
+            if (monthEnd.isAfter(today)) {
+                monthEnd = today;
+            }
+            LocalDate mStart = monthStart;
+            LocalDate mEnd = monthEnd;
+            List<VehicleLog> monthLogs = logs.stream()
+                    .filter(l -> {
+                        LocalDate d = l.getEntryExitTime().toLocalDate();
+                        return !d.isBefore(mStart) && !d.isAfter(mEnd);
+                    })
+                    .collect(Collectors.toList());
+
+            long entryCount = countByType(monthLogs, VehicleLog.LogType.entry);
+            long exitCount = countByType(monthLogs, VehicleLog.LogType.exit);
+            long totalRequests = entryCount + exitCount;
+            long uniqueVehicles = monthLogs.stream()
+                    .map(VehicleLog::getLicensePlateNumber)
+                    .distinct()
+                    .count();
+            int daysInMonth = monthStart.lengthOfMonth();
+            int elapsedDays = (int) (monthEnd.toEpochDay() - monthStart.toEpochDay()) + 1;
+            double averageDailyRequests = elapsedDays > 0 ? (double) totalRequests / elapsedDays : daysInMonth > 0 ? 0.0 : 0.0;
+
+            VehicleStatisticsDto.VehicleMonthlyStatsDto dto = new VehicleStatisticsDto.VehicleMonthlyStatsDto();
+            dto.setMonth(monthStart.getMonthValue());
+            dto.setYear(monthStart.getYear());
+            dto.setEntryCount(entryCount);
+            dto.setExitCount(exitCount);
+            dto.setTotalRequests(totalRequests);
+            dto.setApprovedCount(0);
+            dto.setPendingCount(0);
+            dto.setRejectedCount(0);
+            dto.setCompletedCount(exitCount);
+            dto.setUniqueVehicles(uniqueVehicles);
+            dto.setAverageDailyRequests(averageDailyRequests);
+            dto.setPeakDay(buildPeakDay(monthLogs));
+            result.add(dto);
+        }
+        return result;
+    }
+
+    private List<VehicleLog> fetchLogs(LocalDate start, LocalDate end) {
+        Page<VehicleLog> page = vehicleLogRepository.findByEntryExitTimeBetween(
+                start.atStartOfDay(),
+                end.atTime(LocalTime.MAX),
+                PageRequest.of(0, STATS_FETCH_LIMIT));
+        return page.getContent();
+    }
+
+    private long countByType(List<VehicleLog> logs, VehicleLog.LogType type) {
+        return logs.stream().filter(l -> l.getType() == type).count();
+    }
+
+    private VehicleStatisticsDto.VehicleDailyStatsDto buildDailyStats(LocalDate day, List<VehicleLog> dayLogs) {
+        long entryCount = countByType(dayLogs, VehicleLog.LogType.entry);
+        long exitCount = countByType(dayLogs, VehicleLog.LogType.exit);
+        long totalRequests = entryCount + exitCount;
+        long uniqueVehicles = dayLogs.stream()
+                .map(VehicleLog::getLicensePlateNumber)
+                .distinct()
+                .count();
+
+        VehicleStatisticsDto.VehicleDailyStatsDto dto = new VehicleStatisticsDto.VehicleDailyStatsDto();
+        dto.setDate(day);
+        dto.setEntryCount(entryCount);
+        dto.setExitCount(exitCount);
+        dto.setTotalRequests(totalRequests);
+        dto.setApprovedCount(0);
+        dto.setPendingCount(0);
+        dto.setRejectedCount(0);
+        dto.setCompletedCount(exitCount);
+        dto.setUniqueVehicles(uniqueVehicles);
+        return dto;
+    }
+
+    private VehicleStatisticsDto.PeakDayDto buildPeakDay(List<VehicleLog> monthLogs) {
+        if (monthLogs.isEmpty()) {
+            return new VehicleStatisticsDto.PeakDayDto(null, 0);
+        }
+        Map<LocalDate, Long> byDay = monthLogs.stream()
+                .collect(Collectors.groupingBy(l -> l.getEntryExitTime().toLocalDate(), Collectors.counting()));
+        Map.Entry<LocalDate, Long> peak = byDay.entrySet().stream()
+                .max(Comparator.comparingLong(Map.Entry::getValue))
+                .orElse(null);
+        if (peak == null) {
+            return new VehicleStatisticsDto.PeakDayDto(null, 0);
+        }
+        return new VehicleStatisticsDto.PeakDayDto(peak.getKey(), peak.getValue());
+    }
+
     private VehicleLogDto convertToDto(VehicleLog vehicleLog) {
         VehicleLogDto dto = VehicleLogDto.builder()
                 .id(vehicleLog.getId())
