@@ -19,6 +19,8 @@ import java.io.IOException;
  * <ul>
  *     <li>{@code /api/vehicles/check-vehicle} (any method) &mdash; mutates vehicle status, creates a VehicleLog and pushes a WebSocket event.</li>
  *     <li>{@code POST /api/vehicle-logs} &mdash; lets the gate app write log entries; unauthenticated otherwise, which invites forged logs.</li>
+ *     <li>{@code POST /api/gates/register} &mdash; edge gate self-registration.</li>
+ *     <li>{@code POST /api/gates/{id}/heartbeat} &mdash; edge liveness ping.</li>
  * </ul>
  *
  * <p>The expected key is read from {@code gate.api-key} (env {@code GATE_API_KEY}).
@@ -32,6 +34,9 @@ public class GateApiKeyAuthFilter extends OncePerRequestFilter {
     private static final String GATE_KEY_HEADER = "X-Gate-Key";
     private static final String CHECK_VEHICLE_PATH = "/api/vehicles/check-vehicle";
     private static final String VEHICLE_LOGS_PATH = "/api/vehicle-logs";
+    private static final String GATE_REGISTER_PATH = "/api/gates/register";
+    private static final String GATE_HEARTBEAT_SUFFIX = "/heartbeat";
+    private static final String GATE_PATH_PREFIX = "/api/gates/";
 
     @Value("${gate.api-key:}")
     private String gateApiKey;
@@ -64,6 +69,15 @@ public class GateApiKeyAuthFilter extends OncePerRequestFilter {
         if (CHECK_VEHICLE_PATH.equals(path)) {
             return true;
         }
-        return VEHICLE_LOGS_PATH.equals(path) && "POST".equalsIgnoreCase(request.getMethod());
+        boolean isPost = "POST".equalsIgnoreCase(request.getMethod());
+        if (VEHICLE_LOGS_PATH.equals(path) && isPost) {
+            return true;
+        }
+        if (!isPost) {
+            return false;
+        }
+        // Edge gate endpoints: POST /api/gates/register and POST /api/gates/{id}/heartbeat
+        return GATE_REGISTER_PATH.equals(path)
+                || (path.startsWith(GATE_PATH_PREFIX) && path.endsWith(GATE_HEARTBEAT_SUFFIX));
     }
 }

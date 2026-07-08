@@ -56,7 +56,13 @@ public class VehicleLog {
     
     @Column(name = "gate_location")
     private String gateLocation;
-    
+
+    // Nullable link to the gate registry (Phase 3.1). The log write flow does
+    // not populate this yet; the column is prepared here for Phase 3.2.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gate_id")
+    private Gate gate;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "security_guard_id")
     private Employee securityGuard;

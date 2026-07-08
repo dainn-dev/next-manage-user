@@ -39,6 +39,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/vehicles/check-vehicle").permitAll()
                 .requestMatchers(HttpMethod.POST,"/api/vehicle-logs").permitAll()
+                // Edge gate endpoints - guarded by the X-Gate-Key filter, not JWT
+                .requestMatchers(HttpMethod.POST, "/api/gates/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/gates/*/heartbeat").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/images/**").permitAll()

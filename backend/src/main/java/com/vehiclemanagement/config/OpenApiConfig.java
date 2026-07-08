@@ -43,6 +43,7 @@ public class OpenApiConfig {
                                 .name("X-Gate-Key")
                                 .description("Shared secret required by the parking-gate detection app "
                                         + "for side-effecting public endpoints "
-                                        + "(POST /api/vehicles/check-vehicle, POST /api/vehicle-logs).")));
+                                        + "(POST /api/vehicles/check-vehicle, POST /api/vehicle-logs, "
+                                        + "POST /api/gates/register, POST /api/gates/{id}/heartbeat).")));
     }
 }
