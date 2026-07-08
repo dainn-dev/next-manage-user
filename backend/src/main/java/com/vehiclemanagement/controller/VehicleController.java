@@ -2,11 +2,13 @@ package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
+import com.vehiclemanagement.dto.VehicleCheckRequest;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.service.VehicleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -189,8 +191,10 @@ public class VehicleController {
         return ResponseEntity.ok(counts);
     }
     
+    @Deprecated
     @GetMapping("/check-vehicle")
-    @Operation(summary = "Check vehicle access", description = "Check if a vehicle with given license plate is approved for access and update status")
+    @Operation(summary = "Check vehicle access (deprecated GET)", description = "DEPRECATED: use POST /api/vehicles/check-vehicle with a JSON body and X-Gate-Key header instead. Kept temporarily for migration and scheduled for removal.")
+    @SecurityRequirement(name = "X-Gate-Key")
     public ResponseEntity<VehicleCheckResponse> checkVehicle(
             @Parameter(description = "License plate number to check", required = true)
             @RequestParam String licensePlateNumber,
@@ -201,6 +205,21 @@ public class VehicleController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             VehicleCheckResponse response = new VehicleCheckResponse(false, "Xe không tồn tại hoặc có lỗi xảy ra", licensePlateNumber, type);
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    @PostMapping("/check-vehicle")
+    @Operation(summary = "Check vehicle access", description = "Check if a vehicle with the given license plate is approved for access and update its status. Mutates vehicle state (approved->entered->exited), creates a VehicleLog and pushes a WebSocket notification. Requires the X-Gate-Key header for applications calling from the parking gate.")
+    @SecurityRequirement(name = "X-Gate-Key")
+    public ResponseEntity<VehicleCheckResponse> checkVehiclePost(@Valid @RequestBody VehicleCheckRequest request) {
+        try {
+            VehicleCheckResponse response = vehicleService.checkVehicleAccess(
+                    request.getLicensePlateNumber(), request.getType());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            VehicleCheckResponse response = new VehicleCheckResponse(
+                    false, "Xe không tồn tại hoặc có lỗi xảy ra", request.getLicensePlateNumber(), request.getType());
             return ResponseEntity.ok(response);
         }
     }

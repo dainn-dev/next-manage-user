@@ -38,6 +38,9 @@ services:
       SPRING_FLYWAY_ENABLED: true
       SPRING_FLYWAY_BASELINE_ON_MIGRATE: true
       SERVER_PORT: 8080
+      # Required X-Gate-Key header secret for public gate endpoints
+      # (/api/vehicles/check-vehicle, POST /api/vehicle-logs). Empty = open (dev).
+      GATE_API_KEY: ${GATE_API_KEY:-}
     ports:
       - "8080:8080"
     depends_on:

@@ -2,7 +2,8 @@
     "api": {
         "base_url": "http://localhost:8080",
         "endpoint": "/api/vehicles/check-vehicle",
-        "timeout": 10
+        "timeout": 10,
+        "gate_key": ""
     },
     "detection": {
         "cooldown": 5,

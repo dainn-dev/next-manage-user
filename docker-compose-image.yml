@@ -40,6 +40,9 @@ services:
       # JWT configuration
       JWT_SECRET: mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm
       JWT_EXPIRATION: 86400
+      # Required X-Gate-Key header secret for public gate endpoints
+      # (/api/vehicles/check-vehicle, POST /api/vehicle-logs). Empty = open (dev).
+      GATE_API_KEY: ${GATE_API_KEY:-}
     ports:
       - "8080:8080"
     volumes:

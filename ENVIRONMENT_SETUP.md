@@ -49,6 +49,9 @@ cp windows/config.example.json windows/config.json
 ### Frontend (NEXT_PUBLIC_* variables)
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8080
+# Optional: only needed if the frontend calls the gate check-vehicle endpoint.
+# Must match the backend GATE_API_KEY.
+NEXT_PUBLIC_GATE_API_KEY=
 ```
 
 ### Backend
@@ -59,6 +62,11 @@ SPRING_DATASOURCE_USERNAME=postgres
 SPRING_DATASOURCE_PASSWORD=password
 JWT_SECRET=your_jwt_secret_key
 JWT_EXPIRATION=86400
+# Shared secret required in the X-Gate-Key header for the public, side-effecting
+# gate endpoints (POST /api/vehicles/check-vehicle, POST /api/vehicle-logs).
+# Empty = open (dev). Set a strong value in production and share it with the
+# detection app (windows/config.json api.gate_key or GATE_API_KEY env).
+GATE_API_KEY=
 ```
 
 ## Database Configuration
@@ -105,6 +113,9 @@ SPRING_SECURITY_USER_PASSWORD=admin
 LPM_API_BASE_URL=http://localhost:8080
 LPM_API_ENDPOINT=/api/vehicles/check-vehicle
 LPM_API_TIMEOUT=10
+# X-Gate-Key sent with each check-vehicle POST. Set in windows/config.json
+# (api.gate_key) or via the GATE_API_KEY env var; must match backend GATE_API_KEY.
+LPM_API_GATE_KEY=
 ```
 
 ### TTS Configuration

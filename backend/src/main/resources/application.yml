@@ -45,6 +45,13 @@ jwt:
   secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationThatIsAtLeast256BitsLongForHS256Algorithm}
   expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
 
+# Gate (license-plate detection app at the parking gate) API key.
+# Required X-Gate-Key header for the public, side-effecting endpoints
+# (/api/vehicles/check-vehicle and POST /api/vehicle-logs). When empty
+# (e.g. local dev) the gate filter runs open; set GATE_API_KEY in production.
+gate:
+  api-key: ${GATE_API_KEY:}
+
 management:
   endpoints:
     web:

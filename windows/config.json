@@ -5,6 +5,7 @@
         "timeout": 10,
         "use_query_params": true,
         "use_cookies": true,
+        "gate_key": "",
         "cookies": {
             "access_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqYW1lczE1QHlvcG1haWwuY29tIiwiaWF0IjoxNzU2OTc2MzAxLCJleHAiOjE3NTY5NzcyMDF9.XKZ3G-Un0UII1S_iqmhBsAN5mTJkoO489FWTuLqhCKs",
             "refresh_token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqYW1lczE1QHlvcG1haWwuY29tIiwiaWF0IjoxNzU2OTc2MzAxLCJleHAiOjE3NTc1ODExMDF9.yCnlLC_tHBOkrOjIPOD-oHY0Piq0CRk4JhWJCS-wLKc"
