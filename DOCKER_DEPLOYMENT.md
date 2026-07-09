@@ -40,7 +40,7 @@ docker-build-push.bat
 export DOCKER_USERNAME=your-username
 
 # Build frontend
-docker build -f Dockerfile.frontend -t dainndev/vehicle-management-frontend:latest .
+docker build -f frontend/Dockerfile -t dainndev/vehicle-management-frontend:latest frontend/
 
 # Build backend
 docker build -f backend/Dockerfile -t dainndev/vehicle-management-backend:latest backend/
@@ -271,7 +271,7 @@ docker-compose logs -f backend
 docker system prune -a
 
 # Build with no cache
-docker build --no-cache -f Dockerfile.frontend .
+docker build --no-cache -f frontend/Dockerfile frontend/
 ```
 
 **2. Connection Issues**
@@ -337,8 +337,8 @@ jobs:
     - name: Build and push frontend
       uses: docker/build-push-action@v4
       with:
-        context: .
-        file: ./Dockerfile.frontend
+        context: ./frontend
+        file: ./frontend/Dockerfile
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/vehicle-management-frontend:latest
     

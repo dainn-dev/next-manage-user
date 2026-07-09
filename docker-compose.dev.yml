@@ -66,8 +66,8 @@ services:
   # Frontend Next.js Application
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: vehicle-management-frontend
     environment:
       NODE_ENV: production

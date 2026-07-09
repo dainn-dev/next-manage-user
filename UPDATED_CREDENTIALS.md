@@ -1,47 +1,27 @@
-# Updated User Credentials
+# User Roles & Default Accounts
 
-After removing the SUPER_ADMIN role, the system now uses a simplified role system with only two roles: **USER** and **ADMIN**.
+The system uses a two-role model: **USER** and **ADMIN**.
 
-## Available Roles
+## Roles
 
-- **USER**: Regular user with basic access
-- **ADMIN**: Administrator with full access to user management and all system features
+- **USER** — regular user with basic access (dashboard, employees, vehicles, departments).
+- **ADMIN** — full access, including user management (`/users`), bulk operations, and system administration.
 
-## Default Login Credentials
+## Default accounts
 
-### Admin Account
-- **Username**: `admin`
-- **Password**: `SecurePass123!`
-- **Email**: `admin@vehiclemanagement.com`
-- **Role**: `ADMIN`
-- **Access**: Full access to all features including user management
+On a fresh database the backend seeds two accounts (`admin` and `user`). **Their passwords are NOT stored in this repository.**
 
-### Regular User Account
-- **Username**: `user`
-- **Password**: `UserPass123!`
-- **Email**: `user@vehiclemanagement.com`
-- **Role**: `USER`
-- **Access**: Basic features, cannot access user management
+- Set the initial passwords via environment variables at first boot — see `sample.env` / `backend/.env.example` (`ADMIN_DEFAULT_PASSWORD`, `USER_DEFAULT_PASSWORD` or the equivalent keys your deployment uses).
+- If no override is provided, the seeded accounts are created in a **must-change-password** state; log in once and set a real password before exposing the app.
+- **Never commit real credentials.** Rotate any password that has ever been shared in plaintext.
 
-## Important Notes
+> Security note: this file previously listed hard-coded default passwords. They were removed. If those defaults were ever deployed, rotate them immediately.
 
-1. **User Management Access**: Only users with `ADMIN` role can access the user management features at `/users`
-2. **Database Migration**: The system automatically converts any existing `SUPER_ADMIN` users to `ADMIN` role
-3. **Security**: All admin endpoints (`/api/admin/**`) require `ADMIN` role
-4. **Login URL**: Use these credentials at `http://localhost:3000/login`
-
-## Troubleshooting
-
-If you're getting "Access Denied" errors:
-1. Make sure you're logged in with the **admin** account (`admin` / `SecurePass123!`)
-2. Verify your user role in the browser's developer tools (check JWT token payload)
-3. Clear browser cache and cookies if needed
-
-## Role Permissions
+## Role permissions
 
 | Feature | USER | ADMIN |
-|---------|------|-------|
-| Login/Logout | ✅ | ✅ |
+|---|---|---|
+| Login / Logout | ✅ | ✅ |
 | View Dashboard | ✅ | ✅ |
 | Manage Employees | ✅ | ✅ |
 | Manage Vehicles | ✅ | ✅ |
@@ -49,3 +29,9 @@ If you're getting "Access Denied" errors:
 | **Manage Users** | ❌ | ✅ |
 | **Bulk Operations** | ❌ | ✅ |
 | **System Administration** | ❌ | ✅ |
+
+## Troubleshooting "Access Denied"
+
+1. Confirm you're logged in with an **ADMIN** account — only ADMIN can reach `/users` and `/api/admin/**`.
+2. Inspect the JWT payload (browser dev tools) to verify the `role` claim.
+3. Clear cached cookies/tokens after a role change and log in again.
