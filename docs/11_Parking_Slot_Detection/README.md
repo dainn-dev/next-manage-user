@@ -44,6 +44,10 @@ tested with `shapely.geometry.Point.within()` on the edge (cached polygons) and 
 `ST_Contains`/`ST_Within` on the backend (authoritative). See **ADR-1101** for the full
 edge-vs-backend trade-off and why both run.
 
+This site-scoped selection (polygons by `site_id`, not per-camera) is also what unifies a
+multi-camera site: slots authored over several `OVERVIEW` cameras' images appear as one set — see
+`08_Parking_Map_Designer` §4 and ADR-0803.
+
 ## 4. Overlaps and Partial Occupancy
 
 Well-drawn slot polygons should not overlap, but boundary-adjacent polygons and large vehicles

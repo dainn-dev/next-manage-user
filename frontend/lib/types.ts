@@ -274,6 +274,19 @@ export function canManageVehicles(role?: UserRole): boolean {
   return role === UserRole.ADMIN
 }
 
+/**
+ * Operators who see the ParkVision dashboard, monitoring and entry/exit views.
+ * Interim mapping onto today's 4-role model — the target platform defines
+ * PLATFORM_ADMIN / TENANT_ADMIN / SITE_MANAGER / SECURITY_GUARD (see docs/06).
+ */
+export function canViewDashboard(role?: UserRole): boolean {
+  return (
+    role === UserRole.ADMIN ||
+    role === UserRole.SECURITY_OFFICER ||
+    role === UserRole.APPROVER
+  )
+}
+
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',

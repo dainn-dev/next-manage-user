@@ -4,40 +4,40 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated to professional Tailwind UI color scheme */
+  /* ParkVision operations dashboard — trust teal + professional blue */
   --background: #ffffff;
   --foreground: #1f2937;
   --card: #f1f5f9;
   --card-foreground: #1f2937;
   --popover: #ffffff;
   --popover-foreground: #1f2937;
-  --primary: #1f2937;
+  --primary: #0F766E;
   --primary-foreground: #ffffff;
   --secondary: #6b7280;
   --secondary-foreground: #ffffff;
   --muted: #f1f5f9;
   --muted-foreground: #6b7280;
-  --accent: #8b5cf6;
+  --accent: #0369A1;
   --accent-foreground: #ffffff;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e5e7eb;
   --input: #f1f5f9;
-  --ring: rgba(139, 92, 246, 0.5);
-  --chart-1: #6366f1;
-  --chart-2: #3b82f6;
+  --ring: rgba(15, 118, 110, 0.5);
+  --chart-1: #0F766E;
+  --chart-2: #0369A1;
   --chart-3: #10b981;
   --chart-4: #f59e0b;
   --chart-5: #ef4444;
   --radius: 0.5rem;
   --sidebar: #f1f5f9;
   --sidebar-foreground: #1f2937;
-  --sidebar-primary: #374151;
+  --sidebar-primary: #0F766E;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #8b5cf6;
+  --sidebar-accent: #0F766E;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #e5e7eb;
-  --sidebar-ring: rgba(139, 92, 246, 0.5);
+  --sidebar-ring: rgba(15, 118, 110, 0.5);
 }
 
 .dark {
@@ -47,30 +47,32 @@
   --card-foreground: #f1f5f9;
   --popover: #1e293b;
   --popover-foreground: #f1f5f9;
-  --primary: #f1f5f9;
-  --primary-foreground: #0f172a;
+  --primary: #14B8A6;
+  --primary-foreground: #042220;
   --secondary: #475569;
   --secondary-foreground: #f1f5f9;
   --muted: #1e293b;
   --muted-foreground: #94a3b8;
-  --accent: #a855f7;
-  --accent-foreground: #f1f5f9;
+  --accent: #0369A1;
+  --accent-foreground: #ffffff;
   --destructive: #ef4444;
   --destructive-foreground: #f1f5f9;
   --border: #334155;
   --input: #1e293b;
-  --ring: rgba(168, 85, 247, 0.5);
+  --ring: rgba(20, 184, 166, 0.5);
   --sidebar: #1e293b;
   --sidebar-foreground: #f1f5f9;
-  --sidebar-primary: #475569;
-  --sidebar-primary-foreground: #f1f5f9;
-  --sidebar-accent: #a855f7;
-  --sidebar-accent-foreground: #f1f5f9;
+  --sidebar-primary: #14B8A6;
+  --sidebar-primary-foreground: #042220;
+  --sidebar-accent: #14B8A6;
+  --sidebar-accent-foreground: #042220;
   --sidebar-border: #334155;
-  --sidebar-ring: rgba(168, 85, 247, 0.5);
+  --sidebar-ring: rgba(20, 184, 166, 0.5);
 }
 
 @theme inline {
+  --font-sans: var(--font-fira-sans);
+  --font-mono: var(--font-fira-code);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -114,8 +116,8 @@
     @apply border-border outline-ring/50;
   }
   body {
-    /* Updated to clean Tailwind UI background */
-    @apply bg-background text-foreground min-h-screen;
+    /* ParkVision operations dashboard base */
+    @apply bg-background text-foreground min-h-screen font-sans;
   }
 
   /* Tailwind UI card styles */

@@ -34,6 +34,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # Fail-closed platform-admin seed (V42). Unset in prod -> resolves to '' ->
+    # no admin is created. Provide a bcrypt hash, never a plaintext password.
+    placeholders:
+      platform_admin_email: ${PLATFORM_ADMIN_EMAIL:}
+      platform_admin_password_hash: ${PLATFORM_ADMIN_PASSWORD_HASH:}
   
   security:
     user:
@@ -44,6 +49,20 @@ spring:
 jwt:
   secret: ${JWT_SECRET:lfgQaDjV1GAEBYNNui7Yzk9RgHupcql2VZ0Prrg8NKj}
   expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
+
+# Multi-tenant foundation (DAI-261).
+#   default-tenant-fallback: true  = Deploy 1 (unbound tx -> DEFAULT tenant, RLS not yet forced)
+#                            false = Deploy 2 (unbound tx -> app.tenant_id unset -> RLS fail-closed)
+#   request-db-role: the NOLOGIN role each request transaction SET LOCAL ROLE's into
+#                    so RLS actually applies; blank disables the role switch.
+multitenancy:
+  default-tenant-fallback: ${MULTITENANCY_DEFAULT_TENANT_FALLBACK:true}
+  request-db-role: ${MULTITENANCY_REQUEST_DB_ROLE:app_rls}
+
+# Demo seeder (DataSeederService) — dev only. Set false in prod; the real
+# PLATFORM_ADMIN is seeded fail-closed by Flyway V42.
+app:
+  seed-demo-users: ${APP_SEED_DEMO_USERS:true}
 
 # Gate (license-plate detection app at the parking gate) API key.
 # Required X-Gate-Key header for the public, side-effecting endpoints

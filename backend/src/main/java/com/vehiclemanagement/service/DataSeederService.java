@@ -6,12 +6,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// Dev-only demo users. Disabled in prod via app.seed-demo-users=false; the real
+// PLATFORM_ADMIN is seeded fail-closed by Flyway V42. The demo users are created
+// under the DEFAULT tenant (the seeding transaction runs with the default-tenant
+// fallback on, so app.tenant_id resolves to DEFAULT_TENANT).
 @Service
 @Transactional
+@ConditionalOnProperty(name = "app.seed-demo-users", havingValue = "true", matchIfMissing = true)
 public class DataSeederService implements CommandLineRunner {
     
     private static final Logger logger = LoggerFactory.getLogger(DataSeederService.class);

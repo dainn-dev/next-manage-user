@@ -9,10 +9,14 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtUtil {
@@ -98,6 +102,32 @@ public class JwtUtil {
     
     public String extractEmail(String token) {
         return extractClaim(token, claims -> claims.get("email", String.class));
+    }
+
+    /**
+     * The tenant the token is scoped to, or {@code null} for a PLATFORM_ADMIN
+     * (cross-tenant) token or a legacy token issued before multi-tenancy. The
+     * claim is stored as the tenant UUID string at issuance (see AuthService).
+     */
+    public UUID extractTenantId(String token) {
+        String tenantId = extractClaim(token, claims -> claims.get("tenant_id", String.class));
+        return tenantId != null ? UUID.fromString(tenantId) : null;
+    }
+
+    /**
+     * The sites the token grants access to (empty for a legacy token, or for a
+     * tenant-wide role such as TENANT_ADMIN/PLATFORM_ADMIN that is not
+     * site-restricted). Used by the app-layer site-scoping check, not by RLS.
+     */
+    public List<UUID> extractSiteIds(String token) {
+        List<?> raw = extractClaim(token, claims -> claims.get("site_ids", List.class));
+        if (raw == null) {
+            return Collections.emptyList();
+        }
+        return raw.stream()
+                .map(Object::toString)
+                .map(UUID::fromString)
+                .collect(Collectors.toList());
     }
     
     public Date getExpirationDate() {

@@ -46,6 +46,14 @@ public class AuthService {
         extraClaims.put("role", user.getRole().name());
         extraClaims.put("email", user.getEmail());
         extraClaims.put("userId", user.getId().toString());
+        // Tenant context claims (multi-tenant foundation). tenant_id is omitted for
+        // a PLATFORM_ADMIN (cross-tenant, tenant_id NULL). site_ids is empty for the
+        // foundation — tenant-wide roles are not site-restricted and per-site
+        // assignment arrives in a later stage.
+        if (user.getTenantId() != null) {
+            extraClaims.put("tenant_id", user.getTenantId().toString());
+        }
+        extraClaims.put("site_ids", java.util.Collections.emptyList());
         
         // Generate JWT token
         String token = jwtUtil.generateToken(userDetails, extraClaims);

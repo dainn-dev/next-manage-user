@@ -141,6 +141,13 @@ Calibration quality directly bounds slot-assignment accuracy: a coarse or stale 
 after a camera is physically bumped) produces systematically wrong slot matches even when
 detection/OCR themselves are perfect. See `diagrams/homography-point-in-polygon.mmd`.
 
+When a site is covered by more than one `OVERVIEW` camera, **all** of them must be
+homography-calibrated to the same site-local world frame (shared origin, scale, and orientation,
+established from common ground control points) so their slot polygons assemble into one map — see
+`08_Parking_Map_Designer` §4 and ADR-0803. A camera calibrated to a different frame would place
+its slots in the wrong part of the site plane and corrupt the unified point-in-polygon view; this
+makes per-camera drift detection (§10) especially important on multi-camera sites.
+
 ## 6. Data flow: edge ↔ backend
 
 `Camera.calibration_json` lives on the backend (owned by `07_Camera_Management`'s `Camera`

@@ -27,7 +27,12 @@ public class SecurityConfig {
     
     @Autowired
     private JwtUtil jwtUtil;
-    
+
+    // Deploy 2 = RLS enforced = default-tenant fallback off. When off, a validated
+    // non-PLATFORM_ADMIN token with no tenant_id is rejected 401 by TenantContextFilter.
+    @org.springframework.beans.factory.annotation.Value("${multitenancy.default-tenant-fallback:true}")
+    private boolean defaultTenantFallback;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, UserDetailsService userDetailsService) throws Exception {
         http
@@ -82,9 +87,15 @@ public class SecurityConfig {
             )
             .authenticationProvider(authenticationProvider(userDetailsService))
             .addFilterBefore(jwtAuthenticationFilter(userDetailsService), UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(tenantContextFilter(), JwtAuthenticationFilter.class)
             .addFilterBefore(gateApiKeyAuthFilter(), JwtAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public TenantContextFilter tenantContextFilter() {
+        return new TenantContextFilter(jwtUtil, !defaultTenantFallback);
     }
 
     @Bean

@@ -54,9 +54,10 @@ class VehicleRbacTest {
     // --- Role enum coverage ---
 
     @Test
-    void userRole_enumHasFourValues() {
+    void userRole_enumHasExpectedValues() {
+        // USER/APPROVER/SECURITY_OFFICER/ADMIN + PLATFORM_ADMIN (multi-tenant foundation).
         User.Role[] roles = User.Role.values();
-        assertEquals(4, roles.length);
+        assertEquals(5, roles.length);
     }
 
     @Test
@@ -65,6 +66,7 @@ class VehicleRbacTest {
         assertDoesNotThrow(() -> User.Role.valueOf("APPROVER"));
         assertDoesNotThrow(() -> User.Role.valueOf("SECURITY_OFFICER"));
         assertDoesNotThrow(() -> User.Role.valueOf("USER"));
+        assertDoesNotThrow(() -> User.Role.valueOf("PLATFORM_ADMIN"));
     }
 
     // --- canApprove helper ---

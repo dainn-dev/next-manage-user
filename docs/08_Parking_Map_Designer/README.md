@@ -40,7 +40,7 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
 1. Operator opens **Site → Parking Map Designer**.
 2. Tool lists the site's cameras with `role = OVERVIEW` (from `07_Camera_Management`); operator
    picks one (a site may have more than one overview camera — e.g. two halves of a large lot —
-   each gets its own map/version line).
+   each gets its own map/version line; for the wide-lot multi-camera case see §4 and ADR-0803).
 3. Operator requests a still frame from that camera (`POST /api/v1/cameras/{id}/snapshot`) or
    uploads a static lot image (fallback for sites without a live camera yet).
 4. The image loads as the background layer of an SVG/Canvas editor (§6).
@@ -93,6 +93,10 @@ pattern as the rest of §4 of the shared brief)
 published map is an immutable snapshot: editing always happens on a new draft version, and slot
 history (which polygon was active when an old event was recorded) stays reconstructable.
 
+A site with multiple `OVERVIEW` cameras carries one published `SiteMapVersion` per camera, but
+runtime queries select slots by `site_id` across all of them — see the multi-camera subsection in
+§4 and ADR-0803.
+
 ## 4. Coordinate systems
 
 Three coordinate spaces are in play and must not be conflated:
@@ -112,6 +116,29 @@ Three coordinate spaces are in play and must not be conflated:
 
 The designer works entirely in (1); the handoff to `09_AI_Calibration` is what establishes the
 transform into (2). (3) is out of scope for this document.
+
+### Multi-camera wide-lot maps
+
+A wide lot that no single `OVERVIEW` camera can cover is handled by **partitioned coverage**:
+each camera owns a disjoint region of the lot, and the operator draws each slot exactly once, on
+whichever camera sees it best. No slot is drawn against two cameras, so there is no overlap
+region and no merge/dedup step at the map-design level.
+
+This works only because of the coordinate-system decision above: every `OVERVIEW` camera
+covering the site is homography-calibrated to the **same site-local planar frame** (shared origin,
+scale, and orientation — established from common ground control points in `09_AI_Calibration`),
+so polygons authored over camera A's image and camera B's image both land in plane (2) and form
+one coherent set. `SiteMapVersion` stays per-camera for editing (one published version per
+`(site_id, camera_id)` per §3.3), but the runtime point-in-polygon query in
+`11_Parking_Slot_Detection` §3 selects slots by `site_id` across all published versions, so the
+AI pipeline sees a single unified map regardless of how many cameras authored it.
+
+The trade-off is a disciplined partitioning convention: the operator must not draw a slot in a
+neighboring camera's region, and a camera whose coverage changes (re-aimed, added, removed) may
+need its partition — and any slots re-assigned across the boundary — re-drawn. Areas visible to
+no camera simply have no slots; if a true blind spot forces overlapping coverage, fall back to
+the merge/dedup alternative (not designed here — would warrant its own ADR). Full rationale and
+alternatives are in [ADR-0803](adr/ADR-0803-multi-camera-map-strategy.md).
 
 ## 5. Import / export & versioning
 
@@ -173,19 +200,27 @@ Publishing a map version does two things relevant to `09_AI_Calibration`:
   `ParkingSlot`, and the optional `Vehicle` occupancy link.
 - `diagrams/editor-interaction.mmd` — sequence diagram of a single draw-and-save interaction
   between operator, editor, backend, and PostGIS.
+- `diagrams/multi-camera-partitioning.mmd` — how two `OVERVIEW` cameras covering a wide lot each
+  own a disjoint partition, share one site-local frame, and surface as one unified map at runtime
+  (per ADR-0803).
 
 ## 10. Decisions / ADRs
 
 - [ADR-0801](adr/ADR-0801-polygon-storage.md) — Polygon storage: PostGIS geometry vs JSON.
 - [ADR-0802](adr/ADR-0802-editor-build-vs-library.md) — SVG/Canvas editor: build vs adopt a
   library.
+- [ADR-0803](adr/ADR-0803-multi-camera-map-strategy.md) — Multi-camera wide-lot map strategy:
+  partitioned coverage + runtime query by site vs merge/dedup.
 
 ## 11. Open questions / risks
 
 - Re-captured stills change resolution/framing over time (camera physically bumped, replaced) —
   need a policy for detecting a "stale" map version and prompting re-draw.
-- Multi-camera sites where slot rows are visible from more than one `OVERVIEW` camera need a
-  merge/dedup story not designed here (currently one `SiteMapVersion` per camera).
+- Multi-camera wide-lot coverage is **resolved** by partitioned coverage (each `OVERVIEW` camera
+  owns a disjoint region, no overlapping slots) plus the existing site-scoped runtime slot query —
+  see §4 and [ADR-0803](adr/ADR-0803-multi-camera-map-strategy.md). The merge/dedup alternative
+  remains undesigned and is deferred until a site has a blind spot that forces overlapping
+  coverage.
 - Concurrent editing (two operators drafting the same site) is not addressed — likely needs
   simple optimistic locking on `SiteMapVersion` at minimum.
 - GeoJSON import does not yet define how conflicting slot codes from a different site's export are
