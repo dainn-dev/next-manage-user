@@ -53,6 +53,9 @@ public class SecurityConfig {
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
 
+                // Platform admin onboarding
+                .requestMatchers(HttpMethod.POST, "/api/v1/tenants").hasRole("PLATFORM_ADMIN")
+
                 // Admin only
                 .requestMatchers("/api/admin/**").hasAnyRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/vehicles/{id}").hasAnyRole("ADMIN")

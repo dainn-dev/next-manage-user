@@ -30,8 +30,9 @@ public class TenantContextConfig {
     public PlatformTransactionManager transactionManager(
             EntityManagerFactory entityManagerFactory,
             @Value("${multitenancy.default-tenant-fallback:true}") boolean defaultTenantFallback,
-            @Value("${multitenancy.request-db-role:app_rls}") String requestRole) {
+            @Value("${multitenancy.request-db-role:app_rls}") String requestRole,
+            @Value("${multitenancy.auth-db-role:app_auth}") String authRole) {
         return new TenantRoutingJpaTransactionManager(
-                entityManagerFactory, defaultTenantFallback, requestRole);
+                entityManagerFactory, defaultTenantFallback, requestRole, authRole);
     }
 }
