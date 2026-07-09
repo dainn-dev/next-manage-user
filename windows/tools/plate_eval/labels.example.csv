@@ -1,0 +1,5 @@
+filename,plate,tags,source,read_at,gate
+plate_76M51443_1712664000000.jpg,76M-514.43,"1line,car,day",log,2026-06-01T08:12:00,Cong so 1
+plate_59P112233_1712664100000.jpg,59-P1 122.33,"2line,motorbike,day",log,2026-06-01T08:20:00,Cong so 1
+plate_unknown_1712664200000.jpg,QA-1234,"military,red,2line,hard",rejected,2026-06-02T19:40:00,Cong so 2
+plate_30A99999_1712664300000.jpg,30A-999.99,"1line,car,night,blur",pending,2026-06-03T21:05:00,Cong so 1
