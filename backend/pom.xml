@@ -15,6 +15,14 @@
     <description>Vehicle Management System API</description>
     <properties>
         <java.version>17</java.version>
+        <!--
+          Override the Testcontainers version managed by the Spring Boot 3.2.0 BOM
+          (1.19.3). That version bundles docker-java 3.3.4, whose client cannot
+          negotiate with Docker Engine 29+ (minimum API 1.44) and fails every
+          integration test with "Could not find a valid Docker environment".
+          1.21.x brings a docker-java new enough to talk to modern engines.
+        -->
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
     <dependencies>
         <dependency>

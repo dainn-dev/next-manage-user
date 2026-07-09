@@ -1,3 +1,8 @@
+# Explicit project name so this stack never collides with another Compose
+# project whose directory is also named "backend" (Compose derives the project
+# name — and volume prefix — from the directory name by default).
+name: vehicle-management
+
 services:
   postgres:
     image: postgres:15-alpine
