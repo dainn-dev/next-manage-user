@@ -12,6 +12,9 @@ export interface KioskEvent {
   licensePlate: string
   type: "entry" | "exit" | "unknown"
   approved: boolean
+  // Unregistered plate queued for approval (Phase 4.4): not approved, but not a
+  // hard denial either — the kiosk renders a distinct awaiting-approval state.
+  pending?: boolean
   driverName?: string
   unit?: string
   timestamp: string
@@ -78,11 +81,18 @@ export function normalizeWsEvent(
   }
 
   const simple = msg as VehicleCheckMessage
+  // Prefer the explicit backend status (Phase 4.4); fall back to text parsing for
+  // older messages that don't carry one.
+  const isPending = simple.status === "pending"
+  const approved = simple.status
+    ? simple.status === "approved"
+    : !isDeniedMessage(simple.message)
   return {
     key: nextKey(`ws-${simple.licensePlateNumber}`),
     licensePlate: simple.licensePlateNumber,
     type: normalizeType(simple.type),
-    approved: !isDeniedMessage(simple.message),
+    approved,
+    pending: isPending,
     timestamp: simple.timestamp || new Date().toISOString(),
     message: simple.message,
   }
@@ -140,7 +150,9 @@ function pickVietnameseVoice(): SpeechSynthesisVoice | null {
 export function speakEvent(event: KioskEvent): void {
   if (!isSpeechSupported()) return
   const dir = event.type === "entry" ? "vào" : event.type === "exit" ? "ra" : ""
-  const text = event.approved
+  const text = event.pending
+    ? `Chờ phê duyệt. Biển số ${event.licensePlate}`
+    : event.approved
     ? `Được phép ${dir}. Biển số ${event.licensePlate}`.trim()
     : `Từ chối. Biển số ${event.licensePlate}`
   try {

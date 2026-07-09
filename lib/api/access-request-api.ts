@@ -5,12 +5,16 @@ const API_BASE_URL = getApiUrl()
 
 export type AccessRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
 
+export type AccessRequestSource = 'USER' | 'GATE'
+
 export interface AccessRequest {
   id: string
-  vehicleId: string
-  vehicleLicensePlate: string
-  requesterId: string
-  requesterName: string
+  vehicleId?: string
+  vehicleLicensePlate?: string
+  // Raw plate for gate-originated requests that have no linked vehicle (Phase 4.4).
+  licensePlate?: string
+  requesterId?: string
+  requesterName?: string
   approverId?: string
   approverName?: string
   status: AccessRequestStatus
@@ -18,6 +22,11 @@ export interface AccessRequest {
   rejectionReason?: string
   validFrom?: string
   validTo?: string
+  // Gate-detected request metadata (Phase 4.4).
+  gateId?: string
+  gateName?: string
+  imagePath?: string
+  source?: AccessRequestSource
   createdAt: string
   updatedAt: string
 }

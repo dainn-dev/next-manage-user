@@ -51,6 +51,9 @@ class VehicleServiceGateTest {
     @Mock
     private SnapshotStorageService snapshotStorageService;
 
+    @Mock
+    private VehicleAccessRequestService accessRequestService;
+
     // Real (not mocked) registry so the Phase 4.1 timing/counter calls in
     // checkVehicleAccess work without stubbing every metric interaction.
     @Spy
@@ -174,6 +177,34 @@ class VehicleServiceGateTest {
         ArgumentCaptor<VehicleLogDto> logCaptor = ArgumentCaptor.forClass(VehicleLogDto.class);
         verify(vehicleLogService).createVehicleLog(logCaptor.capture());
         assertEquals(storedPath, logCaptor.getValue().getImagePath());
+    }
+
+    @Test
+    void checkUnregisteredPlate_raisesPendingRequestAndDoesNotAllow() {
+        String plate = "99X-00001";
+        UUID gateId = UUID.randomUUID();
+        Gate gate = Gate.builder().id(gateId).name("Cong chinh").location("Khu A").build();
+        String snapshotPath = "/uploads/snapshots/plate_99X00001_1.jpg";
+
+        when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.empty());
+        when(gateRepository.findById(gateId)).thenReturn(Optional.of(gate));
+        when(snapshotStorageService.store(any(), eq(plate))).thenReturn(snapshotPath);
+
+        VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry", gateId);
+
+        // The gate must NOT open: the outcome is PENDING, not approved.
+        assertFalse(response.isApproved());
+        assertEquals(VehicleCheckResponse.CheckResult.PENDING, response.getResult());
+
+        // A gate-originated access request is raised for the approval queue with the
+        // captured snapshot as evidence.
+        verify(accessRequestService).recordGateDetection(eq(plate), eq(gate), eq(snapshotPath), any());
+
+        // No log is created for an unregistered plate (only approved access is logged).
+        verify(vehicleLogService, never()).createVehicleLog(any());
+
+        // The kiosk is told the outcome is pending via the explicit status flag.
+        verify(webSocketService).sendVehicleCheckMessage(eq(plate), eq("entry"), any(), eq(gateId), eq("pending"));
     }
 
     @Test

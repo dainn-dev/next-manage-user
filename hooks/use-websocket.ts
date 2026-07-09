@@ -12,6 +12,11 @@ export interface VehicleCheckMessage {
   message: string
   // Present when the backend fanned the event out to a per-gate topic (Phase 3.2).
   gateId?: string
+  // Explicit outcome set by the backend (Phase 4.4): 'approved' | 'denied' |
+  // 'pending'. 'pending' means an unregistered plate was queued for approval and
+  // the kiosk must show an awaiting-approval state. Absent on older messages, in
+  // which case the outcome is inferred from the message text.
+  status?: 'approved' | 'denied' | 'pending'
 }
 
 // Extended interface for employee info from backend

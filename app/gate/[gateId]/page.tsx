@@ -8,6 +8,7 @@ import {
   ArrowUpFromLine,
   CheckCircle2,
   XCircle,
+  Clock,
   Volume2,
   VolumeX,
   Wifi,
@@ -253,23 +254,31 @@ function GateKiosk({ gateId }: { gateId: string }) {
           <div
             key={latest.key}
             className={`w-full max-w-4xl rounded-3xl border-4 p-10 text-center transition-all ${
-              latest.approved
+              latest.pending
+                ? "border-amber-500 bg-amber-500/10"
+                : latest.approved
                 ? "border-emerald-500 bg-emerald-500/10"
                 : "border-red-500 bg-red-500/10"
             }`}
           >
             <div className="flex items-center justify-center gap-4 mb-6">
-              {latest.approved ? (
+              {latest.pending ? (
+                <Clock className="h-20 w-20 text-amber-400" />
+              ) : latest.approved ? (
                 <CheckCircle2 className="h-20 w-20 text-emerald-400" />
               ) : (
                 <XCircle className="h-20 w-20 text-red-400" />
               )}
               <span
                 className={`text-5xl font-black ${
-                  latest.approved ? "text-emerald-400" : "text-red-400"
+                  latest.pending
+                    ? "text-amber-400"
+                    : latest.approved
+                    ? "text-emerald-400"
+                    : "text-red-400"
                 }`}
               >
-                {latest.approved ? "ĐƯỢC PHÉP" : "TỪ CHỐI"}
+                {latest.pending ? "CHỜ PHÊ DUYỆT" : latest.approved ? "ĐƯỢC PHÉP" : "TỪ CHỐI"}
               </span>
             </div>
 
@@ -303,7 +312,9 @@ function GateKiosk({ gateId }: { gateId: string }) {
             )}
 
             {!latest.approved && latest.message && (
-              <p className="mt-4 text-lg text-red-200">{latest.message}</p>
+              <p className={`mt-4 text-lg ${latest.pending ? "text-amber-200" : "text-red-200"}`}>
+                {latest.message}
+              </p>
             )}
 
             <div className="mt-8 text-slate-400 text-lg">
@@ -328,14 +339,18 @@ function GateKiosk({ gateId }: { gateId: string }) {
               <div
                 key={e.key}
                 className={`flex-shrink-0 w-44 rounded-xl border p-3 ${
-                  e.approved
+                  e.pending
+                    ? "border-amber-700 bg-amber-900/20"
+                    : e.approved
                     ? "border-emerald-700 bg-emerald-900/20"
                     : "border-red-800 bg-red-900/20"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-bold text-lg truncate">{e.licensePlate}</span>
-                  {e.approved ? (
+                  {e.pending ? (
+                    <Clock className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                  ) : e.approved ? (
                     <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
                   ) : (
                     <XCircle className="h-4 w-4 text-red-400 flex-shrink-0" />

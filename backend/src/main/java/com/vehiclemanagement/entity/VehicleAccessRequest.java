@@ -22,13 +22,40 @@ public class VehicleAccessRequest {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // Nullable: a gate-originated request for an unregistered plate has no Vehicle
+    // record yet (Phase 4.4). Manual user requests still set this.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vehicle_id", nullable = false)
+    @JoinColumn(name = "vehicle_id")
     private Vehicle vehicle;
 
+    // Nullable: a gate-originated request is raised by the system, not a human
+    // requester (Phase 4.4). Manual user requests still set this.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "requester_id", nullable = false)
+    @JoinColumn(name = "requester_id")
     private User requester;
+
+    /**
+     * Raw license plate as read at the gate. Populated for gate-originated requests
+     * where no {@link Vehicle} exists; for manual requests the plate is derived from
+     * the linked vehicle instead.
+     */
+    @Column(name = "license_plate")
+    private String licensePlate;
+
+    /** Origin gate for a gate-detected request (Phase 4.4); null for manual requests. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gate_id")
+    private Gate gate;
+
+    /** Optional evidence snapshot captured at the gate (Phase 4.2 / 4.4). */
+    @Column(name = "image_path")
+    private String imagePath;
+
+    /** How the request originated. Defaults to a manual USER submission. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false)
+    @Builder.Default
+    private RequestSource source = RequestSource.USER;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approver_id")
@@ -72,5 +99,9 @@ public class VehicleAccessRequest {
 
     public enum AccessRequestStatus {
         PENDING, APPROVED, REJECTED, CANCELLED
+    }
+
+    public enum RequestSource {
+        USER, GATE
     }
 }

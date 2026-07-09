@@ -2,10 +2,12 @@ package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleAccessRequestDto;
 import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleAccessRequest;
 import com.vehiclemanagement.entity.VehicleAccessRequest.AccessRequestStatus;
+import com.vehiclemanagement.entity.VehicleAccessRequest.RequestSource;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleAccessRequestRepository;
@@ -13,10 +15,12 @@ import com.vehiclemanagement.repository.VehicleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +28,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -130,6 +135,20 @@ class VehicleAccessRequestServiceTest {
     }
 
     @Test
+    void approveRequest_forGateRequestWithNoVehicle_marksApprovedWithoutTouchingVehicle() {
+        VehicleAccessRequest request = buildGateRequest();
+        when(requestRepository.findById(request.getId())).thenReturn(Optional.of(request));
+        when(userRepository.findById(approver.getId())).thenReturn(Optional.of(approver));
+        when(requestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        VehicleAccessRequestDto result = service.approveRequest(request.getId(), approver.getId());
+
+        assertEquals(AccessRequestStatus.APPROVED, result.getStatus());
+        // No vehicle to flip: the vehicle repository is never touched.
+        verify(vehicleRepository, never()).save(any());
+    }
+
+    @Test
     void approveRequest_throwsWhenRequestNotFound() {
         UUID missingId = UUID.randomUUID();
         when(requestRepository.findById(missingId)).thenReturn(Optional.empty());
@@ -192,6 +211,87 @@ class VehicleAccessRequestServiceTest {
                 () -> service.cancelRequest(request.getId(), otherId));
     }
 
+    @Test
+    void cancelRequest_throwsForGateRequestWithNoRequester() {
+        VehicleAccessRequest request = buildGateRequest();
+        when(requestRepository.findById(request.getId())).thenReturn(Optional.of(request));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.cancelRequest(request.getId(), requester.getId()));
+    }
+
+    // --- recordGateDetection (Phase 4.4) ---
+
+    @Test
+    void recordGateDetection_createsPendingGateRequest() {
+        Gate gate = Gate.builder().id(UUID.randomUUID()).name("Cong chinh").build();
+        when(requestRepository.findByStatusAndSourceAndCreatedAtAfter(
+                eq(AccessRequestStatus.PENDING), eq(RequestSource.GATE), any()))
+                .thenReturn(List.of());
+        when(requestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        VehicleAccessRequestDto result = service.recordGateDetection(
+                "99X-12345", gate, "/uploads/snapshots/plate.jpg", Duration.ofSeconds(300));
+
+        ArgumentCaptor<VehicleAccessRequest> captor = ArgumentCaptor.forClass(VehicleAccessRequest.class);
+        verify(requestRepository).save(captor.capture());
+        VehicleAccessRequest saved = captor.getValue();
+        assertEquals(AccessRequestStatus.PENDING, saved.getStatus());
+        assertEquals(RequestSource.GATE, saved.getSource());
+        assertEquals("99X-12345", saved.getLicensePlate());
+        assertEquals(gate, saved.getGate());
+        assertEquals("/uploads/snapshots/plate.jpg", saved.getImagePath());
+        assertNull(saved.getVehicle());
+        assertNull(saved.getRequester());
+        assertEquals(AccessRequestStatus.PENDING, result.getStatus());
+    }
+
+    @Test
+    void recordGateDetection_suppressesDuplicateForSamePlateAndGate() {
+        Gate gate = Gate.builder().id(UUID.randomUUID()).name("Cong chinh").build();
+        VehicleAccessRequest existing = VehicleAccessRequest.builder()
+                .id(UUID.randomUUID())
+                .source(RequestSource.GATE)
+                .status(AccessRequestStatus.PENDING)
+                .licensePlate("99X-12345") // same plate, different formatting than the new read
+                .gate(gate)
+                .requestReason("existing")
+                .build();
+        when(requestRepository.findByStatusAndSourceAndCreatedAtAfter(
+                eq(AccessRequestStatus.PENDING), eq(RequestSource.GATE), any()))
+                .thenReturn(List.of(existing));
+
+        // Same plate normalized ("99X12345"), same gate -> no new row saved.
+        VehicleAccessRequestDto result = service.recordGateDetection(
+                "99X 12345", gate, null, Duration.ofSeconds(300));
+
+        verify(requestRepository, never()).save(any());
+        assertEquals(existing.getId(), result.getId());
+    }
+
+    @Test
+    void recordGateDetection_createsSeparateRequestForDifferentGate() {
+        Gate gateA = Gate.builder().id(UUID.randomUUID()).name("Cong A").build();
+        Gate gateB = Gate.builder().id(UUID.randomUUID()).name("Cong B").build();
+        VehicleAccessRequest existingAtA = VehicleAccessRequest.builder()
+                .id(UUID.randomUUID())
+                .source(RequestSource.GATE)
+                .status(AccessRequestStatus.PENDING)
+                .licensePlate("99X-12345")
+                .gate(gateA)
+                .requestReason("existing")
+                .build();
+        when(requestRepository.findByStatusAndSourceAndCreatedAtAfter(
+                eq(AccessRequestStatus.PENDING), eq(RequestSource.GATE), any()))
+                .thenReturn(List.of(existingAtA));
+        when(requestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.recordGateDetection("99X-12345", gateB, null, Duration.ofSeconds(300));
+
+        // Same plate but a different gate is a distinct event -> a new row is saved.
+        verify(requestRepository).save(any());
+    }
+
     // --- getPendingRequests ---
 
     @Test
@@ -226,6 +326,17 @@ class VehicleAccessRequestServiceTest {
         req.setRequester(requester);
         req.setStatus(AccessRequestStatus.PENDING);
         req.setRequestReason("Test reason");
+        return req;
+    }
+
+    // A gate-originated request: no vehicle, no requester (Phase 4.4).
+    private VehicleAccessRequest buildGateRequest() {
+        VehicleAccessRequest req = new VehicleAccessRequest();
+        req.setId(UUID.randomUUID());
+        req.setSource(RequestSource.GATE);
+        req.setStatus(AccessRequestStatus.PENDING);
+        req.setLicensePlate("99X-12345");
+        req.setRequestReason("Xe chua dang ky - phat hien tai cong");
         return req;
     }
 }

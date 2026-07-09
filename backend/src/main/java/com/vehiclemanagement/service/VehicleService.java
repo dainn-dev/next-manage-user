@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.nio.file.Files;
@@ -62,7 +63,18 @@ public class VehicleService {
     private SnapshotStorageService snapshotStorageService;
 
     @Autowired
+    private VehicleAccessRequestService accessRequestService;
+
+    @Autowired
     private MeterRegistry meterRegistry;
+
+    /**
+     * Window used to suppress duplicate gate-originated access requests for the same
+     * plate + gate (Phase 4.4). The edge fires a check per detection frame, so a
+     * short window keeps a single lingering vehicle from flooding the approval queue.
+     */
+    @org.springframework.beans.factory.annotation.Value("${gate.access-request.dedup-window-seconds:300}")
+    private long accessRequestDedupWindowSeconds;
 
     /**
      * Meter names for the vehicle-access-check metrics (Phase 4.1). The counter is
@@ -423,21 +435,41 @@ public class VehicleService {
             if (vehicle == null) {
                 String notFoundMessage = "Xe vá»›i biá»ƒn sá»‘ " + licensePlateNumber + " chÆ°a Ä‘Æ°á»£c Ä‘Äƒng kÃ½ trong há»‡ thá»‘ng";
 
-                // Send WebSocket message for vehicle not found
+                // Phase 4.4: an unregistered / unapproved plate is no longer a silent
+                // denial at the gate. Capture evidence (best-effort), raise a PENDING
+                // access request so it lands in the approval queue with an audit trail,
+                // and tell the gate to wait for approval instead of opening. Neither
+                // side effect may fail the check.
+                String pendingMessage = notFoundMessage + " - chờ phê duyệt";
+                String snapshotPath = null;
                 try {
-                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, notFoundMessage, gateId(gate));
+                    snapshotPath = snapshotStorageService.store(snapshot, licensePlateNumber);
+                    accessRequestService.recordGateDetection(
+                            licensePlateNumber, gate, snapshotPath,
+                            Duration.ofSeconds(accessRequestDedupWindowSeconds));
+                } catch (Exception reqException) {
+                    System.err.println("Failed to record gate access request: " + reqException.getMessage());
+                }
+
+                // Send WebSocket message so the kiosk shows an awaiting-approval state.
+                try {
+                    webSocketService.sendVehicleCheckMessage(
+                            licensePlateNumber, type, pendingMessage, gateId(gate), "pending");
                 } catch (Exception wsException) {
                     // Log WebSocket error but don't fail the response
                     System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
                 }
 
-                recordCheck(gate, "not_found");
-                return new VehicleCheckResponse(
+                recordCheck(gate, "pending");
+                VehicleCheckResponse pendingResponse = new VehicleCheckResponse(
                     false,
-                    notFoundMessage,
+                    pendingMessage,
                     licensePlateNumber,
-                    type
+                    type,
+                    snapshotPath
                 );
+                pendingResponse.setResult(VehicleCheckResponse.CheckResult.PENDING);
+                return pendingResponse;
             }
             
             // Check if vehicle status is approved or already in appropriate state for entry/exit

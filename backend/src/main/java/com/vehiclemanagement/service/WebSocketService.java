@@ -30,12 +30,25 @@ public class WebSocketService {
      * UI can subscribe to a single gate.
      */
     public void sendVehicleCheckMessage(String licensePlateNumber, String type, String message, UUID gateId) {
+        sendVehicleCheckMessage(licensePlateNumber, type, message, gateId, null);
+    }
+
+    /**
+     * Send a simple vehicle check message carrying an explicit {@code status}
+     * ({@code approved} / {@code denied} / {@code pending}). The kiosk uses this to
+     * render a pending (awaiting-approval) state distinctly from a hard denial
+     * instead of inferring the outcome from the message text (Phase 4.4). A
+     * {@code null} status preserves the historical text-parsing behaviour.
+     */
+    public void sendVehicleCheckMessage(String licensePlateNumber, String type, String message,
+                                        UUID gateId, String status) {
         VehicleCheckMessage vehicleCheckMessage = new VehicleCheckMessage(
             licensePlateNumber,
             type,
             LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
             message,
-            gateId != null ? gateId.toString() : null
+            gateId != null ? gateId.toString() : null,
+            status
         );
 
         publish(vehicleCheckMessage, gateId);
@@ -91,19 +104,26 @@ public class WebSocketService {
         private String timestamp;
         private String message;
         private String gateId;
+        /** approved | denied | pending; null when the outcome is left to text parsing. */
+        private String status;
 
         public VehicleCheckMessage() {}
 
         public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message) {
-            this(licensePlateNumber, type, timestamp, message, null);
+            this(licensePlateNumber, type, timestamp, message, null, null);
         }
 
         public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message, String gateId) {
+            this(licensePlateNumber, type, timestamp, message, gateId, null);
+        }
+
+        public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message, String gateId, String status) {
             this.licensePlateNumber = licensePlateNumber;
             this.type = type;
             this.timestamp = timestamp;
             this.message = message;
             this.gateId = gateId;
+            this.status = status;
         }
 
         // Getters and Setters
@@ -145,6 +165,14 @@ public class WebSocketService {
 
         public void setGateId(String gateId) {
             this.gateId = gateId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
         }
     }
 }

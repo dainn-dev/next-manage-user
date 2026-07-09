@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { canApprove } from "@/lib/types"
 import { accessRequestApi, type AccessRequest, type AccessRequestStatus } from "@/lib/api/access-request-api"
+import { getImageUrl } from "@/lib/api/config"
 
 export default function VehicleRequestsPage() {
   const router = useRouter()
@@ -58,7 +59,7 @@ export default function VehicleRequestsPage() {
       setRequests(prev => prev.map(r => r.id === updated.id ? updated : r))
       toast({
         title: "Đã duyệt",
-        description: `Yêu cầu của ${request.requesterName} đã được chấp thuận.`,
+        description: `Yêu cầu cho xe ${request.vehicleLicensePlate || request.licensePlate || ''} đã được chấp thuận.`,
       })
     } catch (err) {
       toast({
@@ -85,7 +86,7 @@ export default function VehicleRequestsPage() {
       setRequests(prev => prev.map(r => r.id === updated.id ? updated : r))
       toast({
         title: "Đã từ chối",
-        description: `Yêu cầu của ${selectedRequest.requesterName} đã bị từ chối.`,
+        description: `Yêu cầu cho xe ${selectedRequest.vehicleLicensePlate || selectedRequest.licensePlate || ''} đã bị từ chối.`,
       })
       setRejectDialogOpen(false)
     } catch (err) {
@@ -219,6 +220,8 @@ export default function VehicleRequestsPage() {
               <TableRow>
                 <TableHead>Biển số xe</TableHead>
                 {userCanApprove && <TableHead>Người yêu cầu</TableHead>}
+                <TableHead>Cổng</TableHead>
+                <TableHead>Ảnh</TableHead>
                 <TableHead>Ngày yêu cầu</TableHead>
                 <TableHead>Hiệu lực từ</TableHead>
                 <TableHead>Hiệu lực đến</TableHead>
@@ -231,15 +234,38 @@ export default function VehicleRequestsPage() {
             <TableBody>
               {requests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={userCanApprove ? 9 : 7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={userCanApprove ? 11 : 9} className="text-center py-8 text-muted-foreground">
                     Không có yêu cầu nào
                   </TableCell>
                 </TableRow>
               ) : (
                 requests.map((request) => (
                   <TableRow key={request.id}>
-                    <TableCell className="font-mono font-semibold">{request.vehicleLicensePlate || '—'}</TableCell>
-                    {userCanApprove && <TableCell>{request.requesterName || '—'}</TableCell>}
+                    <TableCell className="font-mono font-semibold">
+                      {request.vehicleLicensePlate || request.licensePlate || '—'}
+                      {request.source === 'GATE' && (
+                        <Badge variant="outline" className="ml-2 text-[10px] border-blue-300 text-blue-700">Cổng</Badge>
+                      )}
+                    </TableCell>
+                    {userCanApprove && (
+                      <TableCell>
+                        {request.requesterName || (request.source === 'GATE' ? 'Phát hiện tại cổng' : '—')}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-sm">{request.gateName || '—'}</TableCell>
+                    <TableCell>
+                      {request.imagePath ? (
+                        <a href={getImageUrl(request.imagePath) || '#'} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={getImageUrl(request.imagePath) || '/placeholder.jpg'}
+                            alt={`Ảnh biển số ${request.licensePlate || request.vehicleLicensePlate || ''}`}
+                            className="h-10 w-16 object-cover rounded border hover:opacity-80"
+                          />
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">{formatDate(request.createdAt)}</TableCell>
                     <TableCell className="text-sm">{formatDate(request.validFrom)}</TableCell>
                     <TableCell className="text-sm">{formatDate(request.validTo)}</TableCell>
@@ -310,8 +336,8 @@ export default function VehicleRequestsPage() {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Từ chối yêu cầu của <strong>{selectedRequest?.requesterName}</strong> cho xe{" "}
-              <strong>{selectedRequest?.vehicleLicensePlate}</strong>.
+              Từ chối yêu cầu{selectedRequest?.requesterName ? <> của <strong>{selectedRequest.requesterName}</strong></> : selectedRequest?.source === 'GATE' ? ' (phát hiện tại cổng)' : ''} cho xe{" "}
+              <strong>{selectedRequest?.vehicleLicensePlate || selectedRequest?.licensePlate}</strong>.
             </p>
             <div>
               <Label htmlFor="rejectionReason">Lý do từ chối *</Label>

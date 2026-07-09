@@ -2,6 +2,7 @@ package com.vehiclemanagement.dto;
 
 import com.vehiclemanagement.entity.VehicleAccessRequest;
 import com.vehiclemanagement.entity.VehicleAccessRequest.AccessRequestStatus;
+import com.vehiclemanagement.entity.VehicleAccessRequest.RequestSource;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -25,6 +26,15 @@ public class VehicleAccessRequestDto {
     private UUID vehicleId;
 
     private String vehicleLicensePlate;
+
+    // Raw plate for gate-originated requests that have no linked vehicle (Phase 4.4).
+    private String licensePlate;
+
+    // Origin gate + evidence snapshot for gate-detected requests (Phase 4.4).
+    private UUID gateId;
+    private String gateName;
+    private String imagePath;
+    private RequestSource source;
 
     private UUID requesterId;
     private String requesterName;
@@ -51,6 +61,13 @@ public class VehicleAccessRequestDto {
             this.vehicleId = req.getVehicle().getId();
             this.vehicleLicensePlate = req.getVehicle().getLicensePlate();
         }
+        this.licensePlate = req.getLicensePlate();
+        if (req.getGate() != null) {
+            this.gateId = req.getGate().getId();
+            this.gateName = req.getGate().getName();
+        }
+        this.imagePath = req.getImagePath();
+        this.source = req.getSource();
         if (req.getRequester() != null) {
             this.requesterId = req.getRequester().getId();
             this.requesterName = req.getRequester().getFullName();
