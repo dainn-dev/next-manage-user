@@ -1,6 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 
+REM Run from the repository root (this script lives in deploy/) so that
+REM frontend\ and backend\ build contexts resolve.
+cd /d "%~dp0.."
+
 REM Docker Build and Push Script for Vehicle Management System (Windows)
 REM This script builds and pushes frontend and backend images to Docker Hub
 

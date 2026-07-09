@@ -9,11 +9,13 @@ and an edge detector that reads plates from cameras and checks them against the 
 .
 ├── frontend/     Next.js 14 admin UI (React, Tailwind, shadcn/ui)
 ├── backend/      Spring Boot 3 / Java 17 REST API + Postgres (Flyway migrations)
-├── windows/      Python edge app — YOLOv5 plate detection/OCR, calls the gate API
-├── docker-compose.yml        Full local stack: postgres + backend + frontend
-├── docker-compose.dev.yml    Dev variant (init SQL, named volumes)
-├── docker-compose-image.yml  Run prebuilt images (no local build)
-└── docs / *.md   Deployment, environment, and roles notes
+├── edge/         Python edge app — YOLOv5 plate detection/OCR, calls the gate API
+├── docker-compose.yml        Canonical local stack: postgres + backend + frontend
+├── deploy/       Deployment helpers
+│   ├── docker-compose.dev.yml    Dev variant (init SQL, named volumes)
+│   ├── docker-compose-image.yml  Run prebuilt images (no local build)
+│   └── docker-build-push.*, build-and-run-dev.*   Build/push & dev-up scripts
+└── docs/         Deployment, environment, and roles notes
 ```
 
 > The web app used to live at the repository root; it now lives under `frontend/`.
@@ -54,17 +56,26 @@ Flyway migrations under `backend/src/main/resources/db/migration/`.
 ### Edge detector
 
 ```bash
-cd windows
+cd edge
 pip install -r requirement.txt
 cp config.example.json config.json   # set API base_url, gate_key, and camera/RTSP sources
 python run_edge.py
 ```
 
+`edge/config.json` holds runtime secrets (auth cookies / gate key) and is gitignored — only
+`config.example.json` is committed.
+
 ## Documentation
 
-- `DOCKER_DEPLOYMENT.md` — container build & deployment.
-- `ENVIRONMENT_SETUP.md` — environment variables and local setup.
-- `UPDATED_CREDENTIALS.md` — role model and default-account handling.
+- `docs/DOCKER_DEPLOYMENT.md` — container build & deployment.
+- `docs/ENVIRONMENT_SETUP.md` — environment variables and local setup.
+- `docs/UPDATED_CREDENTIALS.md` — role model and default-account handling.
+
+## Deployment helpers (`deploy/`)
+
+- `deploy/build-and-run-dev.sh` / `.bat` — build & start the dev stack (`docker-compose.dev.yml`).
+- `deploy/docker-build-push.sh` / `.bat` — build and push frontend/backend images to Docker Hub.
+- `deploy/docker-compose-image.yml` — run prebuilt images without a local build.
 
 ## Ports
 

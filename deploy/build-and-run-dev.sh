@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Run from this script's dir (deploy/) so docker-compose.dev.yml is found and its
+# ../frontend and ../backend build contexts resolve.
+cd "$(dirname "$0")"
+
 # Build and run development environment
 echo "🚀 Starting Vehicle Management System - Development Environment"
 

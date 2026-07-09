@@ -5,6 +5,10 @@
 
 set -e  # Exit on any error
 
+# Run from the repository root so frontend/ and backend/ build contexts resolve
+# regardless of where this script is invoked from (it lives in deploy/).
+cd "$(dirname "$0")/.."
+
 # Configuration
 DOCKER_USERNAME="dainndev"
 DOCKER_REPOSITORY="vehicle-management"

@@ -1,7 +1,7 @@
 # Plate detector + OCR evaluation harness (DAI-257)
 
 Reproducible baseline eval for the VN license-plate **detector + OCR** stack that
-ships on the edge (`windows/edge/detection_core.py`). Research tooling only — it
+ships on the edge (`edge/edge/detection_core.py`). Research tooling only — it
 does **not** touch the backend, frontend, or edge inference code; it just loads
 the same models the edge loads and measures them.
 
