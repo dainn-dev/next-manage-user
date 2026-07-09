@@ -24,13 +24,13 @@ Enter your Docker Hub username and password when prompted.
 
 **Linux/macOS:**
 ```bash
-chmod +x docker-build-push.sh
-./docker-build-push.sh
+chmod +x deploy/docker-build-push.sh
+./deploy/docker-build-push.sh
 ```
 
 **Windows:**
 ```cmd
-docker-build-push.bat
+deploy\docker-build-push.bat
 ```
 
 #### Option B: Manual Commands

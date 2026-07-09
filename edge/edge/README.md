@@ -106,7 +106,7 @@ Config (`gate` section):
 Offline test (no camera / models / backend):
 
 ```bash
-python windows/edge/test_edge_resilience.py
+python edge/edge/test_edge_resilience.py
 ```
 
 ## Behaviour carried over from the desktop app

@@ -3,7 +3,7 @@
 
 Runs the *exact* production inference stack used by the edge — the same YOLOv5
 detector + per-character OCR model, deskew retry and OCR fallback as
-``windows/edge/detection_core.py`` — over a labelled test set and reports:
+``edge/edge/detection_core.py`` — over a labelled test set and reports:
 
   * detection rate            (detector produced >=1 plate box)
   * OCR exact-match accuracy   (predicted plate string == ground truth, normalised)

@@ -26,8 +26,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-windows/result/
-windows/build/
-windows/dist/
+# edge app (Python LP detector, renamed from windows/)
+edge/result/
+edge/build/
+edge/dist/
+edge/__pycache__/
+edge/**/__pycache__/
+edge/*.pyc
+edge/model/*.pt
+# edge runtime state / secrets — never commit (use config.example.json as the template)
+edge/config.json
+edge/license_plates.json
+edge/temp_speech.mp3
 .venv_build/
 .opencode/*

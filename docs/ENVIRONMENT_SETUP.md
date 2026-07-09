@@ -28,8 +28,8 @@ This document explains how to set up environment variables for the Vehicle Manag
 - Environment variables can override YAML values using the `SPRING_` prefix
 
 ### License Plate Monitor (Python detection app)
-- **`windows/config.json`** - Active config (runtime). API `base_url` defaults to `http://localhost:8080`.
-- **`windows/config.example.json`** - Committed template with placeholder values (port 8080, no real secrets). Copy to `windows/config.json` and fill in real RTSP credentials / auth cookies.
+- **`edge/config.json`** - Active config (runtime). API `base_url` defaults to `http://localhost:8080`.
+- **`edge/config.example.json`** - Committed template with placeholder values (port 8080, no real secrets). Copy to `edge/config.json` and fill in real RTSP credentials / auth cookies.
 
 ## Quick Setup (copy templates)
 
@@ -41,7 +41,7 @@ cp .env.example .env.local        # minimal; or: cp sample.env .env.local
 cp backend/.env.example .env      # then fill in real DB + JWT values
 
 # Detection app
-cp windows/config.example.json windows/config.json
+cp edge/config.example.json edge/config.json
 ```
 
 ## Required Environment Variables
@@ -65,7 +65,7 @@ JWT_EXPIRATION=86400
 # Shared secret required in the X-Gate-Key header for the public, side-effecting
 # gate endpoints (POST /api/vehicles/check-vehicle, POST /api/vehicle-logs).
 # Empty = open (dev). Set a strong value in production and share it with the
-# detection app (windows/config.json api.gate_key or GATE_API_KEY env).
+# detection app (edge/config.json api.gate_key or GATE_API_KEY env).
 GATE_API_KEY=
 ```
 
@@ -113,7 +113,7 @@ SPRING_SECURITY_USER_PASSWORD=admin
 LPM_API_BASE_URL=http://localhost:8080
 LPM_API_ENDPOINT=/api/vehicles/check-vehicle
 LPM_API_TIMEOUT=10
-# X-Gate-Key sent with each check-vehicle POST. Set in windows/config.json
+# X-Gate-Key sent with each check-vehicle POST. Set in edge/config.json
 # (api.gate_key) or via the GATE_API_KEY env var; must match backend GATE_API_KEY.
 LPM_API_GATE_KEY=
 ```

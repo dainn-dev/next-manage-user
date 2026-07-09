@@ -1,4 +1,7 @@
 @echo off
+REM Run from this script's dir (deploy/) so docker-compose.dev.yml is found and its
+REM ..\frontend and ..\backend build contexts resolve.
+cd /d "%~dp0"
 echo 🚀 Starting Vehicle Management System - Development Environment
 
 REM Stop any existing containers

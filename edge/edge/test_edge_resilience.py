@@ -9,7 +9,7 @@ directly. Exercises the three acceptance scenarios:
                     with its ORIGINAL timestamp; the queue ends empty.
 3. Same event id retried twice -> the backend records a single logical event.
 
-Run:  python windows/edge/test_edge_resilience.py
+Run:  python edge/edge/test_edge_resilience.py
 """
 
 import os

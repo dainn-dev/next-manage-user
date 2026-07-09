@@ -13,7 +13,7 @@ backend's ``POST /api/vehicles/check-vehicle``:
 
 No camera, models or live backend: ``requests.post`` is faked at the module level.
 Written so it runs both under pytest and as a plain script:
-``python windows/edge/test_gate_client.py``.
+``python edge/edge/test_gate_client.py``.
 """
 
 import os
