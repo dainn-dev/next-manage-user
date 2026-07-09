@@ -46,16 +46,22 @@ public class TenantRoutingJpaTransactionManager extends JpaTransactionManager {
 
     private final boolean defaultTenantFallback;
     private final String requestRole;
+    private final String authRole;
 
     public TenantRoutingJpaTransactionManager(EntityManagerFactory emf,
                                               boolean defaultTenantFallback,
-                                              String requestRole) {
+                                              String requestRole,
+                                              String authRole) {
         super(emf);
         this.defaultTenantFallback = defaultTenantFallback;
         if (requestRole != null && !requestRole.isBlank() && !ROLE_NAME.matcher(requestRole).matches()) {
             throw new IllegalArgumentException("Invalid multitenancy.request-db-role: " + requestRole);
         }
+        if (authRole != null && !authRole.isBlank() && !ROLE_NAME.matcher(authRole).matches()) {
+            throw new IllegalArgumentException("Invalid multitenancy.auth-db-role: " + authRole);
+        }
         this.requestRole = (requestRole == null || requestRole.isBlank()) ? null : requestRole;
+        this.authRole = (authRole == null || authRole.isBlank()) ? null : authRole;
     }
 
     @Override
@@ -65,8 +71,13 @@ public class TenantRoutingJpaTransactionManager extends JpaTransactionManager {
     }
 
     private void applyTenantSession() {
+        if (AdminDataSourceContext.isAdminOperation()) {
+            return;
+        }
+        boolean authLookup = AuthDataSourceContext.isAuthLookup();
+
         UUID tenantId = TenantContext.getTenantId();
-        if (tenantId == null && defaultTenantFallback) {
+        if (!authLookup && tenantId == null && defaultTenantFallback) {
             tenantId = TenantContext.DEFAULT_TENANT_ID;
         }
 
@@ -84,9 +95,10 @@ public class TenantRoutingJpaTransactionManager extends JpaTransactionManager {
             // Drop from the login role to the RLS role for the rest of this
             // transaction. SET LOCAL auto-resets on commit/rollback, so a pooled
             // connection never keeps the role (or the tenant var) across requests.
-            if (requestRole != null) {
+            String role = authLookup ? authRole : requestRole;
+            if (role != null) {
                 try (var st = conn.createStatement()) {
-                    st.execute("SET LOCAL ROLE " + requestRole);
+                    st.execute("SET LOCAL ROLE " + role);
                 }
             }
             if (tenant != null) {

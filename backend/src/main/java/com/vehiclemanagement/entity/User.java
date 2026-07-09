@@ -132,7 +132,7 @@ public class User implements UserDetails {
     
     // Enums
     public enum Role {
-        USER, APPROVER, SECURITY_OFFICER, ADMIN,
+        USER, APPROVER, SECURITY_OFFICER, ADMIN, TENANT_ADMIN,
         // Cross-tenant platform operator (tenant_id NULL). The full
         // USER/ADMIN -> MEMBER/TENANT_ADMIN/SITE_MANAGER/SECURITY_GUARD rename is
         // a separate RBAC pass; PLATFORM_ADMIN is added now for the tenant/RLS
@@ -157,7 +157,7 @@ public class User implements UserDetails {
     }
     
     public boolean isAdmin() {
-        return role == Role.ADMIN;
+        return role == Role.ADMIN || role == Role.TENANT_ADMIN;
     }
 
     public boolean canApprove() {

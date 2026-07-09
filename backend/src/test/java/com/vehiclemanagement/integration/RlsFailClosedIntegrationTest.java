@@ -2,9 +2,11 @@ package com.vehiclemanagement.integration;
 
 import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.repository.UserRepository;
+import com.vehiclemanagement.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.UUID;
@@ -30,6 +32,9 @@ class RlsFailClosedIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -59,5 +64,19 @@ class RlsFailClosedIntegrationTest extends AbstractPostgresIntegrationTest {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    @Test
+    void loadUserByUsernameUsesAuthRoleWithoutTenantContext() {
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
+                + "VALUES (?, 'authlookup-user', 'authlookup@example.com', 'x', 'USER', 'ACTIVE', ?, now(), now())",
+                id, DEFAULT_TENANT);
+
+        assertThat(TenantContext.getTenantId()).isNull();
+
+        UserDetails user = userService.loadUserByUsername("authlookup@example.com");
+
+        assertThat(user.getUsername()).isEqualTo("authlookup-user");
     }
 }

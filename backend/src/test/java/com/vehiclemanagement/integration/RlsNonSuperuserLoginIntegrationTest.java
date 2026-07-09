@@ -79,6 +79,28 @@ class RlsNonSuperuserLoginIntegrationTest extends AbstractPostgresIntegrationTes
                 st.execute("RESET ROLE");
             }
 
+            // app_auth is the pre-tenant identity lookup role: it can read users
+            // without tenant context, but V44 keeps it read-only.
+            try (Statement st = conn.createStatement()) {
+                st.execute("SET ROLE app_auth");
+            }
+            assertThat(queryLong(conn, "SELECT count(*) FROM users")).isGreaterThanOrEqualTo(1L);
+            assertThatThrownBy(() -> {
+                try (Statement st = conn.createStatement()) {
+                    st.execute("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
+                            + "VALUES ('" + UUID.randomUUID() + "', 'auth-write-denied', 'auth-write-denied@example.com', 'x', 'USER', 'ACTIVE', '"
+                            + DEFAULT_TENANT + "', now(), now())");
+                }
+            }).isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> {
+                try (Statement st = conn.createStatement()) {
+                    st.execute("UPDATE users SET status = 'LOCKED' WHERE username = 'nonsuper-default'");
+                }
+            }).isInstanceOf(SQLException.class);
+            try (Statement st = conn.createStatement()) {
+                st.execute("RESET ROLE");
+            }
+
             // (4) escalation guard: cannot become the BYPASSRLS role it is not a member of.
             assertThatThrownBy(() -> {
                 try (Statement st = conn.createStatement()) {

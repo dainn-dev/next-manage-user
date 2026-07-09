@@ -73,14 +73,26 @@ jwt:
 #                            false = Deploy 2 (unbound tx -> app.tenant_id unset -> RLS fail-closed)
 #   request-db-role: the NOLOGIN role each request transaction SET LOCAL ROLE's into
 #                    so RLS actually applies; blank disables the role switch.
+#   auth-db-role: read-only users lookup role used by loadUserByUsername before
+#                 a tenant can be trusted from a token.
 multitenancy:
   default-tenant-fallback: ${MULTITENANCY_DEFAULT_TENANT_FALLBACK:true}
   request-db-role: ${MULTITENANCY_REQUEST_DB_ROLE:app_rls}
+  auth-db-role: ${MULTITENANCY_AUTH_DB_ROLE:app_auth}
 
 # Demo seeder (DataSeederService) — dev only. Set false in prod; the real
 # PLATFORM_ADMIN is seeded fail-closed by Flyway V42.
 app:
   seed-demo-users: ${APP_SEED_DEMO_USERS:true}
+  admin-datasource:
+    url: ${APP_ADMIN_DATASOURCE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vehicle_management}}
+    username: ${APP_ADMIN_DATASOURCE_USERNAME:app_admin_login}
+    password: ${APP_ADMIN_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: platform-admin-pool
+      maximum-pool-size: ${APP_ADMIN_DATASOURCE_MAXIMUM_POOL_SIZE:5}
+      minimum-idle: ${APP_ADMIN_DATASOURCE_MINIMUM_IDLE:1}
 
 # Gate (license-plate detection app at the parking gate) API key.
 # Required X-Gate-Key header for the public, side-effecting endpoints

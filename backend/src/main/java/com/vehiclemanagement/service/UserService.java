@@ -3,6 +3,7 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.CreateUserRequest;
 import com.vehiclemanagement.dto.UpdateUserRequest;
 import com.vehiclemanagement.dto.UserDto;
+import com.vehiclemanagement.config.AuthDataSourceContext;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
@@ -16,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -38,12 +40,13 @@ public class UserService implements UserDetailsService {
     private PasswordEncoder passwordEncoder;
     
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
         // Accept either the username or the email so users can log in with either.
-        return userRepository.findByUsername(usernameOrEmail)
+        return AuthDataSourceContext.callWithAuthLookup(() -> userRepository.findByUsername(usernameOrEmail)
                 .or(() -> userRepository.findByEmail(usernameOrEmail))
                 .orElseThrow(() -> new UsernameNotFoundException(
-                        "User not found with username or email: " + usernameOrEmail));
+                        "User not found with username or email: " + usernameOrEmail)));
     }
     
     public Page<UserDto> getAllUsers(Pageable pageable) {
