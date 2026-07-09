@@ -14,12 +14,21 @@ spring:
       location: ${java.io.tmpdir}
       resolve-lazily: false
   
+  # T1 — production RLS enforcement gate. The RUNTIME datasource must connect as a
+  # dedicated NOSUPERUSER login that is a member of app_rls + app_auth ONLY (never
+  # app_admin — see the separate admin pool). A superuser silently bypasses RLS
+  # regardless of SET LOCAL ROLE, so in prod set:
+  #   SPRING_DATASOURCE_USERNAME=<app_login>   (NOSUPERUSER, in app_rls + app_auth)
+  #   SPRING_DATASOURCE_PASSWORD=<secret>
+  # The default stays 'postgres' only for local dev / Testcontainers, where the
+  # container superuser reaches app_rls via SET LOCAL ROLE (behaviour proven by
+  # RlsNonSuperuserLoginIntegrationTest with a real NOSUPERUSER login).
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vehicle_management}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
-  
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -29,11 +38,20 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     open-in-view: false
-  
+
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # T1 — migrations/DDL run as the schema OWNER, a separate identity from the
+    # NOSUPERUSER runtime datasource above: DDL (CREATE ROLE, ALTER TABLE, policies)
+    # needs privileges the app login must not hold. This split is a DEPLOY-time
+    # concern, set purely via env so tests/local dev (which inject only
+    # spring.datasource.*) keep using the datasource connection for Flyway:
+    #   SPRING_FLYWAY_USER=<owner>  SPRING_FLYWAY_PASSWORD=<secret>
+    # (Spring Boot relaxed-binding maps those to spring.flyway.user/password; when
+    # unset Flyway reuses the primary datasource, so nothing here overrides it.)
+    #
     # Fail-closed platform-admin seed (V42). Unset in prod -> resolves to '' ->
     # no admin is created. Provide a bcrypt hash, never a plaintext password.
     placeholders:

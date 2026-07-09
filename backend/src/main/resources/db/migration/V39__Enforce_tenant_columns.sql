@@ -1,4 +1,4 @@
--- V39 (contract): now that every row is backfilled (V38), enforce NOT NULL, add
+-- V39 (contract): now that every row is backfilled (V37 constant default), enforce NOT NULL, add
 -- the FK to tenant(id), and index tenant_id for the RLS predicate.
 --
 -- The column DEFAULT is NULLIF(current_setting('app.tenant_id', true), '')::uuid: an INSERT
