@@ -18,7 +18,18 @@
         "camera_rtsp": "",
         "panel_type": "entry",
         "device_id": "device_1",
-        "heartbeat_interval": 30
+        "heartbeat_interval": 30,
+        "heartbeat_backoff_max": 300,
+        "queue": {
+            "enabled": true,
+            "dir": "edge_queue",
+            "path": "",
+            "max_events": 5000,
+            "retry_base_seconds": 1.0,
+            "retry_max_seconds": 60.0,
+            "poll_interval_seconds": 5.0,
+            "batch_size": 20
+        }
     },
     "detection": {
         "cooldown": 2.0,

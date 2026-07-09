@@ -157,35 +157,42 @@ class GateClient:
         return True, None
 
     # ---------------------------------------------------------- check vehicle
-    def check_vehicle(self, license_plate, panel_type, gate_id=None, snapshot=None):
-        """POST a detected plate to the backend, with caching + rate limiting.
+    def _build_payload(self, event):
+        """Build the check-vehicle form/JSON body from an event dict.
 
-        When ``snapshot`` (JPEG bytes) is supplied the request is sent as multipart
-        so the backend can store it as evidence and link it to the created log
-        (Phase 4.2); otherwise a plain JSON body is sent as before. The snapshot
-        does not affect the cache key (it has no bearing on the approval result).
-
-        Returns a response dict shaped like the desktop app's:
-        ``{success, message, approved?, cached?, rate_limited?, connection_error?}``.
+        ``eventId`` (client-generated UUID) and ``occurredAt`` (ISO-8601 of the
+        original detection) are always included when present so the backend can
+        deduplicate retries and record the true event time rather than the resend
+        time (Phase 4.3). Both are ignored by backends that don't consume them.
         """
-        self._clean_expired_cache()
-        cache_key = f"{license_plate}_{panel_type}"
+        payload = {"licensePlateNumber": event["license_plate"], "type": event["panel_type"]}
+        if event.get("gate_id"):
+            payload["gateId"] = event["gate_id"]
+        if event.get("event_id"):
+            payload["eventId"] = event["event_id"]
+        if event.get("occurred_at"):
+            payload["occurredAt"] = event["occurred_at"]
+        return payload
 
-        cached = self._get_cached(cache_key)
-        if cached is not None:
-            result = dict(cached)
-            result["cached"] = True
-            return result
+    def send_check_event(self, event):
+        """Deliver one check-vehicle event to the backend once (no cache/rate-limit).
 
-        ok, err = self._check_rate_limit()
-        if not ok:
-            return {"success": False, "message": f"Rate limited ({err})", "rate_limited": True}
+        This is the store-and-forward primitive used by both the live detection
+        path and the retry worker: it makes a single POST attempt and classifies
+        the outcome so the caller can decide whether to keep the event for retry.
 
+        ``event`` is ``{event_id, license_plate, panel_type, gate_id, occurred_at,
+        snapshot}`` (snapshot is optional JPEG bytes). Returns
+        ``{delivered, retriable, status, response}`` where:
+
+        * ``delivered`` — backend accepted the event (HTTP 200); safe to drop.
+        * ``retriable`` — transient failure (network/timeout/5xx/401/403/408/429);
+          keep the event and try again later.
+        * neither — permanent rejection (e.g. 400/404/413); drop and log.
+        """
         url = self.config.get_api_url()
-        payload = {"licensePlateNumber": license_plate, "type": panel_type}
-        if gate_id:
-            payload["gateId"] = gate_id
-
+        payload = self._build_payload(event)
+        snapshot = event.get("snapshot")
         try:
             if snapshot:
                 # Multipart: form fields + the cropped plate JPEG.
@@ -199,27 +206,73 @@ class GateClient:
                     url, json=payload, headers=self._headers(),
                     timeout=self.config.get_api_timeout(), proxies=self._proxies(url),
                 )
-            self._request_times.append(time.time())
-
-            if resp.status_code == 200:
-                try:
-                    body = resp.json()
-                    response = {
-                        "success": True,
-                        "message": body.get("message", "OK"),
-                        "approved": body.get("approved", False),
-                        "licensePlateNumber": body.get("licensePlateNumber", license_plate),
-                        "type": body.get("type", panel_type),
-                    }
-                except ValueError:
-                    response = {"success": True, "message": "OK"}
-            else:
-                response = {"success": False,
-                            "message": f"API error {resp.status_code}: {resp.text[:200]}"}
-            self._cache_response(cache_key, response)
-            return response
         except requests.exceptions.RequestException as exc:
-            error = {"success": False, "message": f"Network error: {exc}", "connection_error": True}
-            self._request_times.append(time.time())
-            self._cache_response(cache_key, error)
-            return error
+            return {
+                "delivered": False, "retriable": True, "status": None,
+                "response": {"success": False, "message": f"Network error: {exc}",
+                             "connection_error": True},
+            }
+
+        if resp.status_code == 200:
+            try:
+                body = resp.json()
+                response = {
+                    "success": True,
+                    "message": body.get("message", "OK"),
+                    "approved": body.get("approved", False),
+                    "licensePlateNumber": body.get("licensePlateNumber", event["license_plate"]),
+                    "type": body.get("type", event["panel_type"]),
+                }
+            except ValueError:
+                response = {"success": True, "message": "OK"}
+            return {"delivered": True, "retriable": False, "status": 200, "response": response}
+
+        # Non-200: 401/403 (auth may be fixed), 408/429 (throttle/timeout) and any
+        # 5xx are transient; other 4xx (bad request, too large, not found) are not.
+        retriable = resp.status_code in (401, 403, 408, 429) or resp.status_code >= 500
+        response = {"success": False,
+                    "message": f"API error {resp.status_code}: {resp.text[:200]}"}
+        return {"delivered": False, "retriable": retriable, "status": resp.status_code,
+                "response": response}
+
+    def check_vehicle(self, license_plate, panel_type, gate_id=None, snapshot=None,
+                      event_id=None, occurred_at=None):
+        """POST a detected plate to the backend, with caching + rate limiting.
+
+        Thin wrapper over :meth:`send_check_event` that keeps the desktop app's
+        response cache and per-minute rate limiter around the happy path. When
+        ``snapshot`` (JPEG bytes) is supplied the request is sent as multipart so
+        the backend can store it as evidence (Phase 4.2); otherwise plain JSON.
+        ``event_id``/``occurred_at`` propagate the Phase 4.3 idempotency fields.
+
+        Returns a response dict shaped like the desktop app's, augmented with
+        ``delivered``/``retriable`` flags:
+        ``{success, message, approved?, cached?, rate_limited?, connection_error?,
+        delivered?, retriable?}``.
+        """
+        self._clean_expired_cache()
+        cache_key = f"{license_plate}_{panel_type}"
+
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            result = dict(cached)
+            result["cached"] = True
+            return result
+
+        ok, err = self._check_rate_limit()
+        if not ok:
+            return {"success": False, "message": f"Rate limited ({err})",
+                    "rate_limited": True, "delivered": False, "retriable": True}
+
+        event = {
+            "event_id": event_id, "license_plate": license_plate, "panel_type": panel_type,
+            "gate_id": gate_id, "occurred_at": occurred_at, "snapshot": snapshot,
+        }
+        result = self.send_check_event(event)
+        self._request_times.append(time.time())
+
+        response = dict(result["response"])
+        response["delivered"] = result["delivered"]
+        response["retriable"] = result["retriable"]
+        self._cache_response(cache_key, response)
+        return response

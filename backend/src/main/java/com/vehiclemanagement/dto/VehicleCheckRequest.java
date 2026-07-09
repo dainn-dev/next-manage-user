@@ -25,6 +25,19 @@ public class VehicleCheckRequest {
             example = "b3f1a2c4-5d6e-7f80-9a0b-1c2d3e4f5061")
     private UUID gateId;
 
+    @Schema(description = "Optional client-generated idempotency key (UUID) for the detection "
+            + "event. The edge sends the same eventId when it retries a store-and-forward event, "
+            + "so the backend can return the original result instead of processing it twice "
+            + "(Phase 4.3). Omit for one-shot callers.",
+            example = "d1f9c2a0-6b3e-4c8a-9f21-0a1b2c3d4e5f")
+    private String eventId;
+
+    @Schema(description = "Optional ISO-8601 timestamp of when the detection actually occurred at "
+            + "the edge. Sent so a delayed store-and-forward retry reflects the real event time "
+            + "rather than the resend time. Currently informational.",
+            example = "2026-07-09T10:20:30.123456+00:00")
+    private String occurredAt;
+
     // Constructors
     public VehicleCheckRequest() {}
 
@@ -62,5 +75,21 @@ public class VehicleCheckRequest {
 
     public void setGateId(UUID gateId) {
         this.gateId = gateId;
+    }
+
+    public String getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
+    }
+
+    public String getOccurredAt() {
+        return occurredAt;
+    }
+
+    public void setOccurredAt(String occurredAt) {
+        this.occurredAt = occurredAt;
     }
 }

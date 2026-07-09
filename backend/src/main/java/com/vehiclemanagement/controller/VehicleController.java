@@ -6,6 +6,7 @@ import com.vehiclemanagement.dto.VehicleCheckRequest;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleImportResult;
 import com.vehiclemanagement.entity.Vehicle;
+import com.vehiclemanagement.service.GateEventDeduplicator;
 import com.vehiclemanagement.service.VehicleExportService;
 import com.vehiclemanagement.service.VehicleImportService;
 import com.vehiclemanagement.service.VehicleService;
@@ -43,6 +44,9 @@ public class VehicleController {
 
     @Autowired
     private VehicleExportService vehicleExportService;
+
+    @Autowired
+    private GateEventDeduplicator gateEventDeduplicator;
 
     @GetMapping
     @Operation(summary = "Get all vehicles", description = "Retrieve all vehicles with optional pagination and sorting")
@@ -224,9 +228,17 @@ public class VehicleController {
     @Operation(summary = "Check vehicle access", description = "Check if a vehicle with the given license plate is approved for access and update its status. Mutates vehicle state (approved->entered->exited), creates a VehicleLog and pushes a WebSocket notification. Pass an optional gateId to tag the log with the originating gate and fan the WebSocket event out to the per-gate topic /topic/gate/{gateId}/check in addition to /topic/vehicle-check. Requires the X-Gate-Key header for applications calling from the parking gate.")
     @SecurityRequirement(name = "X-Gate-Key")
     public ResponseEntity<VehicleCheckResponse> checkVehiclePost(@Valid @RequestBody VehicleCheckRequest request) {
+        // Idempotency (Phase 4.3): a store-and-forward retry carries the same
+        // eventId — return the original result instead of mutating state twice.
+        String eventId = request.getEventId();
+        var cached = gateEventDeduplicator.cachedResponse(eventId);
+        if (cached.isPresent()) {
+            return ResponseEntity.ok(cached.get());
+        }
         try {
             VehicleCheckResponse response = vehicleService.checkVehicleAccess(
                     request.getLicensePlateNumber(), request.getType(), request.getGateId());
+            gateEventDeduplicator.record(eventId, response);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             VehicleCheckResponse response = new VehicleCheckResponse(
@@ -251,10 +263,18 @@ public class VehicleController {
             @Parameter(description = "Optional id of the gate the request originated from")
             @RequestParam(value = "gateId", required = false) UUID gateId,
             @Parameter(description = "Optional cropped license-plate JPEG captured at the gate")
-            @RequestParam(value = "snapshot", required = false) MultipartFile snapshot) {
+            @RequestParam(value = "snapshot", required = false) MultipartFile snapshot,
+            @Parameter(description = "Optional client-generated idempotency key (UUID) for the event")
+            @RequestParam(value = "eventId", required = false) String eventId) {
+        // Idempotency (Phase 4.3): dedupe store-and-forward retries by eventId.
+        var cached = gateEventDeduplicator.cachedResponse(eventId);
+        if (cached.isPresent()) {
+            return ResponseEntity.ok(cached.get());
+        }
         try {
             VehicleCheckResponse response = vehicleService.checkVehicleAccess(
                     licensePlateNumber, type, gateId, snapshot);
+            gateEventDeduplicator.record(eventId, response);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             VehicleCheckResponse response = new VehicleCheckResponse(

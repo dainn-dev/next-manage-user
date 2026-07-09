@@ -34,9 +34,20 @@ class ConfigManager:
                 "panel_type": "entry",
                 "device_id": "device_1",
                 "heartbeat_interval": 30,
+                "heartbeat_backoff_max": 300,
                 "send_snapshot": True,
                 "snapshot_max_width": 640,
-                "snapshot_jpeg_quality": 80
+                "snapshot_jpeg_quality": 80,
+                "queue": {
+                    "enabled": True,
+                    "dir": "edge_queue",
+                    "path": "",
+                    "max_events": 5000,
+                    "retry_base_seconds": 1.0,
+                    "retry_max_seconds": 60.0,
+                    "poll_interval_seconds": 5.0,
+                    "batch_size": 20
+                }
             },
             "detection": {
                 "cooldown": 5,
@@ -226,6 +237,54 @@ class ConfigManager:
     def get_gate_heartbeat_interval(self) -> int:
         """Get the heartbeat interval in seconds."""
         return max(5, int(self.get('gate.heartbeat_interval', 30)))
+
+    def get_heartbeat_backoff_max(self) -> int:
+        """Max heartbeat interval (seconds) while the backend is unreachable (Phase 4.3)."""
+        return max(self.get_gate_heartbeat_interval(),
+                   int(self.get('gate.heartbeat_backoff_max', 300)))
+
+    # ---- Store-and-forward queue (Phase 4.3) ----
+
+    def get_queue_enabled(self) -> bool:
+        """Whether unsent check-vehicle events are persisted and retried."""
+        return bool(self.get('gate.queue.enabled', True))
+
+    def get_queue_dir(self) -> str:
+        """Directory that holds the store-and-forward queue file."""
+        return self.get('gate.queue.dir', 'edge_queue') or 'edge_queue'
+
+    def get_queue_path(self) -> str:
+        """Full path to the queue SQLite file.
+
+        Uses ``gate.queue.path`` verbatim when set, otherwise ``<queue.dir>/events.sqlite3``.
+        Run one edge process per gate, each with its own config (and thus its own
+        queue dir/path), so gates never share a queue file.
+        """
+        explicit = self.get('gate.queue.path', '') or ''
+        if explicit:
+            return explicit
+        return os.path.join(self.get_queue_dir(), 'events.sqlite3')
+
+    def get_queue_max_events(self) -> int:
+        """Max events retained in the queue; oldest are dropped past this cap."""
+        return max(1, int(self.get('gate.queue.max_events', 5000)))
+
+    def get_queue_retry_base_seconds(self) -> float:
+        """Base delay (seconds) for the first retry of a queued event."""
+        return max(0.1, float(self.get('gate.queue.retry_base_seconds', 1.0)))
+
+    def get_queue_retry_max_seconds(self) -> float:
+        """Cap (seconds) on the exponential retry backoff for a queued event."""
+        return max(self.get_queue_retry_base_seconds(),
+                   float(self.get('gate.queue.retry_max_seconds', 60.0)))
+
+    def get_queue_poll_interval(self) -> float:
+        """How often (seconds) the retry worker scans the queue for due events."""
+        return max(0.5, float(self.get('gate.queue.poll_interval_seconds', 5.0)))
+
+    def get_queue_batch_size(self) -> int:
+        """Max queued events the retry worker attempts to flush per poll."""
+        return max(1, int(self.get('gate.queue.batch_size', 20)))
 
     def get_gate_send_snapshot(self) -> bool:
         """Whether the edge attaches the cropped plate image to check-vehicle (Phase 4.2)."""

@@ -16,6 +16,7 @@ desktop UI into a thin client is Phase 3.4.
 | `edge_service.py` | Orchestration: register, heartbeat thread, RTSP loop, dispatch |
 | `detection_core.py` | Headless YOLOv5 detect + OCR + confirmation (min-duration, cooldown) |
 | `gate_client.py` | HTTP client: register / heartbeat / check-vehicle (+ cache & rate limit) |
+| `event_queue.py` | Durable store-and-forward SQLite queue for undelivered events (Phase 4.3) |
 | `requirements.txt` | Slim dependency set (no PyQt/TTS) |
 
 ## Configuration (`config.json`)
@@ -57,6 +58,56 @@ python run_edge.py --config config.gate2.json
 Logs go to stdout, so it drops straight into a service manager
 (systemd / NSSM / Docker). Run one process per gate; point each at its own
 config with a distinct `gate.name` and `gate.device_id`.
+
+## Edge resilience (Phase 4.3)
+
+When the backend is unreachable a confirmed detection is **never dropped** — it
+is written to a durable, per-gate SQLite queue (`gate.queue`) and re-sent by a
+background worker with exponential backoff until it lands.
+
+- **Store-and-forward** — `check_vehicle` failures (timeout / network / 5xx /
+  401/403/408/429) are persisted to `<gate.queue.dir>/events.sqlite3` (or an
+  explicit `gate.queue.path`), cropped-plate JPEG included. The queue survives an
+  edge restart.
+- **Retry worker** — a daemon thread scans the queue every
+  `poll_interval_seconds`, re-sends each due event with backoff
+  (`retry_base_seconds` → ×2 → … → `retry_max_seconds`), and deletes it on the
+  first `200`. Permanent rejections (e.g. `400`/`404`) are dropped and logged.
+- **Original event time** — every event carries `occurredAt` (ISO-8601 of the
+  detection) so a delayed resend is recorded at the moment it happened.
+- **Idempotency** — every event carries a client `eventId` (UUID). The backend
+  (`GateEventDeduplicator`) returns the original result for a repeated `eventId`
+  instead of creating a duplicate `VehicleLog`, so a lost-ack retry is safe.
+- **Bounded** — the queue keeps at most `max_events`; the oldest are dropped
+  (with a log line) once the cap is reached.
+- **Heartbeat backoff** — heartbeats back off (up to `heartbeat_backoff_max`)
+  while the backend is down instead of spamming every `heartbeat_interval`, and
+  reset on recovery.
+
+Config (`gate` section):
+
+```json
+"gate": {
+    "heartbeat_interval": 30,
+    "heartbeat_backoff_max": 300,
+    "queue": {
+        "enabled": true,
+        "dir": "edge_queue",
+        "path": "",
+        "max_events": 5000,
+        "retry_base_seconds": 1.0,
+        "retry_max_seconds": 60.0,
+        "poll_interval_seconds": 5.0,
+        "batch_size": 20
+    }
+}
+```
+
+Offline test (no camera / models / backend):
+
+```bash
+python windows/edge/test_edge_resilience.py
+```
 
 ## Behaviour carried over from the desktop app
 

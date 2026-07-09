@@ -13,6 +13,8 @@ Runs until interrupted (Ctrl+C / SIGTERM). No Qt, no windows.
 import signal
 import threading
 import time
+import uuid
+from datetime import datetime, timezone
 
 import cv2
 import numpy as np
@@ -20,7 +22,13 @@ import numpy as np
 from config_manager import config_manager
 
 from .detection_core import DetectionCore
+from .event_queue import EventQueue
 from .gate_client import GateClient
+
+
+def _utcnow_iso():
+    """ISO-8601 UTC timestamp (e.g. ``2026-07-09T10:20:30.123456+00:00``)."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 class EdgeService:
@@ -34,6 +42,20 @@ class EdgeService:
         self.detector = None
         self._stop = threading.Event()
         self._heartbeat_thread = None
+        self._queue_thread = None
+
+        # Store-and-forward queue: confirmed events that could not be delivered
+        # are persisted here and re-sent by the retry worker (Phase 4.3).
+        self.queue = None
+        if self.config.get_queue_enabled():
+            try:
+                self.queue = EventQueue(self.config.get_queue_path(),
+                                        max_events=self.config.get_queue_max_events())
+            except Exception as exc:
+                print(f"WARNING: could not open store-and-forward queue "
+                      f"({self.config.get_queue_path()}): {exc}. Events will be "
+                      f"dropped if the backend is unreachable.")
+                self.queue = None
 
         self.target_fps = self.config.get_rtsp_target_fps()
         self.frame_delay = max(0.001, 1.0 / self.target_fps)
@@ -64,21 +86,95 @@ class EdgeService:
         return gate_id
 
     def _heartbeat_loop(self):
-        interval = self.config.get_gate_heartbeat_interval()
+        """Heartbeat with exponential backoff while the backend is unreachable.
+
+        On success the interval resets to the configured base; on failure it
+        doubles (capped) so a downed backend is probed with increasing spacing
+        instead of being spammed every ``heartbeat_interval`` seconds. A single
+        re-registration attempt is made per failed cycle (the gate may have been
+        deleted server-side), and it inherits the same backoff spacing.
+        """
+        base = self.config.get_gate_heartbeat_interval()
+        max_backoff = self.config.get_heartbeat_backoff_max()
+        interval = base
         while not self._stop.wait(interval):
             if not self.gate_id:
+                interval = base
                 continue
             if self.client.heartbeat(self.gate_id):
-                print(f"Heartbeat OK for gate {self.gate_id}")
+                if interval != base:
+                    print(f"Heartbeat recovered for gate {self.gate_id}; "
+                          f"interval back to {base}s")
+                interval = base
             else:
-                # Gate may have been deleted server-side; try to re-register.
-                print("Heartbeat failed; attempting re-registration ...")
+                interval = min(max_backoff, max(base, int(interval * 2)))
+                print(f"Heartbeat failed; re-registering and backing off to {interval}s ...")
                 self.register()
 
     def start_heartbeat(self):
         self._heartbeat_thread = threading.Thread(
             target=self._heartbeat_loop, name="gate-heartbeat", daemon=True)
         self._heartbeat_thread.start()
+
+    # ----------------------------------------------------- store-and-forward
+    def _backoff_delay(self, attempts):
+        """Exponential backoff for a queued event: base * 2^(attempts-1), capped."""
+        base = self.config.get_queue_retry_base_seconds()
+        cap = self.config.get_queue_retry_max_seconds()
+        return min(cap, base * (2 ** max(0, attempts - 1)))
+
+    def _flush_queue_once(self):
+        """Try to deliver every currently-due queued event.
+
+        Delivered events are removed; permanently-rejected ones are dropped with
+        a log line; transient failures are rescheduled with backoff. If the
+        backend is still unreachable we stop early so we don't march the whole
+        backlog through guaranteed-to-fail network calls in one pass.
+        """
+        if self.queue is None:
+            return
+        due = self.queue.due_events(limit=self.config.get_queue_batch_size())
+        if not due:
+            return
+        now = time.time()
+        for item in due:
+            if self._stop.is_set():
+                return
+            event = item["event"]
+            result = self.client.send_check_event(event)
+            if result["delivered"]:
+                self.queue.delete(item["id"])
+                resp = result["response"]
+                print(f"  [FLUSHED] {event['license_plate']} ({event['panel_type']}) "
+                      f"approved={resp.get('approved')} — queue depth={self.queue.count()}")
+            elif not result["retriable"]:
+                self.queue.delete(item["id"])
+                print(f"  [DROP] permanent failure for {event['license_plate']}: "
+                      f"{result['response'].get('message')}")
+            else:
+                attempts = item["attempts"] + 1
+                self.queue.mark_attempt(item["id"], now + self._backoff_delay(attempts))
+                # Backend still down — retry the rest on the next poll.
+                if result["response"].get("connection_error"):
+                    break
+
+    def _queue_worker(self):
+        poll = self.config.get_queue_poll_interval()
+        while not self._stop.wait(poll):
+            try:
+                self._flush_queue_once()
+            except Exception as exc:  # never let the worker die on a transient error
+                print(f"WARNING: queue worker error: {exc}")
+
+    def start_queue_worker(self):
+        if self.queue is None:
+            return
+        depth = self.queue.count()
+        if depth:
+            print(f"Store-and-forward queue has {depth} pending event(s) to flush.")
+        self._queue_thread = threading.Thread(
+            target=self._queue_worker, name="gate-queue", daemon=True)
+        self._queue_thread.start()
 
     # -------------------------------------------------------------- frames
     def _validate_frame(self, frame):
@@ -130,10 +226,32 @@ class EdgeService:
             snapshot = None
             if send_snapshot and self.detector is not None:
                 snapshot = self._encode_snapshot(self.detector.get_last_crop(lp))
-            resp = self.client.check_vehicle(lp, self.panel_type, self.gate_id, snapshot=snapshot)
-            tag = "OK" if resp.get("success") else "FAIL"
+
+            # Each confirmed detection gets a stable client event id + true event
+            # time so a store-and-forward retry is deduplicated by the backend and
+            # logged at the moment it happened, not when it was finally delivered.
+            event = {
+                "event_id": str(uuid.uuid4()),
+                "license_plate": lp,
+                "panel_type": self.panel_type,
+                "gate_id": self.gate_id,
+                "occurred_at": _utcnow_iso(),
+                "snapshot": snapshot,
+            }
             snap_tag = " +snapshot" if snapshot else ""
-            print(f"  [{tag}]{snap_tag} {resp.get('message')} approved={resp.get('approved')}")
+            result = self.client.send_check_event(event)
+            if result["delivered"]:
+                resp = result["response"]
+                print(f"  [OK]{snap_tag} {resp.get('message')} approved={resp.get('approved')}")
+            elif result["retriable"] and self.queue is not None:
+                self.queue.enqueue(event)
+                print(f"  [QUEUED]{snap_tag} backend unreachable "
+                      f"({result['response'].get('message')}); stored for retry "
+                      f"— queue depth={self.queue.count()}")
+            else:
+                # No queue configured, or a permanent rejection: nothing to retry.
+                print(f"  [FAIL]{snap_tag} {result['response'].get('message')} "
+                      f"(retriable={result['retriable']}, queued=no)")
 
     # ----------------------------------------------------------------- run
     def run(self):
@@ -150,6 +268,7 @@ class EdgeService:
             return 1
 
         self.start_heartbeat()
+        self.start_queue_worker()
 
         rtsp_url = self.config.build_rtsp_url(self.device_id)
         if not rtsp_url:
