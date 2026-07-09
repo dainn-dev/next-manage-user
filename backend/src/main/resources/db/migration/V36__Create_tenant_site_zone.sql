@@ -1,15 +1,16 @@
 -- V36: Multi-tenant foundation (Deploy 1) — root tenancy tables.
 --
 -- Creates the tenant -> site -> zone hierarchy and seeds a DEFAULT tenant + site
--- that every pre-multi-tenant row is backfilled under (V37 adds the columns, V38
--- backfills, V39 enforces NOT NULL + FK). No Row-Level Security is enabled here:
--- RLS is forced only in Deploy 2 (V40) *after* the TenantContextFilter +
--- transaction-local set_config('app.tenant_id', …) propagation ships and P3
--- (existing single-tenant flows unchanged) is verified. See DAI-261 tech spec §3.
+-- that every pre-multi-tenant row is backfilled under (V37 adds the columns and
+-- backfills existing rows via a constant column DEFAULT, V39 enforces NOT NULL +
+-- FK). No Row-Level Security is enabled here: RLS is forced only in Deploy 2 (V43)
+-- *after* the TenantContextFilter + transaction-local set_config('app.tenant_id', …)
+-- propagation ships and P3 (existing single-tenant flows unchanged) is verified.
+-- See DAI-261 tech spec §3.
 --
 -- The seeded UUIDs are fixed and well-known; they MUST match
 -- com.vehiclemanagement.config.TenantContext.DEFAULT_TENANT_ID and the
--- DEFAULT_SITE id used by the backfill in V38.
+-- DEFAULT_SITE id used by the V37 backfill.
 
 -- tenant: the tenancy root. It has no tenant_id column (it *is* the tenant);
 -- the Deploy 2 RLS policy keys on id = current_setting('app.tenant_id'). The

@@ -25,7 +25,7 @@ public final class TenantContext {
 
     /**
      * Fixed, well-known tenant every pre-multi-tenant row is migrated under
-     * (seeded by Flyway V36, backfilled in V38). Must stay in sync with that
+     * (seeded by Flyway V36, backfilled via the V37 column default). Must stay in sync with that
      * migration's seed UUID.
      */
     public static final UUID DEFAULT_TENANT_ID =
