@@ -40,3 +40,4 @@ edge/license_plates.json
 edge/temp_speech.mp3
 .venv_build/
 .opencode/*
+.claude/*

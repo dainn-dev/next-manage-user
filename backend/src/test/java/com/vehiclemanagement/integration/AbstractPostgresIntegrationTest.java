@@ -53,6 +53,9 @@ public abstract class AbstractPostgresIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("app.admin-datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("app.admin-datasource.username", POSTGRES::getUsername);
+        registry.add("app.admin-datasource.password", POSTGRES::getPassword);
         // jwt.secret has no default in application.yml; HS256 needs >= 32 bytes.
         registry.add("jwt.secret", () -> "integration-test-jwt-secret-please-change-0123456789");
         // Force the gate filter into enforcing mode so the missing/invalid-key 401
