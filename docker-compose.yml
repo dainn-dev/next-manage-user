@@ -56,8 +56,8 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
       platforms:
         - linux/amd64
     container_name: vehicle-management-frontend

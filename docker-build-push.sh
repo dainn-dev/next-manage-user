@@ -76,10 +76,10 @@ build_frontend() {
     echo "Building $DOCKER_USERNAME/$FRONTEND_IMAGE:$VERSION"
     
     docker build \
-        -f Dockerfile.frontend \
+        -f frontend/Dockerfile \
         -t "$DOCKER_USERNAME/$FRONTEND_IMAGE:$VERSION" \
         -t "$DOCKER_USERNAME/$FRONTEND_IMAGE:latest" \
-        .
+        frontend
     
     print_success "Frontend image built successfully"
 }
