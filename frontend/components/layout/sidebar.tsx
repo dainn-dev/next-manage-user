@@ -3,7 +3,26 @@
 import React, { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
-import { ChevronDown, ChevronRight, LogOut } from "lucide-react"
+import {
+  LayoutDashboard,
+  Activity,
+  ArrowLeftRight,
+  DoorOpen,
+  ListTree,
+  Map as MapIcon,
+  Camera,
+  LayoutGrid,
+  Users,
+  Building2,
+  Briefcase,
+  Car,
+  FileCheck,
+  BarChart3,
+  UserCog,
+  ChevronDown,
+  LogOut,
+  type LucideIcon,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -18,67 +37,101 @@ import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { UserRole } from "@/lib/types"
 import { positionApi, type PositionApiResponse } from "@/lib/api/position-api"
+import { cn } from "@/lib/utils"
 
 interface NavigationItem {
   key: string
   label: string
-  icon?: string
-  children?: NavigationItem[]
+  icon?: LucideIcon
+  /** Roles allowed to see this item. Undefined = visible to all roles. */
+  roles?: UserRole[]
+  /** Greenfield feature with no page yet — rendered disabled with a badge. */
+  comingSoon?: boolean
 }
 
-const navigationItems: NavigationItem[] = [
+interface NavigationGroup {
+  label?: string
+  items: NavigationItem[]
+}
+
+// ParkVision information architecture. Existing routes keep working; greenfield
+// parking capabilities (Sites/Cameras/Maps/Slots/Events) appear as disabled
+// "coming soon" entries so the target IA is visible without dead links.
+const navigationGroups: NavigationGroup[] = [
   {
-    key: "/employees",
-    label: "Quân nhân",
-    icon: "👥"
-  },
-  {
-    key: "/users",
-    label: "Quản lý người dùng",
-    icon: "👤"
-  },
-  {
-    key: "/departments",
-    label: "Cơ quan, đơn vị",
-    icon: "🏢",
-  },
-  {
-    key: "/positions",
-    label: "Chức vụ",
-    icon: "💼",
-  },
-  {
-    key: "/vehicles",
-    label: "Quản lý xe",
-    icon: "🚗",
-    children: [
+    items: [
       {
-        key: "/vehicles",
-        label: "Danh sách xe"
+        key: "/dashboard",
+        label: "Tổng quan",
+        icon: LayoutDashboard,
+        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER],
       },
+    ],
+  },
+  {
+    label: "Vận hành",
+    items: [
       {
         key: "/vehicles/monitoring",
-        label: "Giám sát"
+        label: "Giám sát",
+        icon: Activity,
+        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER],
       },
       {
         key: "/vehicles/entry-exit",
-        label: "Thông tin ra vào"
+        label: "Thông tin ra/vào",
+        icon: ArrowLeftRight,
+        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER],
       },
       {
-        key: "/vehicles/requests",
-        label: "Yêu cầu ra vào"
-      }
-    ]
+        key: "/gate",
+        label: "Cổng kiosk",
+        icon: DoorOpen,
+        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER],
+      },
+      {
+        key: "/events",
+        label: "Sự kiện",
+        icon: ListTree,
+        comingSoon: true,
+        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER],
+      },
+    ],
   },
   {
-    key: "/gate",
-    label: "Cổng kiosk",
-    icon: "🚪",
+    label: "Bãi đỗ xe",
+    items: [
+      { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, comingSoon: true, roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER] },
+      { key: "/parking/cameras", label: "Camera", icon: Camera, comingSoon: true, roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER] },
+      { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, comingSoon: true, roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER] },
+    ],
   },
   {
-    key: "/statistics",
-    label: "Thống kê",
-    icon: "📊",
+    label: "Nhân sự",
+    items: [
+      { key: "/employees", label: "Quân nhân", icon: Users },
+      { key: "/departments", label: "Cơ quan, đơn vị", icon: Building2 },
+      { key: "/positions", label: "Chức vụ", icon: Briefcase },
+    ],
+  },
+  {
+    label: "Phương tiện",
+    items: [
+      { key: "/vehicles", label: "Danh sách xe", icon: Car },
+      { key: "/vehicles/requests", label: "Yêu cầu ra/vào", icon: FileCheck },
+    ],
+  },
+  {
+    label: "Phân tích",
+    items: [
+      { key: "/statistics", label: "Thống kê", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Quản trị",
+    items: [
+      { key: "/users", label: "Quản lý người dùng", icon: UserCog, roles: [UserRole.ADMIN] },
+    ],
   },
 ]
 
@@ -111,14 +164,15 @@ export function Sidebar() {
     loadPositions()
   }, [toast])
 
-  // Filter navigation items based on user role
-  const filteredNavigationItems = navigationItems.filter(item => {
-    // Show users menu only for admin users
-    if (item.key === "/users") {
-      return user?.role === UserRole.ADMIN
-    }
-    return true
-  })
+  // Filter items by role; drop empty groups.
+  const filteredGroups = navigationGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.roles || (user?.role ? item.roles.includes(user.role) : false)
+      ),
+    }))
+    .filter((group) => group.items.length > 0)
 
   const handleMenuClick = (key: string) => {
     router.push(key)
@@ -160,11 +214,11 @@ export function Sidebar() {
     const slug = position.name
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // Remove accents
+      .replace(/[̀-ͯ]/g, "") // Remove combining diacritical marks (accents)
       .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
       .replace(/\s+/g, "-") // Replace spaces with hyphens
       .trim()
-    
+
     return `${parentPath}/${slug}`
   }
 
@@ -227,6 +281,91 @@ export function Sidebar() {
     })
   }
 
+  const navButtonClass = (isActive: boolean) =>
+    cn(
+      "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium",
+      isActive
+        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+        : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
+    )
+
+  const renderNavItem = (item: NavigationItem) => {
+    const Icon = item.icon
+    const isActive = pathname === item.key
+
+    // Positions: API-driven hierarchical dropdown (expanded mode only)
+    if (item.key === "/positions" && !collapsed) {
+      return (
+        <DropdownMenu key={item.key}>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                navButtonClass(pathname.startsWith(item.key)),
+                "cursor-pointer"
+              )}
+            >
+              {Icon && <Icon className="h-4 w-4 shrink-0" />}
+              <span className="flex-1">{item.label}</span>
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {loadingPositions ? (
+              <DropdownMenuItem disabled>
+                <span>Đang tải...</span>
+              </DropdownMenuItem>
+            ) : positions.length > 0 ? (
+              renderPositionMenuItems(positions)
+            ) : (
+              <>
+                <DropdownMenuItem onClick={() => handleMenuClick("/positions")}>
+                  <span>Tất cả chức vụ</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled>
+                  <span className="text-xs text-muted-foreground">Không thể tải menu phân cấp</span>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    }
+
+    // Coming-soon (greenfield parking features): disabled, no navigation
+    if (item.comingSoon) {
+      return (
+        <button
+          key={item.key}
+          disabled
+          title={`${item.label} — sắp ra mắt`}
+          aria-label={`${item.label} (sắp ra mắt)`}
+          className="w-full cursor-not-allowed text-left px-3 py-2 rounded-md flex items-center gap-3 text-sm font-medium text-muted-foreground/70 opacity-70"
+        >
+          {Icon && <Icon className="h-4 w-4 shrink-0" />}
+          {!collapsed && <span className="flex-1">{item.label}</span>}
+          {!collapsed && (
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Sắp ra mắt
+            </span>
+          )}
+        </button>
+      )
+    }
+
+    // Regular nav item
+    return (
+      <button
+        key={item.key}
+        onClick={() => handleMenuClick(item.key)}
+        title={item.label}
+        className={navButtonClass(isActive)}
+      >
+        {Icon && <Icon className="h-4 w-4 shrink-0" />}
+        {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+      </button>
+    )
+  }
+
   return (
     <div
       className={`bg-sidebar border-r border-sidebar-border h-screen transition-all duration-300 ${collapsed ? "w-16" : "w-64"} flex flex-col shadow-sm`}
@@ -236,7 +375,7 @@ export function Sidebar() {
           <div className={`${collapsed ? "w-10 h-10" : "w-12 h-12"} rounded-xl overflow-hidden flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}>
             <Image
               src="/logo.jpg"
-              alt="CVS Entry & Exit Management"
+              alt="ParkVision Smart Parking"
               width={collapsed ? 40 : 48}
               height={collapsed ? 40 : 48}
               className="object-contain p-1"
@@ -245,8 +384,8 @@ export function Sidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <h4 className="font-bold text-sidebar-foreground text-lg tracking-tight">CVS</h4>
-              <p className="text-xs text-muted-foreground font-medium">Entry & Exit Management</p>
+              <h4 className="font-bold text-sidebar-foreground text-lg tracking-tight">ParkVision</h4>
+              <p className="text-xs text-muted-foreground font-medium">Smart Parking</p>
             </div>
           )}
         </div>
@@ -254,6 +393,7 @@ export function Sidebar() {
           onClick={() => setCollapsed(!collapsed)}
           className="mt-4 p-2 hover:bg-muted rounded-lg transition-all duration-200 text-muted-foreground hover:text-sidebar-foreground hover:scale-105 active:scale-95"
           title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+          aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
         >
           <div className="flex items-center justify-center w-5 h-5">
             {collapsed ? (
@@ -262,88 +402,22 @@ export function Sidebar() {
               </svg>
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7 -7 7 -7" />
               </svg>
             )}
           </div>
         </button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1">
-        {filteredNavigationItems.map((item) => (
-          <div key={item.key}>
-            {/* Special handling for Chức vụ (Positions) with dropdown */}
-            {item.key === "/positions" && !collapsed ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium ${
-                      pathname.startsWith(item.key)
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
-                    }`}
-                  >
-                    <span className="text-base">{item.icon}</span>
-                    <span className="flex-1">{item.label}</span>
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  {loadingPositions ? (
-                    <DropdownMenuItem disabled>
-                      <span>Đang tải...</span>
-                    </DropdownMenuItem>
-                  ) : positions.length > 0 ? (
-                    renderPositionMenuItems(positions)
-                  ) : (
-                    <>
-                      <DropdownMenuItem onClick={() => handleMenuClick("/positions")}>
-                        <span>📋 Tất cả chức vụ</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled>
-                        <span className="text-xs text-muted-foreground">Không thể tải menu phân cấp</span>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              /* Regular menu items */
-              <>
-                <button
-                  onClick={() => handleMenuClick(item.key)}
-                  className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium ${
-                    pathname === item.key
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <span className="text-base">{item.icon}</span>
-                  {!collapsed && <span>{item.label}</span>}
-                  {item.children && !collapsed && (
-                    <ChevronRight className="h-4 w-4 ml-auto" />
-                  )}
-                </button>
-                {/* Regular children for non-positions items */}
-                {item.children && !collapsed && pathname.startsWith(item.key) && (
-                  <div className="ml-6 mt-1 space-y-1">
-                    {item.children.map((child) => (
-                      <button
-                        key={child.key}
-                        onClick={() => handleMenuClick(child.key)}
-                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors duration-200 ${
-                          pathname === child.key || pathname.startsWith(child.key)
-                            ? "bg-sidebar-accent/10 text-sidebar-accent font-medium"
-                            : "text-muted-foreground hover:bg-muted hover:text-sidebar-foreground"
-                        }`}
-                      >
-                        {child.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
+      <nav className="flex-1 overflow-y-auto p-4 space-y-4">
+        {filteredGroups.map((group) => (
+          <div key={group.label || "main"} className="space-y-1">
+            {!collapsed && group.label && (
+              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {group.label}
+              </p>
             )}
+            {group.items.map((item) => renderNavItem(item))}
           </div>
         ))}
       </nav>
@@ -356,8 +430,8 @@ export function Sidebar() {
           {!collapsed && (
             <div className="flex-1">
               <span className="text-sm font-medium text-sidebar-foreground">
-                {user?.fullName 
-                  ? user.fullName 
+                {user?.fullName
+                  ? user.fullName
                   : user?.username || "Người dùng"}
               </span>
               <p className="text-xs text-muted-foreground">
@@ -384,6 +458,7 @@ export function Sidebar() {
             onClick={handleLogout}
             className="w-full p-2 text-muted-foreground hover:text-sidebar-foreground hover:bg-muted"
             title="Đăng xuất"
+            aria-label="Đăng xuất"
           >
             <LogOut className="h-4 w-4" />
           </Button>

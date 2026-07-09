@@ -1,18 +1,21 @@
 import type React from "react"
-import { Inter, JetBrains_Mono } from "next/font/google"
+import { Fira_Sans, Fira_Code } from "next/font/google"
 import "./globals.css"
 import { ToasterWrapper } from "@/components/ui/toaster-wrapper"
 import { AuthProvider } from "@/lib/auth-context"
 import { ProtectedLayout } from "@/components/layout/protected-layout"
+import { ThemeProvider } from "@/components/theme-provider"
 
-const inter = Inter({
-  variable: "--font-inter",
+const firaSans = Fira_Sans({
+  variable: "--font-fira-sans",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 })
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
+const firaCode = Fira_Code({
+  variable: "--font-fira-code",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 })
 
 export default function RootLayout({
@@ -21,14 +24,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="vi" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="vi" suppressHydrationWarning className={`${firaSans.variable} ${firaCode.variable}`}>
       <body className="antialiased">
-        <AuthProvider>
-          <ProtectedLayout>
-            {children}
-          </ProtectedLayout>
-        </AuthProvider>
-        <ToasterWrapper />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+          <AuthProvider>
+            <ProtectedLayout>
+              {children}
+            </ProtectedLayout>
+          </AuthProvider>
+          <ToasterWrapper />
+        </ThemeProvider>
       </body>
     </html>
   )
