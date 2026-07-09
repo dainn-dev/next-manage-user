@@ -70,7 +70,7 @@ class VehicleAccessRequestServiceTest {
                 .username("user1")
                 .email("user1@test.com")
                 .password("pw")
-                .role(User.Role.USER)
+                .role(User.Role.MEMBER)
                 .build();
 
         approver = User.builder()
@@ -78,7 +78,7 @@ class VehicleAccessRequestServiceTest {
                 .username("approver1")
                 .email("approver1@test.com")
                 .password("pw")
-                .role(User.Role.APPROVER)
+                .role(User.Role.SITE_MANAGER)
                 .build();
     }
 

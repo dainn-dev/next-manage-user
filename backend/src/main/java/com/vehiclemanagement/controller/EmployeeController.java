@@ -282,7 +282,7 @@ public class EmployeeController {
     @Operation(summary = "Export employees (selectable columns)",
             description = "Export all employees to Excel/CSV. Pass 'fields' (comma-separated column ids) to select "
                     + "columns; omit for all. Format 'excel' (default) or 'csv'.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<byte[]> exportEmployees(
             @Parameter(description = "Column ids to include (comma-separated); omit for all")
             @RequestParam(required = false) List<String> fields,

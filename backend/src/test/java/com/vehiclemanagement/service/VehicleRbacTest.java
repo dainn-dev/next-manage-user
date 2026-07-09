@@ -55,35 +55,35 @@ class VehicleRbacTest {
 
     @Test
     void userRole_enumHasExpectedValues() {
-        // USER/APPROVER/SECURITY_OFFICER/ADMIN + PLATFORM_ADMIN (multi-tenant foundation).
+        // Tenant-aware RBAC role set.
         User.Role[] roles = User.Role.values();
         assertEquals(5, roles.length);
     }
 
     @Test
     void userRole_allExpectedValuesPresent() {
-        assertDoesNotThrow(() -> User.Role.valueOf("ADMIN"));
-        assertDoesNotThrow(() -> User.Role.valueOf("APPROVER"));
-        assertDoesNotThrow(() -> User.Role.valueOf("SECURITY_OFFICER"));
-        assertDoesNotThrow(() -> User.Role.valueOf("USER"));
         assertDoesNotThrow(() -> User.Role.valueOf("PLATFORM_ADMIN"));
+        assertDoesNotThrow(() -> User.Role.valueOf("TENANT_ADMIN"));
+        assertDoesNotThrow(() -> User.Role.valueOf("SITE_MANAGER"));
+        assertDoesNotThrow(() -> User.Role.valueOf("SECURITY_GUARD"));
+        assertDoesNotThrow(() -> User.Role.valueOf("MEMBER"));
     }
 
     // --- canApprove helper ---
 
     @Test
-    void canApprove_adminAndApproverReturnTrue() {
-        User admin = User.builder().role(User.Role.ADMIN).username("admin").email("a@test.com").password("pw").build();
-        User approver = User.builder().role(User.Role.APPROVER).username("approver").email("b@test.com").password("pw").build();
+    void canApprove_adminAndSiteManagerReturnTrue() {
+        User admin = User.builder().role(User.Role.TENANT_ADMIN).username("admin").email("a@test.com").password("pw").build();
+        User siteManager = User.builder().role(User.Role.SITE_MANAGER).username("manager").email("b@test.com").password("pw").build();
 
         assertTrue(admin.canApprove());
-        assertTrue(approver.canApprove());
+        assertTrue(siteManager.canApprove());
     }
 
     @Test
-    void canApprove_userAndSecurityOfficerReturnFalse() {
-        User user = User.builder().role(User.Role.USER).username("user").email("c@test.com").password("pw").build();
-        User secOfficer = User.builder().role(User.Role.SECURITY_OFFICER).username("sec").email("d@test.com").password("pw").build();
+    void canApprove_memberAndSecurityGuardReturnFalse() {
+        User user = User.builder().role(User.Role.MEMBER).username("user").email("c@test.com").password("pw").build();
+        User secOfficer = User.builder().role(User.Role.SECURITY_GUARD).username("sec").email("d@test.com").password("pw").build();
 
         assertFalse(user.canApprove());
         assertFalse(secOfficer.canApprove());
@@ -92,19 +92,19 @@ class VehicleRbacTest {
     // --- canViewAllLogs helper ---
 
     @Test
-    void canViewAllLogs_adminApproverSecurityOfficerReturnTrue() {
-        User admin = User.builder().role(User.Role.ADMIN).username("admin").email("a@test.com").password("pw").build();
-        User approver = User.builder().role(User.Role.APPROVER).username("approver").email("b@test.com").password("pw").build();
-        User secOfficer = User.builder().role(User.Role.SECURITY_OFFICER).username("sec").email("d@test.com").password("pw").build();
+    void canViewAllLogs_adminSiteManagerSecurityGuardReturnTrue() {
+        User admin = User.builder().role(User.Role.TENANT_ADMIN).username("admin").email("a@test.com").password("pw").build();
+        User siteManager = User.builder().role(User.Role.SITE_MANAGER).username("manager").email("b@test.com").password("pw").build();
+        User secOfficer = User.builder().role(User.Role.SECURITY_GUARD).username("sec").email("d@test.com").password("pw").build();
 
         assertTrue(admin.canViewAllLogs());
-        assertTrue(approver.canViewAllLogs());
+        assertTrue(siteManager.canViewAllLogs());
         assertTrue(secOfficer.canViewAllLogs());
     }
 
     @Test
     void canViewAllLogs_userReturnsFalse() {
-        User user = User.builder().role(User.Role.USER).username("user").email("c@test.com").password("pw").build();
+        User user = User.builder().role(User.Role.MEMBER).username("user").email("c@test.com").password("pw").build();
         assertFalse(user.canViewAllLogs());
     }
 

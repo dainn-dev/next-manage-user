@@ -52,7 +52,7 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private Role role = Role.USER;
+    private Role role = Role.MEMBER;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -132,12 +132,11 @@ public class User implements UserDetails {
     
     // Enums
     public enum Role {
-        USER, APPROVER, SECURITY_OFFICER, ADMIN, TENANT_ADMIN,
-        // Cross-tenant platform operator (tenant_id NULL). The full
-        // USER/ADMIN -> MEMBER/TENANT_ADMIN/SITE_MANAGER/SECURITY_GUARD rename is
-        // a separate RBAC pass; PLATFORM_ADMIN is added now for the tenant/RLS
-        // foundation and the platform bootstrap.
-        PLATFORM_ADMIN
+        PLATFORM_ADMIN,
+        TENANT_ADMIN,
+        SITE_MANAGER,
+        SECURITY_GUARD,
+        MEMBER
     }
     
     public enum UserStatus {
@@ -157,14 +156,15 @@ public class User implements UserDetails {
     }
     
     public boolean isAdmin() {
-        return role == Role.ADMIN || role == Role.TENANT_ADMIN;
+        return role == Role.PLATFORM_ADMIN || role == Role.TENANT_ADMIN;
     }
 
     public boolean canApprove() {
-        return role == Role.ADMIN || role == Role.APPROVER;
+        return role == Role.PLATFORM_ADMIN || role == Role.TENANT_ADMIN || role == Role.SITE_MANAGER;
     }
 
     public boolean canViewAllLogs() {
-        return role == Role.ADMIN || role == Role.APPROVER || role == Role.SECURITY_OFFICER;
+        return role == Role.PLATFORM_ADMIN || role == Role.TENANT_ADMIN
+                || role == Role.SITE_MANAGER || role == Role.SECURITY_GUARD;
     }
 }

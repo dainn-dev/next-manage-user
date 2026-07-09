@@ -5,6 +5,8 @@ import com.vehiclemanagement.dto.GateHealthDto;
 import com.vehiclemanagement.dto.GateHeartbeatRequest;
 import com.vehiclemanagement.dto.GateRegisterRequest;
 import com.vehiclemanagement.dto.VehicleLogDto;
+import com.vehiclemanagement.config.EdgeTenantResolver;
+import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.service.GateService;
 import com.vehiclemanagement.service.VehicleLogService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,6 +37,9 @@ public class GateController {
     @Autowired
     private VehicleLogService vehicleLogService;
 
+    @Autowired
+    private EdgeTenantResolver edgeTenantResolver;
+
     // ---- Edge-facing endpoints (protected by X-Gate-Key header) ----
 
     @PostMapping("/register")
@@ -49,7 +54,16 @@ public class GateController {
     })
     public ResponseEntity<GateDto> register(
             @Parameter(description = "Gate registration data") @Valid @RequestBody GateRegisterRequest request) {
-        return ResponseEntity.ok(gateService.register(request));
+        boolean bound = request.getId() != null
+                ? edgeTenantResolver.bindFromGateId(request.getId())
+                : edgeTenantResolver.bindFromGateName(request.getName());
+        try {
+            return ResponseEntity.ok(gateService.register(request));
+        } finally {
+            if (bound) {
+                TenantContext.clear();
+            }
+        }
     }
 
     @PostMapping("/{id}/heartbeat")
@@ -65,14 +79,21 @@ public class GateController {
     public ResponseEntity<GateDto> heartbeat(
             @Parameter(description = "Gate ID") @PathVariable UUID id,
             @RequestBody(required = false) GateHeartbeatRequest request) {
-        return ResponseEntity.ok(gateService.heartbeat(id));
+        boolean bound = edgeTenantResolver.bindFromGateId(id);
+        try {
+            return ResponseEntity.ok(gateService.heartbeat(id));
+        } finally {
+            if (bound) {
+                TenantContext.clear();
+            }
+        }
     }
 
-    // ---- Management endpoints (JWT, ADMIN only) ----
+    // ---- Management endpoints (JWT, tenant management roles) ----
 
     @GetMapping
     @Operation(summary = "List all gates")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved gates")
     public ResponseEntity<List<GateDto>> list() {
         return ResponseEntity.ok(gateService.list());
@@ -83,7 +104,7 @@ public class GateController {
             description = "Aggregate health of every gate: status, last heartbeat, seconds since "
                     + "the last heartbeat and a computed online flag (heartbeat within the "
                     + "configured staleness window). Backs the health dashboard.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER', 'SECURITY_OFFICER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER', 'SECURITY_GUARD')")
     @ApiResponse(responseCode = "200", description = "Per-gate health list")
     public ResponseEntity<List<GateHealthDto>> health() {
         return ResponseEntity.ok(gateService.health());
@@ -91,7 +112,7 @@ public class GateController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get gate by ID")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved gate"),
         @ApiResponse(responseCode = "404", description = "Gate not found")
@@ -103,7 +124,7 @@ public class GateController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update gate configuration (name / location / camera / status)")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Gate updated"),
         @ApiResponse(responseCode = "404", description = "Gate not found"),
@@ -121,7 +142,7 @@ public class GateController {
                     + "timestamp, newest first. Backs reliable delivery: a per-gate UI that lost "
                     + "its WebSocket connection replays missed events on reconnect. When 'since' is "
                     + "omitted it defaults to the start of the current day.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER', 'SECURITY_OFFICER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER', 'SECURITY_GUARD')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Recent checks for the gate")
     })

@@ -56,7 +56,7 @@ public class DataSeederService implements CommandLineRunner {
                 .password(passwordEncoder.encode("SecurePass123!"))
                 .firstName("System")
                 .lastName("Administrator")
-                .role(User.Role.ADMIN)
+                .role(User.Role.TENANT_ADMIN)
                 .status(User.UserStatus.ACTIVE)
                 .build();
         
@@ -69,7 +69,7 @@ public class DataSeederService implements CommandLineRunner {
                 .password(passwordEncoder.encode("UserPass123!"))
                 .firstName("Regular")
                 .lastName("User")
-                .role(User.Role.USER)
+                .role(User.Role.MEMBER)
                 .status(User.UserStatus.ACTIVE)
                 .build();
         
@@ -81,11 +81,11 @@ public class DataSeederService implements CommandLineRunner {
         logger.info("      Username: admin");
         logger.info("      Password: SecurePass123!");
         logger.info("      Email: admin@vehiclemanagement.com");
-        logger.info("      Role: ADMIN");
+        logger.info("      Role: TENANT_ADMIN");
         logger.info("   👤 Regular User:");
         logger.info("      Username: user");
         logger.info("      Password: UserPass123!");
         logger.info("      Email: user@vehiclemanagement.com");
-        logger.info("      Role: USER");
+        logger.info("      Role: MEMBER");
     }
 }

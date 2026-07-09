@@ -5,6 +5,8 @@ import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleCheckRequest;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleImportResult;
+import com.vehiclemanagement.config.EdgeTenantResolver;
+import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.service.GateEventDeduplicator;
 import com.vehiclemanagement.service.VehicleExportService;
@@ -47,6 +49,9 @@ public class VehicleController {
 
     @Autowired
     private GateEventDeduplicator gateEventDeduplicator;
+
+    @Autowired
+    private EdgeTenantResolver edgeTenantResolver;
 
     @GetMapping
     @Operation(summary = "Get all vehicles", description = "Retrieve all vehicles with optional pagination and sorting")
@@ -157,7 +162,7 @@ public class VehicleController {
     
     @PostMapping
     @Operation(summary = "Create a new vehicle", description = "Create a new vehicle record or return existing vehicle if license plate already exists")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<VehicleCreateResponse> createVehicle(@Valid @RequestBody VehicleDto vehicleDto) {
         VehicleCreateResponse result = vehicleService.createVehicle(vehicleDto);
         return new ResponseEntity<>(result, HttpStatus.CREATED);
@@ -172,7 +177,7 @@ public class VehicleController {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete vehicle", description = "Delete a vehicle by ID")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<Void> deleteVehicle(@PathVariable UUID id) {
         vehicleService.deleteVehicle(id);
         return ResponseEntity.noContent().build();
@@ -228,22 +233,29 @@ public class VehicleController {
     @Operation(summary = "Check vehicle access", description = "Check if a vehicle with the given license plate is approved for access and update its status. Mutates vehicle state (approved->entered->exited), creates a VehicleLog and pushes a WebSocket notification. Pass an optional gateId to tag the log with the originating gate and fan the WebSocket event out to the per-gate topic /topic/gate/{gateId}/check in addition to /topic/vehicle-check. Requires the X-Gate-Key header for applications calling from the parking gate.")
     @SecurityRequirement(name = "X-Gate-Key")
     public ResponseEntity<VehicleCheckResponse> checkVehiclePost(@Valid @RequestBody VehicleCheckRequest request) {
-        // Idempotency (Phase 4.3): a store-and-forward retry carries the same
-        // eventId — return the original result instead of mutating state twice.
-        String eventId = request.getEventId();
-        var cached = gateEventDeduplicator.cachedResponse(eventId);
-        if (cached.isPresent()) {
-            return ResponseEntity.ok(cached.get());
-        }
+        boolean bound = edgeTenantResolver.bindFromGateId(request.getGateId());
         try {
-            VehicleCheckResponse response = vehicleService.checkVehicleAccess(
-                    request.getLicensePlateNumber(), request.getType(), request.getGateId());
-            gateEventDeduplicator.record(eventId, response);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            VehicleCheckResponse response = new VehicleCheckResponse(
-                    false, "Xe không tồn tại hoặc có lỗi xảy ra", request.getLicensePlateNumber(), request.getType());
-            return ResponseEntity.ok(response);
+            // Idempotency (Phase 4.3): a store-and-forward retry carries the same
+            // eventId — return the original result instead of mutating state twice.
+            String eventId = request.getEventId();
+            var cached = gateEventDeduplicator.cachedResponse(eventId);
+            if (cached.isPresent()) {
+                return ResponseEntity.ok(cached.get());
+            }
+            try {
+                VehicleCheckResponse response = vehicleService.checkVehicleAccess(
+                        request.getLicensePlateNumber(), request.getType(), request.getGateId());
+                gateEventDeduplicator.record(eventId, response);
+                return ResponseEntity.ok(response);
+            } catch (Exception e) {
+                VehicleCheckResponse response = new VehicleCheckResponse(
+                        false, "Xe không tồn tại hoặc có lỗi xảy ra", request.getLicensePlateNumber(), request.getType());
+                return ResponseEntity.ok(response);
+            }
+        } finally {
+            if (bound) {
+                TenantContext.clear();
+            }
         }
     }
     
@@ -266,40 +278,47 @@ public class VehicleController {
             @RequestParam(value = "snapshot", required = false) MultipartFile snapshot,
             @Parameter(description = "Optional client-generated idempotency key (UUID) for the event")
             @RequestParam(value = "eventId", required = false) String eventId) {
-        // Idempotency (Phase 4.3): dedupe store-and-forward retries by eventId.
-        var cached = gateEventDeduplicator.cachedResponse(eventId);
-        if (cached.isPresent()) {
-            return ResponseEntity.ok(cached.get());
-        }
+        boolean bound = edgeTenantResolver.bindFromGateId(gateId);
         try {
-            VehicleCheckResponse response = vehicleService.checkVehicleAccess(
-                    licensePlateNumber, type, gateId, snapshot);
-            gateEventDeduplicator.record(eventId, response);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            VehicleCheckResponse response = new VehicleCheckResponse(
-                    false, "Xe không tồn tại hoặc có lỗi xảy ra", licensePlateNumber, type);
-            return ResponseEntity.ok(response);
+            // Idempotency (Phase 4.3): dedupe store-and-forward retries by eventId.
+            var cached = gateEventDeduplicator.cachedResponse(eventId);
+            if (cached.isPresent()) {
+                return ResponseEntity.ok(cached.get());
+            }
+            try {
+                VehicleCheckResponse response = vehicleService.checkVehicleAccess(
+                        licensePlateNumber, type, gateId, snapshot);
+                gateEventDeduplicator.record(eventId, response);
+                return ResponseEntity.ok(response);
+            } catch (Exception e) {
+                VehicleCheckResponse response = new VehicleCheckResponse(
+                        false, "Xe không tồn tại hoặc có lỗi xảy ra", licensePlateNumber, type);
+                return ResponseEntity.ok(response);
+            }
+        } finally {
+            if (bound) {
+                TenantContext.clear();
+            }
         }
     }
 
     @PutMapping("/{id}/approve")
     @Operation(summary = "Approve vehicle", description = "Approve a vehicle access request")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<VehicleDto> approveVehicle(@PathVariable UUID id) {
         return ResponseEntity.ok(vehicleService.approveVehicle(id));
     }
 
     @PutMapping("/{id}/reject")
     @Operation(summary = "Reject vehicle", description = "Reject a vehicle access request")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<VehicleDto> rejectVehicle(@PathVariable UUID id) {
         return ResponseEntity.ok(vehicleService.rejectVehicle(id));
     }
 
     @PostMapping("/upload-image/{vehicleId}")
     @Operation(summary = "Upload vehicle image", description = "Upload an image for a specific vehicle")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN')")
     public ResponseEntity<String> uploadVehicleImage(
             @Parameter(description = "Vehicle ID", required = true)
             @PathVariable UUID vehicleId,
@@ -317,7 +336,7 @@ public class VehicleController {
     @GetMapping("/export/template")
     @Operation(summary = "Download vehicle import template",
             description = "Download an .xlsx template (header + example row) for bulk vehicle import")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<byte[]> exportImportTemplate() {
         byte[] data = vehicleImportService.generateTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -331,7 +350,7 @@ public class VehicleController {
     @Operation(summary = "Bulk import vehicles",
             description = "Import vehicles from an Excel (.xlsx/.xls) or CSV file. Rows are created independently; "
                     + "already-existing plates are skipped and per-row errors are reported.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<VehicleImportResult> importVehicles(
             @Parameter(description = "Excel/CSV file to import", required = true)
             @RequestParam("file") MultipartFile file) {
@@ -342,7 +361,7 @@ public class VehicleController {
     @Operation(summary = "Export vehicles (selectable columns)",
             description = "Export all vehicles to Excel/CSV. Pass 'fields' (comma-separated column ids) to select "
                     + "columns; omit for all. Format 'excel' (default) or 'csv'.")
-    @PreAuthorize("hasAnyRole('ADMIN', 'APPROVER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<byte[]> exportVehicles(
             @Parameter(description = "Column ids to include (comma-separated); omit for all")
             @RequestParam(required = false) List<String> fields,

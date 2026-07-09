@@ -186,7 +186,7 @@ class N6PooledConnectionConcurrencyIntegrationTest extends AbstractPostgresInteg
 
     private void seedUser(UUID tenantId, String tag) {
         jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                        + "VALUES (?, ?, ?, 'x', 'USER', 'ACTIVE', ?, now(), now()) ON CONFLICT (id) DO NOTHING",
+                        + "VALUES (?, ?, ?, 'x', 'MEMBER', 'ACTIVE', ?, now(), now()) ON CONFLICT (id) DO NOTHING",
                 UUID.randomUUID(), tag, tag + "@example.com", tenantId);
     }
 }

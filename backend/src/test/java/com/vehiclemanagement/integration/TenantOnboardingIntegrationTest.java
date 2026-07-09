@@ -175,7 +175,7 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
                 "adminUsername", "role-admin-" + unique,
                 "adminEmail", "role-admin-" + unique + "@example.com",
                 "adminPassword", "SecurePass123!",
-                "adminRole", "ADMIN");
+                "adminRole", "MEMBER");
 
         ResponseEntity<Map> response = rest.postForEntity(
                 url("/api/v1/tenants"), new HttpEntity<>(body, platformAdminHeaders()), Map.class);

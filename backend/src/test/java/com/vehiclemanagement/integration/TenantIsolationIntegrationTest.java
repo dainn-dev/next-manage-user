@@ -73,7 +73,7 @@ class TenantIsolationIntegrationTest extends AbstractPostgresIntegrationTest {
         try {
             User u = User.builder()
                     .username("iso-created-b").email("iso-created-b@example.com")
-                    .password("secret123").role(User.Role.USER).status(User.UserStatus.ACTIVE)
+                    .password("secret123").role(User.Role.MEMBER).status(User.UserStatus.ACTIVE)
                     .build();
             created = userRepository.save(u).getId();
         } finally {
@@ -99,6 +99,6 @@ class TenantIsolationIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private void seedUser(UUID id, String username, String email, UUID tenantId) {
         jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                + "VALUES (?, ?, ?, 'x', 'USER', 'ACTIVE', ?, now(), now())", id, username, email, tenantId);
+                + "VALUES (?, ?, ?, 'x', 'MEMBER', 'ACTIVE', ?, now(), now())", id, username, email, tenantId);
     }
 }
