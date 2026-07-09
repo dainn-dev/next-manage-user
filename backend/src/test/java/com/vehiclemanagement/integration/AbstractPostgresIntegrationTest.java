@@ -5,8 +5,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -25,22 +23,30 @@ import org.testcontainers.utility.DockerImageName;
  * <p>Tagged {@code integration} — these tests need a running Docker daemon. Run
  * the whole suite with {@code mvn test}; skip just these on a Docker-less box with
  * {@code mvn test -DexcludedGroups=integration}.
+ *
+ * <p>Uses the singleton-container pattern: one container is started in a static
+ * initializer and kept for the whole JVM (Ryuk removes it at exit). The per-class
+ * {@code @Testcontainers}/{@code @Container} lifecycle would stop the container
+ * after each class, which breaks when Spring reuses a cached context across
+ * integration classes (the reused context would point at a stopped container).
  */
 @Tag("integration")
-@Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class AbstractPostgresIntegrationTest {
 
     /** The shared X-Gate-Key the edge must present on the protected gate endpoints. */
     protected static final String GATE_API_KEY = "integration-test-gate-key";
 
-    @Container
-    @SuppressWarnings("resource") // Testcontainers manages the lifecycle for the JVM.
+    @SuppressWarnings("resource") // Shared for the JVM; Ryuk removes it at exit.
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
                     .withDatabaseName("vehicle_management_test")
                     .withUsername("test")
                     .withPassword("test");
+
+    static {
+        POSTGRES.start();
+    }
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {

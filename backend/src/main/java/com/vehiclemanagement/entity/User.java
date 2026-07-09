@@ -58,7 +58,15 @@ public class User implements UserDetails {
     @Column(nullable = false)
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
-    
+
+    // The tenant this user belongs to. NULL for a PLATFORM_ADMIN (cross-tenant).
+    // Read-only in the ORM: the DB column default (current_setting('app.tenant_id'))
+    // stamps it from the request's tenant on insert, so the app never sets it and
+    // can never write a row into the wrong tenant. Read here only to populate the
+    // JWT tenant_id claim at login (see AuthService).
+    @Column(name = "tenant_id", insertable = false, updatable = false)
+    private UUID tenantId;
+
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
     
@@ -124,7 +132,12 @@ public class User implements UserDetails {
     
     // Enums
     public enum Role {
-        USER, APPROVER, SECURITY_OFFICER, ADMIN
+        USER, APPROVER, SECURITY_OFFICER, ADMIN,
+        // Cross-tenant platform operator (tenant_id NULL). The full
+        // USER/ADMIN -> MEMBER/TENANT_ADMIN/SITE_MANAGER/SECURITY_GUARD rename is
+        // a separate RBAC pass; PLATFORM_ADMIN is added now for the tenant/RLS
+        // foundation and the platform bootstrap.
+        PLATFORM_ADMIN
     }
     
     public enum UserStatus {
