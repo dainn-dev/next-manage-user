@@ -56,31 +56,31 @@ public class SecurityConfig {
                 // Platform admin onboarding
                 .requestMatchers(HttpMethod.POST, "/api/v1/tenants").hasRole("PLATFORM_ADMIN")
 
-                // Admin only
-                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/vehicles/{id}").hasAnyRole("ADMIN")
+                // Tenant administration
+                .requestMatchers("/api/admin/**").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/vehicles/{id}").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN")
 
-                // Admin or Approver
-                .requestMatchers(HttpMethod.POST, "/api/vehicles").hasAnyRole("ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/approve").hasAnyRole("ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/reject").hasAnyRole("ADMIN", "APPROVER")
+                // Tenant admin or site manager
+                .requestMatchers(HttpMethod.POST, "/api/vehicles").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/approve").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/reject").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
 
-                // Admin, Approver, or Security Officer
-                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs").hasAnyRole("ADMIN", "APPROVER", "SECURITY_OFFICER")
-                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs/export/**").hasAnyRole("ADMIN", "APPROVER", "SECURITY_OFFICER")
+                // Operational roles that can view vehicle logs
+                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER", "SECURITY_GUARD")
+                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs/export/**").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER", "SECURITY_GUARD")
 
-                // Vehicle export (template / selectable columns) / bulk import - Admin or Approver
-                .requestMatchers(HttpMethod.GET, "/api/vehicles/export", "/api/vehicles/export/**").hasAnyRole("ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.POST, "/api/vehicles/import").hasAnyRole("ADMIN", "APPROVER")
+                // Vehicle export (template / selectable columns) / bulk import
+                .requestMatchers(HttpMethod.GET, "/api/vehicles/export", "/api/vehicles/export/**").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
+                .requestMatchers(HttpMethod.POST, "/api/vehicles/import").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
 
-                // Employee export (selectable columns) - Admin or Approver
-                .requestMatchers(HttpMethod.GET, "/api/employees/export").hasAnyRole("ADMIN", "APPROVER")
+                // Employee export (selectable columns)
+                .requestMatchers(HttpMethod.GET, "/api/employees/export").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
 
-                // Access requests - Admin or Approver (list all / approve / reject)
-                .requestMatchers(HttpMethod.GET, "/api/access-requests").hasAnyRole("ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.GET, "/api/access-requests/pending").hasAnyRole("ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.PUT, "/api/access-requests/*/approve").hasAnyRole("ADMIN", "APPROVER")
-                .requestMatchers(HttpMethod.PUT, "/api/access-requests/*/reject").hasAnyRole("ADMIN", "APPROVER")
+                // Access requests - tenant admin or site manager (list all / approve / reject)
+                .requestMatchers(HttpMethod.GET, "/api/access-requests").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
+                .requestMatchers(HttpMethod.GET, "/api/access-requests/pending").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/access-requests/*/approve").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
+                .requestMatchers(HttpMethod.PUT, "/api/access-requests/*/reject").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN", "SITE_MANAGER")
 
                 // Protected endpoints
                 .requestMatchers("/api/**").authenticated()

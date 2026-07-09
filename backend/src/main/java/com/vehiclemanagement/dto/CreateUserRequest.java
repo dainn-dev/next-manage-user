@@ -29,7 +29,7 @@ public class CreateUserRequest {
     
     private String firstName;
     private String lastName;
-    private User.Role role = User.Role.USER;
+    private User.Role role = User.Role.MEMBER;
     private User.UserStatus status = User.UserStatus.ACTIVE;
     
     // Optional link to existing employee
