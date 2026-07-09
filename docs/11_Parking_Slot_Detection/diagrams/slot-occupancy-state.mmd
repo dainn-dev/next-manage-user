@@ -1,0 +1,11 @@
+stateDiagram-v2
+    [*] --> free
+    free --> occupied: vehicle footprint confirmed in polygon (debounced)
+    occupied --> free: vehicle no longer detected in polygon (grace period elapsed) or relocated away
+    occupied --> occupied: same vehicle re-confirmed (heartbeat, no state change)
+    free --> reserved: reservation created (booking / app)
+    reserved --> occupied: reserved vehicle arrives (plate match)
+    reserved --> free: reservation expired or cancelled
+    occupied --> disabled: admin marks slot out-of-service
+    free --> disabled: admin marks slot out-of-service
+    disabled --> free: admin re-enables slot

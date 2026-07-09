@@ -1,0 +1,46 @@
+erDiagram
+    Tenant ||--o{ Site : "tenant_id"
+    Site ||--o{ Zone : "site_id"
+    Site ||--o{ Camera : "site_id"
+    Site ||--o{ ParkingSlot : "site_id"
+    Zone ||--o{ ParkingSlot : "zone_id (optional)"
+    Tenant ||--o{ Vehicle : "tenant_id"
+    Tenant ||--o{ ParkingEvent : "tenant_id"
+    Site ||--o{ ParkingEvent : "site_id"
+    Tenant ||--o{ User : "tenant_id (null = platform admin)"
+
+    Tenant {
+        uuid id PK
+        string slug UK
+    }
+    Site {
+        uuid id PK
+        uuid tenant_id FK "RLS predicate"
+    }
+    Zone {
+        uuid id PK
+        uuid site_id FK "RLS predicate"
+    }
+    Camera {
+        uuid id PK
+        uuid site_id FK "RLS predicate"
+    }
+    ParkingSlot {
+        uuid id PK
+        uuid site_id FK "RLS predicate"
+        uuid zone_id FK
+    }
+    Vehicle {
+        uuid id PK
+        uuid tenant_id FK "RLS predicate"
+        uuid current_site_id FK
+    }
+    ParkingEvent {
+        uuid id PK
+        uuid tenant_id FK "RLS predicate"
+        uuid site_id FK "second-level scope"
+    }
+    User {
+        uuid id PK
+        uuid tenant_id FK "nullable, RLS bypass for PLATFORM_ADMIN"
+    }

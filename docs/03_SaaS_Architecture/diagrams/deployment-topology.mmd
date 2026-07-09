@@ -1,0 +1,63 @@
+flowchart TB
+    subgraph OnSite["On-Site (per Site, outbound-only)"]
+        Camera["Camera / RTSP stream"]
+        Edge["Edge Agent (Docker)<br/>YOLO + OCR + tracker + SQLite queue"]
+        Camera --> Edge
+    end
+
+    subgraph Internet["Internet / TLS"]
+        LB["Ingress / Load Balancer<br/>NGINX Ingress + cert-manager"]
+    end
+
+    subgraph K8s["Kubernetes Cluster (prod)"]
+        subgraph APIPods["API Deployment (stateless, HPA)"]
+            Pod1["api-pod-1"]
+            Pod2["api-pod-2"]
+            PodN["api-pod-N"]
+        end
+
+        subgraph DataTier["Managed / Operator-run Data Tier"]
+            PGPrimary[("PostgreSQL Primary<br/>+ PostGIS")]
+            PGReplica[("PostgreSQL Read Replica")]
+            RedisCluster[("Redis<br/>cache + pub-sub")]
+            RabbitCluster[("RabbitMQ cluster<br/>quorum queues")]
+        end
+
+        ObjStore[("MinIO / S3<br/>snapshots, exports")]
+        Prometheus["Prometheus + Grafana"]
+    end
+
+    subgraph ExternalSaaS["External SaaS"]
+        StripeExt["Stripe"]
+        LLMExt["Hosted LLM (optional)"]
+    end
+
+    Edge -->|"HTTPS POST ingest, X-Gate-Key<br/>store-and-forward on failure"| LB
+    LB --> Pod1
+    LB --> Pod2
+    LB --> PodN
+
+    Pod1 --> PGPrimary
+    Pod2 --> PGPrimary
+    PodN --> PGPrimary
+    Pod1 -.->|"reads"| PGReplica
+    Pod1 --> RedisCluster
+    Pod2 --> RedisCluster
+    PodN --> RedisCluster
+    Pod1 --> RabbitCluster
+    Pod2 --> RabbitCluster
+    PodN --> RabbitCluster
+    Pod1 --> ObjStore
+    Pod2 --> ObjStore
+
+    RabbitCluster --> Pod1
+    RabbitCluster --> Pod2
+
+    Pod1 --> StripeExt
+    Pod1 --> LLMExt
+
+    Pod1 -.->|"metrics"| Prometheus
+    Pod2 -.->|"metrics"| Prometheus
+    PodN -.->|"metrics"| Prometheus
+
+    PGPrimary -->|"streaming replication"| PGReplica

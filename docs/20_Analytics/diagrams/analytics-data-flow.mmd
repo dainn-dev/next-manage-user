@@ -1,0 +1,53 @@
+flowchart LR
+    subgraph Sources
+        EDGE["Edge (per site)"]
+    end
+
+    subgraph Ingest["Ingest (target)"]
+        API["Ingest API /api/v1/events"]
+        OUTBOX[("outbox table")]
+    end
+
+    BUS{{"RabbitMQ\ndomain event bus"}}
+
+    subgraph EventStore["Event store (target)"]
+        PE[("ParkingEvent\npartitioned by occurred_at")]
+    end
+
+    subgraph Projector["Analytics projector (target)"]
+        PROJ["Projection consumer\n(events.analytics queue)"]
+    end
+
+    subgraph ReadModels["Read models / materialized views (target)"]
+        MV_OCC[("mv_site_occupancy\n(current count, fill rate)")]
+        MV_DUR[("mv_avg_duration\n(rolling window)")]
+        MV_TOP[("mv_top_returning_vehicles")]
+        MV_HEAT[("mv_slot_heatmap\n(dwell time per slot)")]
+    end
+
+    subgraph API_Layer["Analytics API"]
+        REST["GET /api/v1/analytics/*\n(REST, tenant+site scoped)"]
+    end
+
+    subgraph Frontend
+        CHARTS["recharts dashboards\n(17_Dashboard)"]
+        EXPORT["Excel/CSV export\n(existing pattern: VehicleLogExportController)"]
+    end
+
+    EDGE --> API --> OUTBOX --> BUS
+    BUS -->|"VehicleEntered, VehicleExited,\nVehicleRelocated, ..."| PE
+    BUS --> PROJ
+    PROJ --> MV_OCC
+    PROJ --> MV_DUR
+    PROJ --> MV_TOP
+    PROJ --> MV_HEAT
+    PE -.->|"batch re-projection / backfill"| PROJ
+    MV_OCC --> REST
+    MV_DUR --> REST
+    MV_TOP --> REST
+    MV_HEAT --> REST
+    REST --> CHARTS
+    REST --> EXPORT
+
+    classDef target fill:#efe,stroke:#484,stroke-width:1px;
+    class API,OUTBOX,BUS,PE,PROJ,MV_OCC,MV_DUR,MV_TOP,MV_HEAT,REST target;

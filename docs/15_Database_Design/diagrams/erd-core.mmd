@@ -1,0 +1,214 @@
+erDiagram
+    Tenant ||--o{ Site : "has"
+    Tenant ||--o{ Vehicle : "owns"
+    Tenant ||--o{ User : "has (nullable for platform admins)"
+    Tenant ||--o{ ParkingEvent : "scopes"
+    Tenant ||--o{ ParkingHistory : "scopes"
+    Tenant ||--o{ Snapshot : "scopes"
+    Tenant ||--o{ Subscription : "has"
+    Tenant ||--o{ UsageRecord : "meters"
+    Tenant ||--o{ Notification : "scopes"
+    Tenant ||--o{ Employee : "employs (workforce module)"
+    Tenant ||--o{ Department : "scopes"
+    Tenant ||--o{ Position : "scopes"
+    Plan ||--o{ Subscription : "defines"
+
+    Site ||--o{ Zone : "has"
+    Site ||--o{ Camera : "has"
+    Site ||--o{ Gate : "has"
+    Site ||--o{ ParkingSlot : "scopes"
+    Site ||--o{ VehicleTrack : "scopes"
+    Site ||--o{ ParkingEvent : "scopes"
+    Site ||--o{ MotionEvent : "scopes"
+    Site ||--o{ Snapshot : "scopes"
+
+    Zone ||--o{ ParkingSlot : "contains"
+    Camera ||--o{ Gate : "faces"
+    Camera ||--o{ VehicleTrack : "detects"
+    Camera ||--o{ ParkingEvent : "sources"
+    Camera ||--o{ MotionEvent : "sources"
+
+    ParkingSlot |o--o| Vehicle : "currently holds"
+    Vehicle ||--o{ ParkingEvent : "involved in"
+    User ||--o{ Vehicle : "owns"
+    User ||--o{ Notification : "receives"
+    Snapshot ||--o{ ParkingEvent : "evidences"
+    Employee }o--|| Department : "belongs to"
+    Employee }o--|| Position : "has"
+
+    Tenant {
+        uuid id PK
+        string name
+        string slug UK
+        string status
+        uuid plan_id FK
+        timestamp created_at
+    }
+    Site {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        string address
+        geometry geo
+        string timezone
+        string status
+    }
+    Zone {
+        uuid id PK
+        uuid site_id FK
+        string name
+    }
+    Camera {
+        uuid id PK
+        uuid site_id FK
+        string name
+        string rtsp_url
+        string role "ANPR_GATE, OVERVIEW"
+        string panel_type "entry, exit"
+        string status
+        timestamp last_heartbeat_at
+        jsonb calibration_json
+    }
+    Gate {
+        uuid id PK
+        uuid site_id FK
+        string name
+        uuid camera_id FK
+        string direction
+    }
+    ParkingSlot {
+        uuid id PK
+        uuid site_id FK
+        uuid zone_id FK
+        string code "e.g. A01"
+        geometry polygon "GEOMETRY(Polygon,4326)"
+        string status "free,occupied,reserved,disabled"
+        uuid current_vehicle_id FK
+        timestamp updated_at
+    }
+    Vehicle {
+        uuid id PK
+        uuid tenant_id FK
+        uuid owner_user_id FK "nullable"
+        string license_plate
+        string type
+        string make
+        string model
+        string color
+        uuid current_slot_id FK
+        uuid current_site_id FK
+        timestamp last_seen_at
+        string snapshot_url
+    }
+    VehicleTrack {
+        uuid id PK
+        uuid site_id FK
+        uuid camera_id FK
+        string track_id
+        string license_plate "nullable"
+        timestamp first_seen_at
+        timestamp last_seen_at
+    }
+    ParkingEvent {
+        uuid id PK
+        uuid tenant_id FK
+        uuid site_id FK
+        uuid camera_id FK
+        string type "9 domain events"
+        string license_plate
+        string track_id
+        uuid slot_id FK
+        uuid old_slot_id FK
+        uuid new_slot_id FK
+        boolean person_present
+        float confidence
+        uuid snapshot_id FK
+        timestamp occurred_at
+        uuid event_id UK "idempotency"
+        jsonb payload
+    }
+    ParkingHistory {
+        uuid id PK
+        uuid tenant_id FK
+        string plate
+        uuid old_slot FK
+        uuid new_slot FK
+        timestamp occurred_at
+    }
+    MotionEvent {
+        uuid id PK
+        uuid site_id FK
+        uuid camera_id FK
+        boolean person_present
+        timestamp occurred_at
+    }
+    Snapshot {
+        uuid id PK
+        uuid tenant_id FK
+        uuid site_id FK
+        string kind "original,plate_crop,scene"
+        string object_url
+        uuid event_id FK
+        timestamp captured_at
+    }
+    User {
+        uuid id PK
+        uuid tenant_id FK "nullable for platform admins"
+        string username
+        string email
+        string role
+        string status
+    }
+    Subscription {
+        uuid id PK
+        uuid tenant_id FK
+        uuid plan_id FK
+        string stripe_customer_id
+        string stripe_subscription_id
+        string status
+        timestamp current_period_end
+    }
+    Plan {
+        uuid id PK
+        string name
+        jsonb limits
+        decimal price
+    }
+    UsageRecord {
+        uuid id PK
+        uuid tenant_id FK
+        string metric
+        int qty
+        string period
+    }
+    Notification {
+        uuid id PK
+        uuid tenant_id FK
+        uuid user_id FK
+        string channel "push,email,ws"
+        string type
+        jsonb payload
+        timestamp read_at
+        timestamp sent_at
+    }
+    Employee {
+        uuid id PK
+        uuid tenant_id FK
+        string employee_id UK
+        string name
+        uuid department_id FK
+        uuid position_id FK
+        string status
+    }
+    Department {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        uuid parent_id FK
+    }
+    Position {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        uuid parent_id FK
+    }

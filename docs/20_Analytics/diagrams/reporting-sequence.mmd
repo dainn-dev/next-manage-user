@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    participant User as Site Manager
+    participant FE as Frontend (recharts dashboard)
+    participant API as Analytics API (/api/v1/analytics)
+    participant MV as Materialized views
+    participant EXP as Export service\n(Excel/CSV, POI-based)
+
+    User->>FE: opens Site Dashboard
+    FE->>API: GET /api/v1/analytics/occupancy?siteId=...
+    API->>MV: SELECT from mv_site_occupancy
+    MV-->>API: current count, fill rate
+    API-->>FE: JSON (tenant/site scoped)
+    FE->>FE: render recharts (bar/line/heatmap)
+
+    User->>FE: clicks "Export report"
+    FE->>API: GET /api/v1/analytics/export?siteId=...&range=...&format=xlsx
+    API->>MV: query aggregates for range
+    MV-->>API: rows
+    API->>EXP: build workbook (mirrors VehicleLogExportService\nApache POI pattern)
+    EXP-->>API: byte[] (.xlsx or .csv)
+    API-->>FE: file download (Content-Disposition attachment)
+    FE-->>User: saves report file

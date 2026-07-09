@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    participant Client as Web/Mobile Client
+    participant Filter as JwtAuthFilter (iam)
+    participant TenantFilter as TenantContextFilter (tenancy)
+    participant Service as Module Service (e.g. parking)
+    participant Hibernate as Hibernate Tenant Filter
+    participant PG as PostgreSQL (RLS enabled)
+
+    Client->>Filter: HTTP request, Authorization: Bearer JWT
+    Filter->>Filter: verify signature (HS256), check expiry
+    Filter-->>TenantFilter: authenticated principal (userId, role, tenant_id, site_ids[])
+    TenantFilter->>TenantFilter: set ThreadLocal TenantContext(tenant_id, siteIds)
+    TenantFilter->>PG: open connection, SET LOCAL app.tenant_id = '<tenant_id>'
+    TenantFilter->>Service: proceed with filter chain
+    Service->>Hibernate: enable filter "tenantFilter" with param tenant_id
+    Service->>PG: SELECT ... (Hibernate appends WHERE tenant_id = :tenantId)
+    PG->>PG: RLS policy re-checks USING (tenant_id = current_setting('app.tenant_id')::uuid)
+    PG-->>Service: rows (only current tenant's, double-enforced)
+    Service-->>Client: response
+
+    Note over TenantFilter,PG: If site_id is required for the endpoint and the JWT's<br/>site_ids[] does not include the requested siteId, reject 403<br/>before touching the database.
+    Note over TenantFilter: ThreadLocal + RLS session var are cleared at request end<br/>(finally block) to prevent leakage across pooled connections/threads.

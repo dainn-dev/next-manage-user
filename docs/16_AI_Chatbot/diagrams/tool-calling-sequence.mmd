@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor U as User (Dashboard/Mobile)
+    participant CS as Chat Service (chatbot module)
+    participant G as Guardrail Middleware
+    participant LLM as LLM Provider (Ollama/Hosted)
+    participant TR as Tool Router
+    participant API as Internal Read API (/api/v1, tenant-scoped)
+    participant DB as Postgres (RLS by tenant_id/site_id)
+
+    U->>CS: "Xe tôi đang ở đâu?" + JWT (tenant_id, site_id, role, sub)
+    CS->>G: Rate-limit check (Redis, keyed by tenant_id)
+    G-->>CS: OK (within Plan.limits.chatbot_messages_per_month)
+    CS->>LLM: system prompt + tenant context + tool schema + user message
+    LLM-->>CS: tool_call getVehicleLocation(plate="51A-12345")
+    CS->>TR: execute(tool="getVehicleLocation", args, jwtContext)
+    Note over TR: tenant_id/site_id/role always injected<br/>from JWT context, never from LLM args
+    TR->>API: GET /api/v1/vehicles/51A-12345/location
+    API->>DB: SELECT ... WHERE tenant_id = :jwtTenant (RLS enforced)
+    DB-->>API: slot_id=B12, occurred_at=09:35, snapshot_id
+    API-->>TR: 200 OK {slot: "B12", lastSeenAt: "09:35", snapshotId}
+    TR-->>CS: tool result (JSON)
+    CS->>G: PII / cross-tenant post-filter
+    G-->>CS: result passes guardrails
+    CS->>LLM: tool result appended to context
+    LLM-->>CS: "Xe 51A-12345 đang ở ô B12, ghi nhận 09:35"
+    CS->>API: GET /api/v1/snapshots/{snapshotId}
+    API-->>CS: snapshot object_url (signed, tenant-scoped)
+    CS-->>U: answer text + snapshot thumbnail

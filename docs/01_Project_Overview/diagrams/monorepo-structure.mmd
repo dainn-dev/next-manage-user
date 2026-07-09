@@ -1,0 +1,39 @@
+flowchart LR
+    Root["next-manage-user/ (repo root)"]
+
+    Root --> FE["frontend/\n(Next.js 14 App Router)"]
+    FE --> FEApp["app/\nlogin, employees, users, departments,\npositions, vehicles, gate, statistics"]
+    FE --> FEComp["components/ (shadcn/ui)"]
+    FE --> FEHooks["hooks/\n(use-websocket.ts — STOMP/SockJS)"]
+    FE --> FELib["lib/api/\n(hand-rolled fetch clients)"]
+    FE -.-> FENewMap["app/parking-map/ (TARGET)"]
+    FE -.-> FENewLive["app/live-camera/ (TARGET)"]
+
+    Root --> BE["backend/\n(Spring Boot 3.2 / Java 17)"]
+    BE --> BESrc["src/main/java/com/vehiclemanagement/"]
+    BESrc --> BEController["controller/\n(Auth, Vehicle, Gate, Employee, ...)"]
+    BESrc --> BEEntity["entity/\n(Employee, Vehicle, VehicleLog, User,\nVehicleAccessRequest, Gate, Department, Position)"]
+    BESrc --> BEService["service/, repository/, config/, dto/"]
+    BE --> BEMigrations["src/main/resources/db/migration/\n(Flyway V1-V35)"]
+    BE --> BEUploads["uploads/snapshots/\n(local disk, dev only)"]
+    BESrc -.-> BENewModules["TARGET package split:\niam/, tenancy/, billing/, parking/,\nai-ingest/, events/, chatbot/,\nnotification/, analytics/"]
+
+    Root --> Edge["edge/\n(Python)"]
+    Edge --> EdgeCore["edge/edge/\n(EdgeService, DetectionCore,\nGateClient, EventQueue)"]
+    Edge --> EdgeFn["function/helper.py\n(YOLOv5 plate+char OCR, VN plate parsing)"]
+    Edge --> EdgeQueueDir["edge_queue/events.sqlite3\n(store-and-forward)"]
+    Edge --> EdgeLegacy["license_plate_monitor.py\n(legacy PyQt5 desktop app)"]
+    Edge -.-> EdgeNew["TARGET additions:\nmotion/ (MOG2), tracker/ (ByteTrack),\nocr/ (PaddleOCR), slot_mapper/"]
+
+    Root --> Deploy["deploy/\n(docker-compose.dev.yml,\nbuild-and-run scripts)"]
+    Deploy -.-> DeployK8s["TARGET: k8s/ (Helm charts,\nIngress-NGINX, cert-manager)"]
+
+    Root --> Docs["docs/\n(this documentation set)"]
+    Docs --> Doc01["01_Project_Overview/ (this doc)"]
+    Docs --> DocOthers["00_Vision, 02_Business_Flow,\n03_SaaS_Architecture, 04_Multi_Tenant_Design,\n05_Subscription_Billing, 06_User_RBAC,\n07_Camera_Management, 08_Parking_Map_Designer,\n09_AI_Calibration, ... 23_Roadmap,\n24_Future_Features"]
+
+    Root --> DC["docker-compose.yml\n(Postgres today)"]
+    DC -.-> DCNew["TARGET services:\nrabbitmq, redis, minio"]
+
+    classDef target stroke-dasharray: 5 5;
+    class FENewMap,FENewLive,BENewModules,EdgeNew,DeployK8s,DCNew target;

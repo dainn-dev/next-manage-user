@@ -1,0 +1,25 @@
+flowchart TD
+    REQ["Incoming HTTP request"] --> ISGATE{"Path under<br/>/api/gates/register,<br/>/api/gates/*/heartbeat,<br/>or /api/v1/parking-events?"}
+
+    ISGATE -->|yes| GATEKEY["GateApiKeyAuthFilter<br/>X-Gate-Key -> per-camera key lookup"]
+    GATEKEY -->|valid| CAMSCOPE["Request scoped to camera_id / site_id"]
+    GATEKEY -->|invalid/missing| REJECT401["401 Unauthorized"]
+
+    ISGATE -->|no| ISPUBLIC{"Public path?<br/>/api/auth/**, /actuator/**,<br/>swagger, /uploads/**"}
+    ISPUBLIC -->|yes| ALLOW["Permit all"]
+    ISPUBLIC -->|no| JWTFILTER["JwtAuthenticationFilter<br/>Authorization: Bearer <JWT>"]
+
+    JWTFILTER -->|valid| CLAIMS["Claims: userId, email, role<br/>+ target: tenant_id, site scope"]
+    JWTFILTER -->|invalid/expired| REJECT401b["401 Unauthorized"]
+
+    CLAIMS --> RBAC{"@PreAuthorize / URL rule<br/>role check"}
+    RBAC -->|authorized| SCOPE["Hibernate tenant filter<br/>applies tenant_id (+ site_id) predicate"]
+    RBAC -->|not authorized| REJECT403["403 Forbidden"]
+
+    SCOPE --> VERSION{"Path prefix"}
+    VERSION -->|"/api/**<br/>(legacy, unversioned)"| LEGACY["Existing controllers<br/>(Vehicle, Gate, Employee, ...)"]
+    VERSION -->|"/api/v1/**"| V1["Versioned SaaS controllers<br/>(tenants, sites, cameras, ...)"]
+
+    LEGACY --> RESP["Response"]
+    V1 --> RESP
+    CAMSCOPE --> RESP

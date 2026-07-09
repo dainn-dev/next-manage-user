@@ -1,0 +1,52 @@
+flowchart TD
+    subgraph Problems["Problems in multi-site parking operations"]
+        P1["Manual gate staffing per site\nhigh labor cost"]
+        P2["No cross-site visibility\nfor operations managers"]
+        P3["Vehicles relocate inside a lot\nunclear which slot a car is in"]
+        P4["Drivers cannot self-serve\n'where is my car?'"]
+        P5["No usage-based cost model\nfor operators with many sites"]
+    end
+
+    subgraph Pillars["ParkVision product pillars"]
+        PI1["Smart Parking 4.0\nend-to-end automation"]
+        PI2["AI computer vision\nplate + vehicle detection"]
+        PI3["Real-time tracking\nByteTrack track_id per vehicle"]
+        PI4["Parking-slot mapping\npolygon-based occupancy"]
+        PI5["Vehicle relocation detection\nslot-change alerts"]
+        PI6["AI chatbot\ntool-calling over tenant data"]
+        PI7["Event-driven architecture\nRabbitMQ + outbox"]
+        PI8["Realtime dashboards\nWebSocket + STOMP relay"]
+        PI9["Docker / Kubernetes deployment\ncloud or on-prem"]
+    end
+
+    subgraph Outcomes["Outcomes for tenants"]
+        O1["Lower staffing cost per site"]
+        O2["One pane of glass across all sites"]
+        O3["Faster vehicle retrieval\nfewer support calls"]
+        O4["Self-service answers via chatbot"]
+        O5["Predictable subscription revenue\nfor ParkVision"]
+    end
+
+    P1 --> PI1
+    P1 --> PI9
+    P2 --> PI8
+    P3 --> PI3
+    P3 --> PI4
+    P3 --> PI5
+    P4 --> PI6
+    P5 --> PI7
+
+    PI1 --> O1
+    PI9 --> O1
+    PI8 --> O2
+    PI3 --> O3
+    PI4 --> O3
+    PI5 --> O3
+    PI6 --> O4
+    PI2 --> O3
+    PI7 --> O2
+
+    O1 --> O5
+    O2 --> O5
+    O3 --> O5
+    O4 --> O5

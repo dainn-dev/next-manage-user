@@ -1,0 +1,635 @@
+openapi: 3.1.0
+info:
+  title: ParkVision Smart Parking Platform API
+  version: 1.0.0-draft
+  description: >-
+    Target REST contract for the ParkVision multi-tenant Smart Parking SaaS. This is a design
+    artifact (Status: Draft, 2026-07-09) for issue DAI-260, aligned with docs/14_Backend_API.
+
+    Tenancy is implicit: the tenant is resolved from the JWT (`tid` claim) and enforced by
+    PostgreSQL Row-Level Security; `siteId` scopes queries within a tenant. Legacy endpoints
+    under `/api` (auth, vehicles/check-vehicle, gates, vehicle-logs, access-requests) remain and
+    are documented in code via springdoc; this spec focuses on the new `/api/v1` SaaS surface plus
+    the edge ingest contract.
+  contact:
+    name: Principal Architect
+servers:
+  - url: https://{tenant}.parkvision.example.com/api/v1
+    description: Production (per-tenant subdomain)
+    variables:
+      tenant:
+        default: acme
+  - url: http://localhost:8080/api/v1
+    description: Local dev
+
+tags:
+  - name: Auth
+  - name: Tenants
+  - name: Sites
+  - name: Cameras
+  - name: Parking Slots
+  - name: Vehicles
+  - name: Events
+  - name: Ingest
+  - name: Billing
+  - name: Notifications
+  - name: Analytics
+  - name: Chatbot
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate and receive a JWT (carries tid/role/site scope)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current principal (user, tenant, role, site scope)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+
+  /tenants:
+    get:
+      tags: [Tenants]
+      summary: List tenants (PLATFORM_ADMIN only)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Tenant' }
+    post:
+      tags: [Tenants]
+      summary: Provision a tenant (PLATFORM_ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TenantCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tenant' }
+
+  /sites:
+    get:
+      tags: [Sites]
+      summary: List sites in the current tenant
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Site' }
+    post:
+      tags: [Sites]
+      summary: Create a site (TENANT_ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SiteCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Site' }
+
+  /sites/{siteId}/cameras:
+    parameters:
+      - $ref: '#/components/parameters/SiteId'
+    get:
+      tags: [Cameras]
+      summary: List cameras/gates for a site (with derived online/offline)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Camera' }
+    post:
+      tags: [Cameras]
+      summary: Enroll a camera (returns a per-camera ingest key)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CameraCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CameraWithKey' }
+
+  /sites/{siteId}/parking-slots:
+    parameters:
+      - $ref: '#/components/parameters/SiteId'
+    get:
+      tags: [Parking Slots]
+      summary: List parking slots with live occupancy for a site
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ParkingSlot' }
+    put:
+      tags: [Parking Slots]
+      summary: Replace the site's slot map (from the Parking Map Designer)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/ParkingSlotUpsert' }
+      responses:
+        '200': { description: Updated }
+
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      summary: Search vehicles in the tenant (by plate, status, site)
+      parameters:
+        - { name: plate, in: query, schema: { type: string } }
+        - { name: siteId, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehiclePage' }
+
+  /vehicles/{vehicleId}/current-location:
+    parameters:
+      - { name: vehicleId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Vehicles]
+      summary: Current slot, site, last-seen, and latest snapshot for a vehicle
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VehicleLocation' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /parking-events:
+    get:
+      tags: [Events]
+      summary: Query the parking event log (timeline)
+      parameters:
+        - { name: siteId, in: query, schema: { type: string, format: uuid } }
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/EventType' } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: page, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ParkingEvent' }
+
+  /ingest/events:
+    post:
+      tags: [Ingest]
+      summary: Edge event ingest (idempotent). Authenticated with a per-camera key.
+      description: >-
+        The edge posts confirmed detections/relocations here. Send JSON, or multipart with a
+        `snapshot` part for evidence. Idempotency is keyed on `eventId`; the backend persists the
+        event and relays it to the domain event bus via the transactional outbox. Mirrors the
+        current `POST /api/vehicles/check-vehicle` contract, generalized to all event types.
+      security:
+        - cameraKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IngestEvent' }
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                event: { $ref: '#/components/schemas/IngestEvent' }
+                snapshot: { type: string, format: binary }
+      responses:
+        '200':
+          description: Delivered (or already seen — idempotent replay)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IngestAck' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: Duplicate eventId (already processed) }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /subscriptions/current:
+    get:
+      tags: [Billing]
+      summary: Current tenant subscription, plan and entitlements
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+
+  /billing/webhook:
+    post:
+      tags: [Billing]
+      summary: Stripe webhook receiver (checkout, invoice.paid, subscription.updated)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '200': { description: Acknowledged }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List the current user's notifications
+      parameters:
+        - { name: unread, in: query, schema: { type: boolean } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Notification' }
+
+  /analytics/occupancy:
+    get:
+      tags: [Analytics]
+      summary: Occupancy / fill-rate / dwell-time metrics for a site and range
+      parameters:
+        - { name: siteId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OccupancyReport' }
+
+  /chat:
+    post:
+      tags: [Chatbot]
+      summary: Send a message to the AI assistant (tenant-scoped tool-calling)
+      description: >-
+        The LLM may call tenant-scoped tools getVehicleLocation/getHistory/getSnapshot/
+        getParkingStatus. All tool calls run under the caller's tenant context; cross-tenant data
+        is never returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChatRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatResponse' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cameraKey:
+      type: apiKey
+      in: header
+      name: X-Gate-Key
+      description: Per-camera ingest key (evolution of today's shared GATE_API_KEY).
+
+  parameters:
+    SiteId:
+      name: siteId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthorized:
+      description: Missing/invalid credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found (or not visible under tenant scope)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string }
+        message: { type: string }
+        path: { type: string }
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string }
+        expiresIn: { type: integer }
+        user: { $ref: '#/components/schemas/CurrentUser' }
+    CurrentUser:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid, nullable: true }
+        username: { type: string }
+        email: { type: string }
+        role:
+          type: string
+          enum: [PLATFORM_ADMIN, TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD, MEMBER]
+        siteScope:
+          type: array
+          items: { type: string, format: uuid }
+    Tenant:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        status: { type: string, enum: [active, suspended, trial] }
+        planId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+    TenantCreate:
+      type: object
+      required: [name, slug]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        planId: { type: string, format: uuid, nullable: true }
+    Site:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string }
+        timezone: { type: string }
+        status: { type: string, enum: [active, inactive] }
+    SiteCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        address: { type: string }
+        timezone: { type: string, default: Asia/Ho_Chi_Minh }
+    Camera:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        siteId: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [ANPR_GATE, OVERVIEW] }
+        panelType: { type: string, enum: [entry, exit] }
+        status: { type: string, enum: [online, offline, disabled] }
+        lastHeartbeatAt: { type: string, format: date-time, nullable: true }
+    CameraCreate:
+      type: object
+      required: [name, role]
+      properties:
+        name: { type: string }
+        rtspUrl: { type: string }
+        role: { type: string, enum: [ANPR_GATE, OVERVIEW] }
+        panelType: { type: string, enum: [entry, exit] }
+    CameraWithKey:
+      allOf:
+        - $ref: '#/components/schemas/Camera'
+        - type: object
+          properties:
+            ingestKey:
+              type: string
+              description: Shown once at creation; store securely on the edge appliance.
+    ParkingSlot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        siteId: { type: string, format: uuid }
+        zoneId: { type: string, format: uuid, nullable: true }
+        code: { type: string, example: A01 }
+        status: { type: string, enum: [free, occupied, reserved, disabled] }
+        currentVehicleId: { type: string, format: uuid, nullable: true }
+        polygon:
+          type: array
+          description: Image-space polygon [[x,y], ...]; stored server-side as PostGIS geometry.
+          items:
+            type: array
+            items: { type: number }
+    ParkingSlotUpsert:
+      type: object
+      required: [code, polygon]
+      properties:
+        code: { type: string }
+        zoneId: { type: string, format: uuid, nullable: true }
+        polygon:
+          type: array
+          items:
+            type: array
+            items: { type: number }
+    Vehicle:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        licensePlate: { type: string }
+        type: { type: string, enum: [car, motorbike, truck, bus] }
+        currentSlotId: { type: string, format: uuid, nullable: true }
+        currentSiteId: { type: string, format: uuid, nullable: true }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        snapshotUrl: { type: string, nullable: true }
+    VehiclePage:
+      type: object
+      properties:
+        content:
+          type: array
+          items: { $ref: '#/components/schemas/Vehicle' }
+        totalElements: { type: integer }
+        totalPages: { type: integer }
+        number: { type: integer }
+        size: { type: integer }
+    VehicleLocation:
+      type: object
+      properties:
+        vehicleId: { type: string, format: uuid }
+        licensePlate: { type: string }
+        siteId: { type: string, format: uuid, nullable: true }
+        slotCode: { type: string, nullable: true }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        snapshotUrl: { type: string, nullable: true }
+    EventType:
+      type: string
+      enum:
+        - MotionDetected
+        - VehicleDetected
+        - PlateRecognized
+        - VehicleEntered
+        - VehicleRelocated
+        - VehicleExited
+        - PersonDetected
+        - SnapshotSaved
+        - NotificationSent
+    ParkingEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        siteId: { type: string, format: uuid }
+        cameraId: { type: string, format: uuid, nullable: true }
+        type: { $ref: '#/components/schemas/EventType' }
+        licensePlate: { type: string, nullable: true }
+        trackId: { type: string, nullable: true }
+        slotId: { type: string, format: uuid, nullable: true }
+        oldSlotId: { type: string, format: uuid, nullable: true }
+        newSlotId: { type: string, format: uuid, nullable: true }
+        personPresent: { type: boolean, nullable: true }
+        confidence: { type: number, nullable: true }
+        occurredAt: { type: string, format: date-time }
+    IngestEvent:
+      type: object
+      required: [eventId, type, cameraId, occurredAt]
+      properties:
+        eventId: { type: string, format: uuid, description: Idempotency key }
+        type: { $ref: '#/components/schemas/EventType' }
+        cameraId: { type: string, format: uuid }
+        licensePlate: { type: string, nullable: true }
+        trackId: { type: string, nullable: true }
+        slotCode: { type: string, nullable: true }
+        oldSlotCode: { type: string, nullable: true }
+        newSlotCode: { type: string, nullable: true }
+        personPresent: { type: boolean, nullable: true }
+        confidence: { type: number, nullable: true }
+        occurredAt: { type: string, format: date-time }
+    IngestAck:
+      type: object
+      properties:
+        eventId: { type: string, format: uuid }
+        status: { type: string, enum: [delivered, duplicate] }
+        decision: { type: string, enum: [approved, denied, pending, none], nullable: true }
+    Subscription:
+      type: object
+      properties:
+        tenantId: { type: string, format: uuid }
+        plan: { type: string, enum: [free, starter, pro, enterprise] }
+        status: { type: string, enum: [trialing, active, past_due, canceled] }
+        currentPeriodEnd: { type: string, format: date-time }
+        entitlements:
+          type: object
+          properties:
+            maxSites: { type: integer }
+            maxCameras: { type: integer }
+            retentionDays: { type: integer }
+            chatbotMessagesPerMonth: { type: integer }
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, example: VehicleRelocated }
+        channel: { type: string, enum: [push, email, ws] }
+        payload: { type: object, additionalProperties: true }
+        readAt: { type: string, format: date-time, nullable: true }
+        sentAt: { type: string, format: date-time }
+    OccupancyReport:
+      type: object
+      properties:
+        siteId: { type: string, format: uuid }
+        totalSlots: { type: integer }
+        occupied: { type: integer }
+        free: { type: integer }
+        fillRate: { type: number }
+        avgDwellMinutes: { type: number }
+        series:
+          type: array
+          items:
+            type: object
+            properties:
+              at: { type: string, format: date-time }
+              occupied: { type: integer }
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        conversationId: { type: string, format: uuid, nullable: true }
+        message: { type: string, example: "Xe tôi đang ở đâu?" }
+    ChatResponse:
+      type: object
+      properties:
+        conversationId: { type: string, format: uuid }
+        answer: { type: string, example: "Xe 51A-12345 đang ở ô B12, ghi nhận 09:35." }
+        toolCalls:
+          type: array
+          items:
+            type: object
+            properties:
+              tool:
+                type: string
+                enum: [getVehicleLocation, getHistory, getSnapshot, getParkingStatus]
+              arguments: { type: object, additionalProperties: true }
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string, enum: [snapshot] }
+              url: { type: string }

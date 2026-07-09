@@ -1,0 +1,30 @@
+flowchart TD
+    DATASET["Labeled evaluation datasets\n(plates, vehicles, slot maps,\nrelocation scenarios)"] --> RUN["Run pipeline stage\nunder evaluation"]
+
+    subgraph Stages["Pipeline stages evaluated independently"]
+        OCR["PaddleOCR (+ EasyOCR/VietOCR\ncomparators)\nvs plate ground truth"]
+        DET["YOLOv11 vehicle detection\nvs bounding-box ground truth"]
+        SLOT["Slot-mapping\n(vehicle center -> polygon)\nvs labeled slot assignment"]
+        RELOC["Relocation detection\n(track_id + slot change)\nvs labeled relocation events"]
+    end
+
+    RUN --> OCR
+    RUN --> DET
+    RUN --> SLOT
+    RUN --> RELOC
+
+    OCR --> M1["Metric: character/plate\naccuracy"]
+    DET --> M2["Metric: mAP@0.5"]
+    SLOT --> M3["Metric: slot-mapping\nprecision/recall"]
+    RELOC --> M4["Metric: false-positive rate\n(relocations flagged that\nweren't real)"]
+
+    M1 --> COMPARE{"Meets acceptance\nthreshold?\n(ADR-2202)"}
+    M2 --> COMPARE
+    M3 --> COMPARE
+    M4 --> COMPARE
+
+    COMPARE -->|"yes"| PASS["Pass: model/version\napproved for rollout"]
+    COMPARE -->|"no"| FAIL["Fail: block promotion,\nfile regression"]
+
+    PASS --> REPORT["Eval report\n(tracked over model versions)"]
+    FAIL --> REPORT

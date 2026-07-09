@@ -1,0 +1,21 @@
+flowchart TD
+    Req["Incoming request"] --> HasJWT{"Valid JWT?"}
+    HasJWT -->|"No"| Reject401["401 Unauthorized"]
+    HasJWT -->|"Yes"| ExtractClaims["Extract tenant_id, site_ids[], role"]
+
+    ExtractClaims --> PlatformCheck{"role == PLATFORM_ADMIN?"}
+    PlatformCheck -->|"Yes, cross-tenant op"| PlatformPath["Explicit admin path:<br/>no RLS bypass in app code,<br/>uses dedicated audited admin role in DB"]
+    PlatformCheck -->|"No"| SetContext["Set ThreadLocal + RLS session var<br/>from JWT tenant_id"]
+
+    SetContext --> SiteScopeCheck{"Endpoint requires site_id param?"}
+    SiteScopeCheck -->|"Yes"| SiteMatch{"requested site_id in JWT site_ids[]?"}
+    SiteMatch -->|"No"| Reject403["403 Forbidden"]
+    SiteMatch -->|"Yes"| AppFilter["Layer 1: Hibernate tenant filter<br/>(adds WHERE tenant_id = :t to every query)"]
+    SiteScopeCheck -->|"No"| AppFilter
+
+    AppFilter --> DBLayer["Layer 2: PostgreSQL RLS policy<br/>(USING tenant_id = current_setting('app.tenant_id'))"]
+    DBLayer --> RowReturn["Rows returned — guaranteed single-tenant<br/>even if Layer 1 is bypassed by a bug"]
+
+    PlatformPath --> AuditLog["Every cross-tenant read/write logged<br/>to platform audit trail"]
+
+    RowReturn --> NoisyNeighbor["Resource isolation:<br/>per-tenant rate limits (Redis),<br/>per-tenant RabbitMQ routing keys,<br/>connection pool fairness"]

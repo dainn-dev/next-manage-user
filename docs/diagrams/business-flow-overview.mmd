@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor Driver
+    participant Edge as Edge Agent
+    participant API as Backend API
+    participant Bus as RabbitMQ
+    participant DB as Postgres
+    participant Notif as Notification
+    participant Bot as AI Chatbot
+
+    Note over Edge: Vehicle approaches entry camera
+    Edge->>Edge: motion -> YOLOv11 -> plate -> OCR -> track -> slot
+    Edge->>API: POST /ingest/events (VehicleEntered, eventId)
+    API->>DB: persist event + outbox (one tx)
+    API-->>Edge: 200 delivered
+    API->>Bus: relay event
+    Bus->>DB: projector updates Vehicle.current_slot
+    Note over Edge: Later, vehicle moves slots
+    Edge->>API: POST /ingest/events (VehicleRelocated)
+    API->>Bus: relay event
+    Bus->>Notif: build alert
+    Notif-->>Driver: push "Xe cua ban da bi di chuyen"
+    Driver->>Bot: "Xe toi dang o dau?"
+    Bot->>API: getVehicleLocation() (tenant-scoped)
+    API-->>Bot: slot B12, 09:35, snapshot
+    Bot-->>Driver: "Xe 51A-12345 dang o o B12, ghi nhan 09:35"

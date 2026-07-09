@@ -1,0 +1,35 @@
+flowchart TB
+    USER["Operators / Drivers"] --> LB["Cloud Load Balancer"]
+    LB --> ING["Ingress-NGINX + cert-manager (TLS)"]
+
+    subgraph K8S["Kubernetes cluster"]
+        subgraph Stateless["Stateless (HPA)"]
+            FE["frontend Deployment\nNext.js standalone"]
+            BE["backend Deployment\nSpring Boot API"]
+        end
+        subgraph Stateful["Stateful (operators / managed)"]
+            PG[("PostgreSQL + PostGIS")]
+            REDIS[("Redis")]
+            MQ[("RabbitMQ")]
+            MINIO[("MinIO / S3")]
+            OLLAMA["Ollama (GPU node)"]
+        end
+        subgraph Obs["Observability"]
+            PROM["Prometheus"]
+            GRAF["Grafana"]
+            LOKI["Loki"]
+        end
+    end
+
+    ING --> FE
+    ING --> BE
+    BE --> PG
+    BE --> REDIS
+    BE --> MQ
+    BE --> MINIO
+    BE --> OLLAMA
+    BE -->|/actuator/prometheus| PROM
+    PROM --> GRAF
+    BE -.-> LOKI
+
+    EDGE["On-site Edge Agents"] -->|outbound HTTPS only| ING

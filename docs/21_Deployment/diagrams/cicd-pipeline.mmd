@@ -1,0 +1,26 @@
+flowchart LR
+    DEV["Developer push / PR"] --> CI["CI pipeline"]
+
+    subgraph CI["CI (per service)"]
+        LINT["Lint / static analysis"]
+        UNIT["Unit tests\n(JUnit backend,\nvitest/RTL frontend,\npytest edge)"]
+        INTEG["Integration tests\n(Testcontainers:\nPostgres, RabbitMQ, Redis)"]
+        BUILD["Build image\n(backend/Dockerfile,\nfrontend/Dockerfile)"]
+        SCAN["Image scan\n(vuln + secrets)"]
+        PUSH["Push to registry\n(mirrors deploy/docker-build-push.sh\npattern -> registry)"]
+    end
+    LINT --> UNIT --> INTEG --> BUILD --> SCAN --> PUSH
+
+    PUSH --> GITOPS_UPDATE["Update image tag in\nHelm values / GitOps repo"]
+    GITOPS_UPDATE --> CD["CD: Argo CD / Flux\nsync to cluster"]
+
+    CD --> STAGING["Deploy to staging namespace"]
+    STAGING --> E2E["E2E tests (Playwright)\nagainst staging"]
+    E2E -->|"pass"| APPROVAL{"Manual approval\n(prod gate)"}
+    E2E -->|"fail"| ROLLBACKSTG["Block promotion"]
+    APPROVAL -->|"approved"| PROD["Deploy to prod namespace\n(rolling update)"]
+    APPROVAL -->|"rejected"| ROLLBACKSTG
+
+    PROD --> SMOKE["Prod smoke test\n(/actuator/health)"]
+    SMOKE -->|"fail"| ROLLBACK["Automated rollback\n(GitOps revert)"]
+    SMOKE -->|"pass"| DONE(["Release complete"])

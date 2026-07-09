@@ -1,0 +1,15 @@
+stateDiagram-v2
+    [*] --> Provisioned
+
+    Provisioned --> Online: "first heartbeat received"
+    Online --> Offline: "heartbeat stale (staleness sweep)"
+    Offline --> Online: "heartbeat resumes"
+
+    Provisioned --> Disabled: "admin disables before enrollment completes"
+    Online --> Disabled: "admin disables"
+    Offline --> Disabled: "admin disables"
+
+    Disabled --> Provisioned: "admin re-enables (re-issue credential)"
+
+    Offline --> [*]: "admin deletes camera"
+    Disabled --> [*]: "admin deletes camera"

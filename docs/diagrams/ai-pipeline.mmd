@@ -1,0 +1,14 @@
+flowchart LR
+    A["Camera frame (RTSP)"] --> B{"Motion?\nMOG2 (NEW)"}
+    B -- no --> A
+    B -- yes --> C["Vehicle Detection\nYOLOv11 (NEW)"]
+    C --> D["Plate Detection\nYOLOv5 (today)"]
+    D --> E["OCR\nPaddleOCR primary (NEW)\nYOLOv5-char fallback (today)"]
+    E --> F["Tracking\nByteTrack -> track_id (NEW)"]
+    F --> G["Parking-Slot Mapping\npoint-in-polygon (NEW)"]
+    G --> H{"Confirmed?\ncooldown + min-duration (today)"}
+    H -- no --> A
+    H -- yes --> I["Emit event\nVehicleEntered / Relocated / Exited"]
+    I --> J["SQLite store-and-forward\n(today, kept)"]
+    J --> K["POST /ingest/events\nidempotent, X-Gate-Key"]
+    K --> L["Backend: persist + outbox -> RabbitMQ"]

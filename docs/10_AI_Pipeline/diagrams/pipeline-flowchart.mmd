@@ -1,0 +1,21 @@
+flowchart TD
+    Camera["RTSP Camera Stream"] --> Capture["Frame Capture\ncv2.VideoCapture CAP_FFMPEG\nthrottle ~200ms"]
+    Capture --> Motion{"Motion Detection\nOpenCV MOG2"}
+    Motion -- "no motion" --> Skip["Skip frame - save GPU"]
+    Motion -- "motion in ROI" --> VehicleDet["Vehicle Detection\nYOLOv11 car / motorbike"]
+    VehicleDet --> PlateDet["Plate Detection\nYOLOv5 plate-box model"]
+    PlateDet --> Deskew["4-Orientation\nDeskew Retry"]
+    Deskew --> OCR["OCR\nPaddleOCR primary\nEasyOCR / VietOCR / legacy YOLOv5-char comparators"]
+    OCR --> Assemble["VN 1-line / 2-line\nPlate Assembly\nfunction/helper.py"]
+    Assemble --> Track["ByteTrack\nMulti-Object Tracking\nstable track_id"]
+    Track --> SlotMap["Parking-Slot Mapping\npoint-in-polygon\nsee 11_Parking_Slot_Detection"]
+    SlotMap --> Confirm["Cooldown +\nMin-Detection-Duration\nConfirmation"]
+    Confirm --> EventEmit["Domain Event Emission\nMotionDetected / VehicleDetected / PlateRecognized /\nVehicleEntered / VehicleRelocated / VehicleExited /\nPersonDetected / SnapshotSaved"]
+    EventEmit --> Queue["SQLite Store-and-Forward Queue\nedge_queue/events.sqlite3"]
+    Queue --> Ingest["POST /api/vehicles/check-vehicle\nX-Gate-Key header"]
+
+    classDef existing fill:#c8e6c9,stroke:#2e7d32,color:#1b5e20;
+    classDef new fill:#ffe0b2,stroke:#e65100,color:#7a3e00,stroke-dasharray: 4 3;
+
+    class Camera,Capture,PlateDet,Deskew,Assemble,Confirm,Queue,Ingest existing;
+    class Motion,Skip,VehicleDet,OCR,Track,SlotMap,EventEmit new;

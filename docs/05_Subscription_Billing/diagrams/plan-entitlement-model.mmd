@@ -1,0 +1,66 @@
+classDiagram
+    class Tenant {
+        +UUID id
+        +String name
+        +String slug
+        +String status
+        +UUID plan_id
+        +DateTime created_at
+    }
+
+    class Plan {
+        +UUID id
+        +String name
+        +Jsonb limits
+        +Decimal price
+        +getLimit(metric) int
+    }
+
+    class Subscription {
+        +UUID id
+        +UUID tenant_id
+        +UUID plan_id
+        +String stripe_customer_id
+        +String stripe_subscription_id
+        +String status
+        +DateTime current_period_end
+        +isActive() bool
+        +isPastDue() bool
+    }
+
+    class UsageRecord {
+        +UUID tenant_id
+        +String metric
+        +Decimal qty
+        +String period
+        +increment(qty)
+    }
+
+    class EntitlementGuard {
+        +check(tenantId, metric, delta) EntitlementResult
+        -loadEntitlements(tenantId) Entitlements
+    }
+
+    class EntitlementResult {
+        +bool allowed
+        +String reason
+        +int limit
+        +int currentUsage
+    }
+
+    Tenant "1" --> "1" Plan : subscribes to
+    Tenant "1" --> "0..1" Subscription : has active
+    Subscription "1" --> "1" Plan : references
+    Tenant "1" --> "*" UsageRecord : accrues
+    EntitlementGuard ..> Plan : reads limits
+    EntitlementGuard ..> UsageRecord : reads current usage
+    EntitlementGuard --> EntitlementResult : produces
+
+    class PlanTier {
+        <<enumeration>>
+        FREE
+        STARTER
+        PRO
+        ENTERPRISE
+    }
+    Plan --> PlanTier : name

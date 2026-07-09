@@ -1,0 +1,13 @@
+flowchart LR
+    M0["Today\nSingle-tenant\ngate-access system"]
+    M1["Milestone 1\nMulti-tenancy foundation\ntenant_id / site_id + RLS"]
+    M2["Milestone 2\nEvent-driven core\nRabbitMQ outbox + Redis"]
+    M3["Milestone 3\nAI pipeline upgrade\nYOLOv11 + PaddleOCR + ByteTrack"]
+    M4["Milestone 4\nParking-slot mapping\nplus relocation detection"]
+    M5["Milestone 5\nBilling + AI chatbot\nStripe + tool-calling LLM"]
+    M6["Milestone 6\nMobile app + Kubernetes prod\nGA multi-tenant SaaS"]
+
+    M0 --> M1 --> M2 --> M3 --> M4 --> M5 --> M6
+
+    Detail["Phased breakdown lives in 23_Roadmap"]
+    Detail -.-> M1

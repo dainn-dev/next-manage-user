@@ -1,0 +1,37 @@
+flowchart TD
+    TenantAdmin["Tenant Admin\n(configures tenant, sites, billing)"]
+    SiteManager["Site Manager\n(operates one or more sites)"]
+    SecurityGuard["Security Guard\n(gate/kiosk operator)"]
+    VehicleOwner["Vehicle Owner / Member\n(driver, mobile app user)"]
+    MobileApp["Mobile App\n(React Native / Expo, TARGET)"]
+
+    subgraph PV["ParkVision Platform (SaaS, multi-tenant)"]
+        WebApp["Web App\n(Next.js frontend)"]
+        API["Backend API\n(Spring Boot modular monolith)"]
+        Chatbot["AI Chatbot\n(LLM tool-calling, TARGET)"]
+    end
+
+    EdgeDevice["Edge Device / Camera\n(YOLOv5 detection today,\nYOLOv11+ByteTrack+PaddleOCR TARGET)"]
+    PaymentProvider["Payment Provider\n(Stripe, TARGET)"]
+    ChatLLM["LLM Provider\n(Ollama local / hosted Claude-OpenAI, TARGET)"]
+
+    TenantAdmin -->|"manage tenant, sites, plans"| WebApp
+    SiteManager -->|"manage site, review events"| WebApp
+    SecurityGuard -->|"kiosk view, manual approve/deny"| WebApp
+    VehicleOwner -->|"track vehicle, chat, notifications"| WebApp
+    VehicleOwner -.->|"TARGET: track vehicle, push alerts"| MobileApp
+
+    WebApp -->|"REST /api (JSON, JWT)"| API
+    MobileApp -.->|"TARGET: REST /api (JSON, JWT)"| API
+
+    EdgeDevice -->|"POST /api/gates/*, /api/vehicles/check-vehicle\n(X-Gate-Key, snapshot, SQLite store-and-forward)"| API
+    API -->|"STOMP over WebSocket\n(/topic/vehicle-check, /topic/gate/{id}/check)"| WebApp
+
+    API <-.->|"TARGET: tool-calling\n(getVehicleLocation, getHistory,\ngetSnapshot, getParkingStatus)"| Chatbot
+    Chatbot <-.->|"TARGET: inference"| ChatLLM
+    WebApp -.->|"TARGET: chat UI"| Chatbot
+
+    API <-.->|"TARGET: subscriptions, invoices, webhooks"| PaymentProvider
+
+    classDef target stroke-dasharray: 5 5;
+    class MobileApp,Chatbot,ChatLLM,PaymentProvider target;

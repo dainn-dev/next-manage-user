@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    participant User as User (browser/mobile)
+    participant Auth as AuthController (iam)
+    participant PG as PostgreSQL
+    participant JWT as JwtService (iam)
+    participant Filter as TenantContextFilter
+    participant AuthZ as @PreAuthorize / AuthzGuard
+
+    User->>Auth: POST /api/v1/auth/login {email, password}
+    Auth->>PG: lookup User by email (tenant_id nullable for platform admins)
+    PG-->>Auth: User row (BCrypt hash, role, tenant_id, site_ids)
+    Auth->>Auth: BCrypt.matches(password, hash)
+    Auth->>JWT: issue token(userId, email, role, tenant_id, site_ids[])
+    JWT-->>Auth: signed JWT (HS256, 86400s expiry)
+    Auth-->>User: 200 {token}
+
+    Note over User: Client stores token (web: httpOnly cookie target,<br/>today: localStorage — see ADR-0601 migration note)
+
+    User->>Filter: subsequent request, Authorization: Bearer JWT
+    Filter->>Filter: verify signature + expiry
+    Filter->>Filter: extract role, tenant_id, site_ids[]
+    Filter->>Filter: set ThreadLocal TenantContext + RLS session var
+    Filter->>AuthZ: proceed to controller method
+    AuthZ->>AuthZ: check @PreAuthorize("hasRole('SITE_MANAGER')")<br/>+ site_id path param in site_ids[]?
+    AuthZ-->>User: 200 (allowed) or 403 (role/site mismatch)
+
+    Note over User,AuthZ: Edge/camera calls use a separate auth path:<br/>X-Gate-Key today, per-camera key/mTLS target — see ADR-0602.

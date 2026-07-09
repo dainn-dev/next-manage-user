@@ -1,0 +1,54 @@
+erDiagram
+    TENANT ||--o{ SITE : has
+    TENANT ||--o{ USER : has
+    TENANT ||--o{ VEHICLE : owns
+    TENANT ||--|| SUBSCRIPTION : has
+    PLAN ||--o{ SUBSCRIPTION : priced_by
+    SITE ||--o{ ZONE : contains
+    SITE ||--o{ CAMERA : has
+    SITE ||--o{ GATE : has
+    SITE ||--o{ PARKING_SLOT : has
+    ZONE ||--o{ PARKING_SLOT : groups
+    CAMERA ||--o{ VEHICLE_TRACK : produces
+    PARKING_SLOT ||--o{ VEHICLE : currently_holds
+    VEHICLE ||--o{ PARKING_HISTORY : logs
+    SITE ||--o{ PARKING_EVENT : records
+    PARKING_EVENT ||--o{ SNAPSHOT : evidences
+    USER ||--o{ NOTIFICATION : receives
+
+    TENANT {
+        uuid id PK
+        string slug
+        string status
+        uuid plan_id FK
+    }
+    SITE {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        string timezone
+    }
+    PARKING_SLOT {
+        uuid id PK
+        uuid site_id FK
+        string code
+        geometry polygon
+        string status
+        uuid current_vehicle_id FK
+    }
+    VEHICLE {
+        uuid id PK
+        uuid tenant_id FK
+        string license_plate
+        uuid current_slot_id FK
+        timestamptz last_seen_at
+    }
+    PARKING_EVENT {
+        uuid id PK
+        uuid tenant_id FK
+        uuid site_id FK
+        string type
+        string track_id
+        uuid slot_id FK
+        timestamptz occurred_at
+    }

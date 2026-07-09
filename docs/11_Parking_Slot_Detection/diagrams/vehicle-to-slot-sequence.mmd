@@ -1,0 +1,27 @@
+sequenceDiagram
+    participant Trk as ByteTrack (edge)
+    participant Ref as Reference-Point Selector (edge)
+    participant Cache as Polygon Cache (edge, shapely)
+    participant Edge as Edge SlotMapper
+    participant Q as SQLite Queue
+    participant BE as Backend Ingest API
+    participant PG as PostGIS (authoritative)
+    participant DB as ParkingSlot / Vehicle tables
+
+    Trk->>Ref: track_id, bbox, plate?
+    Ref->>Ref: compute footprint point (bbox bottom-center)
+    Ref->>Cache: reference point
+    Cache->>Edge: candidate slot_id + geometric confidence (cached polygons)
+    Edge->>Edge: debounce + confidence threshold
+    Edge->>Q: enqueue slot-assignment event (provisional)
+    Q->>BE: POST ingest (event_id, track_id/plate, slot_id, occurred_at)
+    BE->>PG: ST_Contains(vehicle_point, slot_polygon)
+    PG-->>BE: authoritative slot_id
+    alt authoritative slot_id equals edge slot_id
+        BE->>DB: update ParkingSlot.status, Vehicle.current_slot_id
+    else disagreement
+        BE->>DB: persist authoritative slot_id (backend wins)
+        BE-->>Edge: polygon cache invalidation signal (next poll / heartbeat)
+    end
+    DB-->>BE: ack
+    BE-->>Q: 200 OK

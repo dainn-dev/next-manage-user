@@ -1,0 +1,68 @@
+flowchart TB
+    subgraph Clients["Clients"]
+        WebApp["Next.js Web App<br/>(tenant/site console)"]
+        MobileApp["Mobile App (Expo)<br/>[Target]"]
+        EdgeAgent["Edge Agent (Python)<br/>on-site, outbound-only"]
+    end
+
+    subgraph Platform["ParkVision Platform (Spring Boot Modular Monolith)"]
+        API["API Module<br/>REST /api/v1 + STOMP /ws"]
+
+        subgraph Modules["Internal Modules (package-private boundaries)"]
+            IAM["iam<br/>auth, users, roles"]
+            Tenancy["tenancy<br/>tenant/site resolution, RLS ctx"]
+            Parking["parking<br/>sites, zones, slots, vehicles, gates"]
+            AIIngest["ai-ingest<br/>edge event intake, idempotency"]
+            Events["events<br/>outbox relay, event schema"]
+            Billing["billing<br/>plans, subscriptions, entitlements"]
+            Chatbot["chatbot<br/>LLM tool-calling"]
+            Notification["notification<br/>push/email/ws fanout"]
+            Analytics["analytics<br/>aggregates, dashboards"]
+        end
+    end
+
+    PG[("PostgreSQL + PostGIS<br/>vehicle_management db")]
+    Redis[("Redis<br/>cache, presence, WS relay")]
+    MQ[("RabbitMQ<br/>domain event bus")]
+    ObjStore[("Object Storage<br/>MinIO / S3")]
+    Stripe["Stripe<br/>billing provider"]
+    LLM["Ollama / hosted LLM<br/>chatbot backend"]
+
+    WebApp -->|"HTTPS REST + JWT"| API
+    MobileApp -->|"HTTPS REST + JWT"| API
+    EdgeAgent -->|"HTTPS ingest API + X-Gate-Key"| AIIngest
+
+    API --> IAM
+    API --> Tenancy
+    API --> Parking
+    API --> Billing
+    API --> Chatbot
+    API --> Analytics
+    Tenancy -.->|"tenant ctx applies to all modules"| Parking
+    Tenancy -.-> Billing
+    Tenancy -.-> Chatbot
+
+    AIIngest --> Parking
+    AIIngest --> Events
+    Parking --> Events
+    Billing --> Events
+    Events -->|"transactional outbox relay"| MQ
+    MQ --> Notification
+    MQ --> Analytics
+    Notification -->|"STOMP over Redis pub-sub"| Redis
+    Redis -->|"fan-out"| WebApp
+
+    IAM --> PG
+    Tenancy --> PG
+    Parking --> PG
+    Billing --> PG
+    Analytics --> PG
+    Events --> PG
+    AIIngest --> ObjStore
+    Parking --> ObjStore
+
+    Billing <-->|"webhooks + API"| Stripe
+    Chatbot <-->|"tool calls, tenant-scoped"| LLM
+    Chatbot --> Parking
+
+    API --> Redis

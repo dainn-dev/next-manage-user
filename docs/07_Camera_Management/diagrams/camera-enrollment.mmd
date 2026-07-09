@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant Admin as "Site Admin (Frontend)"
+    participant BE as "Backend API"
+    participant DB as "PostgreSQL"
+    participant Appliance as "Edge Appliance (camera worker)"
+    participant Cam as "Camera (RTSP source)"
+
+    Admin->>BE: "POST /api/v1/sites/{siteId}/cameras (name, rtsp_url, role, panel_type)"
+    BE->>DB: "INSERT Camera(status=provisioned)"
+    BE-->>Admin: "camera_id + enrollment_token"
+    Admin->>Appliance: "Deliver enrollment_token (config file / QR)"
+    Appliance->>Cam: "cv2.VideoCapture(rtsp_url, CAP_FFMPEG)"
+    Appliance->>BE: "POST /api/v1/cameras/register (enrollment_token)"
+    BE->>DB: "rotate token -> permanent camera_api_key"
+    BE-->>Appliance: "camera_id + camera_api_key"
+    loop "every heartbeat_interval"
+        Appliance->>BE: "POST /api/v1/cameras/{id}/heartbeat (X-Camera-Key)"
+        BE->>DB: "UPDATE last_heartbeat_at"
+    end
+    BE->>DB: "status provisioned -> online"
+    BE-->>Admin: "STOMP /topic/site/{siteId}/camera-status (online)"

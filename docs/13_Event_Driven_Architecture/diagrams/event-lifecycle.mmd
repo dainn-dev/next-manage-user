@@ -1,0 +1,19 @@
+stateDiagram-v2
+    [*] --> Detected: Edge AI pipeline emits domain event
+    Detected --> Queued: SQLite store-and-forward (edge)
+    Queued --> Ingested: POST ingest API accepted (event_id + occurred_at)
+    Ingested --> Rejected: schema validation failed
+    Rejected --> [*]
+
+    Ingested --> Persisted: ParkingEvent row committed
+    Persisted --> Outboxed: outbox_message committed in same TX
+    Outboxed --> Published: Outbox Relay publishes to RabbitMQ
+    Published --> Consumed: consumer processes + acks
+    Consumed --> [*]
+
+    Published --> RetryPending: consumer nack / delivery timeout
+    RetryPending --> Published: retry with exponential backoff
+    RetryPending --> DeadLettered: retries exhausted
+    DeadLettered --> Consumed: manual replay after fix
+
+    Queued --> Queued: retry from edge (network down),<br/>deduped by event_id at ingest

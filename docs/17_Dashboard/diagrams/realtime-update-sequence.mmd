@@ -1,0 +1,21 @@
+sequenceDiagram
+    autonumber
+    participant EDGE as Edge (edge/)
+    participant API as Backend ingest API (/api/v1)
+    participant BUS as RabbitMQ (domain events)
+    participant SVC as Parking module (slot service)
+    participant REDIS as Redis pub/sub (STOMP relay)
+    participant WS as STOMP endpoint (/ws)
+    participant UI as Dashboard Parking Map View
+
+    EDGE->>API: POST vehicle event (VehicleEntered/VehicleRelocated)
+    API->>API: persist ParkingEvent + outbox row (same tx)
+    API-->>EDGE: 202 Accepted (idempotent by event_id)
+    API->>BUS: relay outbox row (transactional outbox)
+    BUS->>SVC: consume ParkingEvent
+    SVC->>SVC: recompute ParkingSlot.status/current_vehicle_id
+    SVC->>REDIS: publish slot-occupancy-changed {siteId, slotId, status}
+    REDIS->>WS: fan out to all backend instances
+    WS-->>UI: STOMP message /topic/site/{siteId}/slots
+    UI->>UI: update slot polygon fill (occupied/free) in place
+    Note over UI: falls back to GET /sites/{siteId}/parking-status<br/>on reconnect (missed-event replay, like today's<br/>recent-checks pattern)

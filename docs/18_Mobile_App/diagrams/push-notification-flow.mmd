@@ -1,0 +1,29 @@
+flowchart TD
+    EVT["Domain event<br/>VehicleRelocated / VehicleExited"] --> BUS["RabbitMQ event bus"]
+    BUS --> NOTIFSVC["notification module<br/>notification service"]
+    NOTIFSVC --> RULE{"Notification rule<br/>matches user prefs +<br/>Plan entitlement?"}
+    RULE -->|no| DROP["Suppressed / logged only"]
+    RULE -->|yes| PERSIST["Persist Notification row<br/>(tenant_id, user_id, channel, payload)"]
+    PERSIST --> FANOUT{"Channel"}
+
+    FANOUT -->|push| TOKENLOOKUP["Look up device tokens<br/>(per user, per platform)"]
+    TOKENLOOKUP --> FCM["FCM (Android)"]
+    TOKENLOOKUP --> APNS["APNs (iOS)"]
+    FCM --> DEVICE_A["Android device"]
+    APNS --> DEVICE_I["iOS device"]
+
+    FANOUT -->|ws| WSPUSH["STOMP /topic/user/{userId}<br/>if app foregrounded"]
+    FANOUT -->|email| EMAILSVC["Email (future)"]
+
+    DEVICE_A --> TAP["User taps notification"]
+    DEVICE_I --> TAP
+    TAP --> DEEPLINK["Deep link into app<br/>parkvision://alert/{eventId}"]
+    DEEPLINK --> DETAIL["Alert detail screen<br/>(18_Mobile_App)"]
+
+    subgraph TokenLifecycle["Token management"]
+        REGISTER["App registers token on login<br/>POST /devices/register"]
+        REFRESH["OS rotates token"]
+        REFRESH --> REREGISTER["App re-registers silently"]
+        UNREGISTER["Logout / uninstall detected<br/>(delivery failure)"]
+        UNREGISTER --> PRUNE["Prune stale token"]
+    end

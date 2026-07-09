@@ -1,0 +1,25 @@
+flowchart TD
+    SPLASH["Splash / auth check"] --> LOGGEDIN{"JWT valid in<br/>secure storage?"}
+    LOGGEDIN -->|no| LOGIN["Login screen<br/>REST /api/v1/auth/login"]
+    LOGGEDIN -->|yes| HOME["Home tab"]
+    LOGIN --> LINK["Link my vehicle<br/>(first-run onboarding)"]
+    LINK --> HOME
+
+    HOME --> TABBAR["Bottom tab bar"]
+    TABBAR --> T_HOME["Home<br/>vehicle cards + status"]
+    TABBAR --> T_MAP["Find my car<br/>map + last snapshot"]
+    TABBAR --> T_CHAT["Chatbot<br/>(16_AI_Chatbot in-app)"]
+    TABBAR --> T_NOTIF["Notifications<br/>(19_Notifications)"]
+    TABBAR --> T_PROFILE["Profile / settings"]
+
+    T_HOME --> D_STATUS["Site parking status<br/>getParkingStatus()"]
+    T_MAP --> D_LOCATE["Vehicle location<br/>getVehicleLocation()"]
+    D_LOCATE --> D_SNAP["Last snapshot detail"]
+    T_NOTIF --> D_ALERT["Relocation/stolen alert detail<br/>(12_Vehicle_Relocation_Detection)"]
+    D_ALERT --> D_LOCATE
+
+    T_PROFILE --> D_LINKMORE["Link/unlink vehicle"]
+    T_PROFILE --> D_LOGOUT["Logout (clear secure storage)"]
+
+    DEEPLINK["Push notification tap<br/>deep link"] -.-> D_ALERT
+    DEEPLINK2["parkvision://vehicle/{plate}"] -.-> D_LOCATE

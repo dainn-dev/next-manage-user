@@ -1,0 +1,52 @@
+flowchart TB
+    INTERNET(["Internet / tenant traffic"]) --> DNS["DNS + TLS\n(cert-manager)"]
+    DNS --> INGRESS["Ingress-NGINX"]
+
+    subgraph Cluster["Kubernetes cluster (prod)"]
+        INGRESS --> FESVC["Service: frontend\n(ClusterIP)"]
+        INGRESS --> BESVC["Service: backend\n(ClusterIP)"]
+
+        subgraph FEDep["Deployment: frontend"]
+            FEPOD1["pod (Next.js\nstandalone :3000)"]
+            FEPOD2["pod"]
+        end
+        FESVC --> FEDep
+        HPAFE["HPA: frontend\n(CPU/RPS target)"] -.-> FEDep
+
+        subgraph BEDep["Deployment: backend"]
+            BEPOD1["pod (Spring Boot\nJetty :8080)"]
+            BEPOD2["pod"]
+            BEPOD3["pod"]
+        end
+        BESVC --> BEDep
+        HPABE["HPA: backend\n(CPU/RPS target)"] -.-> BEDep
+
+        BEDep --> SECRETS[("Secrets\n(JWT_SECRET, GATE_API_KEY,\nDB creds, Stripe keys)")]
+
+        BEDep --> PGMGD[("Managed PostgreSQL\n+ PostGIS\n(or Postgres Operator)")]
+        BEDep --> REDISMGD[("Managed Redis")]
+        BEDep --> RMQMGD[("Managed/operator RabbitMQ")]
+        BEDep --> OBJSTORE[("Object storage\nMinIO / S3")]
+
+        subgraph Obs["Observability"]
+            PROM["Prometheus\n(scrapes /actuator/prometheus)"]
+            GRAF["Grafana"]
+            LOKI["Loki (logs)"]
+            TRACE["Tracing\n(OpenTelemetry collector)"]
+        end
+        BEDep -.->|"metrics"| PROM
+        BEDep -.->|"logs"| LOKI
+        BEDep -.->|"traces"| TRACE
+        PROM --> GRAF
+        LOKI --> GRAF
+    end
+
+    subgraph EdgeSites["Edge appliances (on-site, outbound-only)"]
+        E1["Site A edge"]
+        E2["Site B edge"]
+    end
+    E1 -->|"outbound HTTPS\nX-Gate-Key"| INGRESS
+    E2 -->|"outbound HTTPS"| INGRESS
+
+    GITOPS["GitOps controller\n(Argo CD / Flux)"] -->|"reconciles"| Cluster
+    HELM["Helm charts"] --> GITOPS

@@ -1,0 +1,34 @@
+flowchart TD
+    LOGIN["/login"] --> SHELL["Dashboard shell<br/>site switcher + role-based nav"]
+
+    SHELL --> EMP["/employees (default)"]
+    SHELL --> USR["/users"]
+    SHELL --> DEP["/departments"]
+    SHELL --> POS["/positions"]
+    SHELL --> VEH["/vehicles"]
+    VEH --> MON["/vehicles/monitoring (live)"]
+    VEH --> EE["/vehicles/entry-exit"]
+    VEH --> REQ["/vehicles/requests"]
+    SHELL --> GATE["/gate (registry)"]
+    GATE --> KIOSK["/gate/[gateId] (kiosk + TTS)"]
+    GATE --> GHEALTH["/gate/health"]
+    SHELL --> STATS["/statistics"]
+
+    SHELL --> MAP["/sites/{siteId}/map<br/>Parking Map view (08)"]
+    SHELL --> CAM["/sites/{siteId}/cameras<br/>Live Camera view (07)"]
+    SHELL --> SEARCH["/vehicles/search"]
+    SHELL --> TIMELINE["/events (event timeline)"]
+    MAP --> OCC["real-time slot occupancy overlay"]
+
+    SHELL --> ANALYTICS["/analytics<br/>20_Analytics widgets"]
+    SHELL --> NOTIF["/notifications<br/>19_Notifications center"]
+
+    SHELL --> TADMIN["/admin/tenant"]
+    SHELL --> SADMIN["/admin/sites"]
+    SHELL --> BILLING["/admin/billing<br/>05_Subscription_Billing"]
+    SHELL --> RBACADM["/admin/roles<br/>06_User_RBAC"]
+
+    classDef existing fill:#e8f0fe,stroke:#4285f4
+    classDef target fill:#fef7e0,stroke:#f9ab00
+    class EMP,USR,DEP,POS,VEH,MON,EE,REQ,GATE,KIOSK,GHEALTH,STATS existing
+    class MAP,CAM,SEARCH,TIMELINE,OCC,ANALYTICS,NOTIF,TADMIN,SADMIN,BILLING,RBACADM target

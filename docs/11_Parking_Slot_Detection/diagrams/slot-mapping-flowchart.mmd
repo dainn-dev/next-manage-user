@@ -1,0 +1,24 @@
+flowchart TD
+    A["Tracked vehicle: track_id, bbox, plate?"] --> B["Choose reference point"]
+    B --> C{"Reference point strategy"}
+    C -->|"footprint (bbox bottom-center)"| D["Footprint point (default)"]
+    C -->|"bbox center"| E["Center point (fallback)"]
+    C -->|"plate position"| F["Plate point (ANPR-gate cameras only)"]
+    D --> G["Point-in-polygon test vs ParkingSlot polygons"]
+    E --> G
+    F --> G
+    G --> H{"Contained in exactly one slot polygon?"}
+    H -->|"yes"| I["Candidate slot_id + geometric confidence"]
+    H -->|"no match"| J["No slot / aisle - mark unassigned"]
+    H -->|"multiple matches (overlap)"| K["Resolve by max overlap area / IoU"]
+    K --> I
+    I --> L["Combine with detector confidence + track stability"]
+    L --> M{"Confidence over threshold AND stable for debounce window?"}
+    M -->|no| N["Hold - keep previous slot state"]
+    M -->|yes| O["Commit slot assignment"]
+    O --> P{"slot_id changed vs Vehicle.current_slot_id?"}
+    P -->|no| Q["Update ParkingSlot.status = occupied (same slot)"]
+    P -->|yes| R["Relocation candidate - see 12_Vehicle_Relocation"]
+
+    classDef new fill:#ffe0b2,stroke:#e65100,color:#7a3e00,stroke-dasharray: 4 3;
+    class A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R new;

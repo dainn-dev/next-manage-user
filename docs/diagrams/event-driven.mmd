@@ -1,0 +1,27 @@
+flowchart TB
+    subgraph Ingest["AI Ingest"]
+        API["POST /ingest/events"]
+        OUTBOX[("outbox table\nsame tx as domain write")]
+        RELAY["Outbox relay"]
+        API --> OUTBOX --> RELAY
+    end
+
+    EX{{"RabbitMQ topic exchange\nparkvision.events"}}
+    RELAY -->|"rk: tenant.site.EventType"| EX
+
+    subgraph Consumers["Consumers (queues)"]
+        PROJ["DB projector\nParkingEvent / ParkingHistory"]
+        NOTE["Notification service"]
+        ANA["Analytics projector\nmaterialized views"]
+        IDX["Chatbot index"]
+        SNAP["Snapshot handler"]
+    end
+
+    EX --> PROJ
+    EX --> NOTE
+    EX --> ANA
+    EX --> IDX
+    EX --> SNAP
+
+    PROJ -.->|retry/DLQ| DLQ[["Dead-letter queue"]]
+    NOTE -.-> DLQ

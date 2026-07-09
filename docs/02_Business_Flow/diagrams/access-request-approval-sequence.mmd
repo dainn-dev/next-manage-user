@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    participant Req as Requester (USER or GATE kiosk)
+    participant FE as Frontend (/vehicles/requests)
+    participant API as Backend API
+    participant DB as PostgreSQL
+    participant Appr as Approver
+
+    Req->>API: create VehicleAccessRequest\n{source: USER|GATE, plate, employee}
+    API->>DB: INSERT VehicleAccessRequest status=PENDING
+    DB-->>API: request id
+    API-->>FE: 201 Created
+
+    Note over Appr,DB: TODAY (§1): role = APPROVER, no site scoping,\nrequest visible to any APPROVER in the single tenant
+    Appr->>FE: open /vehicles/requests (role=APPROVER)
+    FE->>API: GET pending VehicleAccessRequest list
+    API->>DB: SELECT WHERE status=PENDING
+    DB-->>API: pending requests
+    API-->>FE: list rendered
+    Appr->>FE: approve / reject
+    FE->>API: PATCH request {status: APPROVED|REJECTED}
+    API->>DB: UPDATE VehicleAccessRequest status,\ncascades Vehicle.status=approved|rejected
+    DB-->>API: committed
+    API-->>FE: 200 OK
+    API-->>Req: notify decision (STOMP/email)
+
+    Note over Appr,DB: TARGET (§3 decision #9): APPROVER role folds into\nSITE_MANAGER's approval rights; request gains\ntenant_id + site_id scope
+    Appr->>FE: open requests filtered to sites\nmanaged by this SITE_MANAGER
+    FE->>API: GET /api/v1/sites/{siteId}/access-requests?status=PENDING\n(JWT: role=SITE_MANAGER, tenant_id, site scope)
+    API->>DB: SELECT WHERE tenant_id=:t AND site_id=:s\nAND status=PENDING
+    DB-->>API: scoped pending requests
+    API-->>FE: list rendered (site-scoped only)
+    Appr->>FE: approve / reject
+    FE->>API: PATCH access-request {status}\n(re-validates SITE_MANAGER owns site_id)
+    API->>DB: UPDATE VehicleAccessRequest + publish\nParkingEvent/NotificationSent via outbox
+    API-->>Req: NotificationSent (push/email/ws)

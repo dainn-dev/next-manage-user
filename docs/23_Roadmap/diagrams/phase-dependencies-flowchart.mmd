@@ -1,0 +1,43 @@
+flowchart TD
+    P0["P0: Multi-Tenancy Foundation<br/>tenant_id/site_id + RLS + RBAC"]
+    P1["P1: Edge AI Upgrade<br/>YOLOv11 + PaddleOCR + ByteTrack"]
+    P2["P2: Event Bus + Realtime<br/>RabbitMQ + outbox + Redis"]
+    P3["P3: Dashboards + Map Designer"]
+    P4["P4: AI Chatbot"]
+    P5["P5: Billing + Mobile App"]
+    P6["P6: Analytics + Notifications"]
+    P7a["P7a: K8s Platform Skeleton<br/>Helm/GitOps"]
+    P7b["P7b: K8s Pre-GA Hardening<br/>HPA/managed datastores"]
+    GA(["GA Launch"])
+
+    P0 --> P1
+    P0 --> P2
+    P0 --> P3
+    P0 --> P5
+    P0 -. platform work can start early .-> P7a
+
+    P1 -. slot-mapping AI helps but does not block .-> P3
+
+    P2 --> P3
+    P2 --> P4
+    P2 --> P6
+
+    P5 --> P6
+
+    P3 --> GA
+    P4 --> GA
+    P6 --> GA
+
+    P7a --> P7b
+    P5 --> P7b
+    P6 --> P7b
+    P7b --> GA
+
+    subgraph Parallel_Track_A["Parallel track: independent of P2"]
+        P5
+    end
+
+    subgraph Parallel_Track_B["Parallel track: platform work"]
+        P7a
+        P7b
+    end

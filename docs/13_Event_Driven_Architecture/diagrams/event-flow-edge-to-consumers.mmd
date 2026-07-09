@@ -1,0 +1,27 @@
+flowchart LR
+    EDGE["Edge Service (Python)<br/>1 process per gate/camera"] -->|"HTTPS POST<br/>X-Gate-Key<br/>eventId + occurredAt"| INGEST["Ingest API<br/>ai-ingest module"]
+    EDGE -.retry on failure.-> SQLITE[("SQLite store-and-forward<br/>edge_queue/events.sqlite3")]
+    SQLITE -.replay.-> EDGE
+
+    INGEST --> VALIDATE{"Validate schema +<br/>dedupe on event_id"}
+    VALIDATE -->|duplicate| CACHED["Return original result<br/>(no re-publish)"]
+    VALIDATE -->|invalid| REJECT["4xx, not persisted"]
+    VALIDATE -->|new| TX["Single DB transaction"]
+
+    TX --> PE["INSERT ParkingEvent<br/>(partitioned by occurred_at)"]
+    TX --> OB["INSERT outbox_message"]
+
+    OB --> RELAY["Outbox Relay<br/>(polling worker)"]
+    RELAY --> EXCHANGE((("RabbitMQ<br/>parkvision.events")))
+
+    EXCHANGE --> QDB["q.db-projector"]
+    EXCHANGE --> QNOTIFY["q.notification"]
+    EXCHANGE --> QSNAP["q.snapshot"]
+    EXCHANGE --> QANALYTICS["q.analytics"]
+    EXCHANGE --> QCHAT["q.chatbot-index"]
+
+    QDB --> RESULT1["Vehicle.current_slot_id,<br/>ParkingSlot.status, ParkingHistory updated"]
+    QNOTIFY --> RESULT2["Push / email / STOMP notification"]
+    QSNAP --> RESULT3["Snapshot row linked to object storage"]
+    QANALYTICS --> RESULT4["Occupancy + usage metrics"]
+    QCHAT --> RESULT5["Chatbot read-model refreshed"]

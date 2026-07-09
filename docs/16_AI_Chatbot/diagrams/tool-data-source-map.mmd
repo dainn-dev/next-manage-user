@@ -1,0 +1,29 @@
+flowchart LR
+    subgraph ChatbotTools["Chatbot tools"]
+        T1["getVehicleLocation(plate)"]
+        T2["getHistory(plate, limit)"]
+        T3["getSnapshot(snapshotId | plate)"]
+        T4["getParkingStatus(siteId)"]
+    end
+
+    subgraph Endpoints["Internal read endpoints (/api/v1, tenant-scoped)"]
+        E1["GET /vehicles/{plate}/location"]
+        E2["GET /vehicles/{plate}/history"]
+        E3["GET /snapshots/{id}"]
+        E4["GET /sites/{siteId}/parking-status"]
+    end
+
+    subgraph Entities["Domain entities (04_Multi_Tenant_Design)"]
+        V["Vehicle<br/>current_slot_id, current_site_id, last_seen_at"]
+        PS["ParkingSlot<br/>status, current_vehicle_id"]
+        PE["ParkingEvent<br/>type, occurred_at, slot_id"]
+        PH["ParkingHistory<br/>old_slot, new_slot"]
+        SN["Snapshot<br/>object_url, kind"]
+    end
+
+    T1 --> E1 --> V
+    E1 --> PS
+    T2 --> E2 --> PE
+    E2 --> PH
+    T3 --> E3 --> SN
+    T4 --> E4 --> PS

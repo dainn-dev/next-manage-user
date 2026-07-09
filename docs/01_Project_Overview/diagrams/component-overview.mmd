@@ -1,0 +1,63 @@
+flowchart TD
+    subgraph FE["Frontend (Next.js 14 App Router)"]
+        FEWeb["Web App\n(shadcn/ui, Tailwind v4, recharts)"]
+        FEMap["Parking-Map Designer\n(SVG/Canvas polygon editor, TARGET)"]
+        FELive["Live Camera View\n(HLS/WebRTC/MJPEG, TARGET)"]
+    end
+
+    subgraph BE["Backend — Spring Boot 3.2 / Java 17 (modular monolith, TARGET module split)"]
+        IAM["iam\n(auth, JWT, roles — TARGET module boundary\naround today's Spring Security/JWT)"]
+        Tenancy["tenancy\n(Tenant/Site/Zone, RLS — TARGET)"]
+        Billing["billing\n(Stripe, Plan/Subscription — TARGET)"]
+        Parking["parking\n(Vehicle/Gate/Camera/ParkingSlot —\nevolves today's Vehicle/Gate/VehicleLog)"]
+        AiIngest["ai-ingest\n(edge event intake, outbox — evolves\ntoday's check-vehicle endpoint)"]
+        Events["events\n(domain events, outbox relay — TARGET)"]
+        Chatbot["chatbot\n(LLM tool-calling — TARGET)"]
+        Notification["notification\n(push/email/ws — TARGET)"]
+        Analytics["analytics\n(dashboards, usage metering — TARGET)"]
+    end
+
+    subgraph Edge["Edge (Python, on-site)"]
+        EdgeCapture["Capture + Detection\n(cv2 RTSP, YOLOv5 today /\n+MOG2 motion +YOLOv11 TARGET)"]
+        EdgeOCR["Plate OCR\n(YOLOv5 char-detect today /\n+PaddleOCR primary TARGET)"]
+        EdgeTrack["Tracking\n(first-seen/cooldown dict today /\nByteTrack TARGET)"]
+        EdgeQueue["Store-and-Forward Queue\n(SQLite events.sqlite3, keep & extend)"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        PG["PostgreSQL\n(vehicle_management db, Flyway)"]
+        PostGIS["PostGIS\n(slot polygons, TARGET)"]
+        RMQ["RabbitMQ\n(domain event bus, TARGET)"]
+        Redis["Redis\n(cache, presence, STOMP relay, TARGET)"]
+        Obj["Object Storage\n(MinIO/S3 snapshots, TARGET;\nlocal disk uploads/snapshots today)"]
+    end
+
+    FEWeb -->|REST /api| IAM
+    FEWeb -->|REST /api| Parking
+    FEWeb -.->|TARGET| Billing
+    FEWeb -.->|TARGET| Notification
+    FEWeb -.->|TARGET| Analytics
+    FEMap -.->|TARGET| Parking
+    FELive -.->|TARGET| Parking
+
+    EdgeCapture --> EdgeTrack --> EdgeOCR --> EdgeQueue
+    EdgeQueue -->|"POST check-vehicle, register, heartbeat\n(X-Gate-Key)"| AiIngest
+
+    AiIngest --> Parking
+    AiIngest -.->|TARGET: publish event| Events
+    Events -.->|TARGET| RMQ
+    RMQ -.->|TARGET: consume| Notification
+    RMQ -.->|TARGET: consume| Analytics
+    RMQ -.->|TARGET: consume| Chatbot
+
+    IAM --> PG
+    Tenancy -.->|TARGET| PG
+    Parking --> PG
+    Parking -.->|TARGET| PostGIS
+    Billing -.->|TARGET| PG
+    Parking --> Obj
+    IAM -.->|TARGET| Redis
+
+    classDef target stroke-dasharray: 5 5;
+    class Tenancy,Billing,Events,Chatbot,Notification,Analytics,PostGIS,RMQ,Redis target;
+    class FEMap,FELive target;

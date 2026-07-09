@@ -1,0 +1,45 @@
+flowchart LR
+    subgraph Sources["Event sources"]
+        EDGE["Edge service\n(edge/edge)"]
+        BACKEND["Backend domain\nlogic (parking, iam)"]
+    end
+
+    subgraph Ingest["Ingest & outbox (target)"]
+        API["Ingest API\n/api/v1/events"]
+        OUTBOX[("outbox table\n(same tx as domain write)")]
+        RELAY["Outbox relay"]
+    end
+
+    BUS{{"RabbitMQ\ndomain event bus"}}
+
+    subgraph NotifSvc["Notification module (target)"]
+        CONSUMER["Notification consumer\n(events.notification queue)"]
+        RULES["Rule engine:\nseverity + dedup/throttle\n+ per-user preferences"]
+        DISPATCH["Channel dispatcher"]
+    end
+
+    subgraph Channels["Delivery channels"]
+        WS["WebSocket / STOMP\n(existing /topic, extended\nwith Redis relay)"]
+        PUSH["Push: FCM / APNs\n(see 18_Mobile_App)"]
+        EMAIL["Email (SMTP / provider)"]
+    end
+
+    STORE[("Notification table\n(tenant_id, user_id, channel,\ntype, payload, read_at, sent_at)")]
+
+    EDGE -->|"check-vehicle, gate events"| API
+    BACKEND -->|"state change in same tx"| OUTBOX
+    API --> OUTBOX
+    OUTBOX --> RELAY
+    RELAY -->|"publish"| BUS
+    BUS -->|"VehicleRelocated, VehicleExited,\nPersonDetected, CameraOffline, ..."| CONSUMER
+    CONSUMER --> RULES
+    RULES -->|"persist"| STORE
+    RULES --> DISPATCH
+    DISPATCH --> WS
+    DISPATCH --> PUSH
+    DISPATCH --> EMAIL
+
+    classDef current fill:#eef,stroke:#448,stroke-width:1px;
+    classDef target fill:#efe,stroke:#484,stroke-width:1px;
+    class EDGE,BACKEND,WS current;
+    class API,OUTBOX,RELAY,BUS,CONSUMER,RULES,DISPATCH,PUSH,EMAIL,STORE target;

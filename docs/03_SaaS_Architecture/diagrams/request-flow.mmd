@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    participant Edge as Edge Agent
+    participant LB as Ingress / LB
+    participant API as API Pod (stateless)
+    participant Tenancy as tenancy module
+    participant Parking as parking module
+    participant Outbox as events (outbox)
+    participant PG as PostgreSQL
+    participant MQ as RabbitMQ
+    participant Redis as Redis
+    participant WS as WebApp (STOMP client)
+
+    Edge->>LB: POST /api/v1/ingest/events (X-Gate-Key, eventId, JWT-less)
+    LB->>API: route (round-robin, no sticky session)
+    API->>Tenancy: resolve tenant_id/site_id (gate/camera lookup)
+    Tenancy->>API: tenant context (RLS session var set)
+    API->>Parking: validate + apply domain rule (e.g. VehicleEntered)
+    Parking->>PG: BEGIN, upsert Vehicle/ParkingEvent, write outbox row, COMMIT
+    PG-->>Parking: ok
+    Parking->>Outbox: notify relay (polling/CDC)
+    Outbox->>MQ: publish ParkingEvent (routing key tenant.site.eventType)
+    API-->>Edge: 200 OK {eventId, status: accepted}
+
+    MQ->>API: consume (notification module, separate consumer group)
+    API->>Redis: PUBLISH topic tenant:{id}:site:{id}:vehicle-check
+    Redis-->>API: fan-out to subscribed pods
+    API->>WS: STOMP MESSAGE /topic/gate/{gateId}/check
+    WS-->>WS: render live update, no page reload
+
+    Note over Edge,PG: If ingest fails (network/5xx), Edge retries from<br/>local SQLite queue with exponential backoff, dedup by eventId.

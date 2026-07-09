@@ -1,0 +1,63 @@
+flowchart TB
+    subgraph Tenants["Tenants"]
+        T1["Tenant: Supermarket Chain A"]
+        T2["Tenant: Supermarket Chain B"]
+    end
+
+    subgraph Sites["Sites (per tenant)"]
+        S1["Site: Downtown Lot"]
+        S2["Site: Mall Lot"]
+    end
+
+    subgraph EdgeDevices["Edge devices (on-site)"]
+        Cam["Cameras / Gates\nRTSP streams"]
+        EdgeSvc["Edge AI service\nYOLOv11 + PaddleOCR + ByteTrack"]
+        Queue["SQLite store-and-forward queue"]
+    end
+
+    Core["ParkVision Platform\nmodular monolith\nSpring Boot + PostgreSQL"]
+    Bus["Event bus\nRabbitMQ"]
+    Cache["Redis\ncache / presence / STOMP relay"]
+    Object["Object storage\nMinIO / S3\nsnapshots"]
+
+    Web["Web dashboard\nNext.js"]
+    Mobile["Mobile app\nReact Native (Expo)"]
+    Driver["Driver / vehicle owner"]
+    Operator["Site manager / security guard"]
+    PlatformAdmin["Platform admin"]
+
+    Chatbot["AI Chatbot\nLLM tool-calling"]
+    LLMProvider["LLM provider\nOllama (Qwen/Llama) or hosted Claude/OpenAI"]
+
+    Payment["Payment provider\nStripe"]
+    Notify["Notification channels\npush (FCM/APNs), email, in-app WS"]
+
+    T1 --> S1
+    T2 --> S2
+    S1 --> Cam
+    S2 --> Cam
+    Cam --> EdgeSvc
+    EdgeSvc --> Queue
+    EdgeSvc -->|ingest API, idempotent| Core
+
+    Core --> Bus
+    Core --> Cache
+    Core --> Object
+    Bus --> Chatbot
+    Cache -->|pub/sub fan-out| Web
+
+    Core --> Web
+    Core --> Mobile
+    Web --> Operator
+    Web --> PlatformAdmin
+    Mobile --> Driver
+
+    Chatbot --> LLMProvider
+    Chatbot -->|tenant-scoped tools| Core
+    Driver -->|asks| Chatbot
+    Operator -->|asks| Chatbot
+
+    Core -->|subscriptions + usage| Payment
+    Core -->|events| Notify
+    Notify --> Driver
+    Notify --> Operator

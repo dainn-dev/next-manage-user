@@ -1,0 +1,19 @@
+flowchart TD
+    A["Prospect visits ParkVision signup"] --> B["Create Tenant account\n(name, slug, admin email)"]
+    B --> C["Select Plan\n(Free / Starter / Pro / Enterprise)"]
+    C --> D["Stripe checkout / subscription created"]
+    D --> E["Tenant status: active"]
+    E --> F["Create first Site\n(name, address, geo, timezone)"]
+    F --> G["Create Zones\n(optional grouping, e.g. Floor A/B)"]
+    G --> H["Register Cameras / Gates\nfor the Site"]
+    H --> I{"Camera role?"}
+    I -->|"ANPR_GATE"| J["Bind to Gate\n(entry/exit direction)"]
+    I -->|"OVERVIEW"| K["Bind to Zone for\nparking-map overlay"]
+    J --> L["Draw ParkingSlot polygons\nvia Parking-Map Designer"]
+    K --> L
+    L --> M["Invite initial TENANT_ADMIN\n/ SITE_MANAGER users"]
+    M --> N["Edge agent deployed on-site,\nheartbeats, camera online"]
+    N --> O["Site status: ready\nTenant onboarding complete"]
+
+    style A fill:#eef,stroke:#333
+    style O fill:#efe,stroke:#333

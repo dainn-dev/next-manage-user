@@ -1,0 +1,78 @@
+erDiagram
+    TENANT ||--o{ SITE : "has many"
+    SITE ||--o{ ZONE : "has many (optional)"
+    SITE ||--o{ CAMERA : "has many"
+    SITE ||--o{ GATE : "has many"
+    ZONE ||--o{ PARKING_SLOT : "groups"
+    SITE ||--o{ PARKING_SLOT : "scopes"
+    GATE }o--|| CAMERA : "uses one"
+    TENANT ||--o{ USER : "has many (nullable for platform admins)"
+    TENANT ||--o{ VEHICLE : "owns"
+    TENANT ||--o{ SUBSCRIPTION : "has one active"
+
+    TENANT {
+        uuid id PK
+        string name
+        string slug
+        string status
+        uuid plan_id FK
+    }
+    SITE {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        string address
+        geometry geo
+        string timezone
+        string status
+    }
+    ZONE {
+        uuid id PK
+        uuid site_id FK
+        string name
+    }
+    CAMERA {
+        uuid id PK
+        uuid site_id FK
+        string name
+        string rtsp_url
+        string role
+        string panel_type
+        string status
+    }
+    GATE {
+        uuid id PK
+        uuid site_id FK
+        uuid camera_id FK
+        string name
+        string direction
+    }
+    PARKING_SLOT {
+        uuid id PK
+        uuid site_id FK
+        uuid zone_id FK
+        string code
+        geometry polygon
+        string status
+        uuid current_vehicle_id FK
+    }
+    VEHICLE {
+        uuid id PK
+        uuid tenant_id FK
+        uuid owner_user_id FK
+        string license_plate
+        uuid current_slot_id FK
+        uuid current_site_id FK
+    }
+    USER {
+        uuid id PK
+        uuid tenant_id FK
+        string email
+        string role
+    }
+    SUBSCRIPTION {
+        uuid id PK
+        uuid tenant_id FK
+        uuid plan_id FK
+        string status
+    }
