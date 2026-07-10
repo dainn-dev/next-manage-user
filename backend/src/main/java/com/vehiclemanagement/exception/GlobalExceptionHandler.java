@@ -1,5 +1,6 @@
 package com.vehiclemanagement.exception;
 
+import com.vehiclemanagement.billing.EntitlementExceededException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -72,6 +73,21 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now()
         );
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(EntitlementExceededException.class)
+    public ResponseEntity<EntitlementErrorResponse> handleEntitlementExceededException(EntitlementExceededException ex) {
+        EntitlementErrorResponse error = new EntitlementErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                ex.getMessage(),
+                LocalDateTime.now(),
+                ex.getCode(),
+                ex.getMetric(),
+                ex.getLimit(),
+                ex.getCurrentUsage(),
+                ex.getUpgradeUrl()
+        );
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
     
     @ExceptionHandler(AuthenticationException.class)
@@ -148,6 +164,65 @@ public class GlobalExceptionHandler {
         
         public void setFieldErrors(Map<String, String> fieldErrors) {
             this.fieldErrors = fieldErrors;
+        }
+    }
+
+    public static class EntitlementErrorResponse extends ErrorResponse {
+        private String code;
+        private String metric;
+        private long limit;
+        private long currentUsage;
+        private String upgradeUrl;
+
+        public EntitlementErrorResponse(int status, String message, LocalDateTime timestamp,
+                                        String code, String metric, long limit, long currentUsage,
+                                        String upgradeUrl) {
+            super(status, message, timestamp);
+            this.code = code;
+            this.metric = metric;
+            this.limit = limit;
+            this.currentUsage = currentUsage;
+            this.upgradeUrl = upgradeUrl;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public void setCode(String code) {
+            this.code = code;
+        }
+
+        public String getMetric() {
+            return metric;
+        }
+
+        public void setMetric(String metric) {
+            this.metric = metric;
+        }
+
+        public long getLimit() {
+            return limit;
+        }
+
+        public void setLimit(long limit) {
+            this.limit = limit;
+        }
+
+        public long getCurrentUsage() {
+            return currentUsage;
+        }
+
+        public void setCurrentUsage(long currentUsage) {
+            this.currentUsage = currentUsage;
+        }
+
+        public String getUpgradeUrl() {
+            return upgradeUrl;
+        }
+
+        public void setUpgradeUrl(String upgradeUrl) {
+            this.upgradeUrl = upgradeUrl;
         }
     }
 }

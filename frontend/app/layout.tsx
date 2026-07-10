@@ -40,5 +40,8 @@ export default function RootLayout({
 }
 
 export const metadata = {
-      generator: 'v0.app'
-    };
+  title: "ParkVision — Smart Parking 4.0",
+  description:
+    "Multi-tenant SaaS smart parking: nhận diện biển số, map ô đỗ, relocation alert, AI chatbot. Một dashboard cho mọi bãi xe.",
+  generator: "v0.app",
+}

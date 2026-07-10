@@ -1,6 +1,9 @@
 package com.vehiclemanagement.service;
 
+import com.vehiclemanagement.billing.EntitlementGuard;
+import com.vehiclemanagement.dto.CameraCreateRequest;
 import com.vehiclemanagement.dto.CameraDto;
+import com.vehiclemanagement.dto.CameraWithKeyDto;
 import com.vehiclemanagement.entity.Camera;
 import com.vehiclemanagement.entity.Zone;
 import com.vehiclemanagement.exception.ConflictException;
@@ -9,6 +12,7 @@ import com.vehiclemanagement.repository.CameraRepository;
 import com.vehiclemanagement.repository.SiteRepository;
 import com.vehiclemanagement.repository.ZoneRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +43,14 @@ public class CameraService {
 
     @Autowired
     private ZoneRepository zoneRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private EntitlementGuard entitlementGuard;
+
+    private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
     @Transactional(readOnly = true)
     public List<CameraDto> list(UUID siteId) {
@@ -78,6 +90,36 @@ public class CameraService {
             camera.setStatus(request.getStatus());
         }
         return new CameraDto(cameraRepository.save(camera));
+    }
+
+    /**
+     * Compatibility enrollment API: enforces the tenant camera entitlement and
+     * returns the raw ingest key exactly once. The CRUD endpoint intentionally does
+     * not issue credentials.
+     */
+    public CameraWithKeyDto create(UUID siteId, CameraCreateRequest request) {
+        requireSite(siteId);
+        validateZone(request.getZoneId(), siteId);
+        if (cameraRepository.existsBySiteIdAndName(siteId, request.getName())) {
+            throw new ConflictException("Camera with name '" + request.getName()
+                    + "' already exists in this site");
+        }
+        entitlementGuard.assertCameraCreationAllowed(siteId);
+
+        byte[] keyBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(keyBytes);
+        String ingestKey = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(keyBytes);
+        Camera camera = Camera.builder()
+                .siteId(siteId)
+                .zoneId(request.getZoneId())
+                .name(request.getName())
+                .rtspUrl(request.getRtspUrl())
+                .role(request.getRole() == null ? Camera.CameraRole.ANPR_GATE : request.getRole())
+                .panelType(request.getPanelType())
+                .status(Camera.CameraStatus.provisioned)
+                .apiKeyHash(passwordEncoder.encode(ingestKey))
+                .build();
+        return new CameraWithKeyDto(cameraRepository.save(camera), ingestKey);
     }
 
     public CameraDto update(UUID id, CameraDto request) {

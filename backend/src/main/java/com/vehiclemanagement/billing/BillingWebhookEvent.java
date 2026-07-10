@@ -1,0 +1,16 @@
+package com.vehiclemanagement.billing;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+public record BillingWebhookEvent(
+        String id,
+        String type,
+        UUID tenantId,
+        String stripeCustomerId,
+        String stripeSubscriptionId,
+        String status,
+        boolean cancelAtPeriodEnd,
+        OffsetDateTime currentPeriodEnd,
+        String stripePriceId) {
+}

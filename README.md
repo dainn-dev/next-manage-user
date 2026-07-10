@@ -8,7 +8,7 @@ and an edge detector that reads plates from cameras and checks them against the 
 ```
 .
 ├── frontend/     Next.js 14 admin UI (React, Tailwind, shadcn/ui)
-├── backend/      Spring Boot 3 / Java 17 REST API + Postgres (Flyway migrations)
+├── backend/      Spring Boot 3 / Java 25 REST API + Postgres (Flyway migrations)
 ├── edge/         Python edge app — YOLOv5 plate detection/OCR, calls the gate API
 ├── docker-compose.yml        Canonical local stack: postgres + backend + frontend
 ├── deploy/       Deployment helpers
