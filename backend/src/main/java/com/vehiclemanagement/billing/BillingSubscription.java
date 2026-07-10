@@ -10,5 +10,7 @@ public record BillingSubscription(
         String stripeCustomerId,
         String stripeSubscriptionId,
         String status,
-        OffsetDateTime currentPeriodEnd) {
+        OffsetDateTime currentPeriodEnd,
+        boolean cancelAtPeriodEnd,
+        OffsetDateTime pastDueSince) {
 }

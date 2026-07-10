@@ -106,7 +106,7 @@ public class StripeBillingClient {
                 subscriptionId = text(object.path("parent").path("subscription_details"), "subscription");
             }
             String status = text(object, "status");
-            if ("checkout.session.completed".equals(type) && status == null) {
+            if ("checkout.session.completed".equals(type)) {
                 status = "active";
             }
             return new BillingWebhookEvent(
@@ -116,7 +116,8 @@ public class StripeBillingClient {
                     customerId,
                     subscriptionId,
                     status,
-                    epochSeconds(object, "current_period_end"),
+                    object.path("cancel_at_period_end").asBoolean(false),
+                    currentPeriodEnd(object),
                     extractPriceId(object));
         } catch (Exception ex) {
             throw new IllegalArgumentException("Invalid Stripe webhook event", ex);
@@ -136,7 +137,19 @@ public class StripeBillingClient {
         if (item.isArray() && !item.isEmpty()) {
             return text(item.get(0).path("price"), "id");
         }
-        return text(object.path("lines").path("data").path(0).path("price"), "id");
+        String linePrice = text(object.path("lines").path("data").path(0).path("price"), "id");
+        if (linePrice != null) {
+            return linePrice;
+        }
+        return text(object.path("lines").path("data").path(0).path("pricing").path("price_details"), "price");
+    }
+
+    private OffsetDateTime currentPeriodEnd(JsonNode object) {
+        OffsetDateTime periodEnd = epochSeconds(object, "current_period_end");
+        if (periodEnd != null) {
+            return periodEnd;
+        }
+        return epochSeconds(object.path("lines").path("data").path(0).path("period"), "end");
     }
 
     private OffsetDateTime epochSeconds(JsonNode object, String field) {
