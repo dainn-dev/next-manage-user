@@ -595,7 +595,7 @@ export function LandingPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="relative overflow-hidden">
+        <section className="relative isolate overflow-hidden">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-10 bg-primary"
@@ -616,26 +616,6 @@ export function LandingPage() {
               Onboard site đầu tiên trong một ngày làm việc — calibrate camera,
               map slots, xem occupancy realtime.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button
-                size="lg"
-                className="h-11 bg-background px-6 text-base text-foreground hover:bg-background/90 cursor-pointer"
-                asChild
-              >
-                <Link href="/login">
-                  Vào dashboard
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-11 border-primary-foreground/30 bg-transparent px-6 text-base text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground cursor-pointer"
-                asChild
-              >
-                <a href="#pricing">Xem bảng giá</a>
-              </Button>
-            </div>
           </div>
         </section>
       </main>

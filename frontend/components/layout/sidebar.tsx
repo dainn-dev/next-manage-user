@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import {
@@ -12,31 +12,17 @@ import {
   Map as MapIcon,
   Camera,
   LayoutGrid,
-  Users,
-  Building2,
-  Briefcase,
   Car,
   FileCheck,
   BarChart3,
   UserCog,
-  ChevronDown,
   LogOut,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { UserRole } from "@/lib/types"
-import { positionApi, type PositionApiResponse } from "@/lib/api/position-api"
 import { cn } from "@/lib/utils"
 
 interface NavigationItem {
@@ -107,14 +93,6 @@ const navigationGroups: NavigationGroup[] = [
     ],
   },
   {
-    label: "Nhân sự",
-    items: [
-      { key: "/employees", label: "Quân nhân", icon: Users },
-      { key: "/departments", label: "Cơ quan, đơn vị", icon: Building2 },
-      { key: "/positions", label: "Chức vụ", icon: Briefcase },
-    ],
-  },
-  {
     label: "Phương tiện",
     items: [
       { key: "/vehicles", label: "Danh sách xe", icon: Car },
@@ -139,30 +117,8 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
-  const [positions, setPositions] = useState<PositionApiResponse[]>([])
-  const [loadingPositions, setLoadingPositions] = useState(false)
   const { user, logout } = useAuth()
   const { toast } = useToast()
-
-  // Load positions from API
-  useEffect(() => {
-    const loadPositions = async () => {
-      try {
-        setLoadingPositions(true)
-        const positionsData = await positionApi.getPositionMenuHierarchy()
-        setPositions(positionsData)
-      } catch (error) {
-        console.error('Failed to load positions:', error)
-        // Don't show toast error on component mount to avoid spam
-        // User will see "Không có dữ liệu" in the dropdown instead
-      } finally {
-        setLoadingPositions(false)
-      }
-    }
-
-    // Load positions when component mounts
-    loadPositions()
-  }, [toast])
 
   // Filter items by role; drop empty groups.
   const filteredGroups = navigationGroups
@@ -186,7 +142,7 @@ export function Sidebar() {
         description: "Bạn đã đăng xuất khỏi hệ thống",
       })
       router.push("/login")
-    } catch (error) {
+    } catch {
       toast({
         title: "Lỗi đăng xuất",
         description: "Có lỗi xảy ra khi đăng xuất",
@@ -208,79 +164,6 @@ export function Sidebar() {
     return user.username[0].toUpperCase()
   }
 
-  // Convert position API response to navigation path
-  const getPositionPath = (position: PositionApiResponse, parentPath = "/positions"): string => {
-    // Create a URL-friendly slug from the position name
-    const slug = position.name
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "") // Remove combining diacritical marks (accents)
-      .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
-      .replace(/\s+/g, "-") // Replace spaces with hyphens
-      .trim()
-
-    return `${parentPath}/${slug}`
-  }
-
-  // Handle position menu click based on filterBy property
-  const handlePositionClick = (position: PositionApiResponse) => {
-    if (position.filterBy === 'N_A') {
-      // Don't allow clicking for N/A positions
-      return
-    }
-
-    if (position.filterBy === 'CHUC_VU') {
-      // Navigate to employees page with position filter using position ID for hierarchical context
-      router.push(`/employees?positionId=${position.id}`)
-    } else if (position.filterBy === 'CO_QUAN_DON_VI') {
-      // Navigate to employees page with department filter
-      router.push(`/employees?department=${encodeURIComponent(position.name)}`)
-    } else {
-      // Default behavior - navigate to position page
-      const positionPath = getPositionPath(position)
-      router.push(positionPath)
-    }
-  }
-
-  // Render position dropdown menu items recursively
-  const renderPositionMenuItems = (positions: PositionApiResponse[]): React.ReactNode => {
-    return positions.map((position) => {
-      const hasChildren = position.children && position.children.length > 0
-      const isClickable = position.filterBy !== 'N_A'
-
-      if (hasChildren) {
-        return (
-          <DropdownMenuSub key={position.id}>
-            <DropdownMenuSubTrigger>
-              <span>{position.name}</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {renderPositionMenuItems(position.children!)}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )
-      }
-
-      return (
-        <DropdownMenuItem
-          key={position.id}
-          onClick={() => isClickable ? handlePositionClick(position) : undefined}
-          className={`${
-            pathname === getPositionPath(position) || pathname.startsWith(getPositionPath(position))
-              ? "bg-sidebar-accent text-sidebar-accent-foreground"
-              : ""
-          } ${!isClickable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-          disabled={!isClickable}
-        >
-          {position.name}
-          {!isClickable && (
-            <span className="ml-2 text-xs text-muted-foreground">(N/A)</span>
-          )}
-        </DropdownMenuItem>
-      )
-    })
-  }
-
   const navButtonClass = (isActive: boolean) =>
     cn(
       "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium",
@@ -292,44 +175,6 @@ export function Sidebar() {
   const renderNavItem = (item: NavigationItem) => {
     const Icon = item.icon
     const isActive = pathname === item.key
-
-    // Positions: API-driven hierarchical dropdown (expanded mode only)
-    if (item.key === "/positions" && !collapsed) {
-      return (
-        <DropdownMenu key={item.key}>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                navButtonClass(pathname.startsWith(item.key)),
-                "cursor-pointer"
-              )}
-            >
-              {Icon && <Icon className="h-4 w-4 shrink-0" />}
-              <span className="flex-1">{item.label}</span>
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {loadingPositions ? (
-              <DropdownMenuItem disabled>
-                <span>Đang tải...</span>
-              </DropdownMenuItem>
-            ) : positions.length > 0 ? (
-              renderPositionMenuItems(positions)
-            ) : (
-              <>
-                <DropdownMenuItem onClick={() => handleMenuClick("/positions")}>
-                  <span>Tất cả chức vụ</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled>
-                  <span className="text-xs text-muted-foreground">Không thể tải menu phân cấp</span>
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    }
 
     // Coming-soon (greenfield parking features): disabled, no navigation
     if (item.comingSoon) {
