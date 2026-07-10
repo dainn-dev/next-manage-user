@@ -3,9 +3,9 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleDto;
 import com.vehiclemanagement.dto.VehicleImportResult;
-import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
-import com.vehiclemanagement.repository.EmployeeRepository;
+import com.vehiclemanagement.repository.UserRepository;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -45,13 +45,13 @@ import java.util.Optional;
 public class VehicleImportService {
 
     private static final String[] HEADERS = {
-            "Mã nhân viên (*)", "Biển số (*)", "Loại xe (car/motorbike/truck/bus) (*)",
+            "Tên đăng nhập chủ xe (*)", "Biển số (*)", "Loại xe (car/motorbike/truck/bus) (*)",
             "Hãng", "Mẫu", "Màu", "Năm SX", "Ngày đăng ký (yyyy-MM-dd) (*)",
             "Ngày hết hạn (yyyy-MM-dd)", "Nhiên liệu (gasoline/diesel/electric/hybrid)",
             "Sức chứa", "Ghi chú"
     };
 
-    private static final int COL_EMPLOYEE_ID = 0;
+    private static final int COL_OWNER_USERNAME = 0;
     private static final int COL_LICENSE = 1;
     private static final int COL_VEHICLE_TYPE = 2;
     private static final int COL_BRAND = 3;
@@ -67,12 +67,12 @@ public class VehicleImportService {
     private static final DateTimeFormatter ISO_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private final VehicleService vehicleService;
-    private final EmployeeRepository employeeRepository;
+    private final UserRepository userRepository;
 
     @Autowired
-    public VehicleImportService(VehicleService vehicleService, EmployeeRepository employeeRepository) {
+    public VehicleImportService(VehicleService vehicleService, UserRepository userRepository) {
         this.vehicleService = vehicleService;
-        this.employeeRepository = employeeRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -100,7 +100,7 @@ public class VehicleImportService {
             }
 
             String[] example = {
-                    "NV001", "30A-12345", "car", "Toyota", "Vios", "Trắng",
+                    "owner.username", "30A-12345", "car", "Toyota", "Vios", "Trắng",
                     "2020", "2024-01-15", "2027-01-15", "gasoline", "5", "Xe cá nhân"
             };
             Row exampleRow = sheet.createRow(1);
@@ -117,7 +117,7 @@ public class VehicleImportService {
             ref.createRow(r++).createCell(0).setCellValue("Loại xe: car, motorbike, truck, bus");
             ref.createRow(r++).createCell(0).setCellValue("Nhiên liệu: gasoline, diesel, electric, hybrid");
             ref.createRow(r++).createCell(0).setCellValue("Định dạng ngày: yyyy-MM-dd (ví dụ 2024-01-15)");
-            ref.createRow(r++).createCell(0).setCellValue("Mã nhân viên phải tồn tại trong hệ thống");
+            ref.createRow(r++).createCell(0).setCellValue("Tên đăng nhập chủ xe phải tồn tại trong hệ thống");
             ref.createRow(r).createCell(0).setCellValue("Các cột có (*) là bắt buộc");
             ref.autoSizeColumn(0);
 
@@ -158,12 +158,12 @@ public class VehicleImportService {
     }
 
     private VehicleDto toDto(String[] cells) {
-        String employeeCode = get(cells, COL_EMPLOYEE_ID);
-        if (isBlank(employeeCode)) {
-            throw new IllegalArgumentException("Thiếu mã nhân viên");
+        String ownerUsername = get(cells, COL_OWNER_USERNAME);
+        if (isBlank(ownerUsername)) {
+            throw new IllegalArgumentException("Thiếu tên đăng nhập chủ xe");
         }
-        Employee employee = employeeRepository.findByEmployeeId(employeeCode)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy nhân viên có mã: " + employeeCode));
+        User owner = userRepository.findByUsername(ownerUsername)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chủ xe có tên đăng nhập: " + ownerUsername));
 
         String license = get(cells, COL_LICENSE);
         if (isBlank(license)) {
@@ -176,7 +176,7 @@ public class VehicleImportService {
         Vehicle.FuelType fuelType = parseFuelOptional(get(cells, COL_FUEL));
 
         return VehicleDto.builder()
-                .employeeId(employee.getId())
+                .ownerId(owner.getId())
                 .licensePlate(license)
                 .vehicleType(vehicleType)
                 .brand(nullIfBlank(get(cells, COL_BRAND)))

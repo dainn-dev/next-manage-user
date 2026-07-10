@@ -1,9 +1,9 @@
 package com.vehiclemanagement.integration;
 
-import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleAccessRequest;
-import com.vehiclemanagement.repository.EmployeeRepository;
+import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleAccessRequestRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;

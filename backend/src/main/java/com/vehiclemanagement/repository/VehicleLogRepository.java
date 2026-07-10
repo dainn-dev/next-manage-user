@@ -33,8 +33,8 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
     // Find by vehicle ID
     List<VehicleLog> findByVehicleId(UUID vehicleId);
     
-    // Find by employee ID
-    List<VehicleLog> findByEmployeeId(UUID employeeId);
+    // Find by vehicle owner ID
+    List<VehicleLog> findByOwnerId(UUID ownerId);
     
     // Find by type
     List<VehicleLog> findByType(VehicleLog.LogType type);

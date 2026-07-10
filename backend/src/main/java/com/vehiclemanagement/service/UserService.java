@@ -5,10 +5,8 @@ import com.vehiclemanagement.dto.UpdateUserRequest;
 import com.vehiclemanagement.dto.UserDto;
 import com.vehiclemanagement.billing.EntitlementGuard;
 import com.vehiclemanagement.config.AuthDataSourceContext;
-import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
-import com.vehiclemanagement.repository.EmployeeRepository;
 import com.vehiclemanagement.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -33,9 +31,6 @@ public class UserService implements UserDetailsService {
     
     @Autowired
     private UserRepository userRepository;
-    
-    @Autowired
-    private EmployeeRepository employeeRepository;
     
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -110,13 +105,6 @@ public class UserService implements UserDetailsService {
                 .status(request.getStatus())
                 .build();
         
-        // Link to employee if provided
-        if (request.getEmployeeId() != null) {
-            Employee employee = employeeRepository.findById(request.getEmployeeId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + request.getEmployeeId()));
-            user.setEmployee(employee);
-        }
-        
         User savedUser = userRepository.save(user);
         return new UserDto(savedUser);
     }
@@ -158,13 +146,6 @@ public class UserService implements UserDetailsService {
         }
         if (request.getStatus() != null) {
             existingUser.setStatus(request.getStatus());
-        }
-        
-        // Update employee link if provided
-        if (request.getEmployeeId() != null) {
-            Employee employee = employeeRepository.findById(request.getEmployeeId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + request.getEmployeeId()));
-            existingUser.setEmployee(employee);
         }
         
         User updatedUser = userRepository.save(existingUser);

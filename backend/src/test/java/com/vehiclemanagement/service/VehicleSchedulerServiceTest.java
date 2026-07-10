@@ -1,6 +1,6 @@
 package com.vehiclemanagement.service;
 
-import com.vehiclemanagement.entity.Employee;
+import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.repository.VehicleLogRepository;
@@ -39,9 +39,12 @@ class VehicleSchedulerServiceTest {
 
     @BeforeEach
     void setUp() {
-        Employee employee = new Employee();
-        employee.setId(UUID.randomUUID());
-        employee.setName("Test Driver");
+        User owner = User.builder()
+                .id(UUID.randomUUID())
+                .username("test-owner")
+                .email("owner@example.com")
+                .password("pw")
+                .build();
 
         enteredVehicle = Vehicle.builder()
                 .id(UUID.randomUUID())
@@ -49,7 +52,7 @@ class VehicleSchedulerServiceTest {
                 .vehicleType(Vehicle.VehicleType.car)
                 .status(Vehicle.VehicleStatus.entered)
                 .registrationDate(LocalDate.now())
-                .employee(employee)
+                .owner(owner)
                 .build();
 
         approvedVehicle = Vehicle.builder()
@@ -58,7 +61,7 @@ class VehicleSchedulerServiceTest {
                 .vehicleType(Vehicle.VehicleType.motorbike)
                 .status(Vehicle.VehicleStatus.approved)
                 .registrationDate(LocalDate.now())
-                .employee(employee)
+                .owner(owner)
                 .build();
     }
 

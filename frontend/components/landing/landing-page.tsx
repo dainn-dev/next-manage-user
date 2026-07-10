@@ -178,7 +178,7 @@ export function LandingPage() {
               <Link href="/login">Đăng nhập</Link>
             </Button>
             <Button asChild>
-              <Link href="/login">
+              <Link href="/register">
                 Dùng thử
                 <ArrowRight className="size-4" />
               </Link>
@@ -215,7 +215,7 @@ export function LandingPage() {
                   <Link href="/login">Đăng nhập</Link>
                 </Button>
                 <Button asChild className="w-full">
-                  <Link href="/login">Dùng thử</Link>
+                  <Link href="/register">Dùng thử</Link>
                 </Button>
               </div>
             </nav>
@@ -252,7 +252,7 @@ export function LandingPage() {
               </p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Button size="lg" className="h-11 px-6 text-base cursor-pointer" asChild>
-                  <Link href="/login">
+                  <Link href="/register">
                     Bắt đầu miễn phí
                     <ArrowRight className="size-4" />
                   </Link>
@@ -551,7 +551,7 @@ export function LandingPage() {
                     variant={plan.featured ? "default" : "outline"}
                     asChild
                   >
-                    <Link href="/login">{plan.cta}</Link>
+                    <Link href="/register">{plan.cta}</Link>
                   </Button>
                 </article>
               ))}

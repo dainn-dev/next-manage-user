@@ -1,7 +1,6 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleAccessRequestDto;
-import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
@@ -52,9 +51,13 @@ class VehicleAccessRequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        Employee employee = new Employee();
-        employee.setId(UUID.randomUUID());
-        employee.setName("Test Employee");
+        User owner = User.builder()
+                .id(UUID.randomUUID())
+                .username("owner")
+                .email("owner@test.com")
+                .password("pw")
+                .role(User.Role.MEMBER)
+                .build();
 
         vehicle = Vehicle.builder()
                 .id(UUID.randomUUID())
@@ -62,7 +65,7 @@ class VehicleAccessRequestServiceTest {
                 .vehicleType(Vehicle.VehicleType.car)
                 .status(Vehicle.VehicleStatus.rejected)
                 .registrationDate(LocalDate.now())
-                .employee(employee)
+                .owner(owner)
                 .build();
 
         requester = User.builder()

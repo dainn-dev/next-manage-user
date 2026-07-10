@@ -2,7 +2,7 @@ package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.VehicleLog;
-import com.vehiclemanagement.repository.EmployeeRepository;
+import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ class VehicleLogServiceStatisticsTest {
     private VehicleRepository vehicleRepository;
 
     @Mock
-    private EmployeeRepository employeeRepository;
+    private UserRepository userRepository;
 
     @InjectMocks
     private VehicleLogService vehicleLogService;

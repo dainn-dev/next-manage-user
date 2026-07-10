@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -31,7 +30,4 @@ public class CreateUserRequest {
     private String lastName;
     private User.Role role = User.Role.MEMBER;
     private User.UserStatus status = User.UserStatus.ACTIVE;
-    
-    // Optional link to existing employee
-    private UUID employeeId;
-}
+    }

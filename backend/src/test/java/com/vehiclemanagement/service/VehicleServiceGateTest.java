@@ -2,8 +2,8 @@ package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleLogDto;
-import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Gate;
+import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
@@ -63,16 +63,19 @@ class VehicleServiceGateTest {
     private VehicleService vehicleService;
 
     private Vehicle approvedVehicle(String plate) {
-        Employee employee = Employee.builder()
+        User owner = User.builder()
                 .id(UUID.randomUUID())
-                .employeeId("E001")
-                .name("Nguyen Van A")
+                .username("nguyenvana")
+                .email("nguyenvana@example.com")
+                .password("pw")
+                .firstName("Nguyen")
+                .lastName("Van A")
                 .build();
         return Vehicle.builder()
                 .id(UUID.randomUUID())
                 .licensePlate(plate)
                 .status(Vehicle.VehicleStatus.approved)
-                .employee(employee)
+                .owner(owner)
                 .build();
     }
 
@@ -86,7 +89,7 @@ class VehicleServiceGateTest {
 
         when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.of(vehicle));
         when(gateRepository.findById(gateId)).thenReturn(Optional.of(gate));
-        when(vehicleLogService.getEmployeeInfoByLicensePlate(eq(plate), any(), eq(gate)))
+        when(vehicleLogService.getOwnerInfoByLicensePlate(eq(plate), any(), eq(gate)))
                 .thenReturn(monitorInfo);
 
         VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry", gateId);
@@ -110,7 +113,7 @@ class VehicleServiceGateTest {
         Object monitorInfo = new Object();
 
         when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.of(vehicle));
-        when(vehicleLogService.getEmployeeInfoByLicensePlate(eq(plate), any(), eq((Gate) null)))
+        when(vehicleLogService.getOwnerInfoByLicensePlate(eq(plate), any(), eq((Gate) null)))
                 .thenReturn(monitorInfo);
 
         VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry");
@@ -137,7 +140,7 @@ class VehicleServiceGateTest {
 
         when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.of(vehicle));
         when(gateRepository.findById(gateId)).thenReturn(Optional.empty());
-        when(vehicleLogService.getEmployeeInfoByLicensePlate(eq(plate), any(), eq((Gate) null)))
+        when(vehicleLogService.getOwnerInfoByLicensePlate(eq(plate), any(), eq((Gate) null)))
                 .thenReturn(monitorInfo);
 
         VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry", gateId);
@@ -165,7 +168,7 @@ class VehicleServiceGateTest {
         when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.of(vehicle));
         when(gateRepository.findById(gateId)).thenReturn(Optional.of(gate));
         when(snapshotStorageService.store(snapshot, plate)).thenReturn(storedPath);
-        when(vehicleLogService.getEmployeeInfoByLicensePlate(eq(plate), any(), eq(gate)))
+        when(vehicleLogService.getOwnerInfoByLicensePlate(eq(plate), any(), eq(gate)))
                 .thenReturn(new Object());
 
         VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry", gateId, snapshot);
@@ -213,7 +216,7 @@ class VehicleServiceGateTest {
         Vehicle vehicle = approvedVehicle(plate);
 
         when(vehicleRepository.findByLicensePlateNormalized(plate)).thenReturn(Optional.of(vehicle));
-        when(vehicleLogService.getEmployeeInfoByLicensePlate(eq(plate), any(), eq((Gate) null)))
+        when(vehicleLogService.getOwnerInfoByLicensePlate(eq(plate), any(), eq((Gate) null)))
                 .thenReturn(new Object());
 
         VehicleCheckResponse response = vehicleService.checkVehicleAccess(plate, "entry");

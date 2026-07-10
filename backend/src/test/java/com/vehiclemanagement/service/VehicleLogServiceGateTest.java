@@ -3,8 +3,8 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.VehicleLogDto;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.VehicleLog;
-import com.vehiclemanagement.repository.EmployeeRepository;
 import com.vehiclemanagement.repository.GateRepository;
+import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ class VehicleLogServiceGateTest {
     private VehicleRepository vehicleRepository;
 
     @Mock
-    private EmployeeRepository employeeRepository;
+    private UserRepository userRepository;
 
     @Mock
     private GateRepository gateRepository;

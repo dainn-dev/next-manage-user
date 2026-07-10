@@ -14,8 +14,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Column-selectable export of vehicles to Excel/CSV. Same contract as
- * {@link EmployeeExportService}: caller passes the ids of columns to include
+ * Column-selectable export of vehicles to Excel/CSV. The caller passes the
+ * ids of columns to include
  * (empty = all); output preserves the canonical column order.
  */
 @Service
@@ -37,7 +37,7 @@ public class VehicleExportService {
 
     static {
         COLUMNS.put("licensePlate", new Column("Biển số", v -> nz(v.getLicensePlate())));
-        COLUMNS.put("employeeName", new Column("Chủ xe", v -> nz(v.getEmployeeName())));
+        COLUMNS.put("ownerName", new Column("Chủ xe", v -> nz(v.getOwnerName())));
         COLUMNS.put("vehicleType", new Column("Loại xe", v -> vehicleTypeLabel(v.getVehicleType())));
         COLUMNS.put("brand", new Column("Hãng", v -> nz(v.getBrand())));
         COLUMNS.put("model", new Column("Mẫu", v -> nz(v.getModel())));

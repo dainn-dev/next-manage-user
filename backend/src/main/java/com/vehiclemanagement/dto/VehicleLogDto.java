@@ -18,11 +18,8 @@ public class VehicleLogDto {
     private UUID id;
     private String licensePlateNumber;
     private UUID vehicleId;
-    private UUID employeeId;
-    private String employeeName;
-    private String employeeAvatar;
-    private String employeeDepartment;
-    private String employeePosition;
+    private UUID ownerId;
+    private String ownerName;
     private LocalDateTime entryExitTime;
     private VehicleLog.LogType type;
     private VehicleLog.VehicleCategory vehicleType;

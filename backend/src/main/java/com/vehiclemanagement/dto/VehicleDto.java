@@ -19,8 +19,9 @@ import java.util.UUID;
 public class VehicleDto {
     
     private UUID id;
-    private UUID employeeId;
-    private String employeeName;
+    @NotNull(message = "Vehicle owner is required")
+    private UUID ownerId;
+    private String ownerName;
     
     @NotBlank(message = "License plate is required")
     private String licensePlate;
@@ -48,8 +49,8 @@ public class VehicleDto {
     // Constructor from entity
     public VehicleDto(Vehicle vehicle) {
         this.id = vehicle.getId();
-        this.employeeId = vehicle.getEmployee().getId();
-        this.employeeName = vehicle.getEmployee().getName();
+        this.ownerId = vehicle.getOwner() != null ? vehicle.getOwner().getId() : null;
+        this.ownerName = vehicle.getOwner() != null ? vehicle.getOwner().getFullName() : null;
         this.licensePlate = vehicle.getLicensePlate();
         this.vehicleType = vehicle.getVehicleType();
         this.brand = vehicle.getBrand();

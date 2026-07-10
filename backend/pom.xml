@@ -14,7 +14,7 @@
     <name>vehicle-management-api</name>
     <description>Vehicle Management System API</description>
     <properties>
-        <java.version>25</java.version>
+        <java.version>21</java.version>
         <!--
           Override the Testcontainers version managed by the Spring Boot 3.2.0 BOM
           (1.19.3). That version bundles docker-java 3.3.4, whose client cannot

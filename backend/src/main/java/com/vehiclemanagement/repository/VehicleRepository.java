@@ -20,7 +20,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     @Query("SELECT v FROM Vehicle v WHERE REPLACE(REPLACE(REPLACE(REPLACE(UPPER(v.licensePlate), '-', ''), '.', ''), ' ', ''), '_', '') = REPLACE(REPLACE(REPLACE(REPLACE(UPPER(:licensePlate), '-', ''), '.', ''), ' ', ''), '_', '')")
     Optional<Vehicle> findByLicensePlateNormalized(@Param("licensePlate") String licensePlate);
     
-    List<Vehicle> findByEmployeeId(UUID employeeId);
+    List<Vehicle> findByOwnerId(UUID ownerId);
     
     List<Vehicle> findByVehicleType(Vehicle.VehicleType vehicleType);
     
@@ -30,7 +30,9 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
            "LOWER(v.licensePlate) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(v.brand) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(v.model) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-           "LOWER(v.employee.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+           "LOWER(v.owner.username) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(COALESCE(v.owner.firstName, '')) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(COALESCE(v.owner.lastName, '')) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     Page<Vehicle> findBySearchTerm(@Param("searchTerm") String searchTerm, Pageable pageable);
     
     @Query("SELECT v FROM Vehicle v WHERE " +
@@ -65,6 +67,6 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     @Query("SELECT v.fuelType, COUNT(v) FROM Vehicle v WHERE v.fuelType IS NOT NULL GROUP BY v.fuelType")
     List<Object[]> countByFuelType();
     
-    @Query("SELECT v FROM Vehicle v WHERE v.employee.id = :employeeId")
-    List<Vehicle> findByEmployee(@Param("employeeId") UUID employeeId);
+    @Query("SELECT v FROM Vehicle v WHERE v.owner.id = :ownerId")
+    List<Vehicle> findByOwner(@Param("ownerId") UUID ownerId);
 }

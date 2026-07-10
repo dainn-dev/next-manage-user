@@ -32,8 +32,8 @@ public class VehicleLog {
     private Vehicle vehicle;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id")
-    private Employee employee;
+    @JoinColumn(name = "owner_id")
+    private User owner;
     
     @Column(name = "entry_exit_time", nullable = false)
     @NotNull(message = "Entry/Exit time is required")
@@ -65,7 +65,7 @@ public class VehicleLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "security_guard_id")
-    private Employee securityGuard;
+    private User securityGuard;
     
     private String notes;
     

@@ -45,7 +45,7 @@ public class VehicleSchedulerService {
                 VehicleLog log = VehicleLog.builder()
                         .licensePlateNumber(vehicle.getLicensePlate())
                         .vehicle(vehicle)
-                        .employee(vehicle.getEmployee())
+                        .owner(vehicle.getOwner())
                         .entryExitTime(now)
                         .type(VehicleLog.LogType.exit)
                         .vehicleType(VehicleLog.VehicleCategory.internal)

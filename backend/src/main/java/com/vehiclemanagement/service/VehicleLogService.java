@@ -2,12 +2,12 @@ package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleLogDto;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
-import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Gate;
+import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
-import com.vehiclemanagement.repository.EmployeeRepository;
 import com.vehiclemanagement.repository.GateRepository;
+import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +42,7 @@ public class VehicleLogService {
     private VehicleRepository vehicleRepository;
     
     @Autowired
-    private EmployeeRepository employeeRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private GateRepository gateRepository;
@@ -107,17 +107,17 @@ public class VehicleLogService {
     public VehicleLogDto createVehicleLog(VehicleLogDto vehicleLogDto) {
         VehicleLog vehicleLog = convertToEntity(vehicleLogDto);
         
-        // Try to find and associate vehicle by license plate using normalized search
+        // Associate the vehicle and its registered owner by license plate.
         Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
         if (vehicle.isPresent()) {
             vehicleLog.setVehicle(vehicle.get());
-            vehicleLog.setEmployee(vehicle.get().getEmployee());
+            vehicleLog.setOwner(vehicle.get().getOwner());
+        } else if (vehicleLogDto.getOwnerId() != null) {
+            userRepository.findById(vehicleLogDto.getOwnerId()).ifPresent(vehicleLog::setOwner);
         }
-        
-        // Associate security guard if provided
+
         if (vehicleLogDto.getSecurityGuardId() != null) {
-            Optional<Employee> securityGuard = employeeRepository.findById(vehicleLogDto.getSecurityGuardId());
-            securityGuard.ifPresent(vehicleLog::setSecurityGuard);
+            userRepository.findById(vehicleLogDto.getSecurityGuardId()).ifPresent(vehicleLog::setSecurityGuard);
         }
 
         // Associate the originating gate when supplied (Phase 3.2). Backward
@@ -169,20 +169,26 @@ public class VehicleLogService {
         existingLog.setNotes(vehicleLogDto.getNotes());
         existingLog.setImagePath(vehicleLogDto.getImagePath());
         
-        // Update vehicle association if license plate changed using normalized search
+        // Update vehicle association and use its registered owner when present.
         Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
         if (vehicle.isPresent()) {
             existingLog.setVehicle(vehicle.get());
-            existingLog.setEmployee(vehicle.get().getEmployee());
+            existingLog.setOwner(vehicle.get().getOwner());
         } else {
             existingLog.setVehicle(null);
-            existingLog.setEmployee(null);
+            if (vehicleLogDto.getOwnerId() != null) {
+                User owner = userRepository.findById(vehicleLogDto.getOwnerId())
+                        .orElseThrow(() -> new RuntimeException("User not found with id: " + vehicleLogDto.getOwnerId()));
+                existingLog.setOwner(owner);
+            } else {
+                existingLog.setOwner(null);
+            }
         }
-        
-        // Update security guard
+
         if (vehicleLogDto.getSecurityGuardId() != null) {
-            Optional<Employee> securityGuard = employeeRepository.findById(vehicleLogDto.getSecurityGuardId());
-            securityGuard.ifPresent(existingLog::setSecurityGuard);
+            User securityGuard = userRepository.findById(vehicleLogDto.getSecurityGuardId())
+                    .orElseThrow(() -> new RuntimeException("User not found with id: " + vehicleLogDto.getSecurityGuardId()));
+            existingLog.setSecurityGuard(securityGuard);
         } else {
             existingLog.setSecurityGuard(null);
         }
@@ -439,11 +445,8 @@ public class VehicleLogService {
                 .id(vehicleLog.getId())
                 .licensePlateNumber(vehicleLog.getLicensePlateNumber())
                 .vehicleId(vehicleLog.getVehicle() != null ? vehicleLog.getVehicle().getId() : null)
-                .employeeId(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getId() : null)
-                .employeeName(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getName() : null)
-                .employeeAvatar(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getAvatar() : null)
-                .employeeDepartment(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getDepartment() : null)
-                .employeePosition(vehicleLog.getEmployee() != null ? vehicleLog.getEmployee().getPosition() : null)
+                .ownerId(vehicleLog.getOwner() != null ? vehicleLog.getOwner().getId() : null)
+                .ownerName(vehicleLog.getOwner() != null ? vehicleLog.getOwner().getFullName() : null)
                 .entryExitTime(vehicleLog.getEntryExitTime())
                 .type(vehicleLog.getType())
                 .vehicleType(vehicleLog.getVehicleType())
@@ -453,7 +456,7 @@ public class VehicleLogService {
                 .gateId(vehicleLog.getGate() != null ? vehicleLog.getGate().getId() : null)
                 .gateName(vehicleLog.getGate() != null ? vehicleLog.getGate().getName() : null)
                 .securityGuardId(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getId() : null)
-                .securityGuardName(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getName() : null)
+                .securityGuardName(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getFullName() : null)
                 .notes(vehicleLog.getNotes())
                 .imagePath(vehicleLog.getImagePath())
                 .createdAt(vehicleLog.getCreatedAt())
@@ -470,48 +473,35 @@ public class VehicleLogService {
         return dto;
     }
     
-    public Object getEmployeeInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type) {
-        return getEmployeeInfoByLicensePlate(licensePlateNumber, type, null);
+    public Object getOwnerInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type) {
+        return getOwnerInfoByLicensePlate(licensePlateNumber, type, null);
     }
 
-    public Object getEmployeeInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type, Gate gate) {
-        // Find the vehicle by license plate using normalized search
+    public Object getOwnerInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type, Gate gate) {
         Optional<Vehicle> vehicleOpt = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber);
-        
+
         if (vehicleOpt.isEmpty()) {
             throw new RuntimeException("Vehicle not found with license plate: " + licensePlateNumber);
         }
-        
+
         Vehicle vehicle = vehicleOpt.get();
-        
-        // Get the employee who owns this vehicle
-        Employee employee = vehicle.getEmployee();
-        
-        if (employee == null) {
-            throw new RuntimeException("No employee found for vehicle: " + licensePlateNumber);
+        User owner = vehicle.getOwner();
+
+        if (owner == null) {
+            throw new RuntimeException("No owner found for vehicle: " + licensePlateNumber);
         }
 
-        // Find the latest log entry for this vehicle and type using normalized license plate search
         List<VehicleLog> logs = vehicleLogRepository
                 .findByLicensePlateNumberNormalizedAndTypeOrderByEntryExitTimeDesc(licensePlateNumber, type);
-        
+
         VehicleLog latestLog = logs.isEmpty() ? null : logs.get(0);
-        
-        // Create response object
+
         return new Object() {
-            public final String employeeId = employee.getEmployeeId();
-            public final String employeeName = employee.getName();
-            public final String firstName = employee.getFirstName();
-            public final String lastName = employee.getLastName();
-            public final String department = employee.getDepartment();
-            public final String position = employee.getPosition();
-            public final String rank = employee.getRank();
-            public final String jobTitle = employee.getJobTitle();
-            public final String militaryCivilian = employee.getMilitaryCivilian();
-            public final String phone = employee.getPhone();
-            public final String email = employee.getEmail();
-            public final String location = employee.getLocation();
-            public final String avatar = employee.getAvatar();
+            public final String ownerId = owner.getId().toString();
+            public final String ownerName = owner.getFullName();
+            public final String firstName = owner.getFirstName();
+            public final String lastName = owner.getLastName();
+            public final String email = owner.getEmail();
             
             // Vehicle information
             public final String vehicleId = vehicle.getId().toString();
