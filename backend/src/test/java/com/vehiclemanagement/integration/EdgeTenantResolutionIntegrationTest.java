@@ -57,21 +57,20 @@ class EdgeTenantResolutionIntegrationTest extends AbstractPostgresIntegrationTes
 
     @Test
     void gateCheckWithoutJwtUsesGateTenantForRlsWhenFallbackIsOff() {
-        UUID employeeId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
         UUID vehicleId = UUID.randomUUID();
         UUID gateId = UUID.randomUUID();
         String plate = "R9-" + (System.nanoTime() % 100000);
 
         seedOtherTenant();
         jdbc.update("""
-                INSERT INTO employees(id, employee_id, name, email, department, hire_date, status, tenant_id, created_at, updated_at)
-                VALUES (?, ?, 'R9 Driver', ?, 'Security', ?, 'HOAT_DONG', ?, now(), now())
-                """, employeeId, "R9-" + employeeId, "r9-" + employeeId + "@example.com",
-                LocalDate.now(), OTHER_TENANT);
+                INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at)
+                VALUES (?, ?, ?, 'test-password', 'MEMBER', 'ACTIVE', ?, now(), now())
+                """, ownerId, "r9-owner-" + ownerId, "r9-" + ownerId + "@example.com", OTHER_TENANT);
         jdbc.update("""
-                INSERT INTO vehicles(id, employee_id, license_plate, vehicle_type, registration_date, status, tenant_id, created_at, updated_at)
+                INSERT INTO vehicles(id, owner_id, license_plate, vehicle_type, registration_date, status, tenant_id, created_at, updated_at)
                 VALUES (?, ?, ?, 'car', ?, 'approved', ?, now(), now())
-                """, vehicleId, employeeId, plate, LocalDate.now(), OTHER_TENANT);
+                """, vehicleId, ownerId, plate, LocalDate.now(), OTHER_TENANT);
         jdbc.update("""
                 INSERT INTO gate(id, name, location, status, tenant_id, site_id, created_at, updated_at)
                 VALUES (?, ?, 'R9 Site', 'online', ?, ?, now(), now())

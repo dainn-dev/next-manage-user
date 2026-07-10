@@ -72,7 +72,7 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
     VehicleRepository vehicleRepository;
 
     @Autowired
-    EmployeeRepository employeeRepository;
+    UserRepository userRepository;
 
     @Autowired
     VehicleLogRepository vehicleLogRepository;
@@ -103,16 +103,17 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
         return UUID.fromString((String) resp.getBody().get("id"));
     }
 
-    /** Persist an approved vehicle (with owning employee) straight into the DB. */
+    /** Persist an approved vehicle (with owning user) straight into the DB. */
     private Vehicle persistApprovedVehicle(String plate) {
-        Employee employee = employeeRepository.save(Employee.builder()
-                .employeeId("E-" + UUID.randomUUID())
-                .name("Nguyen Van Test")
-                .department("Phong Ky Thuat")
-                .hireDate(LocalDate.now()) // employees.hire_date is NOT NULL in the schema
+        User user = userRepository.save(User.builder()
+                .username("vehicle-owner-" + UUID.randomUUID())
+                .email("vehicle-owner-" + UUID.randomUUID() + "@example.com")
+                .password("test-password")
+                .role(User.Role.MEMBER)
+                .status(User.UserStatus.ACTIVE)
                 .build());
         return vehicleRepository.save(Vehicle.builder()
-                .employee(employee)
+                .owner(user)
                 .licensePlate(plate)
                 .vehicleType(Vehicle.VehicleType.car)
                 .registrationDate(LocalDate.now())
