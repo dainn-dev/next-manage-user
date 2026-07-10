@@ -40,6 +40,7 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
     @BeforeEach
     void resetBillingRows() {
         jdbc.update("DELETE FROM processed_stripe_event WHERE event_id LIKE 'evt_%_275'");
+        jdbc.update("DELETE FROM billing_audit WHERE tenant_id = ?", TENANT_ID);
         jdbc.update("DELETE FROM billing_subscription WHERE tenant_id = ?", TENANT_ID);
         jdbc.update("DELETE FROM tenant WHERE id = ?", TENANT_ID);
     }
@@ -107,6 +108,7 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 "cus_sync",
                 "sub_sync",
                 "active",
+                false,
                 periodEnd,
                 "price_pro"));
 
@@ -137,6 +139,7 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 "cus_cancel",
                 "sub_cancel",
                 "canceled",
+                false,
                 null,
                 null));
 
@@ -146,6 +149,69 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 String.class, TENANT_ID)).isEqualTo("free");
         assertThat(jdbc.queryForObject("SELECT status FROM billing_subscription WHERE tenant_id = ?",
                 String.class, TENANT_ID)).isEqualTo("canceled");
+    }
+
+    @Test
+    void failedPaymentEntersDunningAndReplayDoesNotDuplicateAudit() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(PRO_PLAN_ID, "cus_failed", "sub_failed", "active");
+        when(stripeClient.parseWebhookEvent(any(), any())).thenReturn(new BillingWebhookEvent(
+                "evt_failed_275",
+                "invoice.payment_failed",
+                TENANT_ID,
+                "cus_failed",
+                "sub_failed",
+                null,
+                false,
+                null,
+                null));
+
+        billingService.handleWebhook("payload", "sig");
+        billingService.handleWebhook("payload", "sig");
+
+        assertThat(jdbc.queryForObject("""
+                SELECT status FROM billing_subscription WHERE tenant_id = ?
+                """, String.class, TENANT_ID)).isEqualTo("past_due");
+        assertThat(jdbc.queryForObject("""
+                SELECT past_due_since IS NOT NULL FROM billing_subscription WHERE tenant_id = ?
+                """, Boolean.class, TENANT_ID)).isTrue();
+        assertThat(jdbc.queryForObject("""
+                SELECT code FROM billing_plan WHERE id = (SELECT plan_id FROM tenant WHERE id = ?)
+                """, String.class, TENANT_ID)).isEqualTo("pro");
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM billing_audit WHERE tenant_id = ? AND action = 'payment_failed'
+                """, Long.class, TENANT_ID)).isEqualTo(1L);
+    }
+
+    @Test
+    void paidInvoiceRecoversPastDueSubscriptionAndUpdatesPeriod() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(PRO_PLAN_ID, "cus_paid", "sub_paid", "past_due");
+        OffsetDateTime periodEnd = OffsetDateTime.of(2026, 9, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        when(stripeClient.parseWebhookEvent(any(), any())).thenReturn(new BillingWebhookEvent(
+                "evt_paid_275",
+                "invoice.paid",
+                TENANT_ID,
+                "cus_paid",
+                "sub_paid",
+                "paid",
+                false,
+                periodEnd,
+                "price_pro"));
+
+        billingService.handleWebhook("payload", "sig");
+
+        assertThat(jdbc.queryForObject("""
+                SELECT status FROM billing_subscription WHERE tenant_id = ?
+                """, String.class, TENANT_ID)).isEqualTo("active");
+        assertThat(jdbc.queryForObject("""
+                SELECT current_period_end FROM billing_subscription WHERE tenant_id = ?
+                """, OffsetDateTime.class, TENANT_ID)).isEqualTo(periodEnd);
+        assertThat(jdbc.queryForObject("""
+                SELECT past_due_since IS NULL FROM billing_subscription WHERE tenant_id = ?
+                """, Boolean.class, TENANT_ID)).isTrue();
     }
 
     private void seedTenant() {
@@ -162,6 +228,7 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     private void seedSubscription(UUID planId, String customerId, String subscriptionId, String status) {
+        jdbc.update("UPDATE tenant SET plan_id = ? WHERE id = ?", planId, TENANT_ID);
         jdbc.update("""
                 INSERT INTO billing_subscription(tenant_id, plan_id, stripe_customer_id, stripe_subscription_id, status)
                 VALUES (?, ?, ?, ?, ?)

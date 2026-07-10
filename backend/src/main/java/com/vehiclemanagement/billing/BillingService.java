@@ -13,6 +13,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,7 +47,8 @@ public class BillingService {
                     ? stripeClient.createCustomer(tenantId, email)
                     : subscription.stripeCustomerId();
             upsertSubscription(tenantId, plan.id(), customerId, subscription == null ? null : subscription.stripeSubscriptionId(),
-                    subscription == null ? "incomplete" : subscription.status(), subscription == null ? null : subscription.currentPeriodEnd());
+                    subscription == null ? "incomplete" : subscription.status(), subscription == null ? null : subscription.currentPeriodEnd(),
+                    subscription != null && subscription.cancelAtPeriodEnd(), subscription == null ? null : subscription.pastDueSince());
 
             StripeBillingClient.CheckoutSession session = stripeClient.createCheckoutSession(
                     tenantId, customerId, plan.stripePriceId(), request.getSuccessUrl(), request.getCancelUrl());
@@ -128,27 +131,63 @@ public class BillingService {
             planId = findSubscriptionByTenant(tenantId).map(BillingSubscription::planId).orElse(FREE_PLAN_ID);
         }
         String status = event.status() == null ? "active" : event.status();
-        upsertSubscription(tenantId, planId, event.stripeCustomerId(), event.stripeSubscriptionId(), status, event.currentPeriodEnd());
+        OffsetDateTime pastDueSince = "past_due".equals(status)
+                ? findSubscriptionByTenant(tenantId)
+                        .map(BillingSubscription::pastDueSince)
+                        .orElseGet(OffsetDateTime::now)
+                : null;
+        upsertSubscription(tenantId, planId, event.stripeCustomerId(), event.stripeSubscriptionId(), status,
+                event.currentPeriodEnd(), event.cancelAtPeriodEnd(), pastDueSince);
+        if (shouldDowngradeToFree(status)) {
+            jdbc.update("UPDATE tenant SET plan_id = ? WHERE id = ?", FREE_PLAN_ID, tenantId);
+            audit(tenantId, "stripe_webhook", "downgraded_to_free", event,
+                    Map.of("stripe_subscription_id", nullToEmpty(event.stripeSubscriptionId()), "status", status));
+            return;
+        }
         jdbc.update("UPDATE tenant SET plan_id = ? WHERE id = ?", planId, tenantId);
+        audit(tenantId, "stripe_webhook", auditActionForSubscription(status), event,
+                Map.of("stripe_subscription_id", nullToEmpty(event.stripeSubscriptionId()), "status", status));
     }
 
     private void markPaymentFailed(BillingWebhookEvent event) {
+        UUID tenantId = requireTenant();
         jdbc.update("""
                 UPDATE billing_subscription
-                SET status = 'past_due'
+                SET status = 'past_due',
+                    past_due_since = COALESCE(past_due_since, CURRENT_TIMESTAMP),
+                    current_period_end = COALESCE(?, current_period_end),
+                    cancel_at_period_end = ?
                 WHERE stripe_customer_id = ? OR stripe_subscription_id = ?
-                """, event.stripeCustomerId(), event.stripeSubscriptionId());
+                """, event.currentPeriodEnd(), event.cancelAtPeriodEnd(), event.stripeCustomerId(), event.stripeSubscriptionId());
+        audit(tenantId, "stripe_webhook", "payment_failed", event,
+                Map.of("stripe_customer_id", nullToEmpty(event.stripeCustomerId()),
+                        "stripe_subscription_id", nullToEmpty(event.stripeSubscriptionId())));
     }
 
     private void syncInvoicePaid(BillingWebhookEvent event) {
-        if (event.currentPeriodEnd() == null) {
-            return;
+        UUID tenantId = requireTenant();
+        Optional<UUID> planId = planIdForEvent(event);
+        if (planId.isPresent()) {
+            jdbc.update("""
+                    UPDATE billing_subscription
+                    SET plan_id = ?,
+                        status = CASE WHEN status = 'past_due' THEN 'active' ELSE status END,
+                        current_period_end = COALESCE(?, current_period_end),
+                        past_due_since = NULL
+                    WHERE stripe_customer_id = ? OR stripe_subscription_id = ?
+                    """, planId.get(), event.currentPeriodEnd(), event.stripeCustomerId(), event.stripeSubscriptionId());
+            jdbc.update("UPDATE tenant SET plan_id = ? WHERE id = ?", planId.get(), tenantId);
+        } else {
+            jdbc.update("""
+                    UPDATE billing_subscription
+                    SET status = CASE WHEN status = 'past_due' THEN 'active' ELSE status END,
+                        current_period_end = COALESCE(?, current_period_end),
+                        past_due_since = NULL
+                    WHERE stripe_customer_id = ? OR stripe_subscription_id = ?
+                    """, event.currentPeriodEnd(), event.stripeCustomerId(), event.stripeSubscriptionId());
         }
-        jdbc.update("""
-                UPDATE billing_subscription
-                SET current_period_end = ?
-                WHERE stripe_customer_id = ? OR stripe_subscription_id = ?
-                """, event.currentPeriodEnd(), event.stripeCustomerId(), event.stripeSubscriptionId());
+        audit(tenantId, "stripe_webhook", "invoice_paid", event,
+                Map.of("stripe_subscription_id", nullToEmpty(event.stripeSubscriptionId())));
     }
 
     private Optional<UUID> planIdForEvent(BillingWebhookEvent event) {
@@ -173,20 +212,23 @@ public class BillingService {
                 .orElse(null);
     }
 
-    private void upsertSubscription(UUID tenantId, UUID planId, String customerId, String subscriptionId, String status, OffsetDateTime currentPeriodEnd) {
+    private void upsertSubscription(UUID tenantId, UUID planId, String customerId, String subscriptionId, String status,
+                                    OffsetDateTime currentPeriodEnd, boolean cancelAtPeriodEnd, OffsetDateTime pastDueSince) {
         if (customerId == null || customerId.isBlank()) {
             throw new IllegalArgumentException("Stripe customer id is required");
         }
         jdbc.update("""
-                INSERT INTO billing_subscription(tenant_id, plan_id, stripe_customer_id, stripe_subscription_id, status, current_period_end)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO billing_subscription(tenant_id, plan_id, stripe_customer_id, stripe_subscription_id, status, current_period_end, cancel_at_period_end, past_due_since)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (tenant_id) DO UPDATE
                 SET plan_id = EXCLUDED.plan_id,
                     stripe_customer_id = EXCLUDED.stripe_customer_id,
                     stripe_subscription_id = COALESCE(EXCLUDED.stripe_subscription_id, billing_subscription.stripe_subscription_id),
                     status = EXCLUDED.status,
-                    current_period_end = COALESCE(EXCLUDED.current_period_end, billing_subscription.current_period_end)
-                """, tenantId, planId, customerId, subscriptionId, status, currentPeriodEnd);
+                    current_period_end = COALESCE(EXCLUDED.current_period_end, billing_subscription.current_period_end),
+                    cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+                    past_due_since = EXCLUDED.past_due_since
+                """, tenantId, planId, customerId, subscriptionId, status, currentPeriodEnd, cancelAtPeriodEnd, pastDueSince);
     }
 
     private Optional<BillingPlan> findPlan(UUID planId) {
@@ -199,7 +241,7 @@ public class BillingService {
 
     private Optional<BillingSubscription> findSubscriptionByTenant(UUID tenantId) {
         return jdbc.query("""
-                SELECT id, tenant_id, plan_id, stripe_customer_id, stripe_subscription_id, status, current_period_end
+                SELECT id, tenant_id, plan_id, stripe_customer_id, stripe_subscription_id, status, current_period_end, cancel_at_period_end, past_due_since
                 FROM billing_subscription
                 WHERE tenant_id = ?
                 """, this::mapSubscription, tenantId).stream().findFirst();
@@ -225,7 +267,9 @@ public class BillingService {
                 rs.getString("stripe_customer_id"),
                 rs.getString("stripe_subscription_id"),
                 rs.getString("status"),
-                rs.getObject("current_period_end", OffsetDateTime.class));
+                rs.getObject("current_period_end", OffsetDateTime.class),
+                rs.getBoolean("cancel_at_period_end"),
+                rs.getObject("past_due_since", OffsetDateTime.class));
     }
 
     private UUID requireTenant() {
@@ -234,5 +278,49 @@ public class BillingService {
             throw new IllegalArgumentException("Tenant context is required for billing operations");
         }
         return tenantId;
+    }
+
+    private boolean shouldDowngradeToFree(String status) {
+        return "canceled".equals(status) || "unpaid".equals(status) || "incomplete_expired".equals(status);
+    }
+
+    private String auditActionForSubscription(String status) {
+        return switch (status) {
+            case "active", "trialing" -> "subscription_activated";
+            case "past_due" -> "payment_failed";
+            case "canceled", "unpaid", "incomplete_expired" -> "downgraded_to_free";
+            default -> "subscription_updated";
+        };
+    }
+
+    private void audit(UUID tenantId, String actor, String action, BillingWebhookEvent event, Map<String, String> detail) {
+        Map<String, String> auditDetail = new LinkedHashMap<>(detail);
+        auditDetail.put("event_type", event.type());
+        jdbc.update("""
+                INSERT INTO billing_audit(tenant_id, actor, action, stripe_event_id, detail)
+                VALUES (?, ?, ?, ?, ?::jsonb)
+                """, tenantId, actor, action, event.id(), toJson(auditDetail));
+    }
+
+    private String toJson(Map<String, String> detail) {
+        StringBuilder json = new StringBuilder("{");
+        boolean first = true;
+        for (Map.Entry<String, String> entry : detail.entrySet()) {
+            if (!first) {
+                json.append(',');
+            }
+            json.append('"').append(escapeJson(entry.getKey())).append("\":\"")
+                    .append(escapeJson(entry.getValue())).append('"');
+            first = false;
+        }
+        return json.append('}').toString();
+    }
+
+    private String escapeJson(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

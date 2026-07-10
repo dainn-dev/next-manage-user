@@ -10,6 +10,7 @@ public record BillingWebhookEvent(
         String stripeCustomerId,
         String stripeSubscriptionId,
         String status,
+        boolean cancelAtPeriodEnd,
         OffsetDateTime currentPeriodEnd,
         String stripePriceId) {
 }
