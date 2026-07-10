@@ -4,7 +4,7 @@ Stripe-based subscription billing for ParkVision: plan tiers with metered entitl
 usage tracking off the platform's event stream, and enforcement that blocks over-limit
 actions before they happen.
 
-Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
+Status: Confirmed for Phase A implementation · Owner: PM Delivery Lead / Backend Dev · Last updated: 2026-07-10
 
 ## 1. Purpose
 
@@ -28,6 +28,23 @@ A `billing` module (brief §3.15) owning `Plan`, `Subscription`, `UsageRecord` (
 integrated with Stripe Billing (ADR-0501) for payment collection and lifecycle, with usage
 metered off the RabbitMQ event stream (ADR-0502) and enforced via an `EntitlementGuard`
 interceptor that every tenant-scoped module can call before allowing a limited action.
+
+### Confirmed implementation split
+
+The target above remains valid, but implementation is split because RabbitMQ, Redis, and the
+transactional outbox are documented architectural dependencies that are not wired in the
+backend codebase yet.
+
+- **Phase A, in this billing MVP:** Stripe lifecycle, idempotent Stripe webhooks, billing
+  persistence, audit records, and structural entitlement limits for sites, cameras, and users
+  using direct `COUNT(*)` checks.
+- **Phase B, after event bus/cache infrastructure exists:** metered usage for AI minutes,
+  chatbot messages, and other high-frequency metrics through the ADR-0502 event-stream
+  consumer and Redis-backed entitlement cache.
+
+Backend implementation agents should use
+[`backend-implementation-plan.md`](backend-implementation-plan.md) as the handoff source of
+truth for the confirmed Phase A scope.
 
 ### The gap
 
@@ -98,19 +115,22 @@ out of order.
 Per ADR-0502: metered, high-frequency metrics (AI minutes, chatbot messages) are derived by a
 `billing`-module consumer subscribed to the relevant domain events on RabbitMQ (e.g. an
 AI-minute-consuming detection event, `ChatbotMessageSent`), incrementing `UsageRecord`
-idempotently as events arrive. Structural, low-frequency limits (max sites, max cameras) are
-checked with a direct `COUNT(*)` against the live table instead — no need for streaming
-infrastructure on a value that only changes via explicit create/delete calls. A daily
-reconciliation job cross-checks `UsageRecord` sums against raw event counts to catch consumer
-drift.
+idempotently as events arrive.
+
+For Phase A, do not build RabbitMQ/Redis/outbox infrastructure inside billing. Structural,
+low-frequency limits (max sites, max cameras, max users) are checked with a direct `COUNT(*)`
+against the live table instead — no streaming infrastructure is needed for values that only
+change via explicit create/delete calls. `UsageRecord` may be created now for schema
+compatibility, but the event-stream consumer is deferred to Phase B. A daily reconciliation
+job cross-checking event-stream totals belongs with Phase B.
 
 ## 7. Entitlement Enforcement
 
-An `EntitlementGuard` interceptor runs after tenant-context resolution (`04_Multi_Tenant_Design`
-§4) and before any limited action executes:
+An `EntitlementGuard` interceptor/service runs after tenant-context resolution
+(`04_Multi_Tenant_Design` §4) and before any limited action executes:
 
-1. Resolve the tenant's active `Plan.limits` and current usage (Redis-cached,
-   `tenant:{id}:entitlements`, short TTL — `03_SaaS_Architecture` ADR-0303).
+1. Resolve the tenant's active `Plan.limits` and current usage. Phase A may use a short-TTL
+   in-process cache behind an interface; Redis is the Phase B target once ADR-0303 is wired.
 2. Compare current usage + 1 against the plan limit for the relevant metric.
 3. **Hard limits** (sites, cameras — structural): block with `403 Entitlement Exceeded` and an
    upgrade call-to-action in the response body.
@@ -118,8 +138,8 @@ An `EntitlementGuard` interceptor runs after tenant-context resolution (`04_Mult
    return `429` with `Retry-After`, but **never silently drop a safety-critical event** (e.g.
    a `VehicleRelocated` detection is never dropped for being over the AI-minutes quota; it is
    processed and simply counted toward the next period, or flagged for a required upgrade).
-5. On successful action, emit a `UsageRecord` increment asynchronously and check 80%/100%
-   usage thresholds to trigger a "approaching plan limit" notification to `TENANT_ADMIN`.
+5. On successful Phase A structural actions, the live table count remains the source of truth.
+   Asynchronous `UsageRecord` increments for metered events are deferred to Phase B.
 
 See `diagrams/entitlement-check-flow.mmd` for the full decision flow.
 
