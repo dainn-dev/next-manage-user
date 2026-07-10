@@ -1,11 +1,10 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleDto;
-import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
-import com.vehiclemanagement.repository.EmployeeRepository;
+import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +27,7 @@ class VehicleRbacTest {
     private VehicleRepository vehicleRepository;
 
     @Mock
-    private EmployeeRepository employeeRepository;
+    private UserRepository userRepository;
 
     @InjectMocks
     private VehicleService vehicleService;
@@ -37,9 +36,12 @@ class VehicleRbacTest {
 
     @BeforeEach
     void setUp() {
-        Employee employee = new Employee();
-        employee.setId(UUID.randomUUID());
-        employee.setName("Test Driver");
+        User owner = User.builder()
+                .id(UUID.randomUUID())
+                .username("test-driver")
+                .email("driver@example.com")
+                .password("pw")
+                .build();
 
         vehicle = Vehicle.builder()
                 .id(UUID.randomUUID())
@@ -47,7 +49,7 @@ class VehicleRbacTest {
                 .vehicleType(Vehicle.VehicleType.car)
                 .status(Vehicle.VehicleStatus.approved)
                 .registrationDate(LocalDate.now())
-                .employee(employee)
+                .owner(owner)
                 .build();
     }
 

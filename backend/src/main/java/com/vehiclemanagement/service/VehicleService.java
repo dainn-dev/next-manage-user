@@ -5,8 +5,8 @@ import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.dto.VehicleLogDto;
-import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.Gate;
+import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.util.ImageProcessingUtil;
@@ -14,8 +14,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 // import com.vehiclemanagement.entity.EntryExitRequest; // Removed
 import com.vehiclemanagement.exception.ResourceNotFoundException;
-import com.vehiclemanagement.repository.EmployeeRepository;
 import com.vehiclemanagement.repository.GateRepository;
+import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 // import com.vehiclemanagement.repository.EntryExitRequestRepository; // Removed
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +45,7 @@ public class VehicleService {
     private VehicleRepository vehicleRepository;
     
     @Autowired
-    private EmployeeRepository employeeRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private GateRepository gateRepository;
@@ -110,11 +110,11 @@ public class VehicleService {
         return new VehicleDto(vehicle);
     }
     
-    public List<VehicleDto> getVehiclesByEmployee(UUID employeeId) {
-        Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + employeeId));
-        
-        return vehicleRepository.findByEmployeeId(employeeId).stream()
+    public List<VehicleDto> getVehiclesByOwner(UUID ownerId) {
+        userRepository.findById(ownerId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + ownerId));
+
+        return vehicleRepository.findByOwnerId(ownerId).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
@@ -158,11 +158,11 @@ public class VehicleService {
             );
         }
         
-        Employee employee = employeeRepository.findById(vehicleDto.getEmployeeId())
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + vehicleDto.getEmployeeId()));
-        
+        User owner = userRepository.findById(vehicleDto.getOwnerId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + vehicleDto.getOwnerId()));
+
         Vehicle vehicle = new Vehicle();
-        vehicle.setEmployee(employee);
+        vehicle.setOwner(owner);
         vehicle.setLicensePlate(vehicleDto.getLicensePlate());
         vehicle.setVehicleType(vehicleDto.getVehicleType());
         vehicle.setBrand(vehicleDto.getBrand());
@@ -189,10 +189,10 @@ public class VehicleService {
         Vehicle existingVehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
         
-        Employee employee = employeeRepository.findById(vehicleDto.getEmployeeId())
-                .orElseThrow(() -> new ResourceNotFoundException("Employee not found with id: " + vehicleDto.getEmployeeId()));
-        
-        existingVehicle.setEmployee(employee);
+        User owner = userRepository.findById(vehicleDto.getOwnerId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + vehicleDto.getOwnerId()));
+
+        existingVehicle.setOwner(owner);
         existingVehicle.setLicensePlate(vehicleDto.getLicensePlate());
         existingVehicle.setVehicleType(vehicleDto.getVehicleType());
         existingVehicle.setBrand(vehicleDto.getBrand());
@@ -479,20 +479,18 @@ public class VehicleService {
             
             String message;
             if (isApproved) {
-                // Get employee name for the message
-                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "KhÃ´ng xÃ¡c Ä‘á»‹nh";
-                
-                // Update vehicle status based on type
+                String ownerName = vehicle.getOwner() != null ? vehicle.getOwner().getFullName() : "Không xác định";
+
                 if ("entry".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.entered);
                     vehicleRepository.save(vehicle);
-                    message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " Ä‘Æ°á»£c phÃ©p vÃ o cá»•ng";
+                    message = "Xe biển số " + licensePlateNumber + " của " + ownerName + " được phép vào cổng";
                 } else if ("exit".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.exited);
                     vehicleRepository.save(vehicle);
-                    message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " Ä‘Æ°á»£c phÃ©p ra cá»•ng";
+                    message = "Xe biển số " + licensePlateNumber + " của " + ownerName + " được phép ra cổng";
                 } else {
-                    message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " Ä‘Æ°á»£c phÃ©p ra vÃ o cá»•ng";
+                    message = "Xe biển số " + licensePlateNumber + " của " + ownerName + " được phép ra vào cổng";
                 }
                 
                 // Create vehicle log entry for approved access (with optional snapshot evidence)
@@ -501,7 +499,7 @@ public class VehicleService {
                 // Get employee info and send to WebSocket
                 try {
                     VehicleLog.LogType logType = "entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit;
-                    Object monitorInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, logType, gate);
+                    Object monitorInfo = vehicleLogService.getOwnerInfoByLicensePlate(licensePlateNumber, logType, gate);
                     webSocketService.sendVehicleCheckMessage(monitorInfo, gateId(gate));
                 } catch (Exception e) {
                     // Fallback to simple message if employee info fails
@@ -510,10 +508,10 @@ public class VehicleService {
 
                 recordCheck(gate, "approved");
             } else {
-                // Get employee name for the denied message
-                String employeeName = vehicle.getEmployee() != null ? vehicle.getEmployee().getName() : "KhÃ´ng xÃ¡c Ä‘á»‹nh";
-                String statusText = getStatusText(vehicle.getStatus()) =="Entered" ? "Ä‘Ã£ vÃ o" : "Ä‘Ã£ ra";
-                message = "Xe biá»ƒn sá»‘ " + licensePlateNumber + " cá»§a Ä‘á»“ng chÃ­ " + employeeName + " khÃ´ng Ä‘Æ°á»£c phÃ©p ra vÃ o (Tráº¡ng thÃ¡i: " + statusText + ")";
+                String ownerName = vehicle.getOwner() != null ? vehicle.getOwner().getFullName() : "Không xác định";
+                String statusText = getStatusText(vehicle.getStatus()).equals("Entered") ? "đã vào" : "đã ra";
+                message = "Xe biển số " + licensePlateNumber + " của " + ownerName
+                        + " không được phép ra vào (Trạng thái: " + statusText + ")";
                 
                 // Send WebSocket message for denied access
                 webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
@@ -565,11 +563,11 @@ public class VehicleService {
             VehicleLogDto logDto = VehicleLogDto.builder()
                     .licensePlateNumber(vehicle.getLicensePlate())
                     .vehicleId(vehicle.getId())
-                    .employeeId(vehicle.getEmployee().getId())
+                    .ownerId(vehicle.getOwner() != null ? vehicle.getOwner().getId() : null)
                     .entryExitTime(LocalDateTime.now())
                     .type("entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit)
-                    .vehicleType(VehicleLog.VehicleCategory.internal) // Assuming internal vehicles since they're registered
-                    .driverName(vehicle.getEmployee().getName())
+                    .vehicleType(VehicleLog.VehicleCategory.internal)
+                    .driverName(vehicle.getOwner() != null ? vehicle.getOwner().getFullName() : null)
                     .purpose("Truy cáº­p xe tá»± Ä‘á»™ng")
                     .gateLocation(gateLocation)
                     .gateId(gate != null ? gate.getId() : null)

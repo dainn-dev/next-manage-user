@@ -41,6 +41,4 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("SELECT u FROM User u WHERE u.role IN :roles")
     Page<User> findByRoles(@Param("roles") List<User.Role> roles, Pageable pageable);
     
-    @Query("SELECT u FROM User u WHERE u.employee.id = :employeeId")
-    Optional<User> findByEmployeeId(@Param("employeeId") UUID employeeId);
 }

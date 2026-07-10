@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context"
 import { ErrorBoundary } from "@/components/error-boundary"
 
 /** Routes that render without auth or app chrome (sidebar/topbar). */
-const PUBLIC_PATHS = new Set(["/", "/login"])
+const PUBLIC_PATHS = new Set(["/", "/login", "/register"])
 
 function isPublicPath(pathname: string | null): boolean {
   return pathname != null && PUBLIC_PATHS.has(pathname)

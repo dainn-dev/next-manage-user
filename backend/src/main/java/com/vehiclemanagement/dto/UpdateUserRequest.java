@@ -7,7 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -27,7 +26,4 @@ public class UpdateUserRequest {
     private String lastName;
     private User.Role role;
     private User.UserStatus status;
-    
-    // Optional link to existing employee
-    private UUID employeeId;
-}
+    }

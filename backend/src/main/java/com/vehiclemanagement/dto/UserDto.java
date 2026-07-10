@@ -37,10 +37,6 @@ public class UserDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    // Employee information if linked
-    private UUID employeeId;
-    private String employeeName;
-    
     // Constructor from User entity
     public UserDto(User user) {
         this.id = user.getId();
@@ -54,10 +50,5 @@ public class UserDto {
         this.lastLogin = user.getLastLogin();
         this.createdAt = user.getCreatedAt();
         this.updatedAt = user.getUpdatedAt();
-        
-        if (user.getEmployee() != null) {
-            this.employeeId = user.getEmployee().getId();
-            this.employeeName = user.getEmployee().getName();
-        }
     }
 }

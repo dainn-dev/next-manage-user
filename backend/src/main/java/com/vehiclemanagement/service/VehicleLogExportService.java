@@ -43,7 +43,7 @@ public class VehicleLogExportService {
 
     private static final String[] LOG_HEADERS = {
             "STT", "Thời gian", "Biển số", "Hoạt động", "Loại xe",
-            "Tài xế", "Chủ xe", "Phòng ban", "Mục đích", "Cổng", "Ghi chú"
+            "Tài xế", "Chủ xe", "Mục đích", "Cổng", "Ghi chú"
     };
 
     private final VehicleLogService vehicleLogService;
@@ -88,8 +88,7 @@ public class VehicleLogExportService {
                 row.createCell(col++).setCellValue(typeLabel(log.getType()));
                 row.createCell(col++).setCellValue(categoryLabel(log.getVehicleType()));
                 row.createCell(col++).setCellValue(nullToEmpty(log.getDriverName()));
-                row.createCell(col++).setCellValue(nullToEmpty(log.getEmployeeName()));
-                row.createCell(col++).setCellValue(nullToEmpty(log.getEmployeeDepartment()));
+                row.createCell(col++).setCellValue(nullToEmpty(log.getOwnerName()));
                 row.createCell(col++).setCellValue(nullToEmpty(log.getPurpose()));
                 row.createCell(col++).setCellValue(nullToEmpty(log.getGateLocation()));
                 row.createCell(col).setCellValue(nullToEmpty(log.getNotes()));
@@ -126,8 +125,7 @@ public class VehicleLogExportService {
                     typeLabel(log.getType()),
                     categoryLabel(log.getVehicleType()),
                     nullToEmpty(log.getDriverName()),
-                    nullToEmpty(log.getEmployeeName()),
-                    nullToEmpty(log.getEmployeeDepartment()),
+                    nullToEmpty(log.getOwnerName()),
                     nullToEmpty(log.getPurpose()),
                     nullToEmpty(log.getGateLocation()),
                     nullToEmpty(log.getNotes())

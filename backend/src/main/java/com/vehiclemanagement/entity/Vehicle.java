@@ -25,9 +25,8 @@ public class Vehicle {
     private UUID id;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id", nullable = false)
-    @NotNull(message = "Employee is required")
-    private Employee employee;
+    @JoinColumn(name = "owner_id")
+    private User owner;
     
     @Column(name = "license_plate", unique = true, nullable = false)
     @NotBlank(message = "License plate is required")

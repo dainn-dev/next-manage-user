@@ -172,9 +172,9 @@ public class VehicleLogController {
         });
     }
     
-    @GetMapping("/employee-info")
-    @Operation(summary = "Get employee info by license plate", description = "Get employee and vehicle information by license plate number and entry/exit type")
-    public ResponseEntity<Object> getEmployeeInfoByLicensePlate(
+    @GetMapping("/owner-info")
+    @Operation(summary = "Get owner info by license plate", description = "Get vehicle owner and vehicle information by license plate number and entry/exit type")
+    public ResponseEntity<Object> getOwnerInfoByLicensePlate(
             @Parameter(description = "License plate number") @RequestParam String licensePlateNumber,
             @Parameter(description = "Log type (entry/exit)") @RequestParam String type) {
         // Convert string to enum, handling both uppercase and lowercase
@@ -185,7 +185,7 @@ public class VehicleLogController {
             throw new IllegalArgumentException("Invalid log type: " + type + ". Valid values are: entry, exit");
         }
         
-        Object employeeInfo = vehicleLogService.getEmployeeInfoByLicensePlate(licensePlateNumber, logType);
-        return ResponseEntity.ok(employeeInfo);
+        Object ownerInfo = vehicleLogService.getOwnerInfoByLicensePlate(licensePlateNumber, logType);
+        return ResponseEntity.ok(ownerInfo);
     }
 }

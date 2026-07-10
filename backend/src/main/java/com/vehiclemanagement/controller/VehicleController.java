@@ -89,10 +89,10 @@ public class VehicleController {
         return ResponseEntity.ok(vehicle);
     }
     
-    @GetMapping("/employee/{employeeId}")
-    @Operation(summary = "Get vehicles by employee", description = "Retrieve all vehicles owned by a specific employee")
-    public ResponseEntity<List<VehicleDto>> getVehiclesByEmployee(@PathVariable UUID employeeId) {
-        List<VehicleDto> vehicles = vehicleService.getVehiclesByEmployee(employeeId);
+    @GetMapping("/owner/{ownerId}")
+    @Operation(summary = "Get vehicles by owner", description = "Retrieve all vehicles owned by a specific user")
+    public ResponseEntity<List<VehicleDto>> getVehiclesByOwner(@PathVariable UUID ownerId) {
+        List<VehicleDto> vehicles = vehicleService.getVehiclesByOwner(ownerId);
         return ResponseEntity.ok(vehicles);
     }
     

@@ -78,11 +78,6 @@ public class User implements UserDetails {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
     
-    // Link to Employee if needed
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_id")
-    private Employee employee;
-    
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
