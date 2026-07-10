@@ -1,6 +1,6 @@
 # ADR-0502: Usage Metering via Event Stream vs Periodic Aggregation
 
-- Status: Proposed
+- Status: Accepted as target architecture; Phase A implementation deferred for metered metrics
 - Date: 2026-07-09
 - Deciders: Principal Architect
 - Context doc: 05_Subscription_Billing
@@ -67,3 +67,13 @@ minutes, chatbot messages, event volume).
   raw event counts and alerts on drift beyond a threshold; define the exact list of events
   that map to each metered metric (AI minutes especially needs a clear definition — per
   detection event? per second of active inference?) before implementation.
+
+## Implementation note: Phase A billing MVP
+
+The current backend billing MVP does not implement RabbitMQ/Redis/outbox-backed metered usage
+because those infrastructure pieces are not wired in the codebase yet. Phase A still creates
+the billing persistence needed for `UsageRecord`, but enforces only structural limits such as
+sites, cameras, and users through direct `COUNT(*)` checks.
+
+The event-stream consumer, Redis-backed entitlement cache, and reconciliation job remain the
+Phase B implementation path after the platform event bus/cache work exists.

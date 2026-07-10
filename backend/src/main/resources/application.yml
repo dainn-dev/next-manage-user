@@ -94,6 +94,11 @@ app:
       maximum-pool-size: ${APP_ADMIN_DATASOURCE_MAXIMUM_POOL_SIZE:5}
       minimum-idle: ${APP_ADMIN_DATASOURCE_MINIMUM_IDLE:1}
 
+billing:
+  stripe:
+    secret-key: ${STRIPE_SECRET_KEY:}
+    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+
 # Gate (license-plate detection app at the parking gate) API key.
 # Required X-Gate-Key header for the public, side-effecting endpoints
 # (/api/vehicles/check-vehicle and POST /api/vehicle-logs). When empty

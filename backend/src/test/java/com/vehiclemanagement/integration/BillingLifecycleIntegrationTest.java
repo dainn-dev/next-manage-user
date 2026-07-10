@@ -1,0 +1,175 @@
+package com.vehiclemanagement.integration;
+
+import com.vehiclemanagement.billing.BillingService;
+import com.vehiclemanagement.billing.BillingWebhookEvent;
+import com.vehiclemanagement.billing.StripeBillingClient;
+import com.vehiclemanagement.billing.dto.BillingCheckoutRequest;
+import com.vehiclemanagement.billing.dto.BillingPortalRequest;
+import com.vehiclemanagement.config.TenantContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
+class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
+
+    private static final UUID TENANT_ID = UUID.fromString("20000000-0000-0000-0000-000000000275");
+    private static final UUID STARTER_PLAN_ID = UUID.fromString("10000000-0000-0000-0000-000000000002");
+    private static final UUID PRO_PLAN_ID = UUID.fromString("10000000-0000-0000-0000-000000000003");
+
+    @Autowired
+    BillingService billingService;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @MockBean
+    StripeBillingClient stripeClient;
+
+    @BeforeEach
+    void resetBillingRows() {
+        jdbc.update("DELETE FROM processed_stripe_event WHERE event_id LIKE 'evt_%_275'");
+        jdbc.update("DELETE FROM billing_subscription WHERE tenant_id = ?", TENANT_ID);
+        jdbc.update("DELETE FROM tenant WHERE id = ?", TENANT_ID);
+    }
+
+    @AfterEach
+    void clearTenantContext() {
+        TenantContext.clear();
+    }
+
+    @Test
+    void checkoutCreatesStripeCustomerAndLocalIncompleteSubscription() {
+        seedTenant();
+        configureStripePrices();
+        TenantContext.setTenantId(TENANT_ID);
+
+        when(stripeClient.createCustomer(TENANT_ID, "tenant-admin@example.com")).thenReturn("cus_test_275");
+        when(stripeClient.createCheckoutSession(eq(TENANT_ID), eq("cus_test_275"), eq("price_starter"),
+                eq("https://app.example.test/success"), eq("https://app.example.test/cancel")))
+                .thenReturn(new StripeBillingClient.CheckoutSession("cs_test_275", "https://checkout.stripe.test/cs_test_275"));
+
+        BillingCheckoutRequest request = new BillingCheckoutRequest();
+        request.setPlanId(STARTER_PLAN_ID);
+        request.setSuccessUrl("https://app.example.test/success");
+        request.setCancelUrl("https://app.example.test/cancel");
+
+        var response = billingService.createCheckoutSession(request, "tenant-admin@example.com");
+
+        assertThat(response.sessionId()).isEqualTo("cs_test_275");
+        assertThat(response.url()).isEqualTo("https://checkout.stripe.test/cs_test_275");
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM billing_subscription
+                WHERE tenant_id = ? AND plan_id = ? AND stripe_customer_id = ? AND status = 'incomplete'
+                """, Long.class, TENANT_ID, STARTER_PLAN_ID, "cus_test_275")).isEqualTo(1L);
+    }
+
+    @Test
+    void portalUsesStoredStripeCustomer() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(STARTER_PLAN_ID, "cus_portal", "sub_portal", "active");
+        TenantContext.setTenantId(TENANT_ID);
+
+        when(stripeClient.createPortalSession("cus_portal", "https://app.example.test/billing"))
+                .thenReturn(new StripeBillingClient.PortalSession("bps_test_275", "https://billing.stripe.test/session"));
+
+        BillingPortalRequest request = new BillingPortalRequest();
+        request.setReturnUrl("https://app.example.test/billing");
+
+        var response = billingService.createPortalSession(request);
+
+        assertThat(response.sessionId()).isEqualTo("bps_test_275");
+        assertThat(response.url()).isEqualTo("https://billing.stripe.test/session");
+    }
+
+    @Test
+    void webhookSyncsSubscriptionAndDeduplicatesStripeEvent() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(STARTER_PLAN_ID, "cus_sync", null, "incomplete");
+        OffsetDateTime periodEnd = OffsetDateTime.of(2026, 8, 1, 0, 0, 0, 0, ZoneOffset.UTC);
+        when(stripeClient.parseWebhookEvent("payload", "sig")).thenReturn(new BillingWebhookEvent(
+                "evt_sync_275",
+                "customer.subscription.updated",
+                TENANT_ID,
+                "cus_sync",
+                "sub_sync",
+                "active",
+                periodEnd,
+                "price_pro"));
+
+        billingService.handleWebhook("payload", "sig");
+        billingService.handleWebhook("payload", "sig");
+
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM processed_stripe_event WHERE event_id = 'evt_sync_275'
+                """, Long.class)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("""
+                SELECT plan_id FROM tenant WHERE id = ?
+                """, UUID.class, TENANT_ID)).isEqualTo(PRO_PLAN_ID);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM billing_subscription
+                WHERE tenant_id = ? AND plan_id = ? AND stripe_subscription_id = ? AND status = 'active'
+                """, Long.class, TENANT_ID, PRO_PLAN_ID, "sub_sync")).isEqualTo(1L);
+    }
+
+    @Test
+    void canceledWebhookDowngradesTenantToFreePlan() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(PRO_PLAN_ID, "cus_cancel", "sub_cancel", "active");
+        when(stripeClient.parseWebhookEvent(any(), any())).thenReturn(new BillingWebhookEvent(
+                "evt_cancel_275",
+                "customer.subscription.updated",
+                TENANT_ID,
+                "cus_cancel",
+                "sub_cancel",
+                "canceled",
+                null,
+                null));
+
+        billingService.handleWebhook("payload", "sig");
+
+        assertThat(jdbc.queryForObject("SELECT code FROM billing_plan WHERE id = (SELECT plan_id FROM tenant WHERE id = ?)",
+                String.class, TENANT_ID)).isEqualTo("free");
+        assertThat(jdbc.queryForObject("SELECT status FROM billing_subscription WHERE tenant_id = ?",
+                String.class, TENANT_ID)).isEqualTo("canceled");
+    }
+
+    private void seedTenant() {
+        jdbc.update("""
+                INSERT INTO tenant(id, name, slug, status)
+                VALUES (?, 'Billing Tenant', 'billing-tenant-275', 'active')
+                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+                """, TENANT_ID);
+    }
+
+    private void configureStripePrices() {
+        jdbc.update("UPDATE billing_plan SET stripe_price_id = 'price_starter' WHERE id = ?", STARTER_PLAN_ID);
+        jdbc.update("UPDATE billing_plan SET stripe_price_id = 'price_pro' WHERE id = ?", PRO_PLAN_ID);
+    }
+
+    private void seedSubscription(UUID planId, String customerId, String subscriptionId, String status) {
+        jdbc.update("""
+                INSERT INTO billing_subscription(tenant_id, plan_id, stripe_customer_id, stripe_subscription_id, status)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (tenant_id) DO UPDATE
+                SET plan_id = EXCLUDED.plan_id,
+                    stripe_customer_id = EXCLUDED.stripe_customer_id,
+                    stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+                    status = EXCLUDED.status
+                """, TENANT_ID, planId, customerId, subscriptionId, status);
+    }
+}
