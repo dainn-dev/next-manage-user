@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -32,6 +33,10 @@ import org.testcontainers.utility.DockerImageName;
  */
 @Tag("integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestPropertySource(properties = {
+        "app.admin-datasource.username=test",
+        "app.admin-datasource.password=test"
+})
 public abstract class AbstractPostgresIntegrationTest {
 
     /** The shared X-Gate-Key the edge must present on the protected gate endpoints. */
@@ -54,8 +59,6 @@ public abstract class AbstractPostgresIntegrationTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("app.admin-datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("app.admin-datasource.username", POSTGRES::getUsername);
-        registry.add("app.admin-datasource.password", POSTGRES::getPassword);
         // jwt.secret has no default in application.yml; HS256 needs >= 32 bytes.
         registry.add("jwt.secret", () -> "integration-test-jwt-secret-please-change-0123456789");
         // Force the gate filter into enforcing mode so the missing/invalid-key 401

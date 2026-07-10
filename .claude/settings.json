@@ -1,12 +1,4 @@
 {
-    "env": {
-    "ANTHROPIC_BASE_URL": "https://open-claude.com",
-    "ANTHROPIC_AUTH_TOKEN": "openclaude-LWMgxDkFryU_3_F0DIowI7TLtPZ2Qj-AFJsQVfIaiE12_IS-",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5",
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
-  }, 
   "permissions": {
     "allow": [
       "Bash(git add *)",
