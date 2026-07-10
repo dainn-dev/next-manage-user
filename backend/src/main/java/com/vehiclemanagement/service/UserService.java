@@ -3,6 +3,7 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.CreateUserRequest;
 import com.vehiclemanagement.dto.UpdateUserRequest;
 import com.vehiclemanagement.dto.UserDto;
+import com.vehiclemanagement.billing.EntitlementGuard;
 import com.vehiclemanagement.config.AuthDataSourceContext;
 import com.vehiclemanagement.entity.Employee;
 import com.vehiclemanagement.entity.User;
@@ -38,6 +39,9 @@ public class UserService implements UserDetailsService {
     
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private EntitlementGuard entitlementGuard;
     
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -93,6 +97,8 @@ public class UserService implements UserDetailsService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already exists: " + request.getEmail());
         }
+
+        entitlementGuard.assertUserCreationAllowed();
         
         User user = User.builder()
                 .username(request.getUsername())

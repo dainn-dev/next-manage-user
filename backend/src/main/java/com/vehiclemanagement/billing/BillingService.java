@@ -26,11 +26,16 @@ public class BillingService {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactionTemplate;
     private final StripeBillingClient stripeClient;
+    private final EntitlementGuard entitlementGuard;
 
-    public BillingService(JdbcTemplate jdbc, TransactionTemplate transactionTemplate, StripeBillingClient stripeClient) {
+    public BillingService(JdbcTemplate jdbc,
+                          TransactionTemplate transactionTemplate,
+                          StripeBillingClient stripeClient,
+                          EntitlementGuard entitlementGuard) {
         this.jdbc = jdbc;
         this.transactionTemplate = transactionTemplate;
         this.stripeClient = stripeClient;
+        this.entitlementGuard = entitlementGuard;
     }
 
     public BillingCheckoutResponse createCheckoutSession(BillingCheckoutRequest request, String email) {
@@ -79,6 +84,7 @@ public class BillingService {
                 plan.code(),
                 plan.name(),
                 plan.limits(),
+                entitlementGuard.currentStructuralUsage(),
                 subscription == null ? null : subscription.status(),
                 subscription == null ? null : subscription.currentPeriodEnd());
     }
