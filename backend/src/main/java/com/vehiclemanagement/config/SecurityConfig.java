@@ -52,9 +52,11 @@ public class SecurityConfig {
                 .requestMatchers("/images/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks").permitAll()
 
                 // Platform admin onboarding
                 .requestMatchers(HttpMethod.POST, "/api/v1/tenants").hasRole("PLATFORM_ADMIN")
+                .requestMatchers("/api/v1/billing/**").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN")
 
                 // Tenant administration
                 .requestMatchers("/api/admin/**").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN")
