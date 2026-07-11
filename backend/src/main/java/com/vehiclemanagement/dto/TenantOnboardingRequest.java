@@ -2,7 +2,11 @@ package com.vehiclemanagement.dto;
 
 import com.vehiclemanagement.entity.User;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -22,6 +26,17 @@ public class TenantOnboardingRequest {
 
     @Size(max = 255, message = "Site location must be at most 255 characters")
     private String siteLocation;
+
+    @NotBlank(message = "Management model is required")
+    @Pattern(
+            regexp = "boarding-house|school|retail|airport|hospital|industrial-park|other",
+            message = "Management model is not supported")
+    private String managementModel;
+
+    @NotNull(message = "Area count is required")
+    @Min(value = 1, message = "Area count must be at least 1")
+    @Max(value = 999, message = "Area count must be at most 999")
+    private Integer areaCount;
 
     @NotBlank(message = "Admin username is required")
     @Size(min = 3, max = 50, message = "Admin username must be between 3 and 50 characters")

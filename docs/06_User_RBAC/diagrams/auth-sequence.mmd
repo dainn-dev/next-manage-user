@@ -22,7 +22,7 @@ sequenceDiagram
     Filter->>Filter: extract role, tenant_id, site_ids[]
     Filter->>Filter: set ThreadLocal TenantContext + RLS session var
     Filter->>AuthZ: proceed to controller method
-    AuthZ->>AuthZ: check @PreAuthorize("hasRole('SITE_MANAGER')")<br/>+ site_id path param in site_ids[]?
-    AuthZ-->>User: 200 (allowed) or 403 (role/site mismatch)
+    AuthZ->>AuthZ: check @PreAuthorize("hasRole('TENANT_ADMIN')")<br/>+ tenant_id matches resource?
+    AuthZ-->>User: 200 (allowed) or 403 (role/tenant mismatch)
 
     Note over User,AuthZ: Edge/camera calls use a separate auth path:<br/>X-Gate-Key today, per-camera key/mTLS target — see ADR-0602.

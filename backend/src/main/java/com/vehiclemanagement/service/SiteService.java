@@ -1,10 +1,12 @@
 package com.vehiclemanagement.service;
 
+import com.vehiclemanagement.billing.EntitlementGuard;
 import com.vehiclemanagement.dto.SiteDto;
 import com.vehiclemanagement.entity.Site;
 import com.vehiclemanagement.exception.ConflictException;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.SiteRepository;
+import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -26,15 +28,25 @@ public class SiteService {
     @Autowired
     private SiteRepository siteRepository;
 
+    @Autowired
+    private EntitlementGuard entitlementGuard;
+
+    @Autowired
+    private SiteAccess siteAccess;
+
     @Transactional(readOnly = true)
     public List<SiteDto> list() {
-        return siteRepository.findAll(Sort.by(Sort.Direction.ASC, "name")).stream()
-                .map(SiteDto::new)
-                .collect(Collectors.toList());
+        List<Site> sites = siteRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
+        if (siteAccess.isRestricted()) {
+            List<UUID> allowed = siteAccess.allowedSiteIds();
+            sites = sites.stream().filter(s -> allowed.contains(s.getId())).collect(Collectors.toList());
+        }
+        return sites.stream().map(SiteDto::new).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public SiteDto get(UUID id) {
+        siteAccess.assertSiteAllowed(id);
         return new SiteDto(findOrThrow(id));
     }
 
@@ -42,6 +54,7 @@ public class SiteService {
         if (siteRepository.existsByName(request.getName())) {
             throw new ConflictException("Site with name '" + request.getName() + "' already exists");
         }
+        entitlementGuard.assertSiteCreationAllowed();
         Site site = Site.builder()
                 .name(request.getName())
                 .location(request.getLocation())

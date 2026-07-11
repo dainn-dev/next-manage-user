@@ -8,6 +8,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
+import java.util.List;
+import java.util.UUID;
+
 
 @Data
 @NoArgsConstructor
@@ -30,4 +33,7 @@ public class CreateUserRequest {
     private String lastName;
     private User.Role role = User.Role.MEMBER;
     private User.UserStatus status = User.UserStatus.ACTIVE;
-    }
+
+    /** Required when role is SITE_MANAGER — one or more branch ids. */
+    private List<UUID> siteIds;
+}

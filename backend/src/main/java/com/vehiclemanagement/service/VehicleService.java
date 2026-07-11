@@ -18,9 +18,12 @@ import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
 // import com.vehiclemanagement.repository.EntryExitRequestRepository; // Removed
+import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -68,6 +71,9 @@ public class VehicleService {
     @Autowired
     private MeterRegistry meterRegistry;
 
+    @Autowired
+    private SiteAccess siteAccess;
+
     /**
      * Window used to suppress duplicate gate-originated access requests for the same
      * plate + gate (Phase 4.4). The edge fires a check per detection frame, so a
@@ -88,25 +94,30 @@ public class VehicleService {
     // private EntryExitRequestRepository entryExitRequestRepository; // Removed
     
     public List<VehicleDto> getAllVehicles() {
-        return vehicleRepository.findAll().stream()
+        return scopedVehicles(vehicleRepository.findAll()).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
     
     public Page<VehicleDto> getAllVehicles(Pageable pageable) {
-        return vehicleRepository.findAll(pageable)
-                .map(VehicleDto::new);
+        if (!siteAccess.isRestricted()) {
+            return vehicleRepository.findAll(pageable).map(VehicleDto::new);
+        }
+        Page<Vehicle> page = vehicleRepository.findByCurrentSiteIdIn(siteAccess.allowedSiteIds(), pageable);
+        return page.map(VehicleDto::new);
     }
     
     public VehicleDto getVehicleById(UUID id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+        assertVehicleVisible(vehicle);
         return new VehicleDto(vehicle);
     }
     
     public VehicleDto getVehicleByLicensePlate(String licensePlate) {
         Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlate)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with license plate: " + licensePlate));
+        assertVehicleVisible(vehicle);
         return new VehicleDto(vehicle);
     }
     
@@ -114,39 +125,37 @@ public class VehicleService {
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + ownerId));
 
-        return vehicleRepository.findByOwnerId(ownerId).stream()
+        return scopedVehicles(vehicleRepository.findByOwnerId(ownerId)).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
     
     public List<VehicleDto> getVehiclesByType(Vehicle.VehicleType vehicleType) {
-        return vehicleRepository.findByVehicleType(vehicleType).stream()
+        return scopedVehicles(vehicleRepository.findByVehicleType(vehicleType)).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
     
     public List<VehicleDto> getVehiclesByStatus(Vehicle.VehicleStatus status) {
-        return vehicleRepository.findByStatus(status).stream()
+        return scopedVehicles(vehicleRepository.findByStatus(status)).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
     
     public Page<VehicleDto> searchVehicles(String searchTerm, Pageable pageable) {
-        return vehicleRepository.findBySearchTerm(searchTerm, pageable)
-                .map(VehicleDto::new);
+        return filterPage(vehicleRepository.findBySearchTerm(searchTerm, pageable), pageable);
     }
     
     public Page<VehicleDto> searchVehiclesByType(Vehicle.VehicleType vehicleType, String searchTerm, Pageable pageable) {
-        return vehicleRepository.findByVehicleTypeAndSearchTerm(vehicleType, searchTerm, pageable)
-                .map(VehicleDto::new);
+        return filterPage(vehicleRepository.findByVehicleTypeAndSearchTerm(vehicleType, searchTerm, pageable), pageable);
     }
     
     public Page<VehicleDto> searchVehiclesByStatus(Vehicle.VehicleStatus status, String searchTerm, Pageable pageable) {
-        return vehicleRepository.findByStatusAndSearchTerm(status, searchTerm, pageable)
-                .map(VehicleDto::new);
+        return filterPage(vehicleRepository.findByStatusAndSearchTerm(status, searchTerm, pageable), pageable);
     }
     
     public VehicleCreateResponse createVehicle(VehicleDto vehicleDto) {
+        resolveSiteForWrite(vehicleDto.getCurrentSiteId(), true);
         // Check if vehicle with this license plate already exists (using normalized comparison)
         if (vehicleRepository.existsByLicensePlateNormalized(vehicleDto.getLicensePlate())) {
             Vehicle existingVehicle = vehicleRepository.findByLicensePlateNormalized(vehicleDto.getLicensePlate())
@@ -154,7 +163,7 @@ public class VehicleService {
             return new VehicleCreateResponse(
                 new VehicleDto(existingVehicle), 
                 true, 
-                "KhÃ´ng táº¡o Ä‘Æ°á»£c xe " + vehicleDto.getLicensePlate() + ", vÃ¬ Ä‘Ã£ tá»“n táº¡i trong há»‡ thá»‘ng"
+                "Không tạo được xe " + vehicleDto.getLicensePlate() + ", vì đã tồn tại trong hệ thống"
             );
         }
         
@@ -176,21 +185,28 @@ public class VehicleService {
         vehicle.setCapacity(vehicleDto.getCapacity());
         vehicle.setNotes(vehicleDto.getNotes());
         vehicle.setImagePath(vehicleDto.getImagePath());
+        vehicle.setCurrentSiteId(vehicleDto.getCurrentSiteId());
         
         Vehicle savedVehicle = vehicleRepository.save(vehicle);
         return new VehicleCreateResponse(
             new VehicleDto(savedVehicle), 
             false, 
-            "Xe Ä‘Ã£ Ä‘Æ°á»£c táº¡o thÃ nh cÃ´ng"
+            "Xe đã được tạo thành công"
         );
     }
     
     public VehicleDto updateVehicle(UUID id, VehicleDto vehicleDto) {
         Vehicle existingVehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+        assertVehicleVisible(existingVehicle);
         
         User owner = userRepository.findById(vehicleDto.getOwnerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + vehicleDto.getOwnerId()));
+
+        if (vehicleDto.getCurrentSiteId() != null
+                || !Objects.equals(existingVehicle.getCurrentSiteId(), vehicleDto.getCurrentSiteId())) {
+            resolveSiteForWrite(vehicleDto.getCurrentSiteId(), false);
+        }
 
         existingVehicle.setOwner(owner);
         existingVehicle.setLicensePlate(vehicleDto.getLicensePlate());
@@ -206,6 +222,9 @@ public class VehicleService {
         existingVehicle.setCapacity(vehicleDto.getCapacity());
         existingVehicle.setNotes(vehicleDto.getNotes());
         existingVehicle.setImagePath(vehicleDto.getImagePath());
+        if (vehicleDto.getCurrentSiteId() != null || !siteAccess.isRestricted()) {
+            existingVehicle.setCurrentSiteId(vehicleDto.getCurrentSiteId());
+        }
         
         Vehicle updatedVehicle = vehicleRepository.save(existingVehicle);
         return new VehicleDto(updatedVehicle);
@@ -214,6 +233,7 @@ public class VehicleService {
     public VehicleDto approveVehicle(UUID id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+        assertVehicleVisible(vehicle);
         vehicle.setStatus(Vehicle.VehicleStatus.approved);
         return new VehicleDto(vehicleRepository.save(vehicle));
     }
@@ -221,6 +241,7 @@ public class VehicleService {
     public VehicleDto rejectVehicle(UUID id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+        assertVehicleVisible(vehicle);
         vehicle.setStatus(Vehicle.VehicleStatus.rejected);
         return new VehicleDto(vehicleRepository.save(vehicle));
     }
@@ -228,6 +249,7 @@ public class VehicleService {
     public void deleteVehicle(UUID id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+        assertVehicleVisible(vehicle);
         vehicleRepository.delete(vehicle);
     }
     
@@ -248,7 +270,7 @@ public class VehicleService {
     }
     
     public VehicleStatisticsDto getVehicleStatistics() {
-        List<Vehicle> vehicles = vehicleRepository.findAll();
+        List<Vehicle> vehicles = scopedVehicles(vehicleRepository.findAll());
 
         // Basic vehicle stats
         long totalVehicles = vehicles.size();
@@ -483,10 +505,17 @@ public class VehicleService {
 
                 if ("entry".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.entered);
+                    if (gate != null && gate.getSiteId() != null) {
+                        vehicle.setCurrentSiteId(gate.getSiteId());
+                    }
                     vehicleRepository.save(vehicle);
                     message = "Xe biển số " + licensePlateNumber + " của " + ownerName + " được phép vào cổng";
                 } else if ("exit".equalsIgnoreCase(type)) {
                     vehicle.setStatus(Vehicle.VehicleStatus.exited);
+                    // Keep currentSiteId as last-known branch after exit.
+                    if (gate != null && gate.getSiteId() != null && vehicle.getCurrentSiteId() == null) {
+                        vehicle.setCurrentSiteId(gate.getSiteId());
+                    }
                     vehicleRepository.save(vehicle);
                     message = "Xe biển số " + licensePlateNumber + " của " + ownerName + " được phép ra cổng";
                 } else {
@@ -568,9 +597,10 @@ public class VehicleService {
                     .type("entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit)
                     .vehicleType(VehicleLog.VehicleCategory.internal)
                     .driverName(vehicle.getOwner() != null ? vehicle.getOwner().getFullName() : null)
-                    .purpose("Truy cáº­p xe tá»± Ä‘á»™ng")
+                    .purpose("Truy cập xe tự động")
                     .gateLocation(gateLocation)
                     .gateId(gate != null ? gate.getId() : null)
+                    .siteId(gate != null ? gate.getSiteId() : vehicle.getCurrentSiteId())
                     .imagePath(imagePath)
                     .notes("Auto-generated log entry from vehicle access check")
                     .createdAt(LocalDateTime.now())
@@ -593,6 +623,53 @@ public class VehicleService {
             return null;
         }
         return gateRepository.findById(gateId).orElse(null);
+    }
+
+    private List<Vehicle> scopedVehicles(List<Vehicle> vehicles) {
+        if (!siteAccess.isRestricted()) {
+            return vehicles;
+        }
+        List<UUID> allowed = siteAccess.allowedSiteIds();
+        return vehicles.stream()
+                .filter(v -> v.getCurrentSiteId() != null && allowed.contains(v.getCurrentSiteId()))
+                .collect(Collectors.toList());
+    }
+
+    private Page<VehicleDto> filterPage(Page<Vehicle> page, Pageable pageable) {
+        if (!siteAccess.isRestricted()) {
+            return page.map(VehicleDto::new);
+        }
+        List<UUID> allowed = siteAccess.allowedSiteIds();
+        List<VehicleDto> filtered = page.getContent().stream()
+                .filter(v -> v.getCurrentSiteId() != null && allowed.contains(v.getCurrentSiteId()))
+                .map(VehicleDto::new)
+                .collect(Collectors.toList());
+        return new PageImpl<>(filtered, pageable, filtered.size());
+    }
+
+    private void assertVehicleVisible(Vehicle vehicle) {
+        if (!siteAccess.isRestricted()) {
+            return;
+        }
+        if (vehicle.getCurrentSiteId() == null || !siteAccess.allowedSiteIds().contains(vehicle.getCurrentSiteId())) {
+            throw new AccessDeniedException("Vehicle is outside your assigned branches");
+        }
+    }
+
+    /**
+     * @param requireWhenRestricted when true (create), SITE_MANAGER must supply a site
+     */
+    private void resolveSiteForWrite(UUID siteId, boolean requireWhenRestricted) {
+        if (!siteAccess.isRestricted()) {
+            return;
+        }
+        if (siteId == null) {
+            if (requireWhenRestricted) {
+                throw new IllegalArgumentException("SITE_MANAGER must assign currentSiteId when creating a vehicle");
+            }
+            return;
+        }
+        siteAccess.assertSiteAllowed(siteId);
     }
 
     private UUID gateId(Gate gate) {

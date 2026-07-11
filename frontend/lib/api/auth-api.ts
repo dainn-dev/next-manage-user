@@ -11,14 +11,11 @@ import { getApiUrl } from './config'
 const API_BASE_URL = getApiUrl()
 
 const ROLE_MAP: Record<string, UserRole> = {
-  PLATFORM_ADMIN: UserRole.ADMIN,
+  PLATFORM_ADMIN: UserRole.PLATFORM_ADMIN,
   TENANT_ADMIN: UserRole.ADMIN,
-  SITE_MANAGER: UserRole.APPROVER,
-  SECURITY_GUARD: UserRole.SECURITY_OFFICER,
+  SITE_MANAGER: UserRole.SITE_MANAGER,
   MEMBER: UserRole.USER,
   ADMIN: UserRole.ADMIN,
-  APPROVER: UserRole.APPROVER,
-  SECURITY_OFFICER: UserRole.SECURITY_OFFICER,
   USER: UserRole.USER,
 }
 

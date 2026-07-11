@@ -84,6 +84,8 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
                 "tenantName", "Acme Parking " + unique,
                 "siteName", "Main Garage " + unique,
                 "siteLocation", "District 1",
+                "managementModel", "retail",
+                "areaCount", 2,
                 "adminUsername", "tenant-admin-" + unique,
                 "adminEmail", "tenant-admin-" + unique + "@example.com",
                 "adminPassword", "SecurePass123!");
@@ -106,6 +108,12 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM tenant WHERE id = ?", Long.class, tenantId))
                 .isEqualTo(1L);
+        assertThat(jdbc.queryForObject(
+                "SELECT management_model FROM tenant WHERE id = ?", String.class, tenantId))
+                .isEqualTo("retail");
+        assertThat(jdbc.queryForObject(
+                "SELECT area_count FROM tenant WHERE id = ?", Integer.class, tenantId))
+                .isEqualTo(2);
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM site WHERE id = ? AND tenant_id = ?", Long.class, siteId, tenantId))
                 .isEqualTo(1L);
@@ -137,6 +145,8 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         Map<String, Object> first = Map.of(
                 "tenantName", "Duplicate Tenant " + unique,
                 "siteName", "Duplicate Site " + unique,
+                "managementModel", "other",
+                "areaCount", 1,
                 "adminUsername", "dup-admin-" + unique,
                 "adminEmail", "dup-admin-" + unique + "@example.com",
                 "adminPassword", "SecurePass123!");
@@ -148,6 +158,8 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         Map<String, Object> duplicateTenant = Map.of(
                 "tenantName", "Duplicate Tenant " + unique,
                 "siteName", "Other Site " + unique,
+                "managementModel", "other",
+                "areaCount", 1,
                 "adminUsername", "dup-admin-other-" + unique,
                 "adminEmail", "dup-admin-other-" + unique + "@example.com",
                 "adminPassword", "SecurePass123!");
@@ -158,6 +170,8 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         Map<String, Object> duplicateEmail = Map.of(
                 "tenantName", "Other Tenant " + unique,
                 "siteName", "Other Site " + unique,
+                "managementModel", "school",
+                "areaCount", 1,
                 "adminUsername", "dup-admin-email-" + unique,
                 "adminEmail", "dup-admin-" + unique + "@example.com",
                 "adminPassword", "SecurePass123!");
@@ -172,6 +186,8 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         Map<String, Object> body = Map.of(
                 "tenantName", "Role Tenant " + unique,
                 "siteName", "Role Site " + unique,
+                "managementModel", "hospital",
+                "areaCount", 1,
                 "adminUsername", "role-admin-" + unique,
                 "adminEmail", "role-admin-" + unique + "@example.com",
                 "adminPassword", "SecurePass123!",

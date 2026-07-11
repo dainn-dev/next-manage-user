@@ -26,7 +26,7 @@ prompt alone:
    `tenant_id`/`site_id`-shaped argument the LLM tries to pass is discarded, not merged.
 2. **PII post-filter.** Tool results pass through a guardrail step before being handed back to the
    LLM for answer synthesis: fields like employee name/department are masked unless the caller is
-   the vehicle's own `owner_user_id` or holds `SITE_MANAGER`/`TENANT_ADMIN`/`PLATFORM_ADMIN` (§3.9
+   the vehicle's own `owner_user_id` or holds `TENANT_ADMIN`/`PLATFORM_ADMIN` (`06_User_RBAC`
    role set). Snapshot URLs are always short-TTL signed URLs, never permanent links.
 3. **Entitlement-based rate limiting.** A Redis token-bucket keyed by `tenant_id` limits chat
    messages per period, sourced from `Plan.limits.chatbot_messages_per_month` (see

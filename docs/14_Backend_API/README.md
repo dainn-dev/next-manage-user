@@ -18,9 +18,10 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
   `X-Gate-Key` header (env `GATE_API_KEY`) — it **runs OPEN (unauthenticated) if the key is
   unset**, a dev fallback, not something to carry into the multi-tenant ingest endpoint (see
   ADR-1402).
-- Roles today: **USER, APPROVER, SECURITY_OFFICER, ADMIN**, enforced via URL rules in
+- Roles: **`PLATFORM_ADMIN`, `TENANT_ADMIN`, `MEMBER`**, enforced via URL rules in
   `SecurityConfig` (`.requestMatchers(...).hasAnyRole(...)`) and method-level
-  `@PreAuthorize`.
+  `@PreAuthorize`. Legacy USER/APPROVER/SECURITY_OFFICER/ADMIN (and SITE_MANAGER/
+  SECURITY_GUARD) map per `06_User_RBAC`.
 - Error handling: a single `@RestControllerAdvice` (`GlobalExceptionHandler`) — see §4.
 - Realtime: STOMP over WebSocket (SockJS) via Spring's in-memory `SimpleBroker`, endpoint
   `/ws`, topics `/topic/vehicle-check` and `/topic/gate/{gateId}/check` (see
@@ -35,9 +36,9 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
   (ADR-1401). New SaaS resources ship under `/api/v1/**`: tenants, sites, zones, cameras,
   parking-slots, vehicles (+ current location), parking-events, snapshots, subscriptions,
   notifications, analytics, chat.
-- Roles evolve per brief §3.9: **PLATFORM_ADMIN, TENANT_ADMIN, SITE_MANAGER,
-  SECURITY_GUARD** (maps from `SECURITY_OFFICER`), **MEMBER** (maps from `USER`); `APPROVER`
-  folds into `SITE_MANAGER`'s approval rights. JWT gains `tenant_id` + site scope claims.
+- Roles: **`PLATFORM_ADMIN`, `TENANT_ADMIN`, `MEMBER`** (`PLATFORM_ADMIN` = SaaS operator;
+  tenant ops fold into `TENANT_ADMIN`; end-user = `MEMBER`). JWT gains `tenant_id` (+ optional
+  site scope) claims. See `06_User_RBAC`.
 - Ingest gets a dedicated, idempotent, per-camera-keyed endpoint feeding the transactional
   outbox (`13_Event_Driven_Architecture`).
 - New per-site STOMP topic for slot occupancy; existing topics kept for the legacy gate-kiosk
@@ -57,15 +58,15 @@ sub-routes) is generated at `/api-docs`. Role column reflects `SecurityConfig` U
 | POST | `/api/auth/logout` | authenticated | Client-side session end (stateless JWT) |
 | GET | `/api/vehicles` | authenticated | Paginated vehicle list |
 | GET | `/api/vehicles/{id}` | authenticated | Vehicle detail |
-| POST | `/api/vehicles` | ADMIN, APPROVER | Create vehicle |
-| PUT | `/api/vehicles/{id}/approve` | ADMIN, APPROVER | Approve vehicle access request |
-| PUT | `/api/vehicles/{id}/reject` | ADMIN, APPROVER | Reject vehicle access request |
-| DELETE | `/api/vehicles/{id}` | ADMIN | Delete vehicle |
+| POST | `/api/vehicles` | TENANT_ADMIN | Create vehicle |
+| PUT | `/api/vehicles/{id}/approve` | TENANT_ADMIN | Approve vehicle access request |
+| PUT | `/api/vehicles/{id}/reject` | TENANT_ADMIN | Reject vehicle access request |
+| DELETE | `/api/vehicles/{id}` | TENANT_ADMIN | Delete vehicle |
 | GET | `/api/vehicles/check-vehicle` | public + `X-Gate-Key` | **Deprecated** GET variant; scheduled for removal |
 | POST | `/api/vehicles/check-vehicle` (JSON) | public + `X-Gate-Key` | Gate access check; mutates `approved→entered→exited`, creates `VehicleLog`, pushes WS event; idempotent on `eventId` |
 | POST | `/api/vehicles/check-vehicle` (multipart) | public + `X-Gate-Key` | Same, plus optional evidence `snapshot` part |
-| GET | `/api/vehicles/export`, `/export/template` | ADMIN, APPROVER | Excel export / column template |
-| POST | `/api/vehicles/import` | ADMIN, APPROVER | Bulk import |
+| GET | `/api/vehicles/export`, `/export/template` | TENANT_ADMIN | Excel export / column template |
+| POST | `/api/vehicles/import` | TENANT_ADMIN | Bulk import |
 | GET | `/api/vehicles/statistics/overview` | authenticated | Dashboard counts |
 | POST | `/api/gates/register` | public (`X-Gate-Key`) | Edge process registers a gate |
 | POST | `/api/gates/{id}/heartbeat` | public (`X-Gate-Key`) | Liveness ping (30s staleness sweep) |
@@ -73,16 +74,16 @@ sub-routes) is generated at `/api-docs`. Role column reflects `SecurityConfig` U
 | GET | `/api/gates/health` | authenticated | Online/offline/disabled summary |
 | GET | `/api/gates/{id}/recent-checks` | authenticated | Replay recent check events (WS-miss recovery) |
 | PUT | `/api/gates/{id}` | authenticated | Update gate config |
-| GET | `/api/vehicle-logs` | ADMIN, APPROVER, SECURITY_OFFICER | Paginated log list |
+| GET | `/api/vehicle-logs` | TENANT_ADMIN | Paginated log list |
 | POST | `/api/vehicle-logs` | public | Create log (legacy direct-write path) |
-| GET | `/api/vehicle-logs/{today,weekly,monthly,date-range}` | ADMIN, APPROVER, SECURITY_OFFICER | Time-bucketed queries |
-| GET | `/api/vehicle-logs/export/{excel,csv}` | ADMIN, APPROVER, SECURITY_OFFICER | Report export |
+| GET | `/api/vehicle-logs/{today,weekly,monthly,date-range}` | TENANT_ADMIN | Time-bucketed queries |
+| GET | `/api/vehicle-logs/export/{excel,csv}` | TENANT_ADMIN | Report export |
 | POST | `/api/access-requests` | authenticated | Submit access request |
-| GET | `/api/access-requests`, `/pending` | ADMIN, APPROVER | Review queue |
+| GET | `/api/access-requests`, `/pending` | TENANT_ADMIN | Review queue |
 | GET | `/api/access-requests/my` | authenticated | Own requests |
-| PUT | `/api/access-requests/{id}/{approve,reject,cancel}` | ADMIN, APPROVER (cancel: owner) | Resolve request |
-| GET/POST/PUT/DELETE | `/api/employees/**` | authenticated / ADMIN, APPROVER for writes+export | Workforce CRUD |
-| GET/POST/PUT/DELETE | `/api/admin/users/**` | ADMIN | User management |
+| PUT | `/api/access-requests/{id}/{approve,reject,cancel}` | TENANT_ADMIN (cancel: owner) | Resolve request |
+| GET/POST/PUT/DELETE | `/api/employees/**` | authenticated / TENANT_ADMIN for writes+export | Workforce CRUD |
+| GET/POST/PUT/DELETE | `/api/admin/users/**` | TENANT_ADMIN | User management |
 | GET/POST/PUT/DELETE | `/api/departments/**`, `/api/positions/**` | authenticated / role-gated writes | Org structure CRUD |
 
 ## 3. New `/api/v1` endpoints (SaaS)
@@ -94,36 +95,36 @@ sub-routes) is generated at `/api-docs`. Role column reflects `SecurityConfig` U
 | GET | `/api/v1/tenants/{id}` | PLATFORM_ADMIN, TENANT_ADMIN (self) | Tenant detail |
 | PUT | `/api/v1/tenants/{id}` | PLATFORM_ADMIN, TENANT_ADMIN | Update tenant profile/status |
 | POST | `/api/v1/sites` | TENANT_ADMIN | Create a site |
-| GET | `/api/v1/sites` | TENANT_ADMIN, SITE_MANAGER | List sites (tenant-scoped) |
-| GET | `/api/v1/sites/{id}` | TENANT_ADMIN, SITE_MANAGER | Site detail |
+| GET | `/api/v1/sites` | TENANT_ADMIN | List sites (tenant-scoped) |
+| GET | `/api/v1/sites/{id}` | TENANT_ADMIN | Site detail |
 | PUT/DELETE | `/api/v1/sites/{id}` | TENANT_ADMIN | Update / decommission site |
-| POST | `/api/v1/sites/{siteId}/zones` | TENANT_ADMIN, SITE_MANAGER | Create zone |
-| GET | `/api/v1/sites/{siteId}/zones` | SITE_MANAGER, SECURITY_GUARD | List zones |
-| PUT/DELETE | `/api/v1/zones/{id}` | TENANT_ADMIN, SITE_MANAGER | Update / remove zone |
-| POST | `/api/v1/cameras` | TENANT_ADMIN, SITE_MANAGER | Register camera (issues per-camera `X-Gate-Key`) |
-| GET | `/api/v1/sites/{siteId}/cameras` | SITE_MANAGER, SECURITY_GUARD | List cameras |
-| PUT | `/api/v1/cameras/{id}` | SITE_MANAGER | Update rtsp/role/panel_type |
-| PATCH | `/api/v1/cameras/{id}/calibration` | SITE_MANAGER | Save homography/calibration JSON |
+| POST | `/api/v1/sites/{siteId}/zones` | TENANT_ADMIN | Create zone |
+| GET | `/api/v1/sites/{siteId}/zones` | TENANT_ADMIN | List zones |
+| PUT/DELETE | `/api/v1/zones/{id}` | TENANT_ADMIN | Update / remove zone |
+| POST | `/api/v1/cameras` | TENANT_ADMIN | Register camera (issues per-camera `X-Gate-Key`) |
+| GET | `/api/v1/sites/{siteId}/cameras` | TENANT_ADMIN | List cameras |
+| PUT | `/api/v1/cameras/{id}` | TENANT_ADMIN | Update rtsp/role/panel_type |
+| PATCH | `/api/v1/cameras/{id}/calibration` | TENANT_ADMIN | Save homography/calibration JSON |
 | POST | `/api/v1/cameras/{id}/heartbeat` | device (`X-Gate-Key`) | Camera liveness |
-| POST | `/api/v1/parking-slots` | SITE_MANAGER | Define slot polygon |
-| GET | `/api/v1/sites/{siteId}/parking-slots` | SITE_MANAGER, SECURITY_GUARD, MEMBER | List slots + status |
-| PUT | `/api/v1/parking-slots/{id}` | SITE_MANAGER | Edit polygon / manual status override |
-| GET | `/api/v1/vehicles` | TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD | Tenant vehicle list |
-| GET | `/api/v1/vehicles/{id}` | TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD, MEMBER (own) | Vehicle detail |
-| GET | `/api/v1/vehicles/{id}/location` | MEMBER (own), SITE_MANAGER, SECURITY_GUARD | Current site/slot ("where is my car") |
-| GET | `/api/v1/vehicles/by-plate/{plate}` | SITE_MANAGER, SECURITY_GUARD | Plate lookup |
+| POST | `/api/v1/parking-slots` | TENANT_ADMIN | Define slot polygon |
+| GET | `/api/v1/sites/{siteId}/parking-slots` | TENANT_ADMIN, MEMBER | List slots + status |
+| PUT | `/api/v1/parking-slots/{id}` | TENANT_ADMIN | Edit polygon / manual status override |
+| GET | `/api/v1/vehicles` | TENANT_ADMIN | Tenant vehicle list |
+| GET | `/api/v1/vehicles/{id}` | TENANT_ADMIN, MEMBER (own) | Vehicle detail |
+| GET | `/api/v1/vehicles/{id}/location` | MEMBER (own), TENANT_ADMIN | Current site/slot ("where is my car") |
+| GET | `/api/v1/vehicles/by-plate/{plate}` | TENANT_ADMIN | Plate lookup |
 | POST | `/api/v1/parking-events` | device (`X-Gate-Key`, per-camera) | **Ingest endpoint** — see §5 |
-| GET | `/api/v1/parking-events` | TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD | Query event log (filterable) |
+| GET | `/api/v1/parking-events` | TENANT_ADMIN | Query event log (filterable) |
 | GET | `/api/v1/parking-events/{id}` | same | Event detail |
-| GET | `/api/v1/snapshots/{id}` | TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD | Fetch snapshot metadata / signed URL |
+| GET | `/api/v1/snapshots/{id}` | TENANT_ADMIN | Fetch snapshot metadata / signed URL |
 | POST | `/api/v1/subscriptions` | TENANT_ADMIN | Start/change plan (Stripe checkout session) |
 | GET | `/api/v1/subscriptions/current` | TENANT_ADMIN | Current plan + entitlements + usage |
 | POST | `/api/v1/subscriptions/webhook` | public (Stripe-signature verified) | Stripe billing events |
 | GET | `/api/v1/notifications` | any authenticated | Own notification inbox |
 | PATCH | `/api/v1/notifications/{id}/read` | any authenticated | Mark read |
-| GET | `/api/v1/analytics/occupancy` | TENANT_ADMIN, SITE_MANAGER | Occupancy/dwell-time aggregates |
+| GET | `/api/v1/analytics/occupancy` | TENANT_ADMIN | Occupancy/dwell-time aggregates |
 | GET | `/api/v1/analytics/usage` | TENANT_ADMIN | Metered usage (for billing) |
-| POST | `/api/v1/chat/messages` | MEMBER, SITE_MANAGER, TENANT_ADMIN | Chatbot query (tool-calling, tenant-scoped) |
+| POST | `/api/v1/chat/messages` | MEMBER, TENANT_ADMIN | Chatbot query (tool-calling, tenant-scoped) |
 | GET | `/api/v1/chat/sessions/{id}` | same | Chat session history |
 
 `Gate` remains today's logical entry/exit point, now `site_id`-scoped and referencing

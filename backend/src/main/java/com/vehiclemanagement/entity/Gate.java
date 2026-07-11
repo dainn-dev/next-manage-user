@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import org.hibernate.annotations.DynamicInsert;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -17,6 +18,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "gate")
+@DynamicInsert
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -30,6 +32,10 @@ public class Gate {
     @Column(name = "name", nullable = false, unique = true)
     @NotBlank(message = "Gate name is required")
     private String name;
+
+    /** Branch / facility this gate belongs to (DB column from V37). */
+    @Column(name = "site_id")
+    private UUID siteId;
 
     @Column(name = "location")
     private String location;

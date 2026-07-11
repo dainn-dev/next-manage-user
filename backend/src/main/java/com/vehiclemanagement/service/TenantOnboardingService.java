@@ -4,6 +4,7 @@ import com.vehiclemanagement.config.PlatformAdminOperation;
 import com.vehiclemanagement.dto.TenantOnboardingRequest;
 import com.vehiclemanagement.dto.TenantOnboardingResponse;
 import com.vehiclemanagement.entity.User;
+import com.vehiclemanagement.platform.PlatformAuditService;
 import com.vehiclemanagement.util.JwtUtil;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -24,11 +26,17 @@ public class TenantOnboardingService {
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final PlatformAuditService auditService;
 
-    public TenantOnboardingService(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public TenantOnboardingService(
+            JdbcTemplate jdbc,
+            PasswordEncoder passwordEncoder,
+            JwtUtil jwtUtil,
+            PlatformAuditService auditService) {
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.auditService = auditService;
     }
 
     @PlatformAdminOperation
@@ -41,6 +49,8 @@ public class TenantOnboardingService {
         String tenantName = request.getTenantName().trim();
         String tenantSlug = normalizeSlug(request.getTenantSlug(), tenantName);
         String siteName = request.getSiteName().trim();
+        String managementModel = request.getManagementModel().trim().toLowerCase(Locale.ROOT);
+        Integer areaCount = request.getAreaCount();
         String adminUsername = request.getAdminUsername().trim();
         String adminEmail = request.getAdminEmail().trim().toLowerCase(Locale.ROOT);
 
@@ -48,10 +58,10 @@ public class TenantOnboardingService {
         assertUniqueAdmin(adminUsername, adminEmail);
 
         UUID tenantId = jdbc.queryForObject("""
-                INSERT INTO tenant(name, slug, status)
-                VALUES (?, ?, 'active')
+                INSERT INTO tenant(name, slug, management_model, area_count, status)
+                VALUES (?, ?, ?, ?, 'active')
                 RETURNING id
-                """, UUID.class, tenantName, tenantSlug);
+                """, UUID.class, tenantName, tenantSlug, managementModel, areaCount);
 
         UUID siteId = jdbc.queryForObject("""
                 INSERT INTO site(tenant_id, name, location)
@@ -73,6 +83,15 @@ public class TenantOnboardingService {
                 tenantId);
 
         String token = issueTenantAdminToken(adminUserId, adminUsername, adminEmail, tenantId, siteId);
+
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("tenantName", tenantName);
+        detail.put("tenantSlug", tenantSlug);
+        detail.put("managementModel", managementModel);
+        detail.put("areaCount", areaCount);
+        detail.put("siteName", siteName);
+        detail.put("adminUsername", adminUsername);
+        auditService.record("tenant_onboarded", "tenant", tenantId, detail);
 
         return TenantOnboardingResponse.builder()
                 .tenantId(tenantId)

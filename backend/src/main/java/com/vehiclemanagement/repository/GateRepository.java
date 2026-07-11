@@ -1,6 +1,7 @@
 package com.vehiclemanagement.repository;
 
 import com.vehiclemanagement.entity.Gate;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -27,6 +28,8 @@ public interface GateRepository extends JpaRepository<Gate, UUID> {
      * given cutoff — candidates to mark offline. Disabled gates are excluded.
      */
     List<Gate> findByStatusAndLastHeartbeatAtBefore(Gate.GateStatus status, LocalDateTime cutoff);
+
+    List<Gate> findBySiteIdIn(List<UUID> siteIds, Sort sort);
 
     /**
      * Count gates in the given status. Backs the {@code gate_up} Prometheus gauge.

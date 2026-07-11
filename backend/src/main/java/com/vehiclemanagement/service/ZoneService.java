@@ -6,6 +6,7 @@ import com.vehiclemanagement.exception.ConflictException;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.SiteRepository;
 import com.vehiclemanagement.repository.ZoneRepository;
+import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +29,31 @@ public class ZoneService {
     @Autowired
     private SiteRepository siteRepository;
 
+    @Autowired
+    private SiteAccess siteAccess;
+
     @Transactional(readOnly = true)
     public List<ZoneDto> list(UUID siteId) {
+        if (siteId != null) {
+            siteAccess.assertSiteAllowed(siteId);
+        }
         List<Zone> zones = siteId != null
                 ? zoneRepository.findBySiteId(siteId)
                 : zoneRepository.findAll();
+        if (siteId == null && siteAccess.isRestricted()) {
+            List<UUID> allowed = siteAccess.allowedSiteIds();
+            zones = zones.stream()
+                    .filter(z -> allowed.contains(z.getSiteId()))
+                    .collect(Collectors.toList());
+        }
         return zones.stream().map(ZoneDto::new).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public ZoneDto get(UUID id) {
-        return new ZoneDto(findOrThrow(id));
+        Zone zone = findOrThrow(id);
+        siteAccess.assertSiteAllowed(zone.getSiteId());
+        return new ZoneDto(zone);
     }
 
     public ZoneDto create(ZoneDto request) {
@@ -56,6 +71,7 @@ public class ZoneService {
 
     public ZoneDto update(UUID id, ZoneDto request) {
         Zone zone = findOrThrow(id);
+        siteAccess.assertSiteAllowed(zone.getSiteId());
         // The owning site is immutable; only the name can change.
         if (request.getName() != null && !request.getName().isBlank()
                 && !zone.getName().equals(request.getName())) {
@@ -69,7 +85,9 @@ public class ZoneService {
     }
 
     public void delete(UUID id) {
-        zoneRepository.delete(findOrThrow(id));
+        Zone zone = findOrThrow(id);
+        siteAccess.assertSiteAllowed(zone.getSiteId());
+        zoneRepository.delete(zone);
     }
 
     private Zone findOrThrow(UUID id) {
@@ -83,5 +101,6 @@ public class ZoneService {
         if (!siteRepository.existsById(siteId)) {
             throw new ResourceNotFoundException("Site not found with id: " + siteId);
         }
+        siteAccess.assertSiteAllowed(siteId);
     }
 }

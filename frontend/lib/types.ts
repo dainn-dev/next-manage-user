@@ -131,6 +131,8 @@ export interface Vehicle {
   capacity?: number
   notes?: string
   imagePath?: string
+  /** Last-known / current branch (backend currentSiteId). */
+  currentSiteId?: string
   createdAt: string
   updatedAt: string
 }
@@ -231,6 +233,8 @@ export interface User {
   lastLogin?: string
   employeeId?: string
   employeeName?: string
+  /** Assigned branch ids when role is SITE_MANAGER. */
+  siteIds?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -243,6 +247,7 @@ export interface CreateUserRequest {
   role: UserRole
   status: UserStatus
   employeeId?: string
+  siteIds?: string[]
 }
 
 export interface UpdateUserRequest {
@@ -253,21 +258,38 @@ export interface UpdateUserRequest {
   role?: UserRole
   status?: UserStatus
   employeeId?: string
+  siteIds?: string[]
 }
 
 export enum UserRole {
+  /** SaaS operator — platform console only (`/platform/*`). */
+  PLATFORM_ADMIN = 'PLATFORM_ADMIN',
+  /** Tenant operator — maps from backend `TENANT_ADMIN`. */
+  ADMIN = 'ADMIN',
+  /** Branch / site operator — maps from backend `SITE_MANAGER`. */
+  SITE_MANAGER = 'SITE_MANAGER',
+  /** Tenant member — maps from backend `MEMBER`. */
   USER = 'USER',
-  APPROVER = 'APPROVER',
-  SECURITY_OFFICER = 'SECURITY_OFFICER',
-  ADMIN = 'ADMIN'
+}
+
+export function isPlatformAdmin(role?: UserRole): boolean {
+  return role === UserRole.PLATFORM_ADMIN
+}
+
+export function isTenantAdmin(role?: UserRole): boolean {
+  return role === UserRole.ADMIN
+}
+
+export function isSiteManager(role?: UserRole): boolean {
+  return role === UserRole.SITE_MANAGER
 }
 
 export function canApprove(role?: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.APPROVER
+  return role === UserRole.ADMIN || role === UserRole.SITE_MANAGER
 }
 
 export function canViewAllLogs(role?: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.APPROVER || role === UserRole.SECURITY_OFFICER
+  return role === UserRole.ADMIN || role === UserRole.SITE_MANAGER
 }
 
 export function canCreateRequest(role?: UserRole): boolean {
@@ -275,20 +297,12 @@ export function canCreateRequest(role?: UserRole): boolean {
 }
 
 export function canManageVehicles(role?: UserRole): boolean {
-  return role === UserRole.ADMIN
+  return role === UserRole.ADMIN || role === UserRole.SITE_MANAGER
 }
 
-/**
- * Operators who see the ParkVision dashboard, monitoring and entry/exit views.
- * Interim mapping onto today's 4-role model — the target platform defines
- * PLATFORM_ADMIN / TENANT_ADMIN / SITE_MANAGER / SECURITY_GUARD (see docs/06).
- */
+/** Operators who see the ParkVision dashboard, monitoring and entry/exit views. */
 export function canViewDashboard(role?: UserRole): boolean {
-  return (
-    role === UserRole.ADMIN ||
-    role === UserRole.SECURITY_OFFICER ||
-    role === UserRole.APPROVER
-  )
+  return role === UserRole.ADMIN || role === UserRole.SITE_MANAGER
 }
 
 export enum UserStatus {

@@ -93,7 +93,7 @@ See `diagrams/tool-calling-sequence.mmd` for the full sequence and
   reads a tenant id out of the LLM's output).
 - **PII minimization.** Tool results are filtered before reaching the LLM/user: personal fields
   (e.g. an employee's name/department behind a plate lookup) are masked unless the caller is the
-  vehicle's own owner or holds `SITE_MANAGER`/`TENANT_ADMIN`/`PLATFORM_ADMIN` (role set per §3.9).
+  vehicle's own owner or holds `TENANT_ADMIN`/`PLATFORM_ADMIN` (role set per `06_User_RBAC`).
   Snapshot links are always short-TTL signed URLs.
 - **No cross-tenant leakage.** Because every tool call re-runs through the same RLS-backed
   repository the dashboard uses, a tool literally cannot return another tenant's row — there is no
@@ -169,8 +169,7 @@ truth for operational facts (location, occupancy) — those always go through to
 - `04_Multi_Tenant_Design` — tenant isolation model (RLS, `tenant_id`/`site_id`) this chatbot's
   guardrails depend on.
 - `05_Subscription_Billing` — `Plan`/`UsageRecord` entitlements that drive chatbot rate limits.
-- `06_User_RBAC` — role set (`PLATFORM_ADMIN`/`TENANT_ADMIN`/`SITE_MANAGER`/`SECURITY_GUARD`/
-  `MEMBER`) used by the PII post-filter.
+- `06_User_RBAC` — role set (`PLATFORM_ADMIN`/`TENANT_ADMIN`/`MEMBER`) used by the PII post-filter.
 - `17_Dashboard` — embeds the chat widget; see its notifications center for alert-triggered chat
   entry points.
 - `18_Mobile_App` — embeds the chat sheet as one of the core driver-facing flows.

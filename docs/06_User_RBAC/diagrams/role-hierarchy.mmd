@@ -1,19 +1,15 @@
 flowchart TD
-    PLATFORM_ADMIN["PLATFORM_ADMIN<br/>cross-tenant, platform operator"]
+    PLATFORM_ADMIN["PLATFORM_ADMIN<br/>cross-tenant SaaS operator<br/>tenant lifecycle / billing overview"]
     TENANT_ADMIN["TENANT_ADMIN<br/>full control within one tenant"]
-    SITE_MANAGER["SITE_MANAGER<br/>manages one or more sites<br/>(includes former APPROVER rights)"]
-    SECURITY_GUARD["SECURITY_GUARD<br/>gate/kiosk operation, one or more sites"]
-    MEMBER["MEMBER / USER<br/>vehicle owner, self-service only"]
+    MEMBER["MEMBER<br/>vehicle owner, self-service only"]
 
-    PLATFORM_ADMIN -->|"scope: all tenants"| TENANT_ADMIN
-    TENANT_ADMIN -->|"scope: own tenant, all sites"| SITE_MANAGER
-    SITE_MANAGER -->|"scope: assigned site(s)"| SECURITY_GUARD
+    PLATFORM_ADMIN -.->|"does not operate day-to-day<br/>tenant parking data"| TENANT_ADMIN
     TENANT_ADMIN -->|"scope: own tenant"| MEMBER
 
-    subgraph Legacy["Today's roles (brief §1) -> Target mapping"]
+    subgraph Legacy["Legacy mapping"]
         USER["USER"] -.->|"becomes"| MEMBER
-        APPROVER["APPROVER"] -.->|"approval rights fold into"| SITE_MANAGER
-        SECURITY_OFFICER["SECURITY_OFFICER"] -.->|"renamed"| SECURITY_GUARD
+        APPROVER["APPROVER / SITE_MANAGER"] -.->|"ops fold into"| TENANT_ADMIN
+        SECURITY_OFFICER["SECURITY_OFFICER / SECURITY_GUARD"] -.->|"ops fold into"| TENANT_ADMIN
         ADMIN["ADMIN"] -.->|"splits into"| TENANT_ADMIN
-        ADMIN -.->|"or, for platform ops"| PLATFORM_ADMIN
+        ADMIN -.->|"or platform ops"| PLATFORM_ADMIN
     end

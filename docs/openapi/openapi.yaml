@@ -400,7 +400,7 @@ components:
         email: { type: string }
         role:
           type: string
-          enum: [PLATFORM_ADMIN, TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD, MEMBER]
+          enum: [PLATFORM_ADMIN, TENANT_ADMIN, MEMBER]
         siteScope:
           type: array
           items: { type: string, format: uuid }

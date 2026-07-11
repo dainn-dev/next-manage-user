@@ -69,4 +69,8 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     
     @Query("SELECT v FROM Vehicle v WHERE v.owner.id = :ownerId")
     List<Vehicle> findByOwner(@Param("ownerId") UUID ownerId);
+
+    Page<Vehicle> findByCurrentSiteIdIn(List<UUID> siteIds, Pageable pageable);
+
+    List<Vehicle> findByCurrentSiteIdIn(List<UUID> siteIds);
 }

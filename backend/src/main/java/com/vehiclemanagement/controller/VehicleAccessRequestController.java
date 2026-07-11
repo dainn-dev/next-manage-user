@@ -46,15 +46,15 @@ public class VehicleAccessRequestController {
     }
 
     @GetMapping
-    @Operation(summary = "List all requests", description = "Get all access requests (TENANT_ADMIN/SITE_MANAGER only)")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @Operation(summary = "List all requests", description = "Get all access requests (TENANT_ADMIN only)")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<List<VehicleAccessRequestDto>> getAllRequests() {
         return ResponseEntity.ok(accessRequestService.getAllRequests());
     }
 
     @GetMapping("/pending")
-    @Operation(summary = "List pending requests", description = "Get all pending access requests (TENANT_ADMIN/SITE_MANAGER only)")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @Operation(summary = "List pending requests", description = "Get all pending access requests (TENANT_ADMIN only)")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<List<VehicleAccessRequestDto>> getPendingRequests() {
         return ResponseEntity.ok(accessRequestService.getPendingRequests());
     }
@@ -68,8 +68,8 @@ public class VehicleAccessRequestController {
     }
 
     @PutMapping("/{id}/approve")
-    @Operation(summary = "Approve request", description = "Approve a vehicle access request (TENANT_ADMIN/SITE_MANAGER only)")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @Operation(summary = "Approve request", description = "Approve a vehicle access request (TENANT_ADMIN only)")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<VehicleAccessRequestDto> approveRequest(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -78,8 +78,8 @@ public class VehicleAccessRequestController {
     }
 
     @PutMapping("/{id}/reject")
-    @Operation(summary = "Reject request", description = "Reject a vehicle access request with reason (TENANT_ADMIN/SITE_MANAGER only)")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @Operation(summary = "Reject request", description = "Reject a vehicle access request with reason (TENANT_ADMIN only)")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<VehicleAccessRequestDto> rejectRequest(
             @PathVariable UUID id,
             @RequestBody Map<String, String> body,

@@ -81,6 +81,7 @@ public class VehicleAccessRequestService {
                 .status(AccessRequestStatus.PENDING)
                 .licensePlate(licensePlate)
                 .gate(gate)
+                .siteId(gate != null ? gate.getSiteId() : null)
                 .imagePath(imagePath)
                 .requestReason(reason)
                 .build();
@@ -111,6 +112,7 @@ public class VehicleAccessRequestService {
                 .validFrom(validFrom)
                 .validTo(validTo)
                 .status(AccessRequestStatus.PENDING)
+                .siteId(vehicle.getCurrentSiteId())
                 .build();
 
         return new VehicleAccessRequestDto(requestRepository.save(request));

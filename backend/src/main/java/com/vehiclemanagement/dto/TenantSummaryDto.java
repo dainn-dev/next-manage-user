@@ -10,6 +10,8 @@ public record TenantSummaryDto(
         String name,
         String slug,
         TenantStatus status,
+        String managementModel,
+        Integer areaCount,
         long siteCount,
         long tenantAdminCount,
         LocalDateTime createdAt,

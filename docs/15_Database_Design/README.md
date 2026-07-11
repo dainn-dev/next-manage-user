@@ -25,7 +25,8 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
   - `Gate`: `name` (unique), `location`, `camera_rtsp_url`, `status`
     (online/offline/disabled), `last_heartbeat_at`. Gates model physical gate locations, not
     tenants or cameras as separate concepts.
-  - `User`: `username`/`email` (unique), `role` (`USER/APPROVER/SECURITY_OFFICER/ADMIN`),
+  - `User`: `username`/`email` (unique), `role` (`PLATFORM_ADMIN`/`TENANT_ADMIN`/`MEMBER`;
+    legacy USER/APPROVER/SECURITY_OFFICER/ADMIN folded per `06_User_RBAC`),
     `status`, optional 1:1 `employee` link.
   - `Department`/`Position`: flat, globally-unique `name`, self-referencing `parent_id` for
     hierarchy — no tenant scope today.

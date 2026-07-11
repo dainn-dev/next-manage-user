@@ -31,7 +31,7 @@ public class ZoneController {
 
     @GetMapping
     @Operation(summary = "List zones, optionally filtered by site")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved zones")
     public ResponseEntity<List<ZoneDto>> list(
             @Parameter(description = "Optional site filter") @RequestParam(required = false) UUID siteId) {
@@ -40,7 +40,7 @@ public class ZoneController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get zone by ID")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved zone"),
         @ApiResponse(responseCode = "404", description = "Zone not found")
@@ -52,7 +52,7 @@ public class ZoneController {
 
     @PostMapping
     @Operation(summary = "Create a zone")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Zone created"),
         @ApiResponse(responseCode = "400", description = "Invalid zone data"),
@@ -66,7 +66,7 @@ public class ZoneController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a zone")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Zone updated"),
         @ApiResponse(responseCode = "404", description = "Zone not found"),
@@ -80,7 +80,7 @@ public class ZoneController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a zone")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Zone deleted"),
         @ApiResponse(responseCode = "404", description = "Zone not found")

@@ -24,7 +24,7 @@ the full current-system description). Per the architecture brief's ground truth:
 | AI pipeline | YOLOv5 plate detection + a second YOLOv5 model for character detection (OCR-by-detection); no motion gating, no PaddleOCR, no ByteTrack, no slot mapping. | YOLOv11 vehicle detection behind OpenCV motion gating (MOG2), PaddleOCR primary OCR (EasyOCR/VietOCR comparators), ByteTrack multi-object tracking with stable `track_id`, polygon slot mapping. |
 | Realtime | STOMP over WebSocket with an in-memory SimpleBroker (`/topic/vehicle-check`, `/topic/gate/{gateId}/check`); single-instance only. | Same STOMP protocol, but Redis-backed relay so WebSocket fan-out scales horizontally across instances. |
 | Eventing | No message broker; the `check-vehicle` REST call is the only integration point from edge to backend. | RabbitMQ event bus, transactional outbox from the backend, 9 standardized domain events. |
-| Roles | USER, APPROVER, SECURITY_OFFICER, ADMIN. | PLATFORM_ADMIN, TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD, MEMBER/USER — see `03_SaaS_Architecture` for the full RBAC mapping. |
+| Roles | Legacy: USER, APPROVER, SECURITY_OFFICER, ADMIN. | `PLATFORM_ADMIN`, `TENANT_ADMIN`, `MEMBER` — see `06_User_RBAC` for the full RBAC mapping. |
 | Billing | None — one deployment per customer, no metering. | Stripe subscriptions, plan tiers with metered entitlements, usage recorded off the event stream. |
 | Chatbot | None. | LLM tool-calling chatbot (default Ollama/Qwen or Llama, optional hosted provider) with tenant-scoped read tools. |
 | Deployment | `docker-compose.yml` for local dev. | Docker Compose for dev, Kubernetes for production (HPA, Ingress-NGINX, cert-manager, GitOps). |
@@ -88,12 +88,12 @@ vertical-SaaS path was chosen over a horizontal ANPR toolkit).
 
 - **For the tenant operations lead:** one realtime dashboard across every site — occupancy,
   in/out counts, relocation alerts, exceptions — instead of N disconnected deployments.
-- **For the site manager / security guard (maps from today's SECURITY_OFFICER):** the same
+- **For the tenant admin (ops that legacy SITE_MANAGER / SECURITY_GUARD / SECURITY_OFFICER held):** the same
   kiosk-style gate flow that exists today (`/gate/[gateId]` full-screen view with TTS), plus a
   live parking map instead of a bare event log.
-- **For the driver (MEMBER/USER):** self-service "where is my car" and "did it move" via the AI
+- **For the driver (`MEMBER`):** self-service "where is my car" and "did it move" via the AI
   chatbot and, later, the mobile app — no need to call the front desk.
-- **For the platform owner (ParkVision the business):** a recurring subscription with natural
+- **For the platform owner (`PLATFORM_ADMIN` / ParkVision the business):** a recurring subscription with natural
   expansion revenue as a tenant adds sites, cameras, retention, or chatbot usage — replacing a
   one-off, per-deployment sales motion with SaaS economics.
 

@@ -50,8 +50,8 @@ See `diagrams/mobile-navigation.mmd` for how these flows map to screens/tabs.
   storage mechanism is mobile-appropriate rather than copying the web pattern.
 - **Refresh**: client-side expiry check (same pattern as today's web `ProtectedLayout`), refresh
   proactively before expiry where a refresh-token flow exists, else re-prompt login.
-- **Role scope**: mobile app targets the `MEMBER`/`USER` role primarily (vehicle owner) — it is not
-  an operator console; `SECURITY_GUARD`/`SITE_MANAGER` operational tooling stays on the dashboard.
+- **Role scope**: mobile app targets the `MEMBER` role primarily (vehicle owner) — it is not
+  an operator console; `TENANT_ADMIN` operational tooling stays on the dashboard.
 
 ## 5. Offline behavior
 
@@ -116,7 +116,7 @@ Full sequence: `diagrams/find-my-car-sequence.mmd`.
 - App-store review timelines (iOS/Android) affect release cadence in a way the web dashboard never
   has to plan around — not detailed here.
 - "Report stolen" flow's downstream effect (does it change `Vehicle.status`, trigger a
-  `SECURITY_GUARD` alert, etc.) needs definition with `12_Vehicle_Relocation_Detection` and
+  `TENANT_ADMIN` alert, etc.) needs definition with `12_Vehicle_Relocation_Detection` and
   `19_Notifications`.
 - Expo managed-workflow constraints on background location (if a future "live tracking" feature is
   requested) are unassessed — flagged in `adr/ADR-1801`.
@@ -124,7 +124,7 @@ Full sequence: `diagrams/find-my-car-sequence.mmd`.
 ## 12. Cross-references
 
 - `04_Multi_Tenant_Design` — tenant/site scoping enforced on every mobile API call.
-- `06_User_RBAC` — `MEMBER`/`USER` role scope the mobile app targets.
+- `06_User_RBAC` — `MEMBER` role scope the mobile app targets.
 - `12_Vehicle_Relocation_Detection` — source of relocation/stolen alert events.
 - `16_AI_Chatbot` — in-app chatbot reuses the same tool-calling backend as the dashboard.
 - `17_Dashboard` — shares the REST API surface; operator-facing counterpart to this driver-facing app.

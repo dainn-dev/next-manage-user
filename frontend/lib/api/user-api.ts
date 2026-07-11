@@ -12,6 +12,36 @@ import { getApiUrl } from './config'
 
 const API_BASE_URL = getApiUrl()
 
+/** Map UI roles to backend enum values. */
+function toApiRole(role?: UserRole | string): string | undefined {
+  if (!role) return undefined
+  switch (role) {
+    case UserRole.PLATFORM_ADMIN:
+    case 'PLATFORM_ADMIN':
+      return 'PLATFORM_ADMIN'
+    case UserRole.ADMIN:
+    case 'ADMIN':
+    case 'TENANT_ADMIN':
+      return 'TENANT_ADMIN'
+    case UserRole.SITE_MANAGER:
+    case 'SITE_MANAGER':
+      return 'SITE_MANAGER'
+    case UserRole.USER:
+    case 'USER':
+    case 'MEMBER':
+      return 'MEMBER'
+    default:
+      return String(role)
+  }
+}
+
+function toUiRole(role?: string): UserRole {
+  if (role === 'PLATFORM_ADMIN') return UserRole.PLATFORM_ADMIN
+  if (role === 'TENANT_ADMIN' || role === 'ADMIN') return UserRole.ADMIN
+  if (role === 'SITE_MANAGER') return UserRole.SITE_MANAGER
+  return UserRole.USER
+}
+
 interface PaginatedResponse<T> {
   content: T[]
   totalElements: number
@@ -172,7 +202,7 @@ class UserApi {
       sortDir
     })
 
-    return this.request<PaginatedResponse<User>>(`/admin/users/role/${role}?${params}`)
+    return this.request<PaginatedResponse<User>>(`/admin/users/role/${toApiRole(role)}?${params}`)
   }
 
   // Get users by status
@@ -198,7 +228,7 @@ class UserApi {
     const response = await fetch(`${API_BASE_URL}/admin/users`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(userData),
+      body: JSON.stringify({ ...userData, role: toApiRole(userData.role) }),
     })
 
     if (!response.ok) {
@@ -206,7 +236,8 @@ class UserApi {
       throw new Error(errorData.message || 'Failed to create user')
     }
 
-    return response.json()
+    const user = await response.json()
+    return { ...user, role: toUiRole(user.role) }
   }
 
   // Update user
@@ -214,7 +245,7 @@ class UserApi {
     const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify(userData),
+      body: JSON.stringify({ ...userData, role: toApiRole(userData.role) }),
     })
 
     if (!response.ok) {
@@ -222,7 +253,8 @@ class UserApi {
       throw new Error(errorData.message || 'Failed to update user')
     }
 
-    return response.json()
+    const user = await response.json()
+    return { ...user, role: toUiRole(user.role) }
   }
 
   // Delete user
@@ -286,7 +318,7 @@ class UserApi {
 
   // Update user role
   async updateUserRole(id: string, role: UserRole): Promise<User> {
-    const params = new URLSearchParams({ role })
+    const params = new URLSearchParams({ role: toApiRole(role)! })
     const response = await fetch(`${API_BASE_URL}/admin/users/${id}/role?${params}`, {
       method: 'PATCH',
       headers: this.getAuthHeaders(),
@@ -297,7 +329,8 @@ class UserApi {
       throw new Error(errorData.message || 'Failed to update user role')
     }
 
-    return response.json()
+    const user = await response.json()
+    return { ...user, role: toUiRole(user.role) }
   }
 
   // Bulk delete users
@@ -333,7 +366,7 @@ class UserApi {
 
   // Bulk update user role
   async bulkUpdateUserRole(userIds: string[], role: UserRole): Promise<User[]> {
-    const params = new URLSearchParams({ role })
+    const params = new URLSearchParams({ role: toApiRole(role)! })
     const response = await fetch(`${API_BASE_URL}/admin/users/bulk-update-role?${params}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
@@ -345,7 +378,8 @@ class UserApi {
       throw new Error(errorData.message || 'Failed to update user role')
     }
 
-    return response.json()
+    const users = await response.json()
+    return users.map((user: User) => ({ ...user, role: toUiRole(user.role) }))
   }
 
   // Get user statistics

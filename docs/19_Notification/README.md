@@ -42,10 +42,10 @@ These map to the standardized domain events (brief §2):
 
 | Trigger | Domain event | Default severity | Typical recipient |
 |---|---|---|---|
-| Vehicle moved to a different slot | `VehicleRelocated` | CRITICAL | Vehicle owner, SITE_MANAGER |
+| Vehicle moved to a different slot | `VehicleRelocated` | CRITICAL | Vehicle owner, TENANT_ADMIN |
 | Vehicle left the lot | `VehicleExited` | CRITICAL (if unexpected) / INFO (normal exit) | Vehicle owner |
-| Person lingering near a vehicle too long | `PersonDetected` (duration threshold) | WARNING | SITE_MANAGER, SECURITY_GUARD |
-| Camera offline | derived from `Camera.status`/heartbeat sweep (today's `GateService` 30s staleness sweep, extended) | WARNING → CRITICAL if sustained | SITE_MANAGER |
+| Person lingering near a vehicle too long | `PersonDetected` (duration threshold) | WARNING | TENANT_ADMIN |
+| Camera offline | derived from `Camera.status`/heartbeat sweep (today's `GateService` 30s staleness sweep, extended) | WARNING → CRITICAL if sustained | TENANT_ADMIN |
 
 The "camera offline" trigger is not one of the 9 standardized domain events in brief §2; it is
 derived from `Camera`/`Gate` heartbeat state, the same way today's `GateService` already computes

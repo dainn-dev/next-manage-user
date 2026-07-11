@@ -1,5 +1,5 @@
 flowchart TD
-    EVT["Incoming domain event\n(type, tenant_id, site_id, severity)"] --> LOOKUP["Resolve interested users\n(vehicle owner, SITE_MANAGER,\nSECURITY_GUARD on-duty)"]
+    EVT["Incoming domain event\n(type, tenant_id, site_id, severity)"] --> LOOKUP["Resolve interested users\n(vehicle owner, TENANT_ADMIN)"]
     LOOKUP --> PREF["Load NotificationPreference\nper user x event type"]
     PREF --> ENABLED{"Channel enabled\nfor this event type?"}
     ENABLED -->|"no"| DROP1["Suppress channel"]

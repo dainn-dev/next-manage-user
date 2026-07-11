@@ -11,6 +11,8 @@ public record TenantDetailDto(
         String name,
         String slug,
         TenantStatus status,
+        String managementModel,
+        Integer areaCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         List<TenantSiteSummaryDto> sites,

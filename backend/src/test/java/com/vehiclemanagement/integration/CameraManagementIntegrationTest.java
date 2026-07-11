@@ -189,7 +189,16 @@ class CameraManagementIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     private void seedTenant(UUID id, String slug) {
-        jdbc.update("INSERT INTO tenant(id, name, slug, status) VALUES (?, ?, ?, 'active') "
-                + "ON CONFLICT (id) DO NOTHING", id, slug, slug);
+        // Starter plan (max_sites=3) so multi-site camera isolation cases can run.
+        // Clear prior rows for this fixed tenant id — the shared Testcontainer DB
+        // retains data across methods in this class.
+        jdbc.update("DELETE FROM camera WHERE tenant_id = ?", id);
+        jdbc.update("DELETE FROM zone WHERE tenant_id = ?", id);
+        jdbc.update("DELETE FROM site WHERE tenant_id = ?", id);
+        jdbc.update("""
+                INSERT INTO tenant(id, name, slug, status, plan_id)
+                VALUES (?, ?, ?, 'active', '10000000-0000-0000-0000-000000000002')
+                ON CONFLICT (id) DO UPDATE SET plan_id = EXCLUDED.plan_id
+                """, id, slug, slug);
     }
 }

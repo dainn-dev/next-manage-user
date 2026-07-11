@@ -162,7 +162,7 @@ public class VehicleController {
     
     @PostMapping
     @Operation(summary = "Create a new vehicle", description = "Create a new vehicle record or return existing vehicle if license plate already exists")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<VehicleCreateResponse> createVehicle(@Valid @RequestBody VehicleDto vehicleDto) {
         VehicleCreateResponse result = vehicleService.createVehicle(vehicleDto);
         return new ResponseEntity<>(result, HttpStatus.CREATED);
@@ -177,7 +177,7 @@ public class VehicleController {
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete vehicle", description = "Delete a vehicle by ID")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<Void> deleteVehicle(@PathVariable UUID id) {
         vehicleService.deleteVehicle(id);
         return ResponseEntity.noContent().build();
@@ -304,21 +304,21 @@ public class VehicleController {
 
     @PutMapping("/{id}/approve")
     @Operation(summary = "Approve vehicle", description = "Approve a vehicle access request")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<VehicleDto> approveVehicle(@PathVariable UUID id) {
         return ResponseEntity.ok(vehicleService.approveVehicle(id));
     }
 
     @PutMapping("/{id}/reject")
     @Operation(summary = "Reject vehicle", description = "Reject a vehicle access request")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<VehicleDto> rejectVehicle(@PathVariable UUID id) {
         return ResponseEntity.ok(vehicleService.rejectVehicle(id));
     }
 
     @PostMapping("/upload-image/{vehicleId}")
     @Operation(summary = "Upload vehicle image", description = "Upload an image for a specific vehicle")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<String> uploadVehicleImage(
             @Parameter(description = "Vehicle ID", required = true)
             @PathVariable UUID vehicleId,
@@ -336,7 +336,7 @@ public class VehicleController {
     @GetMapping("/export/template")
     @Operation(summary = "Download vehicle import template",
             description = "Download an .xlsx template (header + example row) for bulk vehicle import")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<byte[]> exportImportTemplate() {
         byte[] data = vehicleImportService.generateTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -350,7 +350,7 @@ public class VehicleController {
     @Operation(summary = "Bulk import vehicles",
             description = "Import vehicles from an Excel (.xlsx/.xls) or CSV file. Rows are created independently; "
                     + "already-existing plates are skipped and per-row errors are reported.")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<VehicleImportResult> importVehicles(
             @Parameter(description = "Excel/CSV file to import", required = true)
             @RequestParam("file") MultipartFile file) {
@@ -361,7 +361,7 @@ public class VehicleController {
     @Operation(summary = "Export vehicles (selectable columns)",
             description = "Export all vehicles to Excel/CSV. Pass 'fields' (comma-separated column ids) to select "
                     + "columns; omit for all. Format 'excel' (default) or 'csv'.")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<byte[]> exportVehicles(
             @Parameter(description = "Column ids to include (comma-separated); omit for all")
             @RequestParam(required = false) List<String> fields,

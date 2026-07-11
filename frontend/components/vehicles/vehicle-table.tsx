@@ -270,7 +270,7 @@ export function VehicleTable({
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48" side="bottom">
-                            {/* Approve/reject actions — only for ADMIN and APPROVER */}
+                            {/* Approve/reject actions — only for ADMIN */}
                             {userCanApprove && vehicle.status === "approved" && onReject && (
                               <DropdownMenuItem
                                 variant="destructive"

@@ -63,6 +63,10 @@ public class Vehicle {
     
     @Column(name = "image_path")
     private String imagePath;
+
+    /** Last-known / current branch; stamped from gate on entry. */
+    @Column(name = "current_site_id")
+    private UUID currentSiteId;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

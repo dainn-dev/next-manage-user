@@ -84,10 +84,8 @@ brief, detailed in `06_User_RBAC`):
 | Role | Sees |
 |---|---|
 | `PLATFORM_ADMIN` | Cross-tenant admin (out of the per-tenant dashboard; separate platform console, out of scope here) |
-| `TENANT_ADMIN` | Everything below + `/admin/tenant`, `/admin/billing`, `/admin/roles` |
-| `SITE_MANAGER` | Site-scoped operations (map, cameras, monitoring, statistics, approvals — folds in today's `APPROVER` rights per §3.9) + `/admin/sites` for their sites |
-| `SECURITY_GUARD` | Monitoring, gate kiosk, entry/exit, event timeline (maps from today's `SECURITY_OFFICER`) |
-| `MEMBER`/`USER` | Own-vehicle views, requests, chatbot (`16_AI_Chatbot`) — a subset closer to the mobile app's scope than the operator dashboard |
+| `TENANT_ADMIN` | Everything below + `/admin/tenant`, `/admin/billing`, `/admin/roles` — site ops, map, cameras, monitoring, statistics, approvals (legacy APPROVER / SITE_MANAGER / SECURITY_GUARD duties fold here) |
+| `MEMBER` | Own-vehicle views, requests, chatbot (`16_AI_Chatbot`) — a subset closer to the mobile app's scope than the operator dashboard |
 
 This is additive to today's URL + `@PreAuthorize` pattern on the backend (§1) — the dashboard nav
 only *hides* unauthorized items; the backend remains the enforcement point.

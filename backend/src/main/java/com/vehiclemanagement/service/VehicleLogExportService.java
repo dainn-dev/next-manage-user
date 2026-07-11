@@ -29,7 +29,7 @@ import java.util.List;
  * Builds Excel (.xlsx via Apache POI) and CSV exports of vehicle entry/exit
  * logs. The export always reflects the full filtered result set (not a single
  * page) by fetching up to {@link #EXPORT_LIMIT} matching rows. Access is guarded
- * at the controller layer ({@code hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')}).
+ * at the controller layer ({@code hasRole('TENANT_ADMIN')}).
  */
 @Service
 public class VehicleLogExportService {

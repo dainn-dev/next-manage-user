@@ -51,8 +51,9 @@ the same context explicitly inside the `ai-ingest` module before calling into `p
   platform ever adopts WebFlux or virtual-thread-per-request patterns that hop threads
   mid-request).
 - **`site_ids` as JWT claim (Adopted)** — Because Users may be scoped to a subset of sites
-  within a tenant (e.g. a SITE_MANAGER for one site only, brief §3.9), tenant_id alone is
-  insufficient; a `site_ids` array (or `"*"` for tenant/platform-wide roles) is included so
+  within a tenant (reserved for a future role split; today `TENANT_ADMIN` acts tenant-wide —
+  see `06_User_RBAC`), tenant_id alone is
+  insufficient for that future case; a `site_ids` array (or `"*"` for tenant/platform-wide roles) is included so
   site-level authorization (`06_User_RBAC`) is available at the same claim-resolution point.
 
 ## Consequences

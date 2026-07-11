@@ -47,6 +47,10 @@ public class VehicleAccessRequest {
     @JoinColumn(name = "gate_id")
     private Gate gate;
 
+    /** Branch where the request originated (copied from gate when present). */
+    @Column(name = "site_id")
+    private UUID siteId;
+
     /** Optional evidence snapshot captured at the gate (Phase 4.2 / 4.4). */
     @Column(name = "image_path")
     private String imagePath;

@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.repository.CameraRepository;
-import com.vehiclemanagement.repository.SiteRepository;
-import com.vehiclemanagement.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,20 +25,14 @@ public class EntitlementGuard {
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
-    private final SiteRepository siteRepository;
     private final CameraRepository cameraRepository;
-    private final UserRepository userRepository;
 
     public EntitlementGuard(JdbcTemplate jdbc,
                             ObjectMapper objectMapper,
-                            SiteRepository siteRepository,
-                            CameraRepository cameraRepository,
-                            UserRepository userRepository) {
+                            CameraRepository cameraRepository) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
-        this.siteRepository = siteRepository;
         this.cameraRepository = cameraRepository;
-        this.userRepository = userRepository;
     }
 
     public void assertCameraCreationAllowed(UUID siteId) {
@@ -50,30 +42,59 @@ public class EntitlementGuard {
     }
 
     public void assertSiteCreationAllowed() {
-        assertWithinLimit(EntitlementMetric.MAX_SITES, siteRepository::count);
+        UUID tenantId = TenantContext.getTenantId();
+        assertWithinLimit(EntitlementMetric.MAX_SITES, () -> countSites(tenantId));
     }
 
     public void assertUserCreationAllowed() {
-        assertWithinLimit(EntitlementMetric.USERS_PER_TENANT, userRepository::count);
+        UUID tenantId = TenantContext.getTenantId();
+        assertWithinLimit(EntitlementMetric.USERS_PER_TENANT, () -> countUsers(tenantId));
     }
 
     public Map<String, Long> currentStructuralUsage() {
+        UUID tenantId = TenantContext.getTenantId();
         Map<String, Long> usage = new LinkedHashMap<>();
-        usage.put(EntitlementMetric.MAX_SITES.limitKey(), siteRepository.count());
-        usage.put(EntitlementMetric.MAX_CAMERAS_PER_SITE.limitKey(), currentMaxCamerasPerSite());
-        usage.put(EntitlementMetric.USERS_PER_TENANT.limitKey(), userRepository.count());
+        usage.put(EntitlementMetric.MAX_SITES.limitKey(), countSites(tenantId));
+        usage.put(EntitlementMetric.MAX_CAMERAS_PER_SITE.limitKey(), currentMaxCamerasPerSite(tenantId));
+        usage.put(EntitlementMetric.USERS_PER_TENANT.limitKey(), countUsers(tenantId));
         return usage;
     }
 
-    private long currentMaxCamerasPerSite() {
+    /**
+     * Count by explicit tenant_id so usage is correct even when the DB role
+     * bypasses RLS (e.g. integration-test superuser).
+     */
+    private long countSites(UUID tenantId) {
+        if (tenantId == null) {
+            return 0L;
+        }
+        Long value = jdbc.queryForObject(
+                "SELECT count(*) FROM site WHERE tenant_id = ?", Long.class, tenantId);
+        return value == null ? 0L : value;
+    }
+
+    private long countUsers(UUID tenantId) {
+        if (tenantId == null) {
+            return 0L;
+        }
+        Long value = jdbc.queryForObject(
+                "SELECT count(*) FROM users WHERE tenant_id = ?", Long.class, tenantId);
+        return value == null ? 0L : value;
+    }
+
+    private long currentMaxCamerasPerSite(UUID tenantId) {
+        if (tenantId == null) {
+            return 0L;
+        }
         Long value = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(camera_count), 0)
                 FROM (
                     SELECT count(*) AS camera_count
                     FROM camera
+                    WHERE tenant_id = ?
                     GROUP BY site_id
                 ) site_camera_counts
-                """, Long.class);
+                """, Long.class, tenantId);
         return value == null ? 0 : value;
     }
 

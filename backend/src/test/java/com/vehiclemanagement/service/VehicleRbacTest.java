@@ -6,6 +6,7 @@ import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.security.SiteAccess;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +30,9 @@ class VehicleRbacTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private SiteAccess siteAccess;
+
     @InjectMocks
     private VehicleService vehicleService;
 
@@ -36,6 +40,8 @@ class VehicleRbacTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(siteAccess.isRestricted()).thenReturn(false);
+
         User owner = User.builder()
                 .id(UUID.randomUUID())
                 .username("test-driver")
@@ -53,13 +59,9 @@ class VehicleRbacTest {
                 .build();
     }
 
-    // --- Role enum coverage ---
-
     @Test
     void userRole_enumHasExpectedValues() {
-        // Tenant-aware RBAC role set.
-        User.Role[] roles = User.Role.values();
-        assertEquals(5, roles.length);
+        assertEquals(4, User.Role.values().length);
     }
 
     @Test
@@ -67,50 +69,45 @@ class VehicleRbacTest {
         assertDoesNotThrow(() -> User.Role.valueOf("PLATFORM_ADMIN"));
         assertDoesNotThrow(() -> User.Role.valueOf("TENANT_ADMIN"));
         assertDoesNotThrow(() -> User.Role.valueOf("SITE_MANAGER"));
-        assertDoesNotThrow(() -> User.Role.valueOf("SECURITY_GUARD"));
         assertDoesNotThrow(() -> User.Role.valueOf("MEMBER"));
     }
 
-    // --- canApprove helper ---
-
     @Test
-    void canApprove_adminAndSiteManagerReturnTrue() {
-        User admin = User.builder().role(User.Role.TENANT_ADMIN).username("admin").email("a@test.com").password("pw").build();
-        User siteManager = User.builder().role(User.Role.SITE_MANAGER).username("manager").email("b@test.com").password("pw").build();
+    void canApprove_adminsReturnTrue() {
+        User platformAdmin = User.builder().role(User.Role.PLATFORM_ADMIN).username("pa").email("a@test.com").password("pw").build();
+        User tenantAdmin = User.builder().role(User.Role.TENANT_ADMIN).username("ta").email("b@test.com").password("pw").build();
+        User siteManager = User.builder().role(User.Role.SITE_MANAGER).username("sm").email("c@test.com").password("pw").build();
 
-        assertTrue(admin.canApprove());
+        assertFalse(platformAdmin.canApprove());
+        assertTrue(tenantAdmin.canApprove());
         assertTrue(siteManager.canApprove());
+        assertTrue(platformAdmin.isPlatformAdmin());
+        assertFalse(platformAdmin.isAdmin());
+        assertTrue(tenantAdmin.isAdmin());
+        assertTrue(siteManager.isSiteManager());
+        assertFalse(siteManager.isAdmin());
     }
 
     @Test
-    void canApprove_memberAndSecurityGuardReturnFalse() {
+    void canApprove_memberReturnsFalse() {
         User user = User.builder().role(User.Role.MEMBER).username("user").email("c@test.com").password("pw").build();
-        User secOfficer = User.builder().role(User.Role.SECURITY_GUARD).username("sec").email("d@test.com").password("pw").build();
-
         assertFalse(user.canApprove());
-        assertFalse(secOfficer.canApprove());
-    }
-
-    // --- canViewAllLogs helper ---
-
-    @Test
-    void canViewAllLogs_adminSiteManagerSecurityGuardReturnTrue() {
-        User admin = User.builder().role(User.Role.TENANT_ADMIN).username("admin").email("a@test.com").password("pw").build();
-        User siteManager = User.builder().role(User.Role.SITE_MANAGER).username("manager").email("b@test.com").password("pw").build();
-        User secOfficer = User.builder().role(User.Role.SECURITY_GUARD).username("sec").email("d@test.com").password("pw").build();
-
-        assertTrue(admin.canViewAllLogs());
-        assertTrue(siteManager.canViewAllLogs());
-        assertTrue(secOfficer.canViewAllLogs());
     }
 
     @Test
-    void canViewAllLogs_userReturnsFalse() {
+    void canViewAllLogs_adminsReturnTrue() {
+        User platformAdmin = User.builder().role(User.Role.PLATFORM_ADMIN).username("pa").email("a@test.com").password("pw").build();
+        User tenantAdmin = User.builder().role(User.Role.TENANT_ADMIN).username("ta").email("b@test.com").password("pw").build();
+
+        assertFalse(platformAdmin.canViewAllLogs());
+        assertTrue(tenantAdmin.canViewAllLogs());
+    }
+
+    @Test
+    void canViewAllLogs_memberReturnsFalse() {
         User user = User.builder().role(User.Role.MEMBER).username("user").email("c@test.com").password("pw").build();
         assertFalse(user.canViewAllLogs());
     }
-
-    // --- approveVehicle / rejectVehicle service methods ---
 
     @Test
     void approveVehicle_setsStatusToApproved() {
@@ -118,7 +115,7 @@ class VehicleRbacTest {
         when(vehicleRepository.findById(vehicle.getId())).thenReturn(Optional.of(vehicle));
         when(vehicleRepository.save(vehicle)).thenReturn(vehicle);
 
-        VehicleDto result = vehicleService.approveVehicle(vehicle.getId());
+        vehicleService.approveVehicle(vehicle.getId());
 
         assertEquals(Vehicle.VehicleStatus.approved, vehicle.getStatus());
         verify(vehicleRepository).save(vehicle);
@@ -130,7 +127,7 @@ class VehicleRbacTest {
         when(vehicleRepository.findById(vehicle.getId())).thenReturn(Optional.of(vehicle));
         when(vehicleRepository.save(vehicle)).thenReturn(vehicle);
 
-        VehicleDto result = vehicleService.rejectVehicle(vehicle.getId());
+        vehicleService.rejectVehicle(vehicle.getId());
 
         assertEquals(Vehicle.VehicleStatus.rejected, vehicle.getStatus());
         verify(vehicleRepository).save(vehicle);

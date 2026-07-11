@@ -57,7 +57,7 @@ export const gateApi = {
   },
 
   // GET /api/gates/health — per-gate health summary for the dashboard. Requires an
-  // ADMIN / APPROVER / SECURITY_OFFICER JWT. Returns each gate with a computed
+  // ADMIN JWT. Returns each gate with a computed
   // `online` flag and `secondsSinceHeartbeat`.
   getGateHealth: async (): Promise<GateHealth[]> => {
     const response = await fetch(`${API_BASE_URL}/gates/health`, {

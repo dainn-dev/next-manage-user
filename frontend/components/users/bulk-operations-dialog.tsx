@@ -142,7 +142,9 @@ export function BulkOperationsDialog({
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
       case UserRole.ADMIN:
-        return "Quản trị viên"
+        return "Quản trị viên tenant"
+      case UserRole.SITE_MANAGER:
+        return "Site manager"
       case UserRole.USER:
         return "Người dùng"
       default:
@@ -239,13 +241,13 @@ export function BulkOperationsDialog({
                   <SelectItem value={UserRole.USER}>
                     <div className="flex items-center space-x-2">
                       <UserX className="h-4 w-4" />
-                      <span>Người dùng</span>
+                      <span>Người dùng (Member)</span>
                     </div>
                   </SelectItem>
                   <SelectItem value={UserRole.ADMIN}>
                     <div className="flex items-center space-x-2">
                       <Shield className="h-4 w-4" />
-                      <span>Quản trị viên</span>
+                      <span>Quản trị viên tenant</span>
                     </div>
                   </SelectItem>
                 </SelectContent>

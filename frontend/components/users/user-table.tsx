@@ -69,6 +69,8 @@ export function UserTable({
     switch (role) {
       case UserRole.ADMIN:
         return "default"
+      case UserRole.SITE_MANAGER:
+        return "outline"
       case UserRole.USER:
         return "secondary"
       default:
@@ -80,6 +82,8 @@ export function UserTable({
     switch (role) {
       case UserRole.ADMIN:
         return "Quản trị viên"
+      case UserRole.SITE_MANAGER:
+        return "Site manager"
       case UserRole.USER:
         return "Người dùng"
       default:
@@ -221,17 +225,14 @@ export function UserTable({
                       </DropdownMenuItem>
                     )}
                     
-                    {user.role === UserRole.USER ? (
-                      <DropdownMenuItem onClick={() => onUpdateUserRole(user.id, UserRole.ADMIN)}>
-                        <Shield className="mr-2 h-4 w-4" />
-                        Cấp quyền Admin
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem onClick={() => onUpdateUserRole(user.id, UserRole.USER)}>
-                        <UserX className="mr-2 h-4 w-4" />
-                        Thu hồi quyền Admin
-                      </DropdownMenuItem>
-                    )}
+                    <DropdownMenuItem onClick={() => onUpdateUserRole(user.id, UserRole.ADMIN)}>
+                      <Shield className="mr-2 h-4 w-4" />
+                      Đặt Tenant admin
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onUpdateUserRole(user.id, UserRole.USER)}>
+                      <UserX className="mr-2 h-4 w-4" />
+                      Đặt Member
+                    </DropdownMenuItem>
                     
                     <DropdownMenuItem 
                       onClick={() => onDeleteUser(user.id)}

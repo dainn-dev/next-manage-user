@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -36,6 +37,10 @@ public class UserDto {
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Assigned branch ids for SITE_MANAGER; empty for tenant-wide roles. */
+    private List<UUID> siteIds;
+    /** Active org affiliations for platform MEMBER (ADR-0603). */
+    private List<UUID> affiliationTenantIds;
     
     // Constructor from User entity
     public UserDto(User user) {

@@ -32,7 +32,7 @@ public class CameraController {
 
     @GetMapping
     @Operation(summary = "List cameras, optionally filtered by site")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved cameras")
     public ResponseEntity<List<CameraDto>> list(
             @Parameter(description = "Optional site filter") @RequestParam(required = false) UUID siteId) {
@@ -41,7 +41,7 @@ public class CameraController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get camera by ID")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved camera"),
         @ApiResponse(responseCode = "404", description = "Camera not found")
@@ -53,7 +53,7 @@ public class CameraController {
 
     @PostMapping
     @Operation(summary = "Create a camera")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Camera created"),
         @ApiResponse(responseCode = "400", description = "Invalid camera data or zone not in the camera's site"),
@@ -67,7 +67,7 @@ public class CameraController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a camera")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Camera updated"),
         @ApiResponse(responseCode = "400", description = "Zone not in the camera's site"),
@@ -82,7 +82,7 @@ public class CameraController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a camera")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Camera deleted"),
         @ApiResponse(responseCode = "404", description = "Camera not found")

@@ -16,6 +16,7 @@ import java.util.UUID;
 public class GateDto {
 
     private UUID id;
+    private UUID siteId;
     private String name;
     private String location;
     private String cameraRtspUrl;
@@ -27,6 +28,7 @@ public class GateDto {
     // Constructor from entity
     public GateDto(Gate gate) {
         this.id = gate.getId();
+        this.siteId = gate.getSiteId();
         this.name = gate.getName();
         this.location = gate.getLocation();
         this.cameraRtspUrl = gate.getCameraRtspUrl();

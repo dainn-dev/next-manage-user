@@ -11,6 +11,7 @@ import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.CameraRepository;
 import com.vehiclemanagement.repository.SiteRepository;
 import com.vehiclemanagement.repository.ZoneRepository;
+import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Sort;
@@ -50,19 +51,33 @@ public class CameraService {
     @Autowired
     private EntitlementGuard entitlementGuard;
 
+    @Autowired
+    private SiteAccess siteAccess;
+
     private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
     @Transactional(readOnly = true)
     public List<CameraDto> list(UUID siteId) {
+        if (siteId != null) {
+            siteAccess.assertSiteAllowed(siteId);
+        }
         List<Camera> cameras = siteId != null
                 ? cameraRepository.findBySiteId(siteId)
                 : cameraRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
+        if (siteId == null && siteAccess.isRestricted()) {
+            List<UUID> allowed = siteAccess.allowedSiteIds();
+            cameras = cameras.stream()
+                    .filter(c -> allowed.contains(c.getSiteId()))
+                    .collect(Collectors.toList());
+        }
         return cameras.stream().map(CameraDto::new).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public CameraDto get(UUID id) {
-        return new CameraDto(findOrThrow(id));
+        Camera camera = findOrThrow(id);
+        siteAccess.assertSiteAllowed(camera.getSiteId());
+        return new CameraDto(camera);
     }
 
     public CameraDto create(CameraDto request) {
@@ -124,6 +139,7 @@ public class CameraService {
 
     public CameraDto update(UUID id, CameraDto request) {
         Camera camera = findOrThrow(id);
+        siteAccess.assertSiteAllowed(camera.getSiteId());
         // The owning site is immutable; the zone may be re-assigned but must stay
         // within that same site.
         if (request.getName() != null && !request.getName().isBlank()
@@ -157,7 +173,9 @@ public class CameraService {
     }
 
     public void delete(UUID id) {
-        cameraRepository.delete(findOrThrow(id));
+        Camera camera = findOrThrow(id);
+        siteAccess.assertSiteAllowed(camera.getSiteId());
+        cameraRepository.delete(camera);
     }
 
     private Camera findOrThrow(UUID id) {
@@ -171,6 +189,7 @@ public class CameraService {
         if (!siteRepository.existsById(siteId)) {
             throw new ResourceNotFoundException("Site not found with id: " + siteId);
         }
+        siteAccess.assertSiteAllowed(siteId);
     }
 
     /**

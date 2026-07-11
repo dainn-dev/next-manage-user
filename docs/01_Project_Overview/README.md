@@ -23,8 +23,8 @@ runs on **Jetty** at `:8080`, REST base `/api` (unversioned). Persistence is **P
 (jjwt 0.11.5, HS256, claims `role`/`email`/`userId`, 86400s expiry) with BCrypt(strength 12)
 password hashing; a second filter, `GateApiKeyAuthFilter`, guards gate endpoints via the
 `X-Gate-Key` header (`GATE_API_KEY` env var) and runs **open** if the key is unset (a dev
-fallback, not a production posture). Roles today are **USER, APPROVER, SECURITY_OFFICER,
-ADMIN** (`ROLE_<name>`), enforced via URL rules and `@PreAuthorize`. Realtime is **STOMP over
+fallback, not a production posture). Roles are **`PLATFORM_ADMIN`, `TENANT_ADMIN`, `MEMBER`**
+(`ROLE_<name>`; legacy USER/APPROVER/SECURITY_OFFICER/ADMIN folded per `06_User_RBAC`), enforced via URL rules and `@PreAuthorize`. Realtime is **STOMP over
 WebSocket** (SockJS), an in-memory `SimpleBroker` on `/topic`, endpoint `/ws`, topics
 `/topic/vehicle-check` and `/topic/gate/{gateId}/check`; missed events are replayed via
 `GET /api/gates/{id}/recent-checks`. **There is no RabbitMQ and no Redis today.** There are
@@ -106,7 +106,7 @@ Nine domain events are standardized: `MotionDetected`, `VehicleDetected`, `Plate
 | Edge — tracking | Per-plate-string dict of first-seen/last-sent timestamps + cooldown; **not** a real multi-object tracker, no stable identity across frames | ByteTrack multi-object tracking producing a stable `track_id` per physical vehicle |
 | Edge — parking logic | None — no slot/occupancy concept | Parking-slot polygon mapping (vehicle center → slot) + relocation detection (same `track_id`, slot changed → `VehicleRelocated`) |
 | Edge — offline resilience | SQLite store-and-forward queue, exponential backoff, idempotent dedup by `event_id` | Same mechanism, kept and extended |
-| RBAC | USER, APPROVER, SECURITY_OFFICER, ADMIN (flat, no tenant scope) | PLATFORM_ADMIN, TENANT_ADMIN, SITE_MANAGER, SECURITY_GUARD (from SECURITY_OFFICER), MEMBER/USER; APPROVER folds into SITE_MANAGER; JWT carries `tenant_id` + site scope + role |
+| RBAC | Legacy: USER, APPROVER, SECURITY_OFFICER, ADMIN (flat, no tenant scope) | `PLATFORM_ADMIN`, `TENANT_ADMIN`, `MEMBER`; legacy SITE_MANAGER/SECURITY_GUARD/APPROVER/SECURITY_OFFICER/ADMIN (tenant ops) fold into `TENANT_ADMIN`, legacy USER → `MEMBER`; JWT carries `tenant_id` + role (`PLATFORM_ADMIN` = SaaS operator, not day-to-day parking ops) |
 | Billing | None | Stripe subscriptions; Free/Starter/Pro/Enterprise plans with metered entitlements (max sites, max cameras, retention days, AI minutes, chatbot messages), usage metered off the event stream |
 | AI chatbot | None | LLM with tool-calling (default local Ollama, Qwen2.5/Llama 3.1; optional hosted Claude/OpenAI), tenant-scoped tools, optional RAG over docs/FAQ |
 | Frontend — map / camera UI | None — camera is data-only via `Gate.cameraRtspUrl`, no map, no video player | Parking-Map Designer (SVG/Canvas polygon editor + homography calibration), Live Camera view (HLS/WebRTC via a media gateway, MJPEG fallback) |

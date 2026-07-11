@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 
 /**
  * Export endpoints for vehicle entry/exit logs. Guarded to the same roles that
- * may view logs on screen (TENANT_ADMIN / SITE_MANAGER / SECURITY_GUARD), enforced both
+ * may view logs on screen (TENANT_ADMIN), enforced both
  * here via {@code @PreAuthorize} and in SecurityConfig at the URL layer.
  */
 @RestController
@@ -43,7 +43,7 @@ public class VehicleLogExportController {
     @GetMapping("/excel")
     @Operation(summary = "Export vehicle logs to Excel (.xlsx)",
             description = "Export the full filtered set of vehicle logs as an Excel workbook")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER', 'SECURITY_GUARD')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<byte[]> exportExcel(
             @Parameter(description = "License plate number") @RequestParam(required = false) String licensePlate,
             @Parameter(description = "Log type (entry/exit)") @RequestParam(required = false) String type,
@@ -66,7 +66,7 @@ public class VehicleLogExportController {
     @GetMapping("/csv")
     @Operation(summary = "Export vehicle logs to CSV",
             description = "Export the full filtered set of vehicle logs as a UTF-8 CSV file")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER', 'SECURITY_GUARD')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     public ResponseEntity<byte[]> exportCsv(
             @Parameter(description = "License plate number") @RequestParam(required = false) String licensePlate,
             @Parameter(description = "Log type (entry/exit)") @RequestParam(required = false) String type,

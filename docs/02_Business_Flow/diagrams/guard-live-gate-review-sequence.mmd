@@ -1,6 +1,6 @@
 sequenceDiagram
     autonumber
-    participant Guard as Security Guard (SECURITY_GUARD)
+    participant Guard as Tenant Admin (TENANT_ADMIN)
     participant FE as Frontend (use-websocket.ts)
     participant WS as STOMP Broker (/ws)
     participant API as Backend API
@@ -21,4 +21,4 @@ sequenceDiagram
     FE->>API: GET gate status (online/offline/disabled,<br/>lastHeartbeatAt)
 
     Note over Guard,DB: TODAY (§1): in-memory SimpleBroker, single backend<br/>instance, evidence snapshot image only (no live video)
-    Note over Guard,DB: TARGET adds: Live Camera view (HLS/WebRTC via<br/>media gateway, MJPEG fallback) embedded in kiosk,<br/>Redis pub-sub STOMP relay so guards across multiple<br/>backend instances see the same live gate feed
+    Note over Guard,DB: TARGET adds: Live Camera view (HLS/WebRTC via<br/>media gateway, MJPEG fallback) embedded in kiosk,<br/>Redis pub-sub STOMP relay so operators across multiple<br/>backend instances see the same live gate feed

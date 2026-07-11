@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import type { Vehicle, Employee } from "@/lib/types"
-import { UserRole, canApprove, canManageVehicles } from "@/lib/types"
+import { UserRole, canApprove, canManageVehicles, isSiteManager } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
 import { VehicleTable } from "@/components/vehicles/vehicle-table"
 import { VehicleForm } from "@/components/vehicles/vehicle-form"
@@ -20,6 +20,7 @@ import { Search, Download, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle
 import { useToast } from "@/hooks/use-toast"
 import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
 import { useAuth } from "@/lib/auth-context"
+import { resolvePreferredSiteId } from "@/lib/site-selection"
 
 export default function VehiclesPage() {
   const router = useRouter()
@@ -51,6 +52,13 @@ export default function VehiclesPage() {
   const { user } = useAuth()
   const userCanManage = canManageVehicles(user?.role)
   const userCanApprove = canApprove(user?.role)
+  const [siteFilterTick, setSiteFilterTick] = useState(0)
+
+  useEffect(() => {
+    const onSite = () => setSiteFilterTick((n) => n + 1)
+    window.addEventListener("pv-site-selection", onSite)
+    return () => window.removeEventListener("pv-site-selection", onSite)
+  }, [])
 
   const notifyPermissionDenied = useCallback(() => {
     toast({
@@ -101,17 +109,22 @@ export default function VehiclesPage() {
   }, [searchParams, vehicles, router, toast])
 
   // Filter vehicles based on search and filter criteria
+  const preferredSite = isSiteManager(user?.role)
+    ? resolvePreferredSiteId(user?.siteIds)
+    : null
   const filteredVehicles = vehicles.filter((vehicle) => {
+    void siteFilterTick
     const matchesSearch = !searchTerm || 
       vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === "all" || vehicle.status === statusFilter
     const matchesType = typeFilter === "all" || vehicle.vehicleType === typeFilter
+    const matchesSite = !preferredSite || vehicle.currentSiteId === preferredSite
 
-    return matchesSearch && matchesStatus && matchesType
+    return matchesSearch && matchesStatus && matchesType && matchesSite
   })
 
   const loadData = async (page: number = currentPage, size: number = pageSize, sort: string = sortBy, direction: string = sortDir) => {
@@ -121,15 +134,13 @@ export default function VehiclesPage() {
     try {
       setLoading(true)
       setError(null)
-      const [vehiclesResponse, employeesData] = await Promise.all([
-        dataService.getVehicles(page, size, sort, direction),
-        dataService.getEmployees()
-      ])
+      // Employee API is not part of the current product surface; keep picker empty.
+      const vehiclesResponse = await dataService.getVehicles(page, size, sort, direction)
       setVehicles(vehiclesResponse.vehicles)
       setTotalElements(vehiclesResponse.totalElements)
       setTotalPages(vehiclesResponse.totalPages)
       setCurrentPage(vehiclesResponse.currentPage)
-      setEmployees(employeesData)
+      setEmployees([])
     } catch (err) {
       setError('Không thể tải dữ liệu')
       console.error('Error loading data:', err)

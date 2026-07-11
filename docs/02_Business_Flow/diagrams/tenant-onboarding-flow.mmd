@@ -11,7 +11,7 @@ flowchart TD
     I -->|"OVERVIEW"| K["Bind to Zone for\nparking-map overlay"]
     J --> L["Draw ParkingSlot polygons\nvia Parking-Map Designer"]
     K --> L
-    L --> M["Invite initial TENANT_ADMIN\n/ SITE_MANAGER users"]
+    L --> M["Invite initial TENANT_ADMIN\n(+ optional MEMBER) users"]
     M --> N["Edge agent deployed on-site,\nheartbeats, camera online"]
     N --> O["Site status: ready\nTenant onboarding complete"]
 

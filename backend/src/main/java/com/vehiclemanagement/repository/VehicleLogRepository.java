@@ -58,6 +58,7 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
            "(:type IS NULL OR vl.type = :type) AND " +
            "(:vehicleType IS NULL OR vl.vehicleType = :vehicleType) AND " +
            "(:driverName IS NULL OR LOWER(vl.driverName) LIKE LOWER(CONCAT('%', :driverName, '%'))) AND " +
+           "(:siteIds IS NULL OR vl.siteId IN :siteIds) AND " +
            "vl.entryExitTime BETWEEN :startDate AND :endDate " +
            "ORDER BY vl.entryExitTime DESC")
     Page<VehicleLog> findWithFilters(@Param("licensePlate") String licensePlate,
@@ -66,7 +67,12 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
                                     @Param("driverName") String driverName,
                                     @Param("startDate") LocalDateTime startDate,
                                     @Param("endDate") LocalDateTime endDate,
+                                    @Param("siteIds") List<UUID> siteIds,
                                     Pageable pageable);
+
+    Page<VehicleLog> findBySiteIdIn(List<UUID> siteIds, Pageable pageable);
+
+    List<VehicleLog> findBySiteIdIn(List<UUID> siteIds);
     
     // Recent checks for a gate since a timestamp — used by the reliable-delivery
     // replay endpoint so a reconnecting per-gate UI can recover events missed

@@ -25,7 +25,7 @@ associated with exactly one `tenant_id`/`site_id`/`camera_id`. The ingest reques
 becomes `X-Camera-Key` (renamed for clarity as scope narrows from gate to camera), and the
 `ai-ingest` module resolves tenant/site context directly from the key's associated camera
 record — this is the same resolution step ADR-0402 describes for edge requests. Keys are
-rotatable per-camera via an admin endpoint (`SITE_MANAGER`+ scope), with a grace window
+rotatable per-camera via an admin endpoint (`TENANT_ADMIN` scope), with a grace window
 (old + new key both valid for N hours) to allow the edge agent's config to roll without a
 hard cutover outage. As a further-future step, evaluate **mTLS** (client certificates per
 edge appliance) for deployments needing stronger machine-identity guarantees than a bearer

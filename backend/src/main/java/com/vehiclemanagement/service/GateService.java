@@ -6,6 +6,7 @@ import com.vehiclemanagement.dto.GateRegisterRequest;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.GateRepository;
+import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
@@ -25,6 +26,9 @@ public class GateService {
 
     @Autowired
     private GateRepository gateRepository;
+
+    @Autowired
+    private SiteAccess siteAccess;
 
     /**
      * Seconds without a heartbeat before an online gate is flagged offline.
@@ -86,9 +90,11 @@ public class GateService {
      */
     @Transactional(readOnly = true)
     public List<GateDto> list() {
-        return gateRepository.findAll(Sort.by(Sort.Direction.ASC, "name")).stream()
-                .map(GateDto::new)
-                .collect(Collectors.toList());
+        Sort sort = Sort.by(Sort.Direction.ASC, "name");
+        List<Gate> gates = siteAccess.isRestricted()
+                ? gateRepository.findBySiteIdIn(siteAccess.allowedSiteIds(), sort)
+                : gateRepository.findAll(sort);
+        return gates.stream().map(GateDto::new).collect(Collectors.toList());
     }
 
     /**
@@ -100,7 +106,11 @@ public class GateService {
     @Transactional(readOnly = true)
     public List<GateHealthDto> health() {
         LocalDateTime now = LocalDateTime.now();
-        return gateRepository.findAll(Sort.by(Sort.Direction.ASC, "name")).stream()
+        Sort sort = Sort.by(Sort.Direction.ASC, "name");
+        List<Gate> gates = siteAccess.isRestricted()
+                ? gateRepository.findBySiteIdIn(siteAccess.allowedSiteIds(), sort)
+                : gateRepository.findAll(sort);
+        return gates.stream()
                 .map(gate -> toHealth(gate, now))
                 .collect(Collectors.toList());
     }
@@ -130,6 +140,7 @@ public class GateService {
     public GateDto get(UUID id) {
         Gate gate = gateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Gate not found with id: " + id));
+        siteAccess.assertSiteAllowed(gate.getSiteId());
         return new GateDto(gate);
     }
 
@@ -140,6 +151,12 @@ public class GateService {
     public GateDto updateConfig(UUID id, GateDto request) {
         Gate gate = gateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Gate not found with id: " + id));
+        siteAccess.assertSiteAllowed(gate.getSiteId());
+
+        if (request.getSiteId() != null && !request.getSiteId().equals(gate.getSiteId())) {
+            siteAccess.assertSiteAllowed(request.getSiteId());
+            gate.setSiteId(request.getSiteId());
+        }
 
         if (request.getName() != null && !request.getName().isBlank()) {
             if (!gate.getName().equals(request.getName())

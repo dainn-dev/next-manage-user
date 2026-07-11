@@ -10,6 +10,7 @@ import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -47,29 +48,44 @@ public class VehicleLogService {
     @Autowired
     private GateRepository gateRepository;
 
+    @Autowired
+    private SiteAccess siteAccess;
+
     public Page<VehicleLogDto> getAllVehicleLogs(Pageable pageable) {
-        Page<VehicleLog> logs = vehicleLogRepository.findAll(pageable);
+        Page<VehicleLog> logs = siteAccess.isRestricted()
+                ? vehicleLogRepository.findBySiteIdIn(siteAccess.allowedSiteIds(), pageable)
+                : vehicleLogRepository.findAll(pageable);
         return logs.map(this::convertToDto);
     }
     
     public List<VehicleLogDto> getAllVehicleLogsList() {
-        List<VehicleLog> logs = vehicleLogRepository.findAll();
+        List<VehicleLog> logs = siteAccess.isRestricted()
+                ? vehicleLogRepository.findBySiteIdIn(siteAccess.allowedSiteIds())
+                : vehicleLogRepository.findAll();
         return logs.stream().map(this::convertToDto).toList();
     }
     
     public VehicleLogDto getVehicleLogById(UUID id) {
         VehicleLog log = vehicleLogRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle log not found with id: " + id));
+        siteAccess.assertSiteAllowed(log.getSiteId());
         return convertToDto(log);
     }
     
     public Page<VehicleLogDto> getVehicleLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+        if (siteAccess.isRestricted()) {
+            return searchVehicleLogs(null, null, null, null, startDate, endDate, pageable);
+        }
         Page<VehicleLog> logs = vehicleLogRepository.findByEntryExitTimeBetween(startDate, endDate, pageable);
         return logs.map(this::convertToDto);
     }
     
     public Page<VehicleLogDto> getTodayLogs(Pageable pageable) {
         LocalDate today = LocalDate.now();
+        if (siteAccess.isRestricted()) {
+            return searchVehicleLogs(null, null, null, null,
+                    today.atStartOfDay(), today.atTime(LocalTime.MAX), pageable);
+        }
         Page<VehicleLog> logs = vehicleLogRepository.findByDate(today, pageable);
         return logs.map(this::convertToDto);
     }
@@ -100,7 +116,9 @@ public class VehicleLogService {
                                                 LocalDateTime endDate,
                                                 Pageable pageable) {
         Page<VehicleLog> logs = vehicleLogRepository.findWithFilters(
-                licensePlate, type, vehicleType, driverName, startDate, endDate, pageable);
+                licensePlate, type, vehicleType, driverName, startDate, endDate,
+                siteAccess.isRestricted() ? siteAccess.allowedSiteIds() : null,
+                pageable);
         return logs.map(this::convertToDto);
     }
     
@@ -127,13 +145,17 @@ public class VehicleLogService {
             Optional<Gate> gate = gateRepository.findById(vehicleLogDto.getGateId());
             if (gate.isPresent()) {
                 vehicleLog.setGate(gate.get());
-                // Fall back the free-text gateLocation to the gate's location so
-                // existing consumers that read gateLocation keep working.
                 if ((vehicleLog.getGateLocation() == null || vehicleLog.getGateLocation().isBlank())
                         && gate.get().getLocation() != null) {
                     vehicleLog.setGateLocation(gate.get().getLocation());
                 }
+                if (vehicleLog.getSiteId() == null && gate.get().getSiteId() != null) {
+                    vehicleLog.setSiteId(gate.get().getSiteId());
+                }
             }
+        }
+        if (vehicleLog.getSiteId() == null && vehicleLogDto.getSiteId() != null) {
+            vehicleLog.setSiteId(vehicleLogDto.getSiteId());
         }
 
         VehicleLog savedLog = vehicleLogRepository.save(vehicleLog);
@@ -455,6 +477,7 @@ public class VehicleLogService {
                 .gateLocation(vehicleLog.getGateLocation())
                 .gateId(vehicleLog.getGate() != null ? vehicleLog.getGate().getId() : null)
                 .gateName(vehicleLog.getGate() != null ? vehicleLog.getGate().getName() : null)
+                .siteId(vehicleLog.getSiteId())
                 .securityGuardId(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getId() : null)
                 .securityGuardName(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getFullName() : null)
                 .notes(vehicleLog.getNotes())
@@ -542,6 +565,7 @@ public class VehicleLogService {
                 .driverName(dto.getDriverName())
                 .purpose(dto.getPurpose())
                 .gateLocation(dto.getGateLocation())
+                .siteId(dto.getSiteId())
                 .notes(dto.getNotes())
                 .imagePath(dto.getImagePath())
                 .createdAt(dto.getCreatedAt())

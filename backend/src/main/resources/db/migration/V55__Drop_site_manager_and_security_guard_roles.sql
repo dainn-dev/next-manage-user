@@ -1,0 +1,14 @@
+-- Collapse SITE_MANAGER / SECURITY_GUARD into TENANT_ADMIN, then narrow the role CHECK
+-- to the three-role model: PLATFORM_ADMIN, TENANT_ADMIN, MEMBER.
+
+UPDATE users
+SET role = 'TENANT_ADMIN',
+    updated_at = CURRENT_TIMESTAMP
+WHERE role IN ('SITE_MANAGER', 'SECURITY_GUARD');
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+    CHECK (role IN ('PLATFORM_ADMIN', 'TENANT_ADMIN', 'MEMBER'));
+
+COMMENT ON COLUMN users.role IS
+    'User role: PLATFORM_ADMIN, TENANT_ADMIN, or MEMBER.';

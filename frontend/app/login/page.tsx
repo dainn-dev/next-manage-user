@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
+import { canViewDashboard, isPlatformAdmin, type UserRole } from "@/lib/types"
 import {
   Eye,
   EyeOff,
@@ -23,6 +24,12 @@ import {
   BellRing,
   AlertCircle,
 } from "lucide-react"
+
+function homeForRole(role?: UserRole): string {
+  if (isPlatformAdmin(role)) return "/platform/overview"
+  if (canViewDashboard(role)) return "/dashboard"
+  return "/vehicles"
+}
 
 const loginSchema = z.object({
   username: z.string().min(1, "Vui lòng nhập tên đăng nhập"),
@@ -42,7 +49,7 @@ export default function LoginPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   const router = useRouter()
-  const { login, isAuthenticated, isLoading } = useAuth()
+  const { login, isAuthenticated, isLoading, user } = useAuth()
   const { toast } = useToast()
 
   const {
@@ -57,19 +64,19 @@ export default function LoginPage() {
   // Redirect already-authenticated users away from the login screen.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace("/employees")
+      router.replace(homeForRole(user?.role))
     }
-  }, [isLoading, isAuthenticated, router])
+  }, [isLoading, isAuthenticated, router, user?.role])
 
   const onSubmit = async (values: LoginFormValues) => {
     setFormError(null)
     try {
-      await login(values)
+      const loggedIn = await login(values)
       toast({
         title: "Đăng nhập thành công",
         description: "Chào mừng bạn đến với ParkVision",
       })
-      router.push("/employees")
+      router.push(homeForRole(loggedIn.role))
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Có lỗi xảy ra khi đăng nhập"

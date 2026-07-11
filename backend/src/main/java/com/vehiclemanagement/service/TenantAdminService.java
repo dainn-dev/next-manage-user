@@ -12,12 +12,15 @@ import com.vehiclemanagement.dto.TenantUpdateRequest;
 import com.vehiclemanagement.entity.TenantStatus;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.exception.TenantNotFoundException;
+import com.vehiclemanagement.platform.PlatformAuditService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -27,9 +30,11 @@ public class TenantAdminService {
     private static final List<String> SORT_COLUMNS = List.of("name", "slug", "status", "createdAt", "updatedAt");
 
     private final JdbcTemplate jdbc;
+    private final PlatformAuditService auditService;
 
-    public TenantAdminService(JdbcTemplate jdbc) {
+    public TenantAdminService(JdbcTemplate jdbc, PlatformAuditService auditService) {
         this.jdbc = jdbc;
+        this.auditService = auditService;
     }
 
     @PlatformAdminOperation
@@ -56,7 +61,8 @@ public class TenantAdminService {
                 statusValue);
 
         String sql = """
-                SELECT t.id, t.name, t.slug, t.status, t.created_at, t.updated_at,
+                SELECT t.id, t.name, t.slug, t.status, t.management_model, t.area_count,
+                       t.created_at, t.updated_at,
                        (SELECT count(*) FROM site s WHERE s.tenant_id = t.id) AS site_count,
                        (SELECT count(*) FROM users u WHERE u.tenant_id = t.id AND u.role = 'TENANT_ADMIN') AS admin_count
                 FROM tenant t
@@ -67,6 +73,8 @@ public class TenantAdminService {
                         rs.getString("name"),
                         rs.getString("slug"),
                         TenantStatus.fromValue(rs.getString("status")),
+                        rs.getString("management_model"),
+                        rs.getObject("area_count") == null ? null : rs.getInt("area_count"),
                         rs.getLong("site_count"),
                         rs.getLong("admin_count"),
                         rs.getTimestamp("created_at").toLocalDateTime(),
@@ -118,13 +126,14 @@ public class TenantAdminService {
                 User.UserStatus.valueOf(rs.getString("status")),
                 rs.getTimestamp("last_login") == null ? null : rs.getTimestamp("last_login").toLocalDateTime()), id);
         return new TenantDetailDto(tenant.id(), tenant.name(), tenant.slug(), tenant.status(),
+                tenant.managementModel(), tenant.areaCount(),
                 tenant.createdAt(), tenant.updatedAt(), sites, admins);
     }
 
     @PlatformAdminOperation
     @Transactional
     public TenantDetailDto update(UUID id, TenantUpdateRequest request) {
-        findTenant(id);
+        TenantRecord before = findTenant(id);
         String name = request.name().trim();
         if (name.isBlank()) {
             throw new IllegalArgumentException("Tenant name is required");
@@ -136,6 +145,10 @@ public class TenantAdminService {
             throw new IllegalArgumentException("Tenant name already exists");
         }
         jdbc.update("UPDATE tenant SET name = ?, updated_at = now() WHERE id = ?", name, id);
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("previousName", before.name());
+        detail.put("name", name);
+        auditService.record("tenant_renamed", "tenant", id, detail);
         return get(id);
     }
 
@@ -158,17 +171,27 @@ public class TenantAdminService {
             throw new IllegalArgumentException("Unsupported tenant status transition");
         }
         jdbc.update("UPDATE tenant SET status = ?, updated_at = now() WHERE id = ?", target.value(), id);
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("from", tenant.status().value());
+        detail.put("to", target.value());
+        if (request.reason() != null && !request.reason().isBlank()) {
+            detail.put("reason", request.reason().trim());
+        }
+        auditService.record("tenant_status_changed", "tenant", id, detail);
         return get(id);
     }
 
     private TenantRecord findTenant(UUID id) {
         List<TenantRecord> rows = jdbc.query("""
-                SELECT id, name, slug, status, created_at, updated_at FROM tenant WHERE id = ?
+                SELECT id, name, slug, status, management_model, area_count, created_at, updated_at
+                FROM tenant WHERE id = ?
                 """, (rs, rowNum) -> new TenantRecord(
                 rs.getObject("id", UUID.class),
                 rs.getString("name"),
                 rs.getString("slug"),
                 TenantStatus.fromValue(rs.getString("status")),
+                rs.getString("management_model"),
+                rs.getObject("area_count") == null ? null : rs.getInt("area_count"),
                 rs.getTimestamp("created_at").toLocalDateTime(),
                 rs.getTimestamp("updated_at").toLocalDateTime()), id);
         if (rows.isEmpty()) {
@@ -210,6 +233,7 @@ public class TenantAdminService {
     }
 
     private record TenantRecord(UUID id, String name, String slug, TenantStatus status,
+                                String managementModel, Integer areaCount,
                                 java.time.LocalDateTime createdAt, java.time.LocalDateTime updatedAt) {
     }
 }

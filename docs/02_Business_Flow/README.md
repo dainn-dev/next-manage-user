@@ -27,7 +27,7 @@ today — those are target-only additions (vision §2 / decisions §3 / domain m
 | Slot/occupancy | None — no `ParkingSlot`, no polygon, no occupancy concept | PostGIS polygons, point-in-polygon vehicle-to-slot mapping |
 | Ingest transport | `POST /api/vehicles/check-vehicle` writes `VehicleLog` directly | Ingest API → transactional outbox → RabbitMQ → consumers |
 | Realtime | STOMP over SockJS, in-memory `SimpleBroker`, single instance | STOMP + Redis pub-sub relay for horizontal scale-out |
-| Approval role | `APPROVER` role, single-tenant, sees all pending requests | Folded into `SITE_MANAGER`, scoped to sites they manage (decision #9) |
+| Approval role | Legacy `APPROVER` role, single-tenant, sees all pending requests | Folded into `TENANT_ADMIN` (tenant-scoped approval; decision #9) |
 | Chatbot | Does not exist | LLM tool-calling (`getVehicleLocation`, `getHistory`, `getSnapshot`, `getParkingStatus`) |
 
 ## 2. End-to-End Business Flows
@@ -51,7 +51,7 @@ codebase today (§1 of the brief: NO tenant_id/site_id anywhere, single-tenant o
 6. Tenant registers `Camera`/`Gate` entities for the site (flow 2.2).
 7. Tenant draws `ParkingSlot` polygons over a camera still using the Parking-Map Designer
    (see `08_Parking_Map_Designer`); slots get `code` (e.g. "A01") and `polygon GEOMETRY`.
-8. Initial `TENANT_ADMIN` / `SITE_MANAGER` users are invited (`User.tenant_id` set,
+8. Initial `TENANT_ADMIN` (and optional `MEMBER`) users are invited (`User.tenant_id` set,
    role assigned per `06_User_RBAC`).
 9. The edge agent is deployed on-site, starts heartbeating, and the camera's `status`
    flips to `online`.
@@ -222,7 +222,7 @@ Diagram: `diagrams/guard-live-gate-review-sequence.mmd`.
 **Target-only capability** — no chatbot, no owner-facing self-service API exists today;
 today's `Vehicle` links to `Employee`, not an `owner_user_id` (§1/§4 gap).
 
-1. A vehicle owner (`MEMBER/USER`) asks "where is my car?" in the web or mobile app.
+1. A vehicle owner (`MEMBER`) asks "where is my car?" in the web or mobile app.
 2. The request hits the Chatbot API carrying the caller's tenant-scoped JWT.
 3. The chatbot forwards the prompt plus tool definitions to the LLM (default local
    **Ollama**, Qwen2.5/Llama 3.1; optional hosted Claude/OpenAI — decision #11).
@@ -241,30 +241,29 @@ The same tool-calling pattern extends to `getHistory()` (reads `ParkingHistory`)
 
 Diagram: `diagrams/chatbot-where-is-my-car-sequence.mmd`.
 
-### 2.8 Access-Request Approval (APPROVER → SITE_MANAGER)
+### 2.8 Access-Request Approval (legacy APPROVER → TENANT_ADMIN)
 
-**Today:**
+**Legacy (past):**
 
 1. A `VehicleAccessRequest` is created with `source{USER,GATE}` (explicitly by a user, or
    auto-raised at a gate) and starts `status=PENDING`.
 2. Any user holding role `APPROVER` opens `/vehicles/requests` and sees **all** pending
-   requests — there is no site scoping today (single-tenant).
+   requests — there is no site scoping (single-tenant).
 3. The `APPROVER` approves or rejects; `status` moves to `APPROVED`/`REJECTED` (a
    requester can also move it to `CANCELLED`).
 4. The decision cascades to `Vehicle.status` (`approved`/`rejected`).
 5. The decision is broadcast/notified to the requester.
 
-**Target flow** (evolution, not a new decision — see § Decisions / ADRs):
+**Current / target flow** (evolution, not a new decision — see § Decisions / ADRs):
 
-6. Per canonical decision #9, the standalone `APPROVER` role **folds into
-   `SITE_MANAGER`'s approval rights**; the target RBAC set is `PLATFORM_ADMIN`,
-   `TENANT_ADMIN`, `SITE_MANAGER`, `SECURITY_GUARD` (maps from `SECURITY_OFFICER`),
-   `MEMBER/USER`.
-7. `VehicleAccessRequest` gains `tenant_id` + `site_id` scope; a `SITE_MANAGER` only sees
-   requests for sites they manage, e.g.
+6. Per canonical decision #9, the standalone `APPROVER` role (and legacy `SITE_MANAGER`
+   approval rights) **fold into `TENANT_ADMIN`**; the product RBAC set is `PLATFORM_ADMIN`,
+   `TENANT_ADMIN`, `MEMBER` (`PLATFORM_ADMIN` = SaaS operator, not day-to-day parking ops).
+7. `VehicleAccessRequest` gains `tenant_id` + `site_id` scope; a `TENANT_ADMIN` sees
+   requests for their tenant, e.g.
    `GET /api/v1/sites/{siteId}/access-requests?status=PENDING`.
-8. The approve/reject `PATCH` re-validates that the acting `SITE_MANAGER` actually owns
-   `site_id` before allowing the transition — defends against cross-site/cross-tenant
+8. The approve/reject `PATCH` re-validates that the acting `TENANT_ADMIN` belongs to the
+   request's `tenant_id` before allowing the transition — defends against cross-tenant
    approval.
 9. Approval publishes via the transactional outbox (a `ParkingEvent` and/or
    `NotificationSent`) instead of an ad hoc broadcast.
@@ -300,12 +299,12 @@ The 9 standardized domain events (vision §2) and where each fits in the flows a
 - `diagrams/vehicle-relocation-sequence.mmd` — sequence for a tracked vehicle changing
   slots, producing `VehicleRelocated` and a `ParkingHistory` row (§2.4).
 - `diagrams/vehicle-exit-sequence.mmd` — sequence for exit, today vs target (§2.5).
-- `diagrams/guard-live-gate-review-sequence.mmd` — sequence for a security guard viewing
+- `diagrams/guard-live-gate-review-sequence.mmd` — sequence for a tenant admin / operator viewing
   a live gate/kiosk and recent checks, today vs target live-camera addition (§2.6).
 - `diagrams/chatbot-where-is-my-car-sequence.mmd` — sequence for the tool-calling chatbot
   flow answering "where is my car?" (§2.7).
-- `diagrams/access-request-approval-sequence.mmd` — sequence contrasting today's
-  `APPROVER`-based approval with the target site-scoped `SITE_MANAGER` approval (§2.8).
+- `diagrams/access-request-approval-sequence.mmd` — sequence contrasting legacy
+  `APPROVER`-based approval with tenant-scoped `TENANT_ADMIN` approval (§2.8).
 - `diagrams/parking-session-lifecycle-state.mmd` — state diagram of a `ParkingSlot`
   across free/occupied/relocated/exited (plus reserved/disabled) transitions, annotated
   with the domain events that drive each transition.
@@ -315,8 +314,8 @@ The 9 standardized domain events (vision §2) and where each fits in the flows a
 This document is a pure flow/descriptive document — **0 ADRs** are recorded here, which
 is expected per the output conventions for docs without a genuine new decision to make.
 
-The one decision referenced repeatedly above — folding the `APPROVER` role into
-`SITE_MANAGER`'s approval rights (§2.8) — is canonical decision #9 from the shared
+The one decision referenced repeatedly above — folding the legacy `APPROVER` role into
+`TENANT_ADMIN`'s approval rights (§2.8) — is canonical decision #9 from the shared
 architecture brief and is owned by `06_User_RBAC` (see that document's `adr/` folder for
 the formal record). This document only describes the resulting flow change; it does not
 re-decide it.
@@ -359,7 +358,7 @@ re-decide it.
 - `04_Multi_Tenant_Design` — `tenant_id`/`site_id` scoping model referenced in flow 2.1
   and throughout.
 - `05_Subscription_Billing` — plan selection and metering referenced in flow 2.1.
-- `06_User_RBAC` — full role model, including the `APPROVER` → `SITE_MANAGER` ADR
+- `06_User_RBAC` — full role model, including the legacy `APPROVER` → `TENANT_ADMIN` ADR
   referenced in flow 2.8.
 - `07_Camera_Management` — `Camera`/`Gate` entity design referenced in flow 2.2.
 - `08_Parking_Map_Designer` — polygon-drawing tool referenced in flow 2.1.

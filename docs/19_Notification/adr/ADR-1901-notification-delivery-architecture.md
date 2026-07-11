@@ -40,7 +40,7 @@ qualifying event out through **channel adapters**:
    whether to notify — it reacts to events only, keeping it decoupled from the ingest path's
    write latency.
 2. **Rule evaluation.** For each event, resolve interested users (vehicle owner, on-duty
-   SITE_MANAGER/SECURITY_GUARD for the site), load `NotificationPreference` per user/event-type,
+   TENANT_ADMIN for the site), load `NotificationPreference` per user/event-type,
    apply severity threshold and dedup/throttle (Redis-backed dedup key
    `user_id:vehicle_id:type` with a TTL window), then persist a `Notification` row per
    (user, channel) pair that survives the check (brief §4 `Notification` entity: id, tenant_id,

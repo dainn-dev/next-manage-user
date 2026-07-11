@@ -35,6 +35,7 @@ export interface VehicleCreateRequest {
   capacity?: number
   notes?: string
   imagePath?: string
+  currentSiteId?: string
 }
 
 export interface VehicleUpdateRequest extends VehicleCreateRequest {
@@ -59,6 +60,53 @@ export interface VehicleImportResult {
   skippedCount: number
   failureCount: number
   errors: VehicleImportRowError[]
+}
+
+/** Map FE vehicle payload to backend VehicleDto field names. */
+function toBackendVehicleBody(data: VehicleCreateRequest) {
+  return {
+    ownerId: data.employeeId,
+    licensePlate: data.licensePlate,
+    vehicleType: data.vehicleType,
+    brand: data.brand,
+    model: data.model,
+    color: data.color,
+    year: data.year,
+    registrationDate: data.registrationDate,
+    expiryDate: data.expiryDate,
+    status: data.status,
+    fuelType: data.fuelType,
+    capacity: data.capacity,
+    notes: data.notes,
+    imagePath: data.imagePath,
+    currentSiteId: data.currentSiteId || null,
+  }
+}
+
+function normalizeOneVehicle(v: any): Vehicle {
+  if (!v || typeof v !== 'object') return v
+  return {
+    ...v,
+    employeeId: v.employeeId || v.ownerId || '',
+    employeeName: v.employeeName || v.ownerName || '',
+    currentSiteId: v.currentSiteId || undefined,
+  }
+}
+
+function normalizeVehiclePayload(raw: any): any {
+  if (Array.isArray(raw)) {
+    return raw.map(normalizeOneVehicle)
+  }
+  if (raw && Array.isArray(raw.content)) {
+    return { ...raw, content: raw.content.map(normalizeOneVehicle) }
+  }
+  if (raw && raw.vehicle) {
+    return { ...raw, vehicle: normalizeOneVehicle(raw.vehicle) }
+  }
+  if (raw && (raw.ownerId || raw.licensePlate)) {
+    return normalizeOneVehicle(raw)
+  }
+  return raw
 }
 
 class VehicleApiService {
@@ -114,7 +162,8 @@ class VehicleApiService {
         return {} as T
       }
 
-      return await response.json()
+      const raw = await response.json()
+      return normalizeVehiclePayload(raw) as T
     } catch (error) {
       console.error(`API request failed for ${url}:`, error)
       throw error
@@ -231,7 +280,7 @@ class VehicleApiService {
   async createVehicle(data: VehicleCreateRequest): Promise<VehicleCreateResponse> {
     return this.request<VehicleCreateResponse>('', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toBackendVehicleBody(data)),
     })
   }
 
@@ -239,7 +288,7 @@ class VehicleApiService {
   async updateVehicle(id: string, data: VehicleCreateRequest): Promise<Vehicle> {
     return this.request<Vehicle>(`/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify(toBackendVehicleBody(data)),
     })
   }
 

@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { User, CreateUserRequest, UpdateUserRequest, Employee } from "@/lib/types"
+import type { User, CreateUserRequest, UpdateUserRequest } from "@/lib/types"
 import { UserRole, UserStatus } from "@/lib/types"
 import { userApi } from "@/lib/api/user-api"
-import { dataService } from "@/lib/data-service"
 import { UserTable } from "@/components/users/user-table"
 import { UserForm } from "@/components/users/user-form"
 import { BulkOperationsDialog } from "@/components/users/bulk-operations-dialog"
@@ -42,7 +41,6 @@ interface PaginatedUsers {
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
@@ -81,20 +79,6 @@ export default function UsersPage() {
   useEffect(() => {
     loadUsers()
   }, [currentPage, pageSize, searchTerm, roleFilter, statusFilter])
-
-  // Load employees once when component mounts
-  useEffect(() => {
-    loadEmployees()
-  }, [])
-
-  const loadEmployees = async () => {
-    try {
-      const employeesData = await dataService.getEmployees()
-      setEmployees(employeesData)
-    } catch (err) {
-      console.error('Error loading employees:', err)
-    }
-  }
 
   const loadUsers = async () => {
     try {
@@ -631,7 +615,7 @@ export default function UsersPage() {
         onClose={handleCloseForm}
         onSubmit={editingUser ? handleUpdateUser as (userData: CreateUserRequest | UpdateUserRequest) => Promise<void> : handleCreateUser as (userData: CreateUserRequest | UpdateUserRequest) => Promise<void>}
         user={editingUser}
-        employees={employees}
+        employees={[]}
         isEditing={!!editingUser}
       />
 

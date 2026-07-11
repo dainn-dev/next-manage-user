@@ -125,7 +125,7 @@ See `diagrams/camera-enrollment.mmd`.
   assumed — the sweep is the source of truth, same as today).
 - New: an `online → offline` transition **publishes a domain event** (see §3.5 of the shared
   brief — the RabbitMQ event bus / transactional outbox) so that a `Notification` can reach the
-  responsible `SITE_MANAGER`/`TENANT_ADMIN` (push/email/ws), instead of only being visible if
+  responsible `TENANT_ADMIN` (push/email/ws), instead of only being visible if
   someone happens to look at `/gate/health` (today's only surface).
 - `GET /api/v1/cameras/{id}/health` and `GET /api/v1/cameras/{id}/recent-events` are the direct
   successors of today's `/api/gates/{id}/health` and `/api/gates/{id}/recent-checks`.

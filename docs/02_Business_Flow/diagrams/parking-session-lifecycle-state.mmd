@@ -13,9 +13,9 @@ stateDiagram-v2
     Occupied --> Exited: VehicleExited<br/>track_id leaves site, plate confirmed at exit gate
     Exited --> Free: slot released, current_vehicle_id cleared
 
-    Free --> Disabled: SITE_MANAGER marks slot out of service
+    Free --> Disabled: TENANT_ADMIN marks slot out of service
     Occupied --> Disabled: forced maintenance override (rare, admin action)
-    Disabled --> Free: SITE_MANAGER re-enables slot
+    Disabled --> Free: TENANT_ADMIN re-enables slot
 
     note right of Occupied
         ParkingSlot.status = occupied

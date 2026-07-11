@@ -145,6 +145,21 @@ public class JwtUtil {
                 .map(UUID::fromString)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Active tenant affiliations for a platform {@code MEMBER} (ADR-0603 Phase B).
+     * Empty for ops roles / legacy tokens.
+     */
+    public List<UUID> extractAffiliationTenantIds(String token) {
+        List<?> raw = extractClaim(token, claims -> claims.get("affiliation_tenant_ids", List.class));
+        if (raw == null) {
+            return Collections.emptyList();
+        }
+        return raw.stream()
+                .map(Object::toString)
+                .map(UUID::fromString)
+                .collect(Collectors.toList());
+    }
     
     public Date getExpirationDate() {
         Instant now = Instant.now();

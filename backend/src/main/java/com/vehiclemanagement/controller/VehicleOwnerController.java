@@ -24,7 +24,7 @@ public class VehicleOwnerController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @Operation(summary = "List selectable vehicle owners")
     public ResponseEntity<List<UserDto>> getSelectableOwners() {
         return ResponseEntity.ok(userService.getAllUsersList());

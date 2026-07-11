@@ -601,6 +601,7 @@ class DataService {
         status: vehicle.status,
         registrationDate: vehicle.registrationDate,
         notes: vehicle.notes,
+        currentSiteId: vehicle.currentSiteId,
       })
       
       // Return the vehicle from the response

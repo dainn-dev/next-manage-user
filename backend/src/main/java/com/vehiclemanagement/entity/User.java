@@ -59,11 +59,10 @@ public class User implements UserDetails {
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
-    // The tenant this user belongs to. NULL for a PLATFORM_ADMIN (cross-tenant).
-    // Read-only in the ORM: the DB column default (current_setting('app.tenant_id'))
-    // stamps it from the request's tenant on insert, so the app never sets it and
-    // can never write a row into the wrong tenant. Read here only to populate the
-    // JWT tenant_id claim at login (see AuthService).
+    // Ops users: home tenant. PLATFORM_ADMIN: NULL.
+    // MEMBER target (ADR-0603): NULL platform consumer + member_affiliation rows;
+    // Phase A still may have tenant_id set (legacy) with affiliations backfilled.
+    // Read-only in the ORM: DB default stamps tenant from session GUC on insert.
     @Column(name = "tenant_id", insertable = false, updatable = false)
     private UUID tenantId;
 
@@ -137,7 +136,6 @@ public class User implements UserDetails {
         PLATFORM_ADMIN,
         TENANT_ADMIN,
         SITE_MANAGER,
-        SECURITY_GUARD,
         MEMBER
     }
     
@@ -158,15 +156,24 @@ public class User implements UserDetails {
     }
     
     public boolean isAdmin() {
-        return role == Role.PLATFORM_ADMIN || role == Role.TENANT_ADMIN;
+        // Tenant-wide admin (org/users/billing). Not SITE_MANAGER.
+        return role == Role.TENANT_ADMIN;
     }
 
+    public boolean isSiteManager() {
+        return role == Role.SITE_MANAGER;
+    }
+
+    public boolean isPlatformAdmin() {
+        return role == Role.PLATFORM_ADMIN;
+    }
+
+    /** Ops capability: approve vehicles / access requests within scope. */
     public boolean canApprove() {
-        return role == Role.PLATFORM_ADMIN || role == Role.TENANT_ADMIN || role == Role.SITE_MANAGER;
+        return role == Role.TENANT_ADMIN || role == Role.SITE_MANAGER;
     }
 
     public boolean canViewAllLogs() {
-        return role == Role.PLATFORM_ADMIN || role == Role.TENANT_ADMIN
-                || role == Role.SITE_MANAGER || role == Role.SECURITY_GUARD;
+        return role == Role.TENANT_ADMIN || role == Role.SITE_MANAGER;
     }
 }

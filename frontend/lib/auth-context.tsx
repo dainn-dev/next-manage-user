@@ -8,7 +8,7 @@ interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (credentials: LoginRequest) => Promise<void>
+  login: (credentials: LoginRequest) => Promise<User>
   adoptSession: (token: string) => Promise<void>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -61,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await authApi.login(credentials)
       authApi.setToken(response.token)
       setUser(response.user)
+      return response.user
     } catch (error) {
       setUser(null)
       authApi.clearAuthData()

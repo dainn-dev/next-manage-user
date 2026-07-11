@@ -1,6 +1,5 @@
 package com.vehiclemanagement.service;
 
-import com.vehiclemanagement.config.AuthDataSourceContext;
 import com.vehiclemanagement.dto.LoginRequest;
 import com.vehiclemanagement.dto.LoginResponse;
 import com.vehiclemanagement.dto.UserDto;
@@ -16,7 +15,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -31,7 +32,6 @@ public class AuthService {
     private UserService userService;
     
     public LoginResponse login(LoginRequest loginRequest) {
-        // Authenticate user
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getUsername(),
@@ -41,28 +41,32 @@ public class AuthService {
         
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         User user = (User) userDetails;
+
+        List<UUID> siteIds = userService.findSiteIdsForUser(user);
+        List<UUID> affiliationTenantIds = userService.findAffiliationTenantIdsForUser(user);
         
-        // Create extra claims for JWT
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("role", user.getRole().name());
         extraClaims.put("email", user.getEmail());
         extraClaims.put("userId", user.getId().toString());
-        // Tenant context claims (multi-tenant foundation). tenant_id is omitted for
-        // a PLATFORM_ADMIN (cross-tenant, tenant_id NULL). site_ids is empty for the
-        // foundation — tenant-wide roles are not site-restricted and per-site
-        // assignment arrives in a later stage.
-        if (user.getTenantId() != null) {
+        // MEMBER is a platform consumer (ADR-0603): no home tenant_id in JWT.
+        if (user.getRole() != User.Role.MEMBER && user.getTenantId() != null) {
             extraClaims.put("tenant_id", user.getTenantId().toString());
         }
-        extraClaims.put("site_ids", java.util.Collections.emptyList());
+        extraClaims.put("site_ids", siteIds.stream().map(UUID::toString).toList());
+        if (user.getRole() == User.Role.MEMBER) {
+            extraClaims.put("affiliation_tenant_ids",
+                    affiliationTenantIds.stream().map(UUID::toString).toList());
+        }
         
-        // Generate JWT token
         String token = jwtUtil.generateToken(userDetails, extraClaims);
         
-        // Update last login
         userService.updateLastLogin(user.getUsername());
+
+        UserDto userDto = new UserDto(user);
+        userDto.setSiteIds(siteIds);
+        userDto.setAffiliationTenantIds(affiliationTenantIds);
         
-        // Create response
         return LoginResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
@@ -73,14 +77,11 @@ public class AuthService {
                         jwtUtil.getExpirationDate().toInstant(),
                         ZoneId.systemDefault()
                 ))
-                .user(new UserDto(user))
+                .user(userDto)
                 .build();
     }
     
     public UserDto getCurrentUser(String username) {
-        // Identity lookup must use app_auth so PLATFORM_ADMIN (tenant_id NULL)
-        // remains visible when the JWT carries no tenant claim.
-        return AuthDataSourceContext.callWithAuthLookup(
-                () -> userService.getUserByUsername(username));
+        return userService.getUserByUsername(username);
     }
 }

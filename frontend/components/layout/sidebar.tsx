@@ -17,12 +17,18 @@ import {
   BarChart3,
   UserCog,
   LogOut,
+  Building2,
+  CreditCard,
+  Shield,
+  ScrollText,
+  MapPinned,
+  Settings,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { UserRole } from "@/lib/types"
+import { UserRole, isPlatformAdmin } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 interface NavigationItem {
@@ -40,17 +46,18 @@ interface NavigationGroup {
   items: NavigationItem[]
 }
 
-// ParkVision information architecture. Existing routes keep working; greenfield
-// parking capabilities (Sites/Cameras/Maps/Slots/Events) appear as disabled
-// "coming soon" entries so the target IA is visible without dead links.
-const navigationGroups: NavigationGroup[] = [
+/** Tenant ops IA — hidden from PLATFORM_ADMIN (SaaS operator console). */
+const OPS = [UserRole.ADMIN, UserRole.SITE_MANAGER]
+const TENANT_ADMIN_ONLY = [UserRole.ADMIN]
+
+const tenantNavigationGroups: NavigationGroup[] = [
   {
     items: [
       {
         key: "/dashboard",
         label: "Tổng quan",
         icon: LayoutDashboard,
-        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER],
+        roles: OPS,
       },
     ],
   },
@@ -61,35 +68,35 @@ const navigationGroups: NavigationGroup[] = [
         key: "/vehicles/monitoring",
         label: "Giám sát",
         icon: Activity,
-        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER],
+        roles: OPS,
       },
       {
         key: "/vehicles/entry-exit",
         label: "Thông tin ra/vào",
         icon: ArrowLeftRight,
-        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER],
+        roles: OPS,
       },
       {
         key: "/gate",
         label: "Cổng kiosk",
         icon: DoorOpen,
-        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER],
+        roles: OPS,
       },
       {
         key: "/events",
         label: "Sự kiện",
         icon: ListTree,
         comingSoon: true,
-        roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER],
+        roles: OPS,
       },
     ],
   },
   {
     label: "Bãi đỗ xe",
     items: [
-      { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, comingSoon: true, roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER] },
-      { key: "/parking/cameras", label: "Camera", icon: Camera, comingSoon: true, roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER] },
-      { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, comingSoon: true, roles: [UserRole.ADMIN, UserRole.SECURITY_OFFICER, UserRole.APPROVER] },
+      { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, comingSoon: true, roles: OPS },
+      { key: "/parking/cameras", label: "Camera", icon: Camera, comingSoon: true, roles: OPS },
+      { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, comingSoon: true, roles: OPS },
     ],
   },
   {
@@ -102,16 +109,88 @@ const navigationGroups: NavigationGroup[] = [
   {
     label: "Phân tích",
     items: [
-      { key: "/statistics", label: "Thống kê", icon: BarChart3 },
+      { key: "/statistics", label: "Thống kê", icon: BarChart3, roles: OPS },
     ],
   },
   {
     label: "Quản trị",
     items: [
-      { key: "/users", label: "Quản lý người dùng", icon: UserCog, roles: [UserRole.ADMIN] },
+      {
+        key: "/settings/organization",
+        label: "Tổ chức",
+        icon: Settings,
+        roles: TENANT_ADMIN_ONLY,
+      },
+      {
+        key: "/sites",
+        label: "Khu vực (Sites)",
+        icon: MapPinned,
+        roles: TENANT_ADMIN_ONLY,
+      },
+      {
+        key: "/billing",
+        label: "Thanh toán",
+        icon: CreditCard,
+        roles: TENANT_ADMIN_ONLY,
+      },
+      { key: "/users", label: "Quản lý người dùng", icon: UserCog, roles: TENANT_ADMIN_ONLY },
     ],
   },
 ]
+
+/** Platform operator IA — PLATFORM_ADMIN only. */
+const platformNavigationGroups: NavigationGroup[] = [
+  {
+    label: "Platform",
+    items: [
+      {
+        key: "/platform/overview",
+        label: "Overview",
+        icon: LayoutDashboard,
+        roles: [UserRole.PLATFORM_ADMIN],
+      },
+      {
+        key: "/platform/tenants",
+        label: "Tenants",
+        icon: Building2,
+        roles: [UserRole.PLATFORM_ADMIN],
+      },
+      {
+        key: "/platform/billing",
+        label: "Billing",
+        icon: CreditCard,
+        roles: [UserRole.PLATFORM_ADMIN],
+      },
+      {
+        key: "/platform/admins",
+        label: "Admins",
+        icon: Shield,
+        roles: [UserRole.PLATFORM_ADMIN],
+      },
+      {
+        key: "/platform/audit",
+        label: "Audit",
+        icon: ScrollText,
+        roles: [UserRole.PLATFORM_ADMIN],
+      },
+    ],
+  },
+]
+
+function roleLabel(role?: UserRole): string {
+  switch (role) {
+    case UserRole.PLATFORM_ADMIN:
+      return "Platform admin"
+    case UserRole.ADMIN:
+      return "Tenant admin"
+    case UserRole.SITE_MANAGER:
+      return "Site manager"
+    case UserRole.USER:
+      return "Member"
+    default:
+      return "Người dùng"
+  }
+}
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -119,6 +198,10 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const { user, logout } = useAuth()
   const { toast } = useToast()
+
+  const navigationGroups = isPlatformAdmin(user?.role)
+    ? platformNavigationGroups
+    : tenantNavigationGroups
 
   // Filter items by role; drop empty groups.
   const filteredGroups = navigationGroups
@@ -174,7 +257,7 @@ export function Sidebar() {
 
   const renderNavItem = (item: NavigationItem) => {
     const Icon = item.icon
-    const isActive = pathname === item.key
+    const isActive = pathname === item.key || (item.key !== "/" && pathname?.startsWith(item.key + "/"))
 
     // Coming-soon (greenfield parking features): disabled, no navigation
     if (item.comingSoon) {
@@ -203,7 +286,7 @@ export function Sidebar() {
         key={item.key}
         onClick={() => handleMenuClick(item.key)}
         title={item.label}
-        className={navButtonClass(isActive)}
+        className={navButtonClass(!!isActive)}
       >
         {Icon && <Icon className="h-4 w-4 shrink-0" />}
         {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
@@ -230,7 +313,9 @@ export function Sidebar() {
           {!collapsed && (
             <div className="flex flex-col">
               <h4 className="font-bold text-sidebar-foreground text-lg tracking-tight">ParkVision</h4>
-              <p className="text-xs text-muted-foreground font-medium">Smart Parking</p>
+              <p className="text-xs text-muted-foreground font-medium">
+                {isPlatformAdmin(user?.role) ? "Platform console" : "Smart Parking"}
+              </p>
             </div>
           )}
         </div>
@@ -280,7 +365,7 @@ export function Sidebar() {
                   : user?.username || "Người dùng"}
               </span>
               <p className="text-xs text-muted-foreground">
-                {user?.role || "Người dùng"}
+                {roleLabel(user?.role)}
               </p>
             </div>
           )}

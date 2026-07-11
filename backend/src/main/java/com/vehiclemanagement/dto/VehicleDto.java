@@ -43,6 +43,8 @@ public class VehicleDto {
     private Integer capacity;
     private String notes;
     private String imagePath;
+    /** Last-known / current branch id (maps to vehicles.current_site_id). */
+    private UUID currentSiteId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
@@ -64,6 +66,7 @@ public class VehicleDto {
         this.capacity = vehicle.getCapacity();
         this.notes = vehicle.getNotes();
         this.imagePath = vehicle.getImagePath();
+        this.currentSiteId = vehicle.getCurrentSiteId();
         this.createdAt = vehicle.getCreatedAt();
         this.updatedAt = vehicle.getUpdatedAt();
     }

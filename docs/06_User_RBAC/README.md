@@ -1,174 +1,168 @@
 # User Identity & RBAC
 
-How ParkVision evolves today's single-tenant JWT and four-role model into a multi-tenant,
-site-scoped identity and authorization system, plus the machine-identity model for edge
-devices.
+How ParkVision authorizes humans and edge devices in a multi-tenant SaaS: the role
+model, JWT claims, permission matrix, and camera credential model.
 
-Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
+Status: Draft · Owner: Principal Architect · Last updated: 2026-07-11
 
 ## 1. Purpose
 
-Define the target role set and how it maps from today's roles, the JWT claim evolution, the
-permission matrix, site-scoped authorization, and the credential model for edge/camera
-authentication. This document assumes the tenant-context mechanics defined in
-`04_Multi_Tenant_Design`.
+Define the role set, JWT claim semantics, permission matrix, and the credential model for
+edge/camera authentication. Tenant-context mechanics live in `04_Multi_Tenant_Design`.
 
 ## 2. Current State vs Target
 
-### Current state (brief §1)
+### Implemented now
 
-- **Roles today**: `USER`, `APPROVER`, `SECURITY_OFFICER`, `ADMIN` — stored as `ROLE_<name>`,
-  enforced via URL security rules and `@PreAuthorize`. No tenant or site concept, no
-  hierarchy beyond these four flat roles.
-- **JWT**: jjwt 0.11.5, HS256, claims `role`/`email`/`userId` only, 86400s expiry. No
-  `tenant_id`, no site scope.
-- **Frontend auth**: JWT stored in `localStorage` (`auth_token`), sent as
-  `Authorization: Bearer`, client-side expiry decode, **no `middleware.ts`** — route
-  protection is client-side only (`ProtectedLayout` redirects to `/login`).
-- **Gate/edge auth**: a second Spring Security filter, `GateApiKeyAuthFilter`, checks a
-  single shared `X-Gate-Key` header against one `GATE_API_KEY` env value for **all** gates.
-  **Runs open (no auth) if `GATE_API_KEY` is unset** — an explicit dev fallback, not a
-  production-safe default.
-- **No Keycloak/OIDC, no MFA, no per-camera credentials, no site scoping** exist today.
+- **Roles**: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `SITE_MANAGER`, `MEMBER` (DB CHECK +
+  `User.Role` enum). Site membership in `user_site` for `SITE_MANAGER`.
+- **JWT**: jjwt, HS256; claims include `role`, `email`, `userId`, `tenant_id` (omitted for
+  `PLATFORM_ADMIN`), `site_ids` (non-empty for `SITE_MANAGER`), `password_version`.
+- **Frontend auth**: JWT in `localStorage` (`auth_token`); route protection is client-side
+  (`ProtectedLayout`). Platform console under `/platform/*` is gated to `PLATFORM_ADMIN`.
+- **Gate/edge auth**: `GateApiKeyAuthFilter` + `X-Gate-Key` (shared key; see ADR-0602 for
+  per-camera target).
+- **MEMBER (legacy shape)**: still stored with a single `users.tenant_id` (pre–platform-consumer).
+- **MEMBER (Phase A)**: `member_affiliation` table + backfill from existing MEMBER tenants
+  (ADR-0603). JWT/affiliation-aware auth = Phase B.
+- **MEMBER (Phase B)**: JWT omits `tenant_id` for MEMBER; carries `affiliation_tenant_ids[]`.
+  `TenantContextFilter` allows MEMBER without tenant claim. Invite/link API
+  `POST /api/member-affiliations/invite`. Creating MEMBER still stamps DB `tenant_id` via GUC
+  for ops list visibility; affiliation is the multi-org source of truth. Nulling
+  `users.tenant_id` for MEMBER remains Phase C.
+- **Parking fee (bank transfer)**: `parking_session` / `parking_payment` / site bank account
+  (V60); SePay webhook; ADR-0503. Not wired to gate ANPR yet.
 
-### Target
+### Target refinements (still open)
 
-Five roles (`PLATFORM_ADMIN`, `TENANT_ADMIN`, `SITE_MANAGER`, `SECURITY_GUARD`,
-`MEMBER`/`USER`) with tenant + site scoping carried in the JWT; a permission matrix enforced
-by an authorization guard layered on top of `@PreAuthorize`; per-camera credentials replacing
-the single shared gate key; Keycloak/OIDC kept as an explicit optional future path, not
-adopted now (ADR-0601).
+- Platform `MEMBER` with `tenant_id` NULL (ADR-0603 Phase C).
+- Gate auto-open `ParkingSession` + QR print; site `accessMode`.
+- Per-camera keys (ADR-0602); optional OIDC later (ADR-0601).
 
-### The gap
+## 3. Role Model
 
-Role model, JWT claims, and authorization checks all need to change; the frontend needs
-route-level tenant/site awareness; the entire edge credential model (ADR-0602) needs to move
-from one shared key to per-camera keys before multi-tenant production launch.
-
-## 3. Role Model and Mapping from Today
-
-| Target role | Scope | Maps from today's role (brief §1) |
+| Role | Scope | Responsibility |
 |---|---|---|
-| `PLATFORM_ADMIN` | Cross-tenant, platform operations | New — no equivalent today; carved out of `ADMIN`'s broader powers |
-| `TENANT_ADMIN` | Full control within one tenant, all its sites | `ADMIN` (tenant-scoped portion) |
-| `SITE_MANAGER` | Manages one or more sites within a tenant; approves requests | `ADMIN` (site-scoped ops) **+** `APPROVER`'s approval rights fold in here |
-| `SECURITY_GUARD` | Gate/kiosk operation at assigned site(s) | `SECURITY_OFFICER`, renamed |
-| `MEMBER` / `USER` | Vehicle owner, self-service (view own vehicle/history) | `USER` |
+| `PLATFORM_ADMIN` | Cross-tenant (`tenant_id` NULL) | SaaS operator: tenant lifecycle, platform billing overview, platform audit/support. **Not** day-to-day parking ops. |
+| `TENANT_ADMIN` | One tenant | Org settings, billing, sites CRUD, users (including assigning `SITE_MANAGER` + sites), invite/link MEMBER affiliations, full ops. |
+| `SITE_MANAGER` | 1+ sites via `user_site` / JWT `site_ids` | Ops within assigned branches: gates, cameras, zones, logs, vehicle approve. **No** org/billing/create-delete sites. May manage MEMBER vehicles/affiliations in assigned sites (product: closed orgs). |
+| `MEMBER` | **Platform consumer** (target: `tenant_id` NULL) | One account per person. Self-service across affiliations + claimed public sessions. **Not** an ops role. |
 
-`APPROVER` does not survive as a standalone role — its sole responsibility (approving
-`VehicleAccessRequest`s) becomes one of `SITE_MANAGER`'s permissions, since approval is
-inherently a site-level operational decision, not a distinct persona. See
-`diagrams/role-hierarchy.mmd`.
+Legacy `SECURITY_GUARD` remains retired. `SITE_MANAGER` was reintroduced (V57) for multi-branch orgs.
+
+### 3.1 MEMBER: public vs non-public
+
+| | Non-public (closed) | Public (open) |
+|--|---------------------|---------------|
+| Examples | `school`, `boarding-house` | `retail`, `airport` |
+| Identity | Every managed person **has** a MEMBER account | Login optional to enter/exit; required for find-my-car / QR claim |
+| Org control | TA/SM invite/link **affiliation** + bulk vehicles (`owner_user_id`) | No affiliation required to park; claim binds session to MEMBER |
+| Multi-org | One MEMBER ↔ N affiliations (e.g. school + dorm) | Same account claims sessions at any ParkVision retail tenant |
+
+Site policy should use `accessMode` (`closed` | `open` | `mixed`) — schools are often `mixed`
+(students closed, visitors open). `managementModel` remains industry label only until flags ship.
+
+### 3.2 Affiliation
+
+`member_affiliation(user_id, tenant_id, status)` — tenant-scoped RLS. TA/SM see and manage only
+affiliations (and vehicles) in **their** tenant. A MEMBER’s “my vehicles” = union across active
+affiliations. Vehicles remain **tenant-owned** rows.
 
 ## 4. JWT Claim Evolution
 
-| Claim | Today | Target |
-|---|---|---|
-| `userId` | yes | yes (unchanged) |
-| `email` | yes | yes (unchanged) |
-| `role` | yes, one of 4 flat roles | yes, one of 5 target roles |
-| `tenant_id` | — | new; null only for `PLATFORM_ADMIN` |
-| `site_ids[]` | — | new; array of site UUIDs the token holder is scoped to, or a wildcard marker for `TENANT_ADMIN`/`PLATFORM_ADMIN` |
-| `exp` | 86400s | unchanged for now (see ADR-0601 open question on refresh) |
-
-Full propagation mechanics (ThreadLocal + RLS session var) are defined in
-`04_Multi_Tenant_Design` ADR-0402 — this document owns the *role/permission* semantics of the
-claims, that document owns the *tenant isolation* mechanics.
+| Claim | Semantics |
+|---|---|
+| `userId` | Subject user id |
+| `email` | Email |
+| `role` | One of `PLATFORM_ADMIN` / `TENANT_ADMIN` / `SITE_MANAGER` / `MEMBER` |
+| `tenant_id` | Ops: home tenant. **Omitted** for `PLATFORM_ADMIN` and for `MEMBER` (Phase B). |
+| `site_ids[]` | Assigned sites for `SITE_MANAGER`; **empty** = tenant-wide (TENANT_ADMIN) |
+| `affiliation_tenant_ids[]` | Active MEMBER affiliations (Phase B) |
+| `password_version` | Invalidates sessions after password reset |
+| `exp` | Expiry (default 86400s) |
 
 ## 5. Permission Matrix
 
-Resource × action × role. `✓` = allowed, `Site` = allowed only within the role's scoped
-site(s), `Own` = allowed only on the acting user's own records, `—` = denied.
+`✓` = allowed · `Own` = own records only · `Site` = within JWT `site_ids` · `Aff` = within
+tenant affiliation · `—` = denied.
 
-| Resource | Action | PLATFORM_ADMIN | TENANT_ADMIN | SITE_MANAGER | SECURITY_GUARD | MEMBER |
-|---|---|---|---|---|---|---|
-| Tenant | create/suspend | ✓ | — | — | — | — |
-| Tenant | view own | ✓ | ✓ | Site | — | — |
-| Site | create/edit/delete | ✓ | ✓ | — | — | — |
-| Site | view | ✓ | ✓ | Site | Site | — |
-| Camera/Gate | register/edit | ✓ | ✓ | Site | — | — |
-| Camera/Gate | view status | ✓ | ✓ | Site | Site | — |
-| ParkingSlot | configure (draw polygon) | ✓ | ✓ | Site | — | — |
-| Vehicle | view any (tenant) | ✓ | ✓ | Site | Site | Own |
-| Vehicle | register/edit | ✓ | ✓ | Site | — | Own |
-| VehicleAccessRequest | approve/reject | ✓ | ✓ | Site | — | — |
-| VehicleAccessRequest | create | ✓ | ✓ | Site | Site (on behalf) | Own |
-| Gate kiosk check-in | perform | — | — | — | Site | — |
-| User | invite/manage roles | ✓ (any tenant) | ✓ (own tenant) | Site (guards only) | — | — |
-| Subscription/Billing | view/manage | ✓ | ✓ | — | — | — |
-| Notification | configure channels | ✓ | ✓ | Site | — | Own |
-| Chatbot | query | ✓ | ✓ | Site | Site | Own |
-| Analytics dashboard | view | ✓ (cross-tenant) | ✓ | Site | — | — |
-| Audit log | view | ✓ (cross-tenant) | ✓ (own tenant) | — | — | — |
+| Resource | Action | PLATFORM_ADMIN | TENANT_ADMIN | SITE_MANAGER | MEMBER |
+|---|---|---|---|---|---|
+| Tenant | list / get / rename / status | ✓ | — | — | — |
+| Tenant | view/update own profile | — | ✓ | — | — |
+| Site | create/edit/delete | — | ✓ | — | — |
+| Site | list/view assigned | — | ✓ (all) | Site | — |
+| Camera/Gate/Zone | CRUD | — | ✓ | Site | — |
+| Vehicle | view / approve (`current_site_id`) | — | ✓ | Site* | Own (Aff) |
+| Vehicle | bulk register / assign owner | — | ✓ | Site* | — |
+| VehicleAccessRequest | approve/reject | — | ✓ | ✓ | — |
+| VehicleAccessRequest | create | — | ✓ | ✓ | Own |
+| Vehicle logs | view/export | — | ✓ | Site | Own (target) |
+| Member affiliation | invite / link / revoke | — | ✓ | ✓ (closed) | — |
+| ParkingSession | claim QR / where-is-my-car | — | — | — | Own (target) |
+| User (ops) | manage + assign sites | — | ✓ | — | — |
+| Subscription/Billing (SaaS) | own portal | ✓ (overview) | ✓ | — | — |
+| Analytics dashboard | tenant ops | — | ✓ | ✓ | — |
+| Analytics | cross-tenant overview | ✓ | — | — | — |
+| Audit log | platform / tenant | ✓ / — | — / ✓ | — | — |
 
-This matrix is the source of truth for the `@PreAuthorize`/`AuthzGuard` implementation — see
-`diagrams/authz-decision-flow.mmd` for how a request is evaluated against it at runtime.
+\* SITE_MANAGER vehicle scope: `current_site_id IN site_ids`; NULL = TENANT_ADMIN-only until stamped.
 
-## 6. Site-Scoped Permissions
+## 6. Site vs Gate, and registration intent
 
-Roles below `TENANT_ADMIN` carry a `site_ids[]` scope. Authorization for a site-scoped
-resource (Camera, ParkingSlot, Gate, site-level Vehicle views) requires **both**: (1) the
-permission matrix (§5) allows the role+action+resource combination, **and** (2) the
-resource's `site_id` is present in the token's `site_ids[]`. A `SITE_MANAGER` assigned to
-Site A cannot approve a `VehicleAccessRequest` at Site B even though the role generally has
-approval rights — the site-scope check in `diagrams/authz-decision-flow.mmd` runs after the
-role check and independently rejects out-of-scope requests with 403.
+- **Site** = chi nhánh / địa điểm / cơ sở. TENANT_ADMIN CRUD; SITE_MANAGER read assigned.
+- **Gate** = cổng ra/vào thuộc một site.
+- Signup / onboard: **1** default site; `area_count` = intent only; real limit = plan `max_sites`.
 
-## 7. Gate/Edge Machine Authentication
+## 7. Site-Scoped Permissions
 
-Today: single shared `X-Gate-Key` header, checked by `GateApiKeyAuthFilter`, **fails open if
-unset** (brief §1) — a known gap that must close before multi-tenant production use.
+`SITE_MANAGER` membership is stored in `user_site` and copied into JWT `site_ids` at login.
+`SiteAccess` + `SiteContext` enforce app-layer checks on gate/camera/zone/logs/vehicles.
 
-Target (ADR-0602): **per-camera API key**, issued at camera registration, associated with
-exactly one `tenant_id`/`site_id`/`camera_id`, sent as `X-Camera-Key`. Keys are rotatable
-with a grace window so an edge appliance's config can roll without a hard outage. A
-compromised or decommissioned camera's key is revoked individually — no platform-wide key
-rotation required. **mTLS** (client certificates per edge appliance) is noted as a future
-option for tenants needing stronger machine-identity guarantees, not committed as the
-default now.
+- Empty JWT `site_ids` = unrestricted within the tenant (TENANT_ADMIN).
+- Vehicles use `vehicles.current_site_id` (last-known branch). Gate entry stamps it from
+  `gate.site_id`; exit keeps last-known. `NULL` vehicles are **TENANT_ADMIN-only** until
+  stamped or assigned on create. SITE_MANAGER create requires `currentSiteId` in allowed sites.
+- `vehicle_log.site_id` and access-request `site_id` are stamped from the gate (not DB default alone).
 
-## 8. Future: Keycloak/OIDC
+## 8. Gate/Edge Machine Authentication
 
-Not adopted now (ADR-0601). The JWT claim shape (`sub`/`role`/`tenant_id`/`site_ids`/`exp`)
-is deliberately kept OIDC-adjacent so that if a concrete driver appears later — enterprise
-tenant SSO requirement, centralized session revocation, MFA — swapping the `iam` module's
-`TokenIssuer`/`TokenValidator` for an OIDC-backed implementation is a contained change behind
-that interface rather than a rewrite of every consumer of role/tenant claims.
+Today: shared `X-Gate-Key` via `GateApiKeyAuthFilter`.
 
-## 9. Diagrams
+Target (ADR-0602): **per-camera API key** bound to `tenant_id` / `site_id` / `camera_id`.
 
-- `diagrams/role-hierarchy.mmd` — target role scopes and the explicit mapping from today's
-  four roles.
-- `diagrams/auth-sequence.mmd` — login → JWT issuance → subsequent request tenant/role
-  scoping via `TenantContextFilter` and `@PreAuthorize`.
-- `diagrams/authz-decision-flow.mmd` — the authorization decision flow: token validity →
-  cross-tenant check → permission matrix → site scope → hand-off to `EntitlementGuard`.
+## 9. Future: Keycloak/OIDC
 
-## 10. Decisions / ADRs
+Not adopted now (ADR-0601). Claim shape stays OIDC-adjacent for a later swap behind
+`TokenIssuer` / `TokenValidator`. Platform MEMBER identity remains app-issued until OIDC
+consumer federation is required.
 
-- [`adr/ADR-0601-custom-jwt-now-oidc-later.md`](adr/ADR-0601-custom-jwt-now-oidc-later.md) — Keep custom JWT now, optional OIDC/Keycloak later.
-- [`adr/ADR-0602-edge-camera-credential-model.md`](adr/ADR-0602-edge-camera-credential-model.md) — Edge/camera credential model: per-camera key with rotation.
+## 10. Diagrams
 
-## 11. Open Questions / Risks
+- `diagrams/role-hierarchy.mmd` — role scopes
+- `diagrams/auth-sequence.mmd` — login → JWT → tenant/role scoping
+- `diagrams/authz-decision-flow.mmd` — authz decision flow
 
-- Frontend JWT storage remains `localStorage` (XSS-exposed) — migration to httpOnly
-  cookie/in-memory storage is tracked but not scheduled; independent of the RBAC changes
-  here.
-- 86400s JWT expiry was designed for a single-tenant, low-risk context; whether it remains
-  appropriate once tokens carry `tenant_id`/`site_ids[]` (higher blast radius if leaked) is
-  an open question — see `04_Multi_Tenant_Design` ADR-0402.
-- `site_ids[]` claim size for a `SITE_MANAGER` at a very large tenant with many sites is
-  unbounded today — may need a cached lookup instead of an inline claim (same open question
-  as ADR-0402).
-- The permission matrix (§5) is a first draft — needs product/security sign-off before
-  encoding into `@PreAuthorize` annotations at implementation time.
+## 11. Decisions / ADRs
 
-## 12. Cross-References
+- [`adr/ADR-0601-custom-jwt-now-oidc-later.md`](adr/ADR-0601-custom-jwt-now-oidc-later.md)
+- [`adr/ADR-0602-edge-camera-credential-model.md`](adr/ADR-0602-edge-camera-credential-model.md)
+- [`adr/ADR-0603-platform-member-and-affiliation.md`](adr/ADR-0603-platform-member-and-affiliation.md)
+- Parking fees (bank transfer): [`../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md`](../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md)
 
-- `04_Multi_Tenant_Design` — JWT tenant-claim propagation mechanics (ThreadLocal/RLS), which
-  this document's role claims ride alongside.
-- `03_SaaS_Architecture` — `iam` module placement in the overall module decomposition.
-- `05_Subscription_Billing` — `TENANT_ADMIN` as the only role permitted to manage billing;
-  `EntitlementGuard` as the next check after authorization (§5/§6 here hand off to it).
-- `07_Camera_Management` (sibling doc) — camera registration flow that issues the per-camera
-  key described in §7.
+## 12. Open Questions / Risks
+
+- Frontend JWT remains in `localStorage` (XSS-exposed).
+- SITE_MANAGER with multiple sites: API returns union of assigned sites; topbar switcher is a
+  client-side UX filter only.
+- Audited impersonation for support is desired but not implemented.
+- Phase B MEMBER JWT + RLS must not allow cross-tenant reads outside affiliations / claimed sessions.
+- Parking fee billing is separate from SaaS Stripe entitlements (`05_Subscription_Billing`).
+
+## 13. Cross-References
+
+- `04_Multi_Tenant_Design` — tenant claim propagation / RLS
+- `03_SaaS_Architecture` — `iam` module placement
+- `05_Subscription_Billing` — SaaS billing + `EntitlementGuard`
+- `07_Camera_Management` — camera registration / keys
+- `18_Mobile_App` — consumer (MEMBER) client target

@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -31,6 +32,8 @@ import java.util.UUID;
 public class TenantContextFilter extends OncePerRequestFilter {
 
     private static final String PLATFORM_ADMIN = "PLATFORM_ADMIN";
+    /** Platform consumer (ADR-0603): JWT omits tenant_id; affiliations in claim. */
+    private static final String MEMBER = "MEMBER";
 
     private final JwtUtil jwtUtil;
     // When RLS is enforced (Deploy 2, default-tenant fallback off) a validated
@@ -55,19 +58,25 @@ public class TenantContextFilter extends OncePerRequestFilter {
                 final String jwt = authHeader.substring(7);
                 if (jwtUtil.validateToken(jwt)) {
                     UUID tenantId = jwtUtil.extractTenantId(jwt);
+                    String role = jwtUtil.extractRole(jwt);
                     if (tenantId != null) {
                         TenantContext.setTenantId(tenantId);
-                    } else if (enforceTenantClaim && !PLATFORM_ADMIN.equals(jwtUtil.extractRole(jwt))) {
+                    } else if (enforceTenantClaim
+                            && !PLATFORM_ADMIN.equals(role)
+                            && !MEMBER.equals(role)) {
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                         response.setContentType("application/json");
                         response.setCharacterEncoding("UTF-8");
                         response.getWriter().write("{\"error\":\"Token is missing tenant_id\"}");
                         return;
                     }
+                    List<UUID> siteIds = jwtUtil.extractSiteIds(jwt);
+                    SiteContext.setSiteIds(siteIds);
                 }
             }
             filterChain.doFilter(request, response);
         } finally {
+            SiteContext.clear();
             TenantContext.clear();
         }
     }

@@ -63,6 +63,9 @@ public class VehicleLog {
     @JoinColumn(name = "gate_id")
     private Gate gate;
 
+    @Column(name = "site_id")
+    private UUID siteId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "security_guard_id")
     private User securityGuard;

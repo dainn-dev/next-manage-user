@@ -93,7 +93,7 @@ public class GateController {
 
     @GetMapping
     @Operation(summary = "List all gates")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved gates")
     public ResponseEntity<List<GateDto>> list() {
         return ResponseEntity.ok(gateService.list());
@@ -104,7 +104,7 @@ public class GateController {
             description = "Aggregate health of every gate: status, last heartbeat, seconds since "
                     + "the last heartbeat and a computed online flag (heartbeat within the "
                     + "configured staleness window). Backs the health dashboard.")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER', 'SECURITY_GUARD')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponse(responseCode = "200", description = "Per-gate health list")
     public ResponseEntity<List<GateHealthDto>> health() {
         return ResponseEntity.ok(gateService.health());
@@ -112,7 +112,7 @@ public class GateController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get gate by ID")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved gate"),
         @ApiResponse(responseCode = "404", description = "Gate not found")
@@ -124,7 +124,7 @@ public class GateController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update gate configuration (name / location / camera / status)")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Gate updated"),
         @ApiResponse(responseCode = "404", description = "Gate not found"),
@@ -142,7 +142,7 @@ public class GateController {
                     + "timestamp, newest first. Backs reliable delivery: a per-gate UI that lost "
                     + "its WebSocket connection replays missed events on reconnect. When 'since' is "
                     + "omitted it defaults to the start of the current day.")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER', 'SECURITY_GUARD')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Recent checks for the gate")
     })

@@ -81,7 +81,7 @@ class VehicleAccessRequestServiceTest {
                 .username("approver1")
                 .email("approver1@test.com")
                 .password("pw")
-                .role(User.Role.SITE_MANAGER)
+                .role(User.Role.TENANT_ADMIN)
                 .build();
     }
 

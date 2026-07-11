@@ -30,8 +30,8 @@ public class SiteController {
     private SiteService siteService;
 
     @GetMapping
-    @Operation(summary = "List all sites for the current tenant")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @Operation(summary = "List sites visible to the caller")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved sites")
     public ResponseEntity<List<SiteDto>> list() {
         return ResponseEntity.ok(siteService.list());
@@ -39,7 +39,7 @@ public class SiteController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get site by ID")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved site"),
         @ApiResponse(responseCode = "404", description = "Site not found")
@@ -51,7 +51,7 @@ public class SiteController {
 
     @PostMapping
     @Operation(summary = "Create a site")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN')")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Site created"),
         @ApiResponse(responseCode = "400", description = "Invalid site data"),
@@ -64,7 +64,7 @@ public class SiteController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a site")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN')")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Site updated"),
         @ApiResponse(responseCode = "404", description = "Site not found"),
@@ -78,7 +78,7 @@ public class SiteController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a site")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'TENANT_ADMIN')")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Site deleted"),
         @ApiResponse(responseCode = "404", description = "Site not found")
