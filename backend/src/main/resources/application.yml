@@ -83,7 +83,7 @@ password-reset:
   rate-limit-window: ${PASSWORD_RESET_RATE_LIMIT_WINDOW:1h}
   email-limit: ${PASSWORD_RESET_EMAIL_LIMIT:3}
   ip-limit: ${PASSWORD_RESET_IP_LIMIT:10}
-  fingerprint-secret: ${PASSWORD_RESET_FINGERPRINT_SECRET:}
+  fingerprint-secret: ${PASSWORD_RESET_FINGERPRINT_SECRET:local-dev-password-reset-fingerprint-secret-change-me}
   reset-url: ${PASSWORD_RESET_URL:http://localhost:3000/reset-password}
 
 email:
@@ -92,7 +92,8 @@ email:
     from: ${RESEND_FROM:}
     endpoint: ${RESEND_ENDPOINT:https://api.resend.com/emails}
 
-# Password recovery requires PASSWORD_RESET_FINGERPRINT_SECRET (32+ characters).
+# Password recovery uses PASSWORD_RESET_FINGERPRINT_SECRET (32+ characters).
+# Local default is for bare mvn spring-boot:run; override in production.
 # No password-reset secret, token, password, or email address is written to logs.
 
 # Multi-tenant foundation (DAI-261).

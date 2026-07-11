@@ -16,8 +16,9 @@ import org.testcontainers.utility.DockerImageName;
  * exercised against a genuine database rather than mocks.
  *
  * <p>The container is shared across every subclass (one Postgres per JVM). The
- * datasource and the two secrets the app requires at boot ({@code jwt.secret} and
- * the {@code gate.api-key} enforced by {@link com.vehiclemanagement.config.GateApiKeyAuthFilter})
+ * datasource and the secrets the app requires at boot ({@code jwt.secret},
+ * {@code password-reset.fingerprint-secret}, and the {@code gate.api-key}
+ * enforced by {@link com.vehiclemanagement.config.GateApiKeyAuthFilter})
  * are injected via {@link DynamicPropertySource} so the tests can assert the 401
  * path with a known key.
  *
@@ -61,6 +62,9 @@ public abstract class AbstractPostgresIntegrationTest {
         registry.add("app.admin-datasource.url", POSTGRES::getJdbcUrl);
         // jwt.secret has no default in application.yml; HS256 needs >= 32 bytes.
         registry.add("jwt.secret", () -> "integration-test-jwt-secret-please-change-0123456789");
+        // PasswordResetService validates fingerprint secret at construction (32+ chars).
+        registry.add("password-reset.fingerprint-secret",
+                () -> "integration-password-reset-fingerprint-secret-0123456789");
         // Force the gate filter into enforcing mode so the missing/invalid-key 401
         // path is actually exercised (empty key would run "open").
         registry.add("gate.api-key", () -> GATE_API_KEY);
