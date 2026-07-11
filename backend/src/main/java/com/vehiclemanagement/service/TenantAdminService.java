@@ -43,8 +43,9 @@ public class TenantAdminService {
         String search = searchTerm == null ? "" : searchTerm.trim();
         String statusValue = status == null ? null : status.value();
 
-        String where = " WHERE (? IS NULL OR lower(t.name) LIKE lower(?) OR lower(t.slug) LIKE lower(?))"
-                + " AND (? IS NULL OR t.status = ?)";
+        // Postgres cannot infer the JDBC null parameter type for "? IS NULL", so cast explicitly.
+        String where = " WHERE (CAST(? AS TEXT) IS NULL OR lower(t.name) LIKE lower(?) OR lower(t.slug) LIKE lower(?))"
+                + " AND (CAST(? AS TEXT) IS NULL OR t.status = ?)";
         long total = jdbc.queryForObject(
                 "SELECT count(*) FROM tenant t" + where,
                 Long.class,

@@ -1,5 +1,6 @@
 package com.vehiclemanagement.service;
 
+import com.vehiclemanagement.config.AuthDataSourceContext;
 import com.vehiclemanagement.dto.LoginRequest;
 import com.vehiclemanagement.dto.LoginResponse;
 import com.vehiclemanagement.dto.UserDto;
@@ -77,6 +78,9 @@ public class AuthService {
     }
     
     public UserDto getCurrentUser(String username) {
-        return userService.getUserByUsername(username);
+        // Identity lookup must use app_auth so PLATFORM_ADMIN (tenant_id NULL)
+        // remains visible when the JWT carries no tenant claim.
+        return AuthDataSourceContext.callWithAuthLookup(
+                () -> userService.getUserByUsername(username));
     }
 }
