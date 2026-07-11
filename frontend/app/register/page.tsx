@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
+import { RegistrationApiError, registrationApi } from "@/lib/api/registration-api"
 import { cn } from "@/lib/utils"
 
 const MANAGEMENT_MODELS = [
@@ -110,6 +111,10 @@ const registerFieldsSchema = z.object({
       /^[a-zA-Z0-9._-]{3,32}$/,
       "Tên đăng nhập gồm 3–32 ký tự: chữ không dấu, số, dấu chấm, gạch dưới hoặc gạch nối.",
     ),
+  email: z
+    .string()
+    .trim()
+    .email("Vui lòng nhập email hợp lệ."),
   password: z
     .string()
     .min(8, "Mật khẩu cần có ít nhất 8 ký tự.")
@@ -131,7 +136,7 @@ const STEP_SCHEMAS = [
   registerFieldsSchema.pick({ managementModel: true }),
   registerFieldsSchema.pick({ areaCount: true }),
   registerFieldsSchema
-    .pick({ username: true, password: true, confirmPassword: true })
+    .pick({ email: true, username: true, password: true, confirmPassword: true })
     .refine((values) => values.password === values.confirmPassword, {
       message: "Mật khẩu nhập lại chưa khớp.",
       path: ["confirmPassword"],
@@ -152,8 +157,15 @@ const STEP_FIELDS = [
   ["organizationName"],
   ["managementModel"],
   ["areaCount"],
-  ["username", "password", "confirmPassword"],
+  ["email", "username", "password", "confirmPassword"],
 ] as const satisfies readonly (readonly (keyof RegisterFormValues)[])[]
+
+const SERVER_FIELD_MAP: Partial<Record<string, keyof RegisterFormValues>> = {
+  organizationName: "organizationName",
+  username: "username",
+  email: "email",
+  password: "password",
+}
 
 const TRUST_POINTS = [
   "Thiết lập cho nhiều bãi và khu vực trong một nơi.",
@@ -177,6 +189,7 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [attemptedSteps, setAttemptedSteps] = useState<Set<number>>(new Set())
   const [isComplete, setIsComplete] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const stepTitleRef = useRef<HTMLHeadingElement>(null)
   const { toast } = useToast()
 
@@ -195,6 +208,7 @@ export default function RegisterPage() {
       organizationName: "",
       managementModel: undefined,
       areaCount: "",
+      email: "",
       username: "",
       password: "",
       confirmPassword: "",
@@ -241,12 +255,41 @@ export default function RegisterPage() {
     setCurrentStep((step) => Math.max(step - 1, 0))
   }
 
-  const onSubmit = () => {
-    setIsComplete(true)
-    toast({
-      title: "Thông tin đăng ký đã sẵn sàng",
-      description: "Bạn có thể kiểm tra lại hoặc tiếp tục đến trang đăng nhập.",
-    })
+  const onSubmit = async (values: RegisterFormValues) => {
+    setFormError(null)
+
+    try {
+      const response = await registrationApi.register({
+        organizationName: values.organizationName,
+        username: values.username,
+        email: values.email,
+        password: values.password,
+      })
+
+      setIsComplete(true)
+      toast({
+        title: "Đăng ký thành công",
+        description: `Không gian ${response.tenantName} đã được tạo. Hãy đăng nhập để bắt đầu sử dụng.`,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể hoàn tất đăng ký"
+      setFormError(message)
+
+      if (error instanceof RegistrationApiError && error.fieldErrors) {
+        Object.entries(error.fieldErrors).forEach(([field, fieldMessage]) => {
+          const formField = SERVER_FIELD_MAP[field]
+          if (formField) {
+            setError(formField, { type: "server", message: fieldMessage })
+          }
+        })
+      }
+
+      toast({
+        title: "Đăng ký thất bại",
+        description: message,
+        variant: "destructive",
+      })
+    }
   }
 
   if (isComplete) {
@@ -268,9 +311,8 @@ export default function RegisterPage() {
               Sẵn sàng để thiết lập không gian quản lý của bạn
             </h1>
             <p className="mt-3 leading-relaxed text-muted-foreground">
-              Thông tin tổ chức, mô hình vận hành và tài khoản quản trị đã được kiểm tra.
-              Tính năng tạo tài khoản trực tiếp sẽ được kết nối khi API đăng ký công khai
-              sẵn sàng.
+              Không gian quản lý và tài khoản quản trị của bạn đã được tạo. Đăng nhập để
+              bắt đầu thiết lập và vận hành hệ thống.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild className="h-11 flex-1">
@@ -380,6 +422,11 @@ export default function RegisterPage() {
               noValidate
             >
               <div className="min-h-[296px]">
+                {formError && (
+                  <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {formError}
+                  </p>
+                )}
                 <p className="text-sm font-medium text-primary">
                   Bước {currentStep + 1} / {STEPS.length}
                 </p>
@@ -539,6 +586,24 @@ export default function RegisterPage() {
                 {currentStep === 3 && (
                   <div className="mt-7 space-y-5">
                     <div className="space-y-2">
+                      <Label htmlFor="email">Email quản trị</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="VD: admin@anbinh.vn"
+                        className="h-11"
+                        aria-invalid={showAccountErrors && Boolean(errors.email)}
+                        aria-describedby={showAccountErrors && errors.email ? "email-error" : undefined}
+                        {...register("email")}
+                      />
+                      <FieldError
+                        id="email-error"
+                        message={showAccountErrors ? errors.email?.message : undefined}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="username">Tên đăng nhập</Label>
                       <div className="relative">
                         <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -609,7 +674,7 @@ export default function RegisterPage() {
                 ) : (
                   <Button type="submit" className="h-11 sm:min-w-52" disabled={isSubmitting}>
                     <LockKeyhole className="size-4" aria-hidden="true" />
-                    Hoàn tất đăng ký
+                    {isSubmitting ? "Đang tạo tài khoản..." : "Hoàn tất đăng ký"}
                   </Button>
                 )}
               </div>

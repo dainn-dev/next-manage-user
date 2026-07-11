@@ -43,9 +43,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         
-        // Extract JWT token
+        // Extract JWT token. Invalid JWTs are ignored here and handled as anonymous;
+        // the protected endpoint then produces the normal 401 response.
         jwt = authHeader.substring(7);
-        username = jwtUtil.extractUsername(jwt);
+        try {
+            username = jwtUtil.extractUsername(jwt);
+        } catch (RuntimeException ex) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         
         // If username is present and no authentication is set in SecurityContext
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {

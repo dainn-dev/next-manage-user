@@ -42,8 +42,8 @@ public class UserService implements UserDetailsService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
         // Accept either the username or the email so users can log in with either.
-        return AuthDataSourceContext.callWithAuthLookup(() -> userRepository.findByUsername(usernameOrEmail)
-                .or(() -> userRepository.findByEmail(usernameOrEmail))
+        return AuthDataSourceContext.callWithAuthLookup(() -> userRepository.findByUsernameIgnoreCase(usernameOrEmail)
+                .or(() -> userRepository.findByEmailIgnoreCase(usernameOrEmail))
                 .orElseThrow(() -> new UsernameNotFoundException(
                         "User not found with username or email: " + usernameOrEmail)));
     }
@@ -134,6 +134,8 @@ public class UserService implements UserDetailsService {
         }
         if (request.getPassword() != null) {
             existingUser.setPassword(passwordEncoder.encode(request.getPassword()));
+            existingUser.setPasswordChangedAt(LocalDateTime.now());
+            existingUser.setPasswordVersion(existingUser.getPasswordVersion() + 1);
         }
         if (request.getFirstName() != null) {
             existingUser.setFirstName(request.getFirstName());

@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.Customizer;
 import com.vehiclemanagement.util.JwtUtil;
 
 @Configuration
@@ -36,7 +37,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, UserDetailsService userDetailsService) throws Exception {
         http
-            // .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
@@ -54,8 +55,8 @@ public class SecurityConfig {
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks").permitAll()
 
-                // Platform admin onboarding
-                .requestMatchers(HttpMethod.POST, "/api/v1/tenants").hasRole("PLATFORM_ADMIN")
+                // Platform admin tenant registry and onboarding
+                .requestMatchers("/api/v1/tenants/**").hasRole("PLATFORM_ADMIN")
                 .requestMatchers("/api/v1/billing/**").hasAnyRole("PLATFORM_ADMIN", "TENANT_ADMIN")
 
                 // Tenant administration
@@ -93,7 +94,8 @@ public class SecurityConfig {
             .authenticationProvider(authenticationProvider(userDetailsService))
             .addFilterBefore(jwtAuthenticationFilter(userDetailsService), UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(tenantContextFilter(), JwtAuthenticationFilter.class)
-            .addFilterBefore(gateApiKeyAuthFilter(), JwtAuthenticationFilter.class);
+            .addFilterBefore(gateApiKeyAuthFilter(), JwtAuthenticationFilter.class)
+            .addFilterBefore(registrationRateLimitFilter(), JwtAuthenticationFilter.class);
 
         return http.build();
     }
@@ -106,6 +108,17 @@ public class SecurityConfig {
     @Bean
     public GateApiKeyAuthFilter gateApiKeyAuthFilter() {
         return new GateApiKeyAuthFilter();
+    }
+
+    @Autowired
+    private RegistrationRateLimitService registrationRateLimitService;
+
+    @Autowired
+    private RegistrationRateLimitProperties registrationRateLimitProperties;
+
+    @Bean
+    public RegistrationRateLimitFilter registrationRateLimitFilter() {
+        return new RegistrationRateLimitFilter(registrationRateLimitService, registrationRateLimitProperties);
     }
 
     @Bean
