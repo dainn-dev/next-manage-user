@@ -77,8 +77,16 @@ public class EntitlementGuard {
         if (tenantId == null) {
             return 0L;
         }
-        Long value = jdbc.queryForObject(
-                "SELECT count(*) FROM users WHERE tenant_id = ?", Long.class, tenantId);
+        // Ops users still live on users.tenant_id; platform MEMBERs count via affiliation.
+        Long value = jdbc.queryForObject("""
+                SELECT count(*) FROM (
+                    SELECT id AS uid FROM users
+                    WHERE tenant_id = ? AND role <> 'MEMBER'
+                    UNION
+                    SELECT user_id AS uid FROM member_affiliation
+                    WHERE tenant_id = ? AND status = 'ACTIVE'
+                ) seats
+                """, Long.class, tenantId, tenantId);
         return value == null ? 0L : value;
     }
 

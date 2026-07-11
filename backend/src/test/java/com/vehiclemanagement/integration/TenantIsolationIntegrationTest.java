@@ -21,6 +21,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Cross-tenant rows are seeded with a raw {@link JdbcTemplate} which uses the
  * container's superuser connection and therefore bypasses RLS; the assertions
  * then read back through the tenant-scoped app path.
+ *
+ * <p>Phase C (ADR-0603): ops users ({@code TENANT_ADMIN}) stay stamped with
+ * {@code users.tenant_id}; platform {@code MEMBER} rows use {@code tenant_id NULL}
+ * and are visible via {@code member_affiliation} RLS.
  */
 class TenantIsolationIntegrationTest extends AbstractPostgresIntegrationTest {
 
@@ -38,8 +42,8 @@ class TenantIsolationIntegrationTest extends AbstractPostgresIntegrationTest {
         UUID userA = UUID.randomUUID();
         UUID userB = UUID.randomUUID();
         seedTenant(TENANT_B, "tenant-b");
-        seedUser(userA, "iso-default-user", "iso-default@example.com", DEFAULT_TENANT);
-        seedUser(userB, "iso-tenantb-user", "iso-tenantb@example.com", TENANT_B);
+        seedOpsUser(userA, "iso-default-user", "iso-default@example.com", DEFAULT_TENANT);
+        seedOpsUser(userB, "iso-tenantb-user", "iso-tenantb@example.com", TENANT_B);
 
         // Under the DEFAULT tenant, tenant B's user is invisible.
         TenantContext.setTenantId(DEFAULT_TENANT);
@@ -66,14 +70,14 @@ class TenantIsolationIntegrationTest extends AbstractPostgresIntegrationTest {
     void writeIsStampedWithTheSessionTenantAndCannotCrossTenants() {
         seedTenant(TENANT_B, "tenant-b");
 
-        // A user created under tenant B is stamped tenant B by the column default,
+        // A TENANT_ADMIN created under tenant B is stamped tenant B by the column default,
         // and is then only visible under tenant B — not the DEFAULT tenant.
         TenantContext.setTenantId(TENANT_B);
         UUID created;
         try {
             User u = User.builder()
                     .username("iso-created-b").email("iso-created-b@example.com")
-                    .password("secret123").role(User.Role.MEMBER).status(User.UserStatus.ACTIVE)
+                    .password("secret123").role(User.Role.TENANT_ADMIN).status(User.UserStatus.ACTIVE)
                     .build();
             created = userRepository.save(u).getId();
         } finally {
@@ -92,13 +96,45 @@ class TenantIsolationIntegrationTest extends AbstractPostgresIntegrationTest {
         }
     }
 
+    @Test
+    void affiliatedMemberIsVisibleOnlyUnderAffiliationTenant() {
+        UUID memberId = UUID.randomUUID();
+        seedTenant(TENANT_B, "tenant-b");
+        seedPlatformMember(memberId, "iso-member", "iso-member@example.com");
+        seedAffiliation(memberId, TENANT_B);
+
+        TenantContext.setTenantId(TENANT_B);
+        try {
+            assertThat(userRepository.findById(memberId)).isPresent();
+        } finally {
+            TenantContext.clear();
+        }
+
+        TenantContext.setTenantId(DEFAULT_TENANT);
+        try {
+            assertThat(userRepository.findById(memberId)).isEmpty();
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
     private void seedTenant(UUID id, String slug) {
         jdbc.update("INSERT INTO tenant(id, name, slug, status) VALUES (?, ?, ?, 'active') "
                 + "ON CONFLICT (id) DO NOTHING", id, slug, slug);
     }
 
-    private void seedUser(UUID id, String username, String email, UUID tenantId) {
+    private void seedOpsUser(UUID id, String username, String email, UUID tenantId) {
         jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                + "VALUES (?, ?, ?, 'x', 'MEMBER', 'ACTIVE', ?, now(), now())", id, username, email, tenantId);
+                + "VALUES (?, ?, ?, 'x', 'TENANT_ADMIN', 'ACTIVE', ?, now(), now())", id, username, email, tenantId);
+    }
+
+    private void seedPlatformMember(UUID id, String username, String email) {
+        jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
+                + "VALUES (?, ?, ?, 'x', 'MEMBER', 'ACTIVE', NULL, now(), now())", id, username, email);
+    }
+
+    private void seedAffiliation(UUID userId, UUID tenantId) {
+        jdbc.update("INSERT INTO member_affiliation(user_id, tenant_id, status, created_at, updated_at) "
+                + "VALUES (?, ?, 'ACTIVE', now(), now()) ON CONFLICT DO NOTHING", userId, tenantId);
     }
 }

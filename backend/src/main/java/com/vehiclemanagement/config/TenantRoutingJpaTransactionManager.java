@@ -5,10 +5,14 @@ import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.Session;
 import org.springframework.orm.jpa.EntityManagerHolder;
 import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.UUID;
+
+import com.vehiclemanagement.entity.User;
 
 /**
  * Sets the PostgreSQL session variable {@code app.tenant_id} for the tenant
@@ -77,7 +81,10 @@ public class TenantRoutingJpaTransactionManager extends JpaTransactionManager {
         boolean authLookup = AuthDataSourceContext.isAuthLookup();
 
         UUID tenantId = TenantContext.getTenantId();
-        if (!authLookup && tenantId == null && defaultTenantFallback) {
+        boolean memberPrincipal = isMemberPrincipal();
+        // MEMBER JWTs omit tenant_id; never fall back to the legacy default tenant
+        // (that leaked seed data in Phase B UI e2e).
+        if (!authLookup && tenantId == null && defaultTenantFallback && !memberPrincipal) {
             tenantId = TenantContext.DEFAULT_TENANT_ID;
         }
 
@@ -108,5 +115,13 @@ public class TenantRoutingJpaTransactionManager extends JpaTransactionManager {
                 }
             }
         });
+    }
+
+    private static boolean isMemberPrincipal() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof User user)) {
+            return false;
+        }
+        return user.getRole() == User.Role.MEMBER;
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,10 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     Optional<Vehicle> findByLicensePlateNormalized(@Param("licensePlate") String licensePlate);
     
     List<Vehicle> findByOwnerId(UUID ownerId);
+
+    List<Vehicle> findByOwnerIdAndTenantIdIn(UUID ownerId, Collection<UUID> tenantIds);
+
+    Optional<Vehicle> findByIdAndOwnerIdAndTenantIdIn(UUID id, UUID ownerId, Collection<UUID> tenantIds);
     
     List<Vehicle> findByVehicleType(Vehicle.VehicleType vehicleType);
     

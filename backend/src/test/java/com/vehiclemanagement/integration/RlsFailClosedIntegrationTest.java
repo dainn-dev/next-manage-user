@@ -43,7 +43,7 @@ class RlsFailClosedIntegrationTest extends AbstractPostgresIntegrationTest {
     void unboundContextReturnsZeroRows() {
         // A real DEFAULT-tenant user exists in the table (seeded bypassing RLS)...
         jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                + "VALUES (?, 'failclosed-user', 'failclosed@example.com', 'x', 'MEMBER', 'ACTIVE', ?, now(), now())",
+                + "VALUES (?, 'failclosed-user', 'failclosed@example.com', 'x', 'TENANT_ADMIN', 'ACTIVE', ?, now(), now())",
                 UUID.randomUUID(), DEFAULT_TENANT);
 
         // ...but with no tenant bound and the fallback off, the app path sees none.
@@ -55,7 +55,7 @@ class RlsFailClosedIntegrationTest extends AbstractPostgresIntegrationTest {
     void boundContextSeesItsOwnRows() {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                + "VALUES (?, 'failclosed-bound', 'failclosed-bound@example.com', 'x', 'MEMBER', 'ACTIVE', ?, now(), now())",
+                + "VALUES (?, 'failclosed-bound', 'failclosed-bound@example.com', 'x', 'TENANT_ADMIN', 'ACTIVE', ?, now(), now())",
                 id, DEFAULT_TENANT);
 
         TenantContext.setTenantId(DEFAULT_TENANT);
@@ -70,7 +70,7 @@ class RlsFailClosedIntegrationTest extends AbstractPostgresIntegrationTest {
     void loadUserByUsernameUsesAuthRoleWithoutTenantContext() {
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                + "VALUES (?, 'authlookup-user', 'authlookup@example.com', 'x', 'MEMBER', 'ACTIVE', ?, now(), now())",
+                + "VALUES (?, 'authlookup-user', 'authlookup@example.com', 'x', 'TENANT_ADMIN', 'ACTIVE', ?, now(), now())",
                 id, DEFAULT_TENANT);
 
         assertThat(TenantContext.getTenantId()).isNull();

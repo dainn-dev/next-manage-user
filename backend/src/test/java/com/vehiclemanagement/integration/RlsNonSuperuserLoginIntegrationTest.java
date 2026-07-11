@@ -55,7 +55,7 @@ class RlsNonSuperuserLoginIntegrationTest extends AbstractPostgresIntegrationTes
         jdbc.execute("GRANT app_auth TO " + LOGIN);
         // A DEFAULT-tenant user to look for (seeded bypassing RLS as the superuser).
         jdbc.update("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                + "VALUES (?, 'nonsuper-default', 'nonsuper-default@example.com', 'x', 'MEMBER', 'ACTIVE', ?, now(), now())",
+                + "VALUES (?, 'nonsuper-default', 'nonsuper-default@example.com', 'x', 'TENANT_ADMIN', 'ACTIVE', ?, now(), now())",
                 UUID.randomUUID(), DEFAULT_TENANT);
 
         try (Connection conn = DriverManager.getConnection(POSTGRES.getJdbcUrl(), LOGIN, LOGIN_PW)) {
@@ -88,7 +88,7 @@ class RlsNonSuperuserLoginIntegrationTest extends AbstractPostgresIntegrationTes
             assertThatThrownBy(() -> {
                 try (Statement st = conn.createStatement()) {
                     st.execute("INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at) "
-                            + "VALUES ('" + UUID.randomUUID() + "', 'auth-write-denied', 'auth-write-denied@example.com', 'x', 'MEMBER', 'ACTIVE', '"
+                            + "VALUES ('" + UUID.randomUUID() + "', 'auth-write-denied', 'auth-write-denied@example.com', 'x', 'TENANT_ADMIN', 'ACTIVE', '"
                             + DEFAULT_TENANT + "', now(), now())");
                 }
             }).isInstanceOf(SQLException.class);

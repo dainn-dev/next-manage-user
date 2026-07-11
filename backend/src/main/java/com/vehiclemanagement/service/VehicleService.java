@@ -24,6 +24,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -74,6 +76,13 @@ public class VehicleService {
     @Autowired
     private SiteAccess siteAccess;
 
+    @Autowired
+    private MemberVehicleQueryService memberVehicleQueryService;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private UserService userService;
+
     /**
      * Window used to suppress duplicate gate-originated access requests for the same
      * plate + gate (Phase 4.4). The edge fires a check per detection frame, so a
@@ -94,12 +103,18 @@ public class VehicleService {
     // private EntryExitRequestRepository entryExitRequestRepository; // Removed
     
     public List<VehicleDto> getAllVehicles() {
+        if (isMemberPrincipal()) {
+            return memberOwnVehicles().stream().map(VehicleDto::new).collect(Collectors.toList());
+        }
         return scopedVehicles(vehicleRepository.findAll()).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
     
     public Page<VehicleDto> getAllVehicles(Pageable pageable) {
+        if (isMemberPrincipal()) {
+            return pageMemberVehicles(pageable);
+        }
         if (!siteAccess.isRestricted()) {
             return vehicleRepository.findAll(pageable).map(VehicleDto::new);
         }
@@ -108,6 +123,9 @@ public class VehicleService {
     }
     
     public VehicleDto getVehicleById(UUID id) {
+        if (isMemberPrincipal()) {
+            return memberOwnVehicle(id);
+        }
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
         assertVehicleVisible(vehicle);
@@ -115,6 +133,14 @@ public class VehicleService {
     }
     
     public VehicleDto getVehicleByLicensePlate(String licensePlate) {
+        if (isMemberPrincipal()) {
+            return memberOwnVehicles().stream()
+                    .filter(v -> licensePlateEqualsNormalized(v.getLicensePlate(), licensePlate))
+                    .findFirst()
+                    .map(VehicleDto::new)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Vehicle not found with license plate: " + licensePlate));
+        }
         Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlate)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with license plate: " + licensePlate));
         assertVehicleVisible(vehicle);
@@ -122,6 +148,13 @@ public class VehicleService {
     }
     
     public List<VehicleDto> getVehiclesByOwner(UUID ownerId) {
+        if (isMemberPrincipal()) {
+            User self = requireMemberPrincipal();
+            if (!self.getId().equals(ownerId)) {
+                throw new AccessDeniedException("MEMBER can only list their own vehicles");
+            }
+            return memberOwnVehicles().stream().map(VehicleDto::new).collect(Collectors.toList());
+        }
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + ownerId));
 
@@ -131,26 +164,53 @@ public class VehicleService {
     }
     
     public List<VehicleDto> getVehiclesByType(Vehicle.VehicleType vehicleType) {
+        if (isMemberPrincipal()) {
+            return memberOwnVehicles().stream()
+                    .filter(v -> v.getVehicleType() == vehicleType)
+                    .map(VehicleDto::new)
+                    .collect(Collectors.toList());
+        }
         return scopedVehicles(vehicleRepository.findByVehicleType(vehicleType)).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
     
     public List<VehicleDto> getVehiclesByStatus(Vehicle.VehicleStatus status) {
+        if (isMemberPrincipal()) {
+            return memberOwnVehicles().stream()
+                    .filter(v -> v.getStatus() == status)
+                    .map(VehicleDto::new)
+                    .collect(Collectors.toList());
+        }
         return scopedVehicles(vehicleRepository.findByStatus(status)).stream()
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
     
     public Page<VehicleDto> searchVehicles(String searchTerm, Pageable pageable) {
+        if (isMemberPrincipal()) {
+            return pageMemberVehicles(filterMemberSearch(memberOwnVehicles(), searchTerm), pageable);
+        }
         return filterPage(vehicleRepository.findBySearchTerm(searchTerm, pageable), pageable);
     }
     
     public Page<VehicleDto> searchVehiclesByType(Vehicle.VehicleType vehicleType, String searchTerm, Pageable pageable) {
+        if (isMemberPrincipal()) {
+            List<Vehicle> filtered = filterMemberSearch(memberOwnVehicles(), searchTerm).stream()
+                    .filter(v -> v.getVehicleType() == vehicleType)
+                    .collect(Collectors.toList());
+            return pageMemberVehicles(filtered, pageable);
+        }
         return filterPage(vehicleRepository.findByVehicleTypeAndSearchTerm(vehicleType, searchTerm, pageable), pageable);
     }
     
     public Page<VehicleDto> searchVehiclesByStatus(Vehicle.VehicleStatus status, String searchTerm, Pageable pageable) {
+        if (isMemberPrincipal()) {
+            List<Vehicle> filtered = filterMemberSearch(memberOwnVehicles(), searchTerm).stream()
+                    .filter(v -> v.getStatus() == status)
+                    .collect(Collectors.toList());
+            return pageMemberVehicles(filtered, pageable);
+        }
         return filterPage(vehicleRepository.findByStatusAndSearchTerm(status, searchTerm, pageable), pageable);
     }
     
@@ -648,12 +708,95 @@ public class VehicleService {
     }
 
     private void assertVehicleVisible(Vehicle vehicle) {
+        if (isMemberPrincipal()) {
+            User self = requireMemberPrincipal();
+            List<UUID> tenants = userService.findAffiliationTenantIdsForUser(self);
+            if (!memberVehicleQueryService.isOwnedInTenants(vehicle.getId(), self.getId(), tenants)) {
+                throw new AccessDeniedException("Vehicle is outside your affiliations");
+            }
+            return;
+        }
         if (!siteAccess.isRestricted()) {
             return;
         }
         if (vehicle.getCurrentSiteId() == null || !siteAccess.allowedSiteIds().contains(vehicle.getCurrentSiteId())) {
             throw new AccessDeniedException("Vehicle is outside your assigned branches");
         }
+    }
+
+    private List<Vehicle> memberOwnVehicles() {
+        User self = requireMemberPrincipal();
+        List<UUID> tenants = userService.findAffiliationTenantIdsForUser(self);
+        return memberVehicleQueryService.findOwnedInTenants(self.getId(), tenants);
+    }
+
+    private VehicleDto memberOwnVehicle(UUID id) {
+        User self = requireMemberPrincipal();
+        List<UUID> tenants = userService.findAffiliationTenantIdsForUser(self);
+        if (!memberVehicleQueryService.isOwnedInTenants(id, self.getId(), tenants)) {
+            throw new ResourceNotFoundException("Vehicle not found with id: " + id);
+        }
+        return memberOwnVehicles().stream()
+                .filter(v -> id.equals(v.getId()))
+                .findFirst()
+                .map(VehicleDto::new)
+                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
+    }
+
+    private Page<VehicleDto> pageMemberVehicles(Pageable pageable) {
+        return pageMemberVehicles(memberOwnVehicles(), pageable);
+    }
+
+    private Page<VehicleDto> pageMemberVehicles(List<Vehicle> vehicles, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        if (start >= vehicles.size()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, vehicles.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), vehicles.size());
+        List<VehicleDto> slice = vehicles.subList(start, end).stream()
+                .map(VehicleDto::new)
+                .collect(Collectors.toList());
+        return new PageImpl<>(slice, pageable, vehicles.size());
+    }
+
+    private static List<Vehicle> filterMemberSearch(List<Vehicle> vehicles, String searchTerm) {
+        if (searchTerm == null || searchTerm.isBlank()) {
+            return vehicles;
+        }
+        String q = searchTerm.toLowerCase(Locale.ROOT);
+        return vehicles.stream()
+                .filter(v -> containsIgnoreCase(v.getLicensePlate(), q)
+                        || containsIgnoreCase(v.getBrand(), q)
+                        || containsIgnoreCase(v.getModel(), q))
+                .collect(Collectors.toList());
+    }
+
+    private static boolean containsIgnoreCase(String value, String q) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(q);
+    }
+
+    private static boolean licensePlateEqualsNormalized(String a, String b) {
+        return normalizePlate(a).equals(normalizePlate(b));
+    }
+
+    private static String normalizePlate(String plate) {
+        if (plate == null) {
+            return "";
+        }
+        return plate.toUpperCase(Locale.ROOT).replace("-", "").replace(".", "").replace(" ", "").replace("_", "");
+    }
+
+    private static boolean isMemberPrincipal() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getPrincipal() instanceof User user && user.getRole() == User.Role.MEMBER;
+    }
+
+    private static User requireMemberPrincipal() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof User user) || user.getRole() != User.Role.MEMBER) {
+            throw new AccessDeniedException("MEMBER principal required");
+        }
+        return user;
     }
 
     /**

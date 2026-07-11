@@ -67,6 +67,10 @@ public class Vehicle {
     /** Last-known / current branch; stamped from gate on entry. */
     @Column(name = "current_site_id")
     private UUID currentSiteId;
+
+    /** Tenant owner of the whitelist row; stamped by DB default / GUC (not set via JPA). */
+    @Column(name = "tenant_id", insertable = false, updatable = false)
+    private UUID tenantId;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

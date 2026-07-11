@@ -38,14 +38,14 @@ belong to two orgs or visit a third tenant as themselves without duplicate accou
    from a home tenant. Public session claim does not require an affiliation with that retail
    tenant.
 5. **Migration path (phased):**
-   - Phase A (this change): create `member_affiliation`, backfill from existing
+   - Phase A: create `member_affiliation`, backfill from existing
      `MEMBER` rows (`tenant_id` → affiliation), keep `users.tenant_id` populated for
      compatibility with current JWT/RLS.
-   - Phase B: stop writing `tenant_id` on new MEMBERs; issue affiliation-aware JWT; list
-     members via affiliation join.
-   - Phase C: null out `users.tenant_id` for MEMBER; tighten CHECK
+   - Phase B: affiliation-aware JWT; invite/link APIs; affiliation is multi-org source of truth.
+   - Phase C (done): null out `users.tenant_id` for MEMBER; CHECK
      `(role = 'MEMBER' AND tenant_id IS NULL) OR (role IN (…) AND tenant_id IS NOT NULL) OR
-      (role = 'PLATFORM_ADMIN' AND tenant_id IS NULL)`.
+      (role = 'PLATFORM_ADMIN' AND tenant_id IS NULL)`; users RLS includes affiliated MEMBERs;
+     MEMBER vehicle garage is owner + affiliation scoped (admin query).
 
 ## Alternatives considered
 

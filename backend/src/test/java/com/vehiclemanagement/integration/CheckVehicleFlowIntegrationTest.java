@@ -1,5 +1,6 @@
 package com.vehiclemanagement.integration;
 
+import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleAccessRequest;
@@ -7,6 +8,7 @@ import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleAccessRequestRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.util.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -23,6 +25,7 @@ import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.web.socket.sockjs.client.RestTemplateXhrTransport;
 import org.springframework.web.socket.sockjs.client.SockJsClient;
@@ -80,6 +83,12 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
     @Autowired
     VehicleAccessRequestRepository accessRequestRepository;
 
+    @Autowired
+    PasswordEncoder passwordEncoder;
+
+    @Autowired
+    JwtUtil jwtUtil;
+
     // ---------------------------------------------------------------- helpers
 
     private String url(String path) {
@@ -109,7 +118,7 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
                 .username("vehicle-owner-" + UUID.randomUUID())
                 .email("vehicle-owner-" + UUID.randomUUID() + "@example.com")
                 .password("test-password")
-                .role(User.Role.MEMBER)
+                .role(User.Role.TENANT_ADMIN)
                 .status(User.UserStatus.ACTIVE)
                 .build());
         return vehicleRepository.save(Vehicle.builder()
@@ -149,15 +158,23 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
         return queue;
     }
 
-    private String adminToken() {
-        Map<String, String> login = Map.of("username", "admin", "password", "SecurePass123!");
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<Map> resp = rest.postForEntity(
-                url("/api/auth/login"), new HttpEntity<>(login, headers), Map.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody()).isNotNull();
-        return (String) resp.getBody().get("token");
+    /**
+     * Token for tenant-scoped gate APIs ({@code TENANT_ADMIN}/{@code SITE_MANAGER}).
+     * Demo {@code admin} is PLATFORM_ADMIN and cannot call those endpoints.
+     */
+    private String tenantAdminToken() {
+        String username = "gate-ta-" + UUID.randomUUID();
+        User tenantAdmin = userRepository.save(User.builder()
+                .username(username)
+                .email(username + "@example.com")
+                .password(passwordEncoder.encode("SecurePass123!"))
+                .role(User.Role.TENANT_ADMIN)
+                .status(User.UserStatus.ACTIVE)
+                .build());
+        return jwtUtil.generateToken(tenantAdmin, Map.of(
+                "role", User.Role.TENANT_ADMIN.name(),
+                "email", tenantAdmin.getEmail(),
+                "tenant_id", TenantContext.DEFAULT_TENANT_ID.toString()));
     }
 
     // ------------------------------------------------------------------ tests
@@ -252,7 +269,7 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(checkResp.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         HttpHeaders authHeaders = new HttpHeaders();
-        authHeaders.setBearerAuth(adminToken());
+        authHeaders.setBearerAuth(tenantAdminToken());
         HttpEntity<Void> authEntity = new HttpEntity<>(authHeaders);
         DateTimeFormatter iso = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 

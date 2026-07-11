@@ -14,6 +14,7 @@ import com.vehiclemanagement.repository.MemberAffiliationRepository;
 import com.vehiclemanagement.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -120,6 +121,7 @@ public class MemberAffiliationService {
     private Optional<User> findUserByEmailAcrossTenants(String email) {
         return AuthDataSourceContext.callWithAuthLookup(() -> {
             TransactionTemplate tx = new TransactionTemplate(transactionManager);
+            tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             tx.setReadOnly(true);
             return tx.execute(status -> userRepository.findByEmailIgnoreCase(email));
         });
@@ -128,6 +130,7 @@ public class MemberAffiliationService {
     private MemberAffiliationDto toDto(MemberAffiliation row) {
         User user = AuthDataSourceContext.callWithAuthLookup(() -> {
             TransactionTemplate tx = new TransactionTemplate(transactionManager);
+            tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             tx.setReadOnly(true);
             return tx.execute(status -> userRepository.findById(row.getUserId()).orElse(null));
         });

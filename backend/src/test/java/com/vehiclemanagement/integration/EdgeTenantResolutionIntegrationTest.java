@@ -65,7 +65,7 @@ class EdgeTenantResolutionIntegrationTest extends AbstractPostgresIntegrationTes
         seedOtherTenant();
         jdbc.update("""
                 INSERT INTO users(id, username, email, password, role, status, tenant_id, created_at, updated_at)
-                VALUES (?, ?, ?, 'test-password', 'MEMBER', 'ACTIVE', ?, now(), now())
+                VALUES (?, ?, ?, 'test-password', 'TENANT_ADMIN', 'ACTIVE', ?, now(), now())
                 """, ownerId, "r9-owner-" + ownerId, "r9-" + ownerId + "@example.com", OTHER_TENANT);
         jdbc.update("""
                 INSERT INTO vehicles(id, owner_id, license_plate, vehicle_type, registration_date, status, tenant_id, created_at, updated_at)

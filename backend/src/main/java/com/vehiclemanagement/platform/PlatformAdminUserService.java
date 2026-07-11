@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -53,6 +54,74 @@ public class PlatformAdminUserService {
         Long count = jdbc.queryForObject(
                 "SELECT count(*) FROM users WHERE role = 'PLATFORM_ADMIN'", Long.class);
         return count == null ? 0 : count;
+    }
+
+    /**
+     * Dev seeder helper: insert PLATFORM_ADMIN with {@code tenant_id NULL}
+     * (must run on admin datasource — BYPASSRLS).
+     */
+    @PlatformAdminOperation
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public UUID insertPlatformAdmin(
+            String username,
+            String email,
+            String rawPassword,
+            String firstName,
+            String lastName) {
+        UUID id = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO users (
+                    id, username, email, password, first_name, last_name,
+                    role, status, tenant_id, password_version, created_at, updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?,
+                    'PLATFORM_ADMIN', 'ACTIVE', NULL, 0, NOW(), NOW()
+                )
+                """,
+                id,
+                username,
+                email,
+                passwordEncoder.encode(rawPassword),
+                blankToNull(firstName),
+                blankToNull(lastName));
+        return id;
+    }
+
+    /** Cross-RLS existence check for the demo seeder (admin datasource). */
+    @PlatformAdminOperation
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    public boolean existsByUsername(String username) {
+        Integer n = jdbc.queryForObject(
+                "SELECT count(*) FROM users WHERE lower(username) = lower(?)",
+                Integer.class,
+                username);
+        return n != null && n > 0;
+    }
+
+    /** Total user rows including platform-scoped accounts (admin datasource). */
+    @PlatformAdminOperation
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    public long countAllUsers() {
+        Long count = jdbc.queryForObject("SELECT count(*) FROM users", Long.class);
+        return count == null ? 0 : count;
+    }
+
+    /**
+     * Promote an existing demo ops user to PLATFORM_ADMIN with {@code tenant_id NULL}.
+     * Returns true when a row was updated.
+     */
+    @PlatformAdminOperation
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean promoteToPlatformAdmin(String username) {
+        int updated = jdbc.update("""
+                UPDATE users
+                SET role = 'PLATFORM_ADMIN',
+                    tenant_id = NULL,
+                    updated_at = NOW()
+                WHERE lower(username) = lower(?)
+                  AND role <> 'PLATFORM_ADMIN'
+                """, username);
+        return updated > 0;
     }
 
     @PlatformAdminOperation

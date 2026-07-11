@@ -55,6 +55,9 @@ public class UserService implements UserDetailsService {
     private MemberAffiliationRepository memberAffiliationRepository;
 
     @Autowired
+    private PlatformMemberUserService platformMemberUserService;
+
+    @Autowired
     private SiteRepository siteRepository;
 
     @Autowired
@@ -107,29 +110,67 @@ public class UserService implements UserDetailsService {
         if (request.getRole() == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot create PLATFORM_ADMIN via tenant user API");
         }
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (usernameExistsGlobally(request.getUsername())) {
             throw new IllegalArgumentException("Username already exists: " + request.getUsername());
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (emailExistsGlobally(request.getEmail())) {
             throw new IllegalArgumentException("Email already exists: " + request.getEmail());
         }
 
         entitlementGuard.assertUserCreationAllowed();
-        
+
+        User.Role role = request.getRole() != null ? request.getRole() : User.Role.MEMBER;
+        if (role == User.Role.MEMBER) {
+            UUID id = platformMemberUserService.insertPlatformMember(
+                    request.getUsername(),
+                    request.getEmail(),
+                    request.getPassword(),
+                    request.getFirstName(),
+                    request.getLastName(),
+                    request.getStatus() != null ? request.getStatus() : User.UserStatus.ACTIVE);
+            // Reload under current tenant RLS (affiliation not yet written — use auth lookup).
+            User savedUser = AuthDataSourceContext.callWithAuthLookup(() -> {
+                TransactionTemplate tx = new TransactionTemplate(transactionManager);
+                tx.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                tx.setReadOnly(true);
+                return tx.execute(status -> userRepository.findById(id)
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found after create")));
+            });
+            ensureMemberAffiliation(savedUser);
+            return toDto(savedUser);
+        }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .role(request.getRole())
+                .role(role)
                 .status(request.getStatus())
                 .build();
-        
+
         User savedUser = userRepository.saveAndFlush(user);
-        replaceSiteAssignments(savedUser, request.getRole(), request.getSiteIds());
-        ensureMemberAffiliation(savedUser);
+        replaceSiteAssignments(savedUser, role, request.getSiteIds());
         return toDto(savedUser);
+    }
+
+    private boolean usernameExistsGlobally(String username) {
+        return Boolean.TRUE.equals(AuthDataSourceContext.callWithAuthLookup(() -> {
+            TransactionTemplate tx = new TransactionTemplate(transactionManager);
+            tx.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            tx.setReadOnly(true);
+            return tx.execute(status -> userRepository.existsByUsername(username));
+        }));
+    }
+
+    private boolean emailExistsGlobally(String email) {
+        return Boolean.TRUE.equals(AuthDataSourceContext.callWithAuthLookup(() -> {
+            TransactionTemplate tx = new TransactionTemplate(transactionManager);
+            tx.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            tx.setReadOnly(true);
+            return tx.execute(status -> userRepository.existsByEmail(email));
+        }));
     }
     
     public UserDto updateUser(UUID id, UpdateUserRequest request) {
@@ -285,18 +326,15 @@ public class UserService implements UserDetailsService {
     }
 
     /**
-     * Ensure a MEMBER created/updated under the current tenant GUC has an ACTIVE affiliation.
-     * Phase B: {@code users.tenant_id} may still be stamped by DB default for list visibility;
-     * affiliation is the multi-org source of truth (ADR-0603).
+     * Ensure a MEMBER created under the current tenant GUC has an ACTIVE affiliation.
+     * Phase C: platform MEMBERs have {@code users.tenant_id NULL}; affiliation is required
+     * for tenant visibility and seat counting (ADR-0603).
      */
     void ensureMemberAffiliation(User user) {
         if (user.getRole() != User.Role.MEMBER || user.getId() == null) {
             return;
         }
         UUID tenantId = TenantContext.getTenantId();
-        if (tenantId == null) {
-            tenantId = user.getTenantId();
-        }
         if (tenantId == null) {
             return;
         }

@@ -17,25 +17,22 @@ edge/camera authentication. Tenant-context mechanics live in `04_Multi_Tenant_De
 - **Roles**: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `SITE_MANAGER`, `MEMBER` (DB CHECK +
   `User.Role` enum). Site membership in `user_site` for `SITE_MANAGER`.
 - **JWT**: jjwt, HS256; claims include `role`, `email`, `userId`, `tenant_id` (omitted for
-  `PLATFORM_ADMIN`), `site_ids` (non-empty for `SITE_MANAGER`), `password_version`.
+  `PLATFORM_ADMIN` and `MEMBER`), `site_ids` (non-empty for `SITE_MANAGER`),
+  `affiliation_tenant_ids[]` (MEMBER), `password_version`.
 - **Frontend auth**: JWT in `localStorage` (`auth_token`); route protection is client-side
   (`ProtectedLayout`). Platform console under `/platform/*` is gated to `PLATFORM_ADMIN`.
 - **Gate/edge auth**: `GateApiKeyAuthFilter` + `X-Gate-Key` (shared key; see ADR-0602 for
   per-camera target).
-- **MEMBER (legacy shape)**: still stored with a single `users.tenant_id` (pre–platform-consumer).
-- **MEMBER (Phase A)**: `member_affiliation` table + backfill from existing MEMBER tenants
-  (ADR-0603). JWT/affiliation-aware auth = Phase B.
-- **MEMBER (Phase B)**: JWT omits `tenant_id` for MEMBER; carries `affiliation_tenant_ids[]`.
-  `TenantContextFilter` allows MEMBER without tenant claim. Invite/link API
-  `POST /api/member-affiliations/invite`. Creating MEMBER still stamps DB `tenant_id` via GUC
-  for ops list visibility; affiliation is the multi-org source of truth. Nulling
-  `users.tenant_id` for MEMBER remains Phase C.
+- **MEMBER (Phase A–C, ADR-0603)**: platform consumer with `users.tenant_id NULL`;
+  `member_affiliation` + RLS so TA/SM see affiliated MEMBERs; JWT omits `tenant_id` and
+  carries `affiliation_tenant_ids[]`; invite/link `POST /api/member-affiliations/invite`;
+  create MEMBER via admin path (null tenant) + affiliation; MEMBER vehicle list is
+  owner+affiliation scoped (no default-tenant leak).
 - **Parking fee (bank transfer)**: `parking_session` / `parking_payment` / site bank account
   (V60); SePay webhook; ADR-0503. Not wired to gate ANPR yet.
 
 ### Target refinements (still open)
 
-- Platform `MEMBER` with `tenant_id` NULL (ADR-0603 Phase C).
 - Gate auto-open `ParkingSession` + QR print; site `accessMode`.
 - Per-camera keys (ADR-0602); optional OIDC later (ADR-0601).
 
@@ -46,7 +43,7 @@ edge/camera authentication. Tenant-context mechanics live in `04_Multi_Tenant_De
 | `PLATFORM_ADMIN` | Cross-tenant (`tenant_id` NULL) | SaaS operator: tenant lifecycle, platform billing overview, platform audit/support. **Not** day-to-day parking ops. |
 | `TENANT_ADMIN` | One tenant | Org settings, billing, sites CRUD, users (including assigning `SITE_MANAGER` + sites), invite/link MEMBER affiliations, full ops. |
 | `SITE_MANAGER` | 1+ sites via `user_site` / JWT `site_ids` | Ops within assigned branches: gates, cameras, zones, logs, vehicle approve. **No** org/billing/create-delete sites. May manage MEMBER vehicles/affiliations in assigned sites (product: closed orgs). |
-| `MEMBER` | **Platform consumer** (target: `tenant_id` NULL) | One account per person. Self-service across affiliations + claimed public sessions. **Not** an ops role. |
+| `MEMBER` | **Platform consumer** (`tenant_id` NULL) | One account per person. Self-service across affiliations + claimed public sessions. **Not** an ops role. |
 
 Legacy `SECURITY_GUARD` remains retired. `SITE_MANAGER` was reintroduced (V57) for multi-branch orgs.
 
@@ -75,7 +72,7 @@ affiliations. Vehicles remain **tenant-owned** rows.
 | `userId` | Subject user id |
 | `email` | Email |
 | `role` | One of `PLATFORM_ADMIN` / `TENANT_ADMIN` / `SITE_MANAGER` / `MEMBER` |
-| `tenant_id` | Ops: home tenant. **Omitted** for `PLATFORM_ADMIN` and for `MEMBER` (Phase B). |
+| `tenant_id` | Ops: home tenant. **Omitted** for `PLATFORM_ADMIN` and `MEMBER`. |
 | `site_ids[]` | Assigned sites for `SITE_MANAGER`; **empty** = tenant-wide (TENANT_ADMIN) |
 | `affiliation_tenant_ids[]` | Active MEMBER affiliations (Phase B) |
 | `password_version` | Invalidates sessions after password reset |

@@ -242,8 +242,7 @@ class PasswordResetIntegrationTest extends AbstractPostgresIntegrationTest {
         UUID seedUser(String email, String password) {
             return jdbc.queryForObject("""
                     INSERT INTO users(username, email, password, role, status, tenant_id, created_at, updated_at)
-                    VALUES (?, ?, ?, 'MEMBER', 'ACTIVE',
-                            '00000000-0000-0000-0000-000000000001', now(), now())
+                    VALUES (?, ?, ?, 'MEMBER', 'ACTIVE', NULL, now(), now())
                     RETURNING id
                     """, UUID.class, "reset-" + UUID.randomUUID(), email, password);
         }

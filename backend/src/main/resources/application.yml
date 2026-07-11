@@ -110,7 +110,8 @@ multitenancy:
   auth-db-role: ${MULTITENANCY_AUTH_DB_ROLE:app_auth}
 
 # Demo seeder (DataSeederService) — dev only. Set false in prod; the real
-# PLATFORM_ADMIN is seeded fail-closed by Flyway V42.
+# PLATFORM_ADMIN is seeded fail-closed by Flyway V42. Demo also seeds
+# admin@vehiclemanagement.com as PLATFORM_ADMIN (tenant_id NULL).
 app:
   seed-demo-users: ${APP_SEED_DEMO_USERS:true}
   admin-datasource:
