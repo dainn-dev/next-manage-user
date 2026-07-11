@@ -82,14 +82,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleForgotPassword = () => {
-    toast({
-      title: "Quên mật khẩu",
-      description:
-        "Tính năng đang được phát triển. Vui lòng liên hệ quản trị viên.",
-    })
-  }
-
   // Avoid flashing the form while the auth state is being resolved / redirecting.
   if (isLoading || isAuthenticated) {
     return (
@@ -262,13 +254,12 @@ export default function LoginPage() {
                   Ghi nhớ đăng nhập
                 </Label>
               </div>
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="text-sm font-medium text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              <Link
+                href="/forgot-password"
+                className="rounded-sm text-sm font-medium text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Quên mật khẩu?
-              </button>
+              </Link>
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>

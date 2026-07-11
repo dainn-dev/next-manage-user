@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -11,7 +12,6 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CheckCircle2,
   Eye,
   EyeOff,
   Factory,
@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { useToast } from "@/hooks/use-toast"
 import { RegistrationApiError, registrationApi } from "@/lib/api/registration-api"
+import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
 const MANAGEMENT_MODELS = [
@@ -114,10 +115,12 @@ const registerFieldsSchema = z.object({
   email: z
     .string()
     .trim()
-    .email("Vui lòng nhập email hợp lệ."),
+    .email("Vui lòng nhập email hợp lệ.")
+    .max(255, "Email không được vượt quá 255 ký tự."),
   password: z
     .string()
     .min(8, "Mật khẩu cần có ít nhất 8 ký tự.")
+    .max(100, "Mật khẩu không được vượt quá 100 ký tự.")
     .regex(/[A-Za-z]/, "Mật khẩu cần có ít nhất 1 chữ cái.")
     .regex(/\d/, "Mật khẩu cần có ít nhất 1 chữ số."),
   confirmPassword: z.string().min(1, "Vui lòng nhập lại mật khẩu."),
@@ -162,6 +165,8 @@ const STEP_FIELDS = [
 
 const SERVER_FIELD_MAP: Partial<Record<string, keyof RegisterFormValues>> = {
   organizationName: "organizationName",
+  managementModel: "managementModel",
+  areaCount: "areaCount",
   username: "username",
   email: "email",
   password: "password",
@@ -188,9 +193,10 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [attemptedSteps, setAttemptedSteps] = useState<Set<number>>(new Set())
-  const [isComplete, setIsComplete] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const stepTitleRef = useRef<HTMLHeadingElement>(null)
+  const router = useRouter()
+  const { adoptSession } = useAuth()
   const { toast } = useToast()
 
   const {
@@ -261,16 +267,19 @@ export default function RegisterPage() {
     try {
       const response = await registrationApi.register({
         organizationName: values.organizationName,
+        managementModel: values.managementModel,
+        areaCount: Number(values.areaCount),
         username: values.username,
         email: values.email,
         password: values.password,
       })
 
-      setIsComplete(true)
+      await adoptSession(response.token)
       toast({
         title: "Đăng ký thành công",
-        description: `Không gian ${response.tenantName} đã được tạo. Hãy đăng nhập để bắt đầu sử dụng.`,
+        description: `Không gian ${response.tenantName} đã được tạo.`,
       })
+      router.replace("/")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Không thể hoàn tất đăng ký"
       setFormError(message)
@@ -290,50 +299,6 @@ export default function RegisterPage() {
         variant: "destructive",
       })
     }
-  }
-
-  if (isComplete) {
-    return (
-      <div className="grid min-h-dvh bg-background lg:grid-cols-2">
-        <BrandPanel />
-        <main className="flex items-center justify-center px-4 py-10 sm:px-6">
-          <section
-            aria-labelledby="register-complete-title"
-            className="w-full max-w-lg rounded-2xl border border-border bg-card/90 p-6 shadow-xl shadow-primary/10 backdrop-blur-xl sm:p-8"
-          >
-            <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <CheckCircle2 className="size-7" aria-hidden="true" />
-            </span>
-            <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-primary">
-              Hoàn tất thông tin
-            </p>
-            <h1 id="register-complete-title" className="mt-2 text-3xl font-bold tracking-tight">
-              Sẵn sàng để thiết lập không gian quản lý của bạn
-            </h1>
-            <p className="mt-3 leading-relaxed text-muted-foreground">
-              Không gian quản lý và tài khoản quản trị của bạn đã được tạo. Đăng nhập để
-              bắt đầu thiết lập và vận hành hệ thống.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button asChild className="h-11 flex-1">
-                <Link href="/login">Về trang đăng nhập</Link>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 flex-1"
-                onClick={() => {
-                  setIsComplete(false)
-                  setCurrentStep(STEPS.length - 1)
-                }}
-              >
-                Chỉnh sửa thông tin
-              </Button>
-            </div>
-          </section>
-        </main>
-      </div>
-    )
   }
 
   return (

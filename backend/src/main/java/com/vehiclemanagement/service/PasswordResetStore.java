@@ -40,8 +40,9 @@ public class PasswordResetStore {
                 SELECT id, email
                 FROM users
                 WHERE lower(email) = ?
+                  AND status = 'ACTIVE'
                 ORDER BY id
-                LIMIT 1
+                LIMIT 2
                 """, (rs, rowNum) -> new UserTarget(
                 rs.getObject("id", UUID.class), rs.getString("email")), normalizedEmail);
 
@@ -50,7 +51,7 @@ public class PasswordResetStore {
         boolean ipAllowed = consumeRateLimit(
                 "ip", ipFingerprint, now, rateWindowCutoff, ipLimit);
 
-        if (!emailAllowed || !ipAllowed || users.isEmpty()) {
+        if (!emailAllowed || !ipAllowed || users.size() != 1) {
             return Optional.empty();
         }
 

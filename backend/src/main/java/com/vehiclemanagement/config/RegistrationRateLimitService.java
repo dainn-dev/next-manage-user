@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -18,6 +19,7 @@ public class RegistrationRateLimitService {
     private final Counter allowedCounter;
     private final Counter rejectedCounter;
 
+    @Autowired
     public RegistrationRateLimitService(
             RegistrationRateLimitProperties properties,
             MeterRegistry meterRegistry) {

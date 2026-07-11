@@ -13,7 +13,7 @@ public class PasswordResetProperties {
     private Duration rateLimitWindow = Duration.ofHours(1);
     private int emailLimit = 3;
     private int ipLimit = 10;
-    private String fingerprintSecret = "change-me-password-reset-fingerprint-secret";
+    private String fingerprintSecret = "";
     private String resetUrl = "http://localhost:3000/reset-password";
 
     public Duration getTokenTtl() {

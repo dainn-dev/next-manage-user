@@ -68,12 +68,22 @@ jwt:
   secret: ${JWT_SECRET:lfgQaDjV1GAEBYNNui7Yzk9RgHupcql2VZ0Prrg8NKj}
   expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
 
+registration:
+  rate-limit:
+    enabled: ${REGISTRATION_RATE_LIMIT_ENABLED:true}
+    capacity: ${REGISTRATION_RATE_LIMIT_CAPACITY:5}
+    refill-period: ${REGISTRATION_RATE_LIMIT_REFILL_PERIOD:15m}
+    bucket-expiry: ${REGISTRATION_RATE_LIMIT_BUCKET_EXPIRY:1h}
+    maximum-tracked-ips: ${REGISTRATION_RATE_LIMIT_MAXIMUM_TRACKED_IPS:10000}
+    trust-forwarded-headers: ${REGISTRATION_RATE_LIMIT_TRUST_FORWARDED_HEADERS:false}
+    trusted-proxies: ${REGISTRATION_RATE_LIMIT_TRUSTED_PROXIES:}
+
 password-reset:
   token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
   rate-limit-window: ${PASSWORD_RESET_RATE_LIMIT_WINDOW:1h}
   email-limit: ${PASSWORD_RESET_EMAIL_LIMIT:3}
   ip-limit: ${PASSWORD_RESET_IP_LIMIT:10}
-  fingerprint-secret: ${PASSWORD_RESET_FINGERPRINT_SECRET:change-me-password-reset-fingerprint-secret}
+  fingerprint-secret: ${PASSWORD_RESET_FINGERPRINT_SECRET:}
   reset-url: ${PASSWORD_RESET_URL:http://localhost:3000/reset-password}
 
 email:
@@ -82,9 +92,8 @@ email:
     from: ${RESEND_FROM:}
     endpoint: ${RESEND_ENDPOINT:https://api.resend.com/emails}
 
-# Password recovery requires a production secret; the local default keeps the
-# development profile bootable and must be replaced in deployed environments.
-# No password-reset value is written to logs.
+# Password recovery requires PASSWORD_RESET_FINGERPRINT_SECRET (32+ characters).
+# No password-reset secret, token, password, or email address is written to logs.
 
 # Multi-tenant foundation (DAI-261).
 

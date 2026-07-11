@@ -38,5 +38,7 @@ CREATE TABLE password_reset_rate_limits (
 -- The pre-tenant app_auth role is intentionally not granted access to either
 -- reset table and cannot update users. Password recovery uses app_admin_login,
 -- selected only by @PlatformAdminOperation.
+REVOKE ALL ON password_reset_tokens FROM PUBLIC, app_rls, app_auth;
+REVOKE ALL ON password_reset_rate_limits FROM PUBLIC, app_rls, app_auth;
 GRANT SELECT, INSERT, UPDATE, DELETE ON password_reset_tokens TO app_admin;
 GRANT SELECT, INSERT, UPDATE, DELETE ON password_reset_rate_limits TO app_admin;

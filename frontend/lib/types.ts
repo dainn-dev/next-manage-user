@@ -217,6 +217,10 @@ export interface LoginResponse {
   user: User
 }
 
+export interface PasswordResetResponse {
+  message: string
+}
+
 export interface User {
   id: string
   username: string
