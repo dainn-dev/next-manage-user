@@ -57,13 +57,18 @@ public class JwtUtil {
     }
     
     public String generateToken(UserDetails userDetails) {
-        Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, userDetails.getUsername());
+        return createToken(withPasswordVersion(new HashMap<>(), userDetails), userDetails.getUsername());
     }
-    
+
     public String generateToken(UserDetails userDetails, Map<String, Object> extraClaims) {
-        Map<String, Object> claims = new HashMap<>(extraClaims);
-        return createToken(claims, userDetails.getUsername());
+        return createToken(withPasswordVersion(new HashMap<>(extraClaims), userDetails), userDetails.getUsername());
+    }
+
+    private Map<String, Object> withPasswordVersion(Map<String, Object> claims, UserDetails userDetails) {
+        if (userDetails instanceof com.vehiclemanagement.entity.User user) {
+            claims.put("password_version", user.getPasswordVersion());
+        }
+        return claims;
     }
     
     private String createToken(Map<String, Object> claims, String subject) {
@@ -81,7 +86,14 @@ public class JwtUtil {
     
     public Boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        if (!username.equals(userDetails.getUsername()) || isTokenExpired(token)) {
+            return false;
+        }
+        if (userDetails instanceof com.vehiclemanagement.entity.User user) {
+            Integer tokenPasswordVersion = extractPasswordVersion(token);
+            return tokenPasswordVersion != null && tokenPasswordVersion == user.getPasswordVersion();
+        }
+        return false;
     }
     
     public Boolean validateToken(String token) {
@@ -102,6 +114,10 @@ public class JwtUtil {
     
     public String extractEmail(String token) {
         return extractClaim(token, claims -> claims.get("email", String.class));
+    }
+
+    public Integer extractPasswordVersion(String token) {
+        return extractClaim(token, claims -> claims.get("password_version", Integer.class));
     }
 
     /**

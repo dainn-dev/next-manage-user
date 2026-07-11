@@ -81,3 +81,17 @@ app:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
+
+password-reset:
+  token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
+  rate-limit-window: ${PASSWORD_RESET_RATE_LIMIT_WINDOW:1h}
+  email-limit: ${PASSWORD_RESET_EMAIL_LIMIT:3}
+  ip-limit: ${PASSWORD_RESET_IP_LIMIT:10}
+  fingerprint-secret: ${PASSWORD_RESET_FINGERPRINT_SECRET}
+  reset-url: ${PASSWORD_RESET_URL}
+
+email:
+  resend:
+    api-key: ${RESEND_API_KEY:}
+    from: ${RESEND_FROM:}
+    endpoint: ${RESEND_ENDPOINT:https://api.resend.com/emails}
