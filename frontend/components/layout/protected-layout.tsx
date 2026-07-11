@@ -6,7 +6,7 @@ import { Sidebar } from "./sidebar"
 import { Topbar } from "./topbar"
 import { useAuth } from "@/lib/auth-context"
 import { ErrorBoundary } from "@/components/error-boundary"
-import { isPlatformAdmin } from "@/lib/types"
+import { isPlatformAdmin, isMember } from "@/lib/types"
 
 /** Routes that render without auth or app chrome (sidebar/topbar). */
 const PUBLIC_PATHS = new Set(["/", "/login", "/register", "/forgot-password", "/reset-password"])
@@ -15,6 +15,7 @@ const PUBLIC_PATHS = new Set(["/", "/login", "/register", "/forgot-password", "/
 function isTenantOpsPath(pathname: string | null): boolean {
   if (!pathname) return false
   if (pathname.startsWith("/platform")) return false
+  if (pathname.startsWith("/me")) return false
   const tenantRoots = [
     "/dashboard",
     "/vehicles",
@@ -24,6 +25,9 @@ function isTenantOpsPath(pathname: string | null): boolean {
     "/statistics",
     "/users",
     "/employees",
+    "/sites",
+    "/billing",
+    "/settings",
   ]
   return tenantRoots.some((root) => pathname === root || pathname.startsWith(`${root}/`))
 }
@@ -42,6 +46,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const pathname = usePathname()
   const publicRoute = isPublicPath(pathname)
   const platformUser = isPlatformAdmin(user?.role)
+  const memberUser = isMember(user?.role)
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !publicRoute) {
@@ -53,8 +58,13 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     // PLATFORM_ADMIN stays in /platform/*; bounce away from tenant ops chrome.
     if (platformUser && isTenantOpsPath(pathname)) {
       router.replace("/platform/overview")
+      return
     }
-  }, [isAuthenticated, isLoading, publicRoute, router, platformUser, pathname])
+    // MEMBER uses /me/* consumer shell only.
+    if (memberUser && isTenantOpsPath(pathname)) {
+      router.replace("/me")
+    }
+  }, [isAuthenticated, isLoading, publicRoute, router, platformUser, memberUser, pathname])
 
   // Public marketing / auth pages skip the loading gate so the landing paints immediately.
   if (publicRoute) {

@@ -29,9 +29,9 @@ belong to two orgs or visit a third tenant as themselves without duplicate accou
 2. **Introduce `member_affiliation(user_id, tenant_id, …)`** — N affiliations per MEMBER.
    TA/SM may invite, link, unlink, and manage vehicles only within their tenant’s
    affiliations. RLS on `member_affiliation` is tenant-scoped like `user_site`.
-3. **Vehicles stay tenant-owned.** `vehicles.owner_user_id` points at the platform MEMBER.
-   “My garage” for a MEMBER = union of vehicles across affiliation tenants (+ claimed
-   public sessions — separate epic).
+3. **Vehicles (superseded for closed multi-org by ADR-0604):** originally tenant-owned rows
+   with `owner` → platform MEMBER. **ADR-0604** replaces this with a **platform vehicle**
+   (one plate) + **tenant registration** for closed orgs; open retail remains visit-only.
 4. **JWT for MEMBER:** omit `tenant_id` (or null); carry `affiliation_tenant_ids[]` (active
    affiliations) for client convenience. Request tenant context for tenant-scoped APIs is
    taken from the **resource** (vehicle/session/site) or an explicit affiliation check — not
@@ -46,6 +46,7 @@ belong to two orgs or visit a third tenant as themselves without duplicate accou
      `(role = 'MEMBER' AND tenant_id IS NULL) OR (role IN (…) AND tenant_id IS NOT NULL) OR
       (role = 'PLATFORM_ADMIN' AND tenant_id IS NULL)`; users RLS includes affiliated MEMBERs;
      MEMBER vehicle garage is owner + affiliation scoped (admin query).
+   - Phase D (ADR-0604): platform vehicle + tenant registration; MEMBER web MVP.
 
 ## Alternatives considered
 
@@ -53,8 +54,9 @@ belong to two orgs or visit a third tenant as themselves without duplicate accou
   and supermarket.
 - **Separate `GUEST` role** — rejected for v1; anonymous = `ParkingSession` only; after claim
   the actor is `MEMBER`.
-- **Global vehicle row (one plate platform-wide)** — rejected: whitelist and billing remain
-  tenant-specific; same plate may exist in two tenants under one owner.
+- **Global vehicle row (one plate platform-wide)** — **reopened and accepted in ADR-0604**
+  (with tenant registration for whitelist). Originally rejected here; product now requires
+  one plate across many closed tenants.
 
 ## Consequences
 

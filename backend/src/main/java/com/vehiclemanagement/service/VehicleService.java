@@ -5,6 +5,7 @@ import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.dto.VehicleLogDto;
+import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
@@ -82,6 +83,9 @@ public class VehicleService {
     @Autowired
     @org.springframework.context.annotation.Lazy
     private UserService userService;
+
+    @Autowired
+    private TenantVehicleRegistrationService tenantVehicleRegistrationService;
 
     /**
      * Window used to suppress duplicate gate-originated access requests for the same
@@ -248,6 +252,8 @@ public class VehicleService {
         vehicle.setCurrentSiteId(vehicleDto.getCurrentSiteId());
         
         Vehicle savedVehicle = vehicleRepository.save(vehicle);
+        tenantVehicleRegistrationService.ensureRegistrationForVehicle(
+                savedVehicle.getId(), savedVehicle.getCurrentSiteId());
         return new VehicleCreateResponse(
             new VehicleDto(savedVehicle), 
             false, 
@@ -310,7 +316,8 @@ public class VehicleService {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
         assertVehicleVisible(vehicle);
-        vehicleRepository.delete(vehicle);
+        // ADR-0604: tenant removes plate from management; platform master stays.
+        tenantVehicleRegistrationService.revoke(id);
     }
     
     public boolean existsByLicensePlate(String licensePlate) {
@@ -515,7 +522,7 @@ public class VehicleService {
             Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber)
                     .orElse(null);
             if (vehicle == null) {
-                String notFoundMessage = "Xe vá»›i biá»ƒn sá»‘ " + licensePlateNumber + " chÆ°a Ä‘Æ°á»£c Ä‘Äƒng kÃ½ trong há»‡ thá»‘ng";
+                String notFoundMessage = "Xe với biển số " + licensePlateNumber + " chưa được đăng ký trong hệ thống";
 
                 // Phase 4.4: an unregistered / unapproved plate is no longer a silent
                 // denial at the gate. Capture evidence (best-effort), raise a PENDING
@@ -550,6 +557,34 @@ public class VehicleService {
                     type,
                     snapshotPath
                 );
+                pendingResponse.setResult(VehicleCheckResponse.CheckResult.PENDING);
+                return pendingResponse;
+            }
+
+            // ADR-0604: closed whitelist is tenant_vehicle_registration, not mere vehicle visibility.
+            UUID checkTenant = TenantContext.getTenantId();
+            if (checkTenant != null
+                    && !tenantVehicleRegistrationService.isActivelyRegistered(vehicle.getId(), checkTenant)) {
+                String notReg = "Xe biển số " + licensePlateNumber
+                        + " chưa được đăng ký quản lý tại cơ sở này - chờ phê duyệt";
+                String snapshotPath = null;
+                try {
+                    snapshotPath = snapshotStorageService.store(snapshot, licensePlateNumber);
+                    accessRequestService.recordGateDetection(
+                            licensePlateNumber, gate, snapshotPath,
+                            Duration.ofSeconds(accessRequestDedupWindowSeconds));
+                } catch (Exception reqException) {
+                    System.err.println("Failed to record gate access request: " + reqException.getMessage());
+                }
+                try {
+                    webSocketService.sendVehicleCheckMessage(
+                            licensePlateNumber, type, notReg, gateId(gate), "pending");
+                } catch (Exception wsException) {
+                    System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
+                }
+                recordCheck(gate, "pending");
+                VehicleCheckResponse pendingResponse = new VehicleCheckResponse(
+                        false, notReg, licensePlateNumber, type, snapshotPath);
                 pendingResponse.setResult(VehicleCheckResponse.CheckResult.PENDING);
                 return pendingResponse;
             }

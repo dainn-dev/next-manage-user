@@ -72,6 +72,10 @@ class EdgeTenantResolutionIntegrationTest extends AbstractPostgresIntegrationTes
                 VALUES (?, ?, ?, 'car', ?, 'approved', ?, now(), now())
                 """, vehicleId, ownerId, plate, LocalDate.now(), OTHER_TENANT);
         jdbc.update("""
+                INSERT INTO tenant_vehicle_registration(vehicle_id, tenant_id, status, created_at, updated_at)
+                VALUES (?, ?, 'ACTIVE', now(), now())
+                """, vehicleId, OTHER_TENANT);
+        jdbc.update("""
                 INSERT INTO gate(id, name, location, status, tenant_id, site_id, created_at, updated_at)
                 VALUES (?, ?, 'R9 Site', 'online', ?, ?, now(), now())
                 """, gateId, "R9 Gate " + gateId, OTHER_TENANT, OTHER_SITE);

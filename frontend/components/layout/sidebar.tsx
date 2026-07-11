@@ -23,12 +23,13 @@ import {
   ScrollText,
   MapPinned,
   Settings,
+  ScanLine,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
-import { UserRole, isPlatformAdmin } from "@/lib/types"
+import { UserRole, isPlatformAdmin, isMember } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 interface NavigationItem {
@@ -49,6 +50,19 @@ interface NavigationGroup {
 /** Tenant ops IA — hidden from PLATFORM_ADMIN (SaaS operator console). */
 const OPS = [UserRole.ADMIN, UserRole.SITE_MANAGER]
 const TENANT_ADMIN_ONLY = [UserRole.ADMIN]
+const MEMBER_ONLY = [UserRole.USER]
+
+const memberNavigationGroups: NavigationGroup[] = [
+  {
+    items: [
+      { key: "/me", label: "Xe của tôi", icon: Car, roles: MEMBER_ONLY },
+      { key: "/me/orgs", label: "Đăng ký tại org", icon: Building2, roles: MEMBER_ONLY },
+      { key: "/me/visit", label: "Visit / QR", icon: ScanLine, roles: MEMBER_ONLY },
+      { key: "/me/history", label: "Lịch sử", icon: ArrowLeftRight, roles: MEMBER_ONLY },
+      { key: "/me/account", label: "Tài khoản", icon: UserCog, roles: MEMBER_ONLY },
+    ],
+  },
+]
 
 const tenantNavigationGroups: NavigationGroup[] = [
   {
@@ -102,8 +116,8 @@ const tenantNavigationGroups: NavigationGroup[] = [
   {
     label: "Phương tiện",
     items: [
-      { key: "/vehicles", label: "Danh sách xe", icon: Car },
-      { key: "/vehicles/requests", label: "Yêu cầu ra/vào", icon: FileCheck },
+      { key: "/vehicles", label: "Danh sách xe", icon: Car, roles: OPS },
+      { key: "/vehicles/requests", label: "Yêu cầu ra/vào", icon: FileCheck, roles: OPS },
     ],
   },
   {
@@ -201,7 +215,9 @@ export function Sidebar() {
 
   const navigationGroups = isPlatformAdmin(user?.role)
     ? platformNavigationGroups
-    : tenantNavigationGroups
+    : isMember(user?.role)
+      ? memberNavigationGroups
+      : tenantNavigationGroups
 
   // Filter items by role; drop empty groups.
   const filteredGroups = navigationGroups

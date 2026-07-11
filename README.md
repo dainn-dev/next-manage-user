@@ -30,8 +30,30 @@ cp sample.env .env            # then set JWT_SECRET (required) and any GATE_API_
 docker compose up --build     # postgres :5432, backend :8080, frontend :3000
 ```
 
-Open http://localhost:3000. See `UPDATED_CREDENTIALS.md` for the role model and how the
-default accounts are seeded (no passwords are committed to this repo).
+Open http://localhost:3000. Sample login accounts for local testing are below; role details
+live in [`docs/UPDATED_CREDENTIALS.md`](docs/UPDATED_CREDENTIALS.md) and [`docs/06_User_RBAC`](docs/06_User_RBAC/README.md).
+
+### Sample accounts (local / testing)
+
+Seeded only when the DB is empty and `app.seed-demo-users=true` (default in local
+`DataSeederService`). **Dev/test only — do not use in production.**
+
+| Username | Password | Role | Notes |
+|----------|----------|------|-------|
+| `admin` | `SecurePass123!` | `PLATFORM_ADMIN` | Platform console (`/platform/*`). `tenant_id` NULL. Email: `admin@vehiclemanagement.com` |
+| `user` | `UserPass123!` | `MEMBER` | Platform consumer. `tenant_id` NULL; affiliated to the DEFAULT tenant. Email: `user@vehiclemanagement.com` |
+
+Not auto-seeded (create as needed for multi-role testing):
+
+| How | Role | Typical password in e2e |
+|-----|------|-------------------------|
+| `POST /api/auth/register` (public org signup) | `TENANT_ADMIN` | `SecurePass123!` |
+| TA creates user with role `SITE_MANAGER` + `siteIds` | `SITE_MANAGER` | `SecurePass123!` |
+| TA `POST /api/member-affiliations/invite` | `MEMBER` (+ affiliation) | chosen at invite |
+
+Optional Flyway bootstrap (only if both env vars are set): username `platform_admin` via
+`PLATFORM_ADMIN_EMAIL` + `PLATFORM_ADMIN_PASSWORD_HASH` (V42). Gate/edge calls use
+`GATE_API_KEY` as header `X-Gate-Key` (open if unset in local dev).
 
 ### Frontend only (local dev)
 
@@ -69,7 +91,8 @@ python run_edge.py
 
 - `docs/DOCKER_DEPLOYMENT.md` — container build & deployment.
 - `docs/ENVIRONMENT_SETUP.md` — environment variables and local setup.
-- `docs/UPDATED_CREDENTIALS.md` — role model and default-account handling.
+- `docs/UPDATED_CREDENTIALS.md` — roles + sample testing accounts.
+- `docs/06_User_RBAC/README.md` — RBAC matrix, MEMBER affiliation, JWT claims.
 
 ## Deployment helpers (`deploy/`)
 

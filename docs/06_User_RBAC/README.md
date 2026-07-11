@@ -33,7 +33,11 @@ edge/camera authentication. Tenant-context mechanics live in `04_Multi_Tenant_De
 
 ### Target refinements (still open)
 
-- Gate auto-open `ParkingSession` + QR print; site `accessMode`.
+- **ADR-0604 Phase D:** `tenant_vehicle_registration` (V62); register-by-plate API; gate checks
+  ACTIVE registration; vehicle DELETE revokes registration only. Nullable `vehicles.tenant_id`
+  still transitional.
+- MEMBER web shell — **shipped** `/me/*` + `/api/member/*` (garage, orgs, QR claim, history).
+- Gate auto-open `ParkingSession` + QR print; lot camera → slot on session; site `accessMode`.
 - Per-camera keys (ADR-0602); optional OIDC later (ADR-0601).
 
 ## 3. Role Model
@@ -49,21 +53,32 @@ Legacy `SECURITY_GUARD` remains retired. `SITE_MANAGER` was reintroduced (V57) f
 
 ### 3.1 MEMBER: public vs non-public
 
-| | Non-public (closed) | Public (open) |
-|--|---------------------|---------------|
+| | Non-public (closed) | Public (open / retail) |
+|--|---------------------|-------------------------|
 | Examples | `school`, `boarding-house` | `retail`, `airport` |
 | Identity | Every managed person **has** a MEMBER account | Login optional to enter/exit; required for find-my-car / QR claim |
-| Org control | TA/SM invite/link **affiliation** + bulk vehicles (`owner_user_id`) | No affiliation required to park; claim binds session to MEMBER |
-| Multi-org | One MEMBER ↔ N affiliations (e.g. school + dorm) | Same account claims sessions at any ParkVision retail tenant |
+| Org control | TA/SM **register plate into tenant management** (ADR-0604); may auto-affiliate existing MEMBER. **No** platform vehicle CRUD by tenant | **Visit only** — no tenant plate registration |
+| Multi-org | One plate → many closed registrations (dorm + school) | Same MEMBER claims sessions at any ParkVision retail tenant |
+| Find my car | Registered vehicles / entry logs | Gate prints QR → MEMBER web scans → claim; lot camera assigns slot by plate |
 
 Site policy should use `accessMode` (`closed` | `open` | `mixed`) — schools are often `mixed`
 (students closed, visitors open). `managementModel` remains industry label only until flags ship.
 
-### 3.2 Affiliation
+### 3.2 Affiliation + vehicle registration
 
-`member_affiliation(user_id, tenant_id, status)` — tenant-scoped RLS. TA/SM see and manage only
-affiliations (and vehicles) in **their** tenant. A MEMBER’s “my vehicles” = union across active
-affiliations. Vehicles remain **tenant-owned** rows.
+`member_affiliation(user_id, tenant_id, status)` — who the org manages.
+
+**Target (ADR-0604):** platform `vehicle` (unique plate, optional MEMBER owner) +
+`tenant_vehicle_registration` for closed whitelist. MEMBER garage = owned platform vehicles;
+“registered at orgs” = registrations; retail history = claimed `ParkingSession`s.
+
+**Transitional (today):** tenant-scoped `vehicles` rows + owner/affiliation scoping until
+Phase D migration.
+
+### 3.3 MEMBER web MVP (locked)
+
+Minimal web (not mobile-first): **Xe · Đăng ký tại org · Visit/QR · Lịch sử · Tài khoản**.
+No ops chrome. Retail find-car: QR at gate + claim + camera→slot on open session.
 
 ## 4. JWT Claim Evolution
 
@@ -90,8 +105,9 @@ tenant affiliation · `—` = denied.
 | Site | create/edit/delete | — | ✓ | — | — |
 | Site | list/view assigned | — | ✓ (all) | Site | — |
 | Camera/Gate/Zone | CRUD | — | ✓ | Site | — |
-| Vehicle | view / approve (`current_site_id`) | — | ✓ | Site* | Own (Aff) |
-| Vehicle | bulk register / assign owner | — | ✓ | Site* | — |
+| Vehicle | view / approve (`current_site_id`) | — | ✓ | Site* | Own |
+| Vehicle registration (closed) | add plate / revoke from tenant management | — | ✓ | Site* | — |
+| Vehicle | platform master CRUD | — | via register† | via register† | config own (target) |
 | VehicleAccessRequest | approve/reject | — | ✓ | ✓ | — |
 | VehicleAccessRequest | create | — | ✓ | ✓ | Own |
 | Vehicle logs | view/export | — | ✓ | Site | Own (target) |
@@ -104,6 +120,8 @@ tenant affiliation · `—` = denied.
 | Audit log | platform / tenant | ✓ / — | — / ✓ | — | — |
 
 \* SITE_MANAGER vehicle scope: `current_site_id IN site_ids`; NULL = TENANT_ADMIN-only until stamped.
+† ADR-0604: ops **register plate** into `tenant_vehicle_registration` (link existing platform
+  vehicle or create master + registration); revoke registration does not delete the platform row.
 
 ## 6. Site vs Gate, and registration intent
 
@@ -145,18 +163,32 @@ consumer federation is required.
 - [`adr/ADR-0601-custom-jwt-now-oidc-later.md`](adr/ADR-0601-custom-jwt-now-oidc-later.md)
 - [`adr/ADR-0602-edge-camera-credential-model.md`](adr/ADR-0602-edge-camera-credential-model.md)
 - [`adr/ADR-0603-platform-member-and-affiliation.md`](adr/ADR-0603-platform-member-and-affiliation.md)
+- [`adr/ADR-0604-platform-vehicle-and-tenant-registration.md`](adr/ADR-0604-platform-vehicle-and-tenant-registration.md)
 - Parking fees (bank transfer): [`../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md`](../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md)
 
-## 12. Open Questions / Risks
+## 12. Sample accounts (local testing)
+
+See the root [`README.md`](../../README.md#sample-accounts-local--testing) and
+[`UPDATED_CREDENTIALS.md`](../UPDATED_CREDENTIALS.md). Quick reference:
+
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `SecurePass123!` | `PLATFORM_ADMIN` |
+| `user` | `UserPass123!` | `MEMBER` |
+
+`TENANT_ADMIN` / `SITE_MANAGER` are not seeded — create via public register and TA user APIs
+(e2e password convention: `SecurePass123!`).
+
+## 13. Open Questions / Risks
 
 - Frontend JWT remains in `localStorage` (XSS-exposed).
 - SITE_MANAGER with multiple sites: API returns union of assigned sites; topbar switcher is a
   client-side UX filter only.
 - Audited impersonation for support is desired but not implemented.
-- Phase B MEMBER JWT + RLS must not allow cross-tenant reads outside affiliations / claimed sessions.
+- MEMBER JWT + RLS must not allow cross-tenant reads outside affiliations / claimed sessions.
 - Parking fee billing is separate from SaaS Stripe entitlements (`05_Subscription_Billing`).
 
-## 13. Cross-References
+## 14. Cross-References
 
 - `04_Multi_Tenant_Design` — tenant claim propagation / RLS
 - `03_SaaS_Architecture` — `iam` module placement

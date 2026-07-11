@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
-import { canViewDashboard, isPlatformAdmin, type UserRole } from "@/lib/types"
+import { canViewDashboard, isMember, isPlatformAdmin, type UserRole } from "@/lib/types"
 import {
   Eye,
   EyeOff,
@@ -27,8 +27,9 @@ import {
 
 function homeForRole(role?: UserRole): string {
   if (isPlatformAdmin(role)) return "/platform/overview"
+  if (isMember(role)) return "/me"
   if (canViewDashboard(role)) return "/dashboard"
-  return "/vehicles"
+  return "/me"
 }
 
 const loginSchema = z.object({

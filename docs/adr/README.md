@@ -22,6 +22,8 @@ All ADRs are **Proposed** (dated 2026-07-09) pending review. 48 ADRs across 22 d
 | [ADR-0502](../05_Subscription_Billing/adr/ADR-0502-usage-metering-event-stream.md) | Usage metering via event stream vs periodic aggregation | 05_Subscription_Billing |
 | [ADR-0601](../06_User_RBAC/adr/ADR-0601-custom-jwt-now-oidc-later.md) | Keep custom JWT now, optional OIDC/Keycloak later | 06_User_RBAC |
 | [ADR-0602](../06_User_RBAC/adr/ADR-0602-edge-camera-credential-model.md) | Edge/camera credential model — per-camera key with rotation | 06_User_RBAC |
+| [ADR-0603](../06_User_RBAC/adr/ADR-0603-platform-member-and-affiliation.md) | Platform MEMBER consumer + multi-org affiliation | 06_User_RBAC |
+| [ADR-0604](../06_User_RBAC/adr/ADR-0604-platform-vehicle-and-tenant-registration.md) | Platform vehicle + tenant registration; retail visit-only + QR find-car | 06_User_RBAC |
 | [ADR-0701](../07_Camera_Management/adr/ADR-0701-live-view-transport.md) | Live-view transport (WebRTC vs HLS vs MJPEG) | 07_Camera_Management |
 | [ADR-0702](../07_Camera_Management/adr/ADR-0702-edge-camera-worker-model.md) | One-process-per-camera vs multi-stream worker pool | 07_Camera_Management |
 | [ADR-0801](../08_Parking_Map_Designer/adr/ADR-0801-polygon-storage.md) | Polygon storage as PostGIS geometry vs JSON | 08_Parking_Map_Designer |

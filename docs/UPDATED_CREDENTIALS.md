@@ -1,37 +1,61 @@
-# User Roles & Default Accounts
+# User Roles & Sample Accounts (local testing)
 
-The system uses a three-role model: **`PLATFORM_ADMIN`**, **`TENANT_ADMIN`**, and **`MEMBER`**.
+ParkVision uses four product roles: **`PLATFORM_ADMIN`**, **`TENANT_ADMIN`**,
+**`SITE_MANAGER`**, and **`MEMBER`**. See [`06_User_RBAC`](./06_User_RBAC/README.md) for the
+permission matrix and JWT claims.
 
-## Roles
+## Roles (summary)
 
-- **`MEMBER`** — vehicle owner / end-user with self-service access (own vehicles, requests, dashboard basics).
-- **`TENANT_ADMIN`** — full control within one tenant (users, vehicles, sites, gates, approvals, billing portal). Legacy SITE_MANAGER / SECURITY_GUARD / APPROVER / SECURITY_OFFICER / tenant ADMIN duties fold here.
-- **`PLATFORM_ADMIN`** — SaaS operator (tenant lifecycle, platform billing overview). Not day-to-day parking ops.
+| Role | Scope | Typical use |
+|------|--------|-------------|
+| `PLATFORM_ADMIN` | Cross-tenant (`tenant_id` NULL) | SaaS operator: tenants, platform billing/audit. Not day-to-day parking ops. |
+| `TENANT_ADMIN` | One tenant | Org settings, billing, sites, users, invite MEMBERs, full ops. |
+| `SITE_MANAGER` | Assigned sites (`user_site` / JWT `site_ids`) | Branch ops: gates, cameras, vehicles, logs. No org/billing/site CRUD. |
+| `MEMBER` | Platform consumer (`tenant_id` NULL) | One account per person; affiliations + claimed parking sessions. |
 
-## Default accounts
+## Sample accounts (local / testing)
 
-On a fresh database the backend seeds accounts (e.g. platform/tenant admin and a member). **Their passwords are NOT stored in this repository.**
+These credentials are for **local development and e2e only**. Disable the demo seeder in
+prod (`APP_SEED_DEMO_USERS=false` / `app.seed-demo-users=false`).
 
-- Set the initial passwords via environment variables at first boot — see `sample.env` / `backend/.env.example` (`ADMIN_DEFAULT_PASSWORD`, `USER_DEFAULT_PASSWORD` or the equivalent keys your deployment uses).
-- If no override is provided, the seeded accounts are created in a **must-change-password** state; log in once and set a real password before exposing the app.
-- **Never commit real credentials.** Rotate any password that has ever been shared in plaintext.
+### Auto-seeded (`DataSeederService`)
 
-> Security note: this file previously listed hard-coded default passwords. They were removed. If those defaults were ever deployed, rotate them immediately.
+Runs on first boot when the user table is empty (or promotes an existing `admin` to
+`PLATFORM_ADMIN` if present).
 
-## Role permissions
+| Username | Password | Email | Role |
+|----------|----------|-------|------|
+| `admin` | `SecurePass123!` | `admin@vehiclemanagement.com` | `PLATFORM_ADMIN` |
+| `user` | `UserPass123!` | `user@vehiclemanagement.com` | `MEMBER` (affiliated to DEFAULT tenant) |
 
-| Feature | MEMBER | TENANT_ADMIN | PLATFORM_ADMIN |
-|---|---|---|---|
-| Login / Logout | ✅ | ✅ | ✅ |
-| View Dashboard | ✅ (own scope) | ✅ | Platform console |
-| Manage Employees / Vehicles | limited / own | ✅ | — |
-| Manage Departments | — | ✅ | — |
-| **Manage Users** | ❌ | ✅ (tenant) | Platform admins |
-| **Bulk Operations** | ❌ | ✅ | — |
-| **Tenant / system administration** | ❌ | ✅ (tenant) | ✅ (platform) |
+### Create the other roles for testing
+
+| Role | How |
+|------|-----|
+| `TENANT_ADMIN` | Public register: `POST /api/auth/register` (UI signup) — creates tenant + site + TA. E2e scripts use password `SecurePass123!`. |
+| `SITE_MANAGER` | As TA: create user with `role=SITE_MANAGER` and non-empty `siteIds`. See `backend/scripts/e2e-site-manager.ps1`. |
+| Extra `MEMBER` | As TA/SM: `POST /api/member-affiliations/invite` (create-or-link). See `backend/scripts/e2e-member-phase-b.ps1`. |
+
+### Optional / edge
+
+| Identity | How |
+|----------|-----|
+| Flyway `platform_admin` | Only inserted when `PLATFORM_ADMIN_EMAIL` and `PLATFORM_ADMIN_PASSWORD_HASH` are both set (V42 fail-closed). |
+| Gate / edge | Header `X-Gate-Key` must match backend `GATE_API_KEY`. If unset locally, the gate filter runs open. |
+
+## Role permissions (high level)
+
+| Feature | MEMBER | SITE_MANAGER | TENANT_ADMIN | PLATFORM_ADMIN |
+|---|---|---|---|---|
+| Login / Logout | ✅ | ✅ | ✅ | ✅ |
+| Own vehicles / affiliations | ✅ | — | — | — |
+| Site-scoped ops (gates, cameras, vehicles) | — | ✅ assigned | ✅ | — |
+| Users / billing / sites CRUD | — | limited / no | ✅ | — |
+| Platform console `/platform/*` | ❌ | ❌ | ❌ | ✅ |
 
 ## Troubleshooting "Access Denied"
 
-1. Confirm you're logged in with a **`TENANT_ADMIN`** account for tenant admin routes (`/users`, `/api/admin/**`), or **`PLATFORM_ADMIN`** for `/platform/*`.
-2. Inspect the JWT payload (browser dev tools) to verify the `role` claim.
-3. Clear cached cookies/tokens after a role change and log in again.
+1. Use **`TENANT_ADMIN`** for tenant admin routes, **`SITE_MANAGER`** only within assigned
+   sites, **`PLATFORM_ADMIN`** for `/platform/*`, **`MEMBER`** for consumer self-service.
+2. Inspect the JWT (`role`, `tenant_id`, `site_ids`, `affiliation_tenant_ids`).
+3. Clear `localStorage` `auth_token` after a role change and log in again.

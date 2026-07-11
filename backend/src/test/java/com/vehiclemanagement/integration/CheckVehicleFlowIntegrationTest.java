@@ -1,9 +1,11 @@
 package com.vehiclemanagement.integration;
 
 import com.vehiclemanagement.config.TenantContext;
+import com.vehiclemanagement.entity.TenantVehicleRegistration;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.entity.VehicleAccessRequest;
+import com.vehiclemanagement.repository.TenantVehicleRegistrationRepository;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleAccessRequestRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
@@ -75,6 +77,9 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
     VehicleRepository vehicleRepository;
 
     @Autowired
+    TenantVehicleRegistrationRepository tenantVehicleRegistrationRepository;
+
+    @Autowired
     UserRepository userRepository;
 
     @Autowired
@@ -121,13 +126,22 @@ class CheckVehicleFlowIntegrationTest extends AbstractPostgresIntegrationTest {
                 .role(User.Role.TENANT_ADMIN)
                 .status(User.UserStatus.ACTIVE)
                 .build());
-        return vehicleRepository.save(Vehicle.builder()
+        Vehicle saved = vehicleRepository.save(Vehicle.builder()
                 .owner(user)
                 .licensePlate(plate)
                 .vehicleType(Vehicle.VehicleType.car)
                 .registrationDate(LocalDate.now())
                 .status(Vehicle.VehicleStatus.approved)
                 .build());
+        // ADR-0604: gate whitelist is tenant_vehicle_registration
+        UUID tenantId = saved.getTenantId() != null
+                ? saved.getTenantId()
+                : TenantContext.DEFAULT_TENANT_ID;
+        tenantVehicleRegistrationRepository.save(TenantVehicleRegistration.builder()
+                .id(new TenantVehicleRegistration.TenantVehicleRegistrationId(saved.getId(), tenantId))
+                .status(TenantVehicleRegistration.Status.ACTIVE)
+                .build());
+        return saved;
     }
 
     private StompSession connectStomp() throws Exception {

@@ -284,6 +284,10 @@ export function isSiteManager(role?: UserRole): boolean {
   return role === UserRole.SITE_MANAGER
 }
 
+export function isMember(role?: UserRole): boolean {
+  return role === UserRole.USER
+}
+
 export function canApprove(role?: UserRole): boolean {
   return role === UserRole.ADMIN || role === UserRole.SITE_MANAGER
 }

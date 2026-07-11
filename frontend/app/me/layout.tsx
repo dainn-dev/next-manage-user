@@ -1,0 +1,29 @@
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { isMember } from "@/lib/types"
+
+export default function MemberLayout({ children }: { children: React.ReactNode }) {
+  const { user, isLoading, isAuthenticated } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return
+    if (!isMember(user?.role)) {
+      router.replace("/dashboard")
+    }
+  }, [isLoading, isAuthenticated, user?.role, router])
+
+  if (isLoading || !isAuthenticated) return null
+  if (!isMember(user?.role)) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+        Đang chuyển hướng…
+      </div>
+    )
+  }
+
+  return <div className="mx-auto w-full max-w-3xl px-4 py-8">{children}</div>
+}
