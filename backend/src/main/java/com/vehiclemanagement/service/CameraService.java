@@ -1,6 +1,7 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.billing.EntitlementGuard;
+import com.vehiclemanagement.config.CameraCredentialProperties;
 import com.vehiclemanagement.dto.CameraCreateRequest;
 import com.vehiclemanagement.dto.CameraDto;
 import com.vehiclemanagement.dto.CameraWithKeyDto;
@@ -18,6 +19,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -53,6 +57,9 @@ public class CameraService {
 
     @Autowired
     private SiteAccess siteAccess;
+
+    @Autowired
+    private CameraCredentialProperties credentialProperties;
 
     private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
@@ -121,9 +128,7 @@ public class CameraService {
         }
         entitlementGuard.assertCameraCreationAllowed(siteId);
 
-        byte[] keyBytes = new byte[32];
-        SECURE_RANDOM.nextBytes(keyBytes);
-        String ingestKey = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(keyBytes);
+        String ingestKey = newIngestKey();
         Camera camera = Camera.builder()
                 .siteId(siteId)
                 .zoneId(request.getZoneId())
@@ -135,6 +140,72 @@ public class CameraService {
                 .apiKeyHash(passwordEncoder.encode(ingestKey))
                 .build();
         return new CameraWithKeyDto(cameraRepository.save(camera), ingestKey);
+    }
+
+    /**
+     * Issues a first credential for an existing camera. This additive operation
+     * keeps the ordinary CRUD response free of secrets while allowing cameras
+     * created through the original CRUD endpoint to be enrolled safely.
+     */
+    public CameraWithKeyDto issueKey(UUID id) {
+        Camera camera = cameraRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Camera not found with id: " + id));
+        siteAccess.assertSiteAllowed(camera.getSiteId());
+        if (camera.getApiKeyHash() != null) {
+            throw new ConflictException("Camera already has an active credential; rotate it instead");
+        }
+        return saveNewActiveKey(camera, null);
+    }
+
+    /**
+     * Atomically rotates a camera credential. The old active hash is retained
+     * for the configured grace period so an edge process can update without a
+     * hard cutover. A pessimistic repository lock serializes concurrent rotates.
+     */
+    public CameraWithKeyDto rotateKey(UUID id) {
+        Camera camera = cameraRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Camera not found with id: " + id));
+        siteAccess.assertSiteAllowed(camera.getSiteId());
+        if (camera.getApiKeyHash() == null) {
+            return saveNewActiveKey(camera, null);
+        }
+
+        LocalDateTime previousExpiresAt = LocalDateTime.now()
+                .plus(validGracePeriod());
+        camera.setPreviousApiKeyHash(camera.getApiKeyHash());
+        camera.setPreviousApiKeyExpiresAt(previousExpiresAt);
+        return saveNewActiveKey(camera, previousExpiresAt);
+    }
+
+    /** Marks a camera online after a credential-authenticated edge heartbeat. */
+    public CameraDto heartbeat(UUID id) {
+        Camera camera = findOrThrow(id);
+        siteAccess.assertSiteAllowed(camera.getSiteId());
+        camera.setLastHeartbeatAt(LocalDateTime.now());
+        if (camera.getStatus() != Camera.CameraStatus.disabled) {
+            camera.setStatus(Camera.CameraStatus.online);
+        }
+        return new CameraDto(cameraRepository.save(camera));
+    }
+
+    private CameraWithKeyDto saveNewActiveKey(Camera camera, LocalDateTime previousExpiresAt) {
+        String ingestKey = newIngestKey();
+        camera.setApiKeyHash(passwordEncoder.encode(ingestKey));
+        Camera saved = cameraRepository.save(camera);
+        return new CameraWithKeyDto(saved, ingestKey, previousExpiresAt);
+    }
+
+    private String newIngestKey() {
+        byte[] keyBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(keyBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(keyBytes);
+    }
+
+    private Duration validGracePeriod() {
+        Duration configured = credentialProperties.getRotationGracePeriod();
+        return configured == null || configured.isNegative() || configured.isZero()
+                ? Duration.ofHours(24)
+                : configured;
     }
 
     public CameraDto update(UUID id, CameraDto request) {

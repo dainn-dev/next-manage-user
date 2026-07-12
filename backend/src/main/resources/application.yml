@@ -136,6 +136,11 @@ billing:
 gate:
   api-key: ${GATE_API_KEY:}
 
+# Per-camera credential rotation (ADR-0602). The previous camera key stays
+# valid only for this overlap window after a tenant admin rotates it.
+camera-credentials:
+  rotation-grace-period: ${CAMERA_KEY_ROTATION_GRACE_PERIOD:24h}
+
 # Evidence snapshots (Phase 4.2): the cropped license-plate image the edge sends
 # with a check-vehicle call is written under snapshot-dir and served by the
 # /uploads/** static handler (see WebConfig). Keep snapshot-dir under ./uploads

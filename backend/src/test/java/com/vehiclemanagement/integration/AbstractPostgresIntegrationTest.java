@@ -60,6 +60,14 @@ public abstract class AbstractPostgresIntegrationTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("app.admin-datasource.url", POSTGRES::getJdbcUrl);
+        // Each integration class can create a distinct Spring context while sharing
+        // this one Postgres container. Keep the default pools deliberately small
+        // so cached contexts do not exhaust PostgreSQL's connection limit; tests
+        // that exercise pooling override these values explicitly.
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "2");
+        registry.add("spring.datasource.hikari.minimum-idle", () -> "0");
+        registry.add("app.admin-datasource.hikari.maximum-pool-size", () -> "1");
+        registry.add("app.admin-datasource.hikari.minimum-idle", () -> "0");
         // jwt.secret has no default in application.yml; HS256 needs >= 32 bytes.
         registry.add("jwt.secret", () -> "integration-test-jwt-secret-please-change-0123456789");
         // PasswordResetService validates fingerprint secret at construction (32+ chars).

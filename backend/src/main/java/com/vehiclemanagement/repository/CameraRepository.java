@@ -1,11 +1,16 @@
 package com.vehiclemanagement.repository;
 
 import com.vehiclemanagement.entity.Camera;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -31,4 +36,10 @@ public interface CameraRepository extends JpaRepository<Camera, UUID> {
     List<Camera> findByStatusAndLastHeartbeatAtBefore(Camera.CameraStatus status, LocalDateTime cutoff);
 
     long countByStatus(Camera.CameraStatus status);
+
+    /** Serializes rotations so every returned key becomes the active credential. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Camera c where c.id = :id")
+    Optional<Camera> findByIdForUpdate(@Param("id") UUID id);
+
 }

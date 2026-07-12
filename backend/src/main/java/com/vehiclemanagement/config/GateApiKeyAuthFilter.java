@@ -45,7 +45,14 @@ public class GateApiKeyAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (isProtected(request)) {
+        if (hasCameraCredentials(request)) {
+            // Let CameraKeyAuthFilter validate and bind the camera tenant. This
+            // permits a staged migration from the shared gate key without
+            // allowing an invalid camera key to bypass authentication.
+            filterChain.doFilter(request, response);
+            return;
+        }
+        if (isProtectedRequest(request)) {
             if (gateApiKey == null || gateApiKey.isEmpty()) {
                 logger.warn("gate.api-key is not configured (GATE_API_KEY env). Gate endpoints "
                         + CHECK_VEHICLE_PATH + " / " + VEHICLE_LOGS_PATH
@@ -64,7 +71,17 @@ public class GateApiKeyAuthFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private boolean isProtected(HttpServletRequest request) {
+    private boolean hasCameraCredentials(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        boolean cameraHeartbeat = "POST".equalsIgnoreCase(request.getMethod())
+                && path.startsWith("/api/cameras/")
+                && path.endsWith("/heartbeat");
+        return cameraHeartbeat
+                && (request.getHeader(CameraKeyAuthFilter.CAMERA_ID_HEADER) != null
+                || request.getHeader(CameraKeyAuthFilter.CAMERA_KEY_HEADER) != null);
+    }
+
+    static boolean isProtectedRequest(HttpServletRequest request) {
         String path = request.getRequestURI();
         if (CHECK_VEHICLE_PATH.equals(path)) {
             return true;
