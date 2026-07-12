@@ -1,6 +1,7 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.CameraDto;
+import com.vehiclemanagement.dto.CameraWithKeyDto;
 import com.vehiclemanagement.service.CameraService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -63,6 +64,37 @@ public class CameraController {
     public ResponseEntity<CameraDto> create(
             @Parameter(description = "Camera data") @Valid @RequestBody CameraDto request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(cameraService.create(request));
+    }
+
+    /**
+     * Issues the first credential for a camera created through the ordinary CRUD
+     * surface. The plaintext key is returned only in this response.
+     */
+    @PostMapping("/{id}/credentials")
+    @Operation(summary = "Issue a camera API key")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Credential issued once"),
+        @ApiResponse(responseCode = "404", description = "Camera not found"),
+        @ApiResponse(responseCode = "409", description = "Camera already has a credential")
+    })
+    public ResponseEntity<CameraWithKeyDto> issueKey(@PathVariable UUID id) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(cameraService.issueKey(id));
+    }
+
+    /**
+     * Rotates a camera API key. The previous key remains valid for the configured
+     * overlap window; the plaintext replacement is returned only once.
+     */
+    @PostMapping("/{id}/credentials/rotate")
+    @Operation(summary = "Rotate a camera API key")
+    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Credential rotated"),
+        @ApiResponse(responseCode = "404", description = "Camera not found")
+    })
+    public ResponseEntity<CameraWithKeyDto> rotateKey(@PathVariable UUID id) {
+        return ResponseEntity.ok(cameraService.rotateKey(id));
     }
 
     @PutMapping("/{id}")

@@ -125,9 +125,11 @@ app:
       minimum-idle: ${APP_ADMIN_DATASOURCE_MINIMUM_IDLE:1}
 
 billing:
+  enabled: ${BILLING_ENABLED:false}
   stripe:
     secret-key: ${STRIPE_SECRET_KEY:}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+    publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
 
 # Gate (license-plate detection app at the parking gate) API key.
 # Required X-Gate-Key header for the public, side-effecting endpoints
@@ -135,6 +137,11 @@ billing:
 # (e.g. local dev) the gate filter runs open; set GATE_API_KEY in production.
 gate:
   api-key: ${GATE_API_KEY:}
+
+# Per-camera credential rotation (ADR-0602). The previous camera key stays
+# valid only for this overlap window after a tenant admin rotates it.
+camera-credentials:
+  rotation-grace-period: ${CAMERA_KEY_ROTATION_GRACE_PERIOD:24h}
 
 # Evidence snapshots (Phase 4.2): the cropped license-plate image the edge sends
 # with a check-vehicle call is written under snapshot-dir and served by the

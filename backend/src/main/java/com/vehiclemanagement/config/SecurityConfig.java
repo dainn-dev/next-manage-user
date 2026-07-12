@@ -35,7 +35,10 @@ public class SecurityConfig {
     private boolean defaultTenantFallback;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, UserDetailsService userDetailsService) throws Exception {
+    public SecurityFilterChain filterChain(
+            HttpSecurity http,
+            UserDetailsService userDetailsService,
+            CameraCredentialResolver credentialResolver) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
@@ -48,6 +51,10 @@ public class SecurityConfig {
                 // Edge gate endpoints - guarded by the X-Gate-Key filter, not JWT
                 .requestMatchers(HttpMethod.POST, "/api/gates/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/gates/*/heartbeat").permitAll()
+                // Per-camera device endpoints - permitAll only because CameraKeyAuthFilter
+                // requires X-Camera-Id/X-Camera-Key and binds the camera tenant context.
+                .requestMatchers(HttpMethod.POST, "/api/cameras/*/heartbeat").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/parking-events").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/images/**").permitAll()
@@ -99,6 +106,7 @@ public class SecurityConfig {
             .authenticationProvider(authenticationProvider(userDetailsService))
             .addFilterBefore(jwtAuthenticationFilter(userDetailsService), UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(tenantContextFilter(), JwtAuthenticationFilter.class)
+            .addFilterAfter(cameraKeyAuthFilter(credentialResolver), TenantContextFilter.class)
             .addFilterBefore(gateApiKeyAuthFilter(), JwtAuthenticationFilter.class)
             .addFilterBefore(registrationRateLimitFilter(), JwtAuthenticationFilter.class);
 
@@ -108,6 +116,11 @@ public class SecurityConfig {
     @Bean
     public TenantContextFilter tenantContextFilter() {
         return new TenantContextFilter(jwtUtil, !defaultTenantFallback);
+    }
+
+    @Bean
+    public CameraKeyAuthFilter cameraKeyAuthFilter(CameraCredentialResolver credentialResolver) {
+        return new CameraKeyAuthFilter(credentialResolver);
     }
 
     @Bean

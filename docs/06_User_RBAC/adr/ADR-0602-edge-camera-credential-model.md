@@ -1,6 +1,6 @@
 # ADR-0602: Edge/Camera Credential Model — Per-Camera Key with Rotation
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-09
 - Deciders: Principal Architect
 - Context doc: 06_User_RBAC
@@ -18,16 +18,16 @@ rotating the key for the entire platform.
 
 ## Decision
 
-Evolve from one shared `X-Gate-Key` to a **per-camera credential**: each `Camera` (brief §4)
-is issued its own API key at registration time (`POST /api/v1/cameras/register`), stored
-hashed (same BCrypt-style approach as user passwords, or a dedicated HMAC-verifiable token) and
-associated with exactly one `tenant_id`/`site_id`/`camera_id`. The ingest request header
-becomes `X-Camera-Key` (renamed for clarity as scope narrows from gate to camera), and the
-`ai-ingest` module resolves tenant/site context directly from the key's associated camera
-record — this is the same resolution step ADR-0402 describes for edge requests. Keys are
-rotatable per-camera via an admin endpoint (`TENANT_ADMIN` scope), with a grace window
-(old + new key both valid for N hours) to allow the edge agent's config to roll without a
-hard cutover outage. As a further-future step, evaluate **mTLS** (client certificates per
+Evolve from one shared `X-Gate-Key` to a **per-camera credential**. A `TENANT_ADMIN` issues
+the first API key with `POST /api/cameras/{id}/credentials` and rotates it with
+`POST /api/cameras/{id}/credentials/rotate`. The raw secret is returned only by those
+responses and only a BCrypt hash is stored. Edge calls identify the indexed camera row with
+the non-secret `X-Camera-Id` header and prove possession through `X-Camera-Key`; this avoids
+scanning every salted BCrypt hash. The camera resolver uses the physically separate admin
+datasource for this narrow pre-tenant lookup, then binds `tenant_id`/`site_id` before normal
+RLS-scoped service work begins. Keys have a configurable grace window (default 24 hours) in
+which the immediately previous key remains valid so the edge config can roll without a hard
+cutover outage. As a further-future step, evaluate **mTLS** (client certificates per
 edge appliance) for deployments needing stronger machine-identity guarantees than a bearer
 key provides — noted as an explicit option, not committed in this ADR.
 
@@ -69,8 +69,11 @@ key provides — noted as an explicit option, not committed in this ADR.
   configuration management (pushing rotated keys to on-site devices with only outbound
   connectivity) needs a defined mechanism — likely the edge agent polls for "your key is
   rotating" during its normal heartbeat call.
-- Follow-ups: design the initial-provisioning flow (how does a brand-new camera get its first
-  key securely — installer-entered registration token is the leading candidate); define the
-  rotation grace-window duration; decide the trigger conditions for offering mTLS to specific
-  enterprise tenants; remove the current `GateApiKeyAuthFilter` "open if unset" fallback as
-  part of this migration, not left in place alongside the new model.
+- The initial key is now an explicit tenant-admin issuance action; an enrollment-token workflow
+  remains a future UX improvement. The rotation grace window is configurable through
+  `CAMERA_KEY_ROTATION_GRACE_PERIOD` (default `24h`).
+- The existing `GateApiKeyAuthFilter` remains only as a temporary compatibility path for
+  gate endpoints while deployed edge appliances are migrated; camera heartbeats are fail-closed
+  and require `X-Camera-Id` plus `X-Camera-Key` now.
+- Follow-ups: decide the trigger conditions for offering mTLS to specific enterprise tenants
+  and retire the shared gate-key compatibility filter after the edge migration completes.

@@ -9,6 +9,7 @@ public class BillingProperties {
 
     private String secretKey = "";
     private String webhookSecret = "";
+    private String publishableKey = "";
 
     public String getSecretKey() {
         return secretKey;
@@ -24,6 +25,14 @@ public class BillingProperties {
 
     public void setWebhookSecret(String webhookSecret) {
         this.webhookSecret = webhookSecret;
+    }
+
+    public String getPublishableKey() {
+        return publishableKey;
+    }
+
+    public void setPublishableKey(String publishableKey) {
+        this.publishableKey = publishableKey;
     }
 
     public boolean hasSecretKey() {
