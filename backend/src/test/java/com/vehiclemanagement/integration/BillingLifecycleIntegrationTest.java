@@ -18,6 +18,7 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -27,6 +28,9 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
     private static final UUID TENANT_ID = UUID.fromString("20000000-0000-0000-0000-000000000275");
     private static final UUID STARTER_PLAN_ID = UUID.fromString("10000000-0000-0000-0000-000000000002");
     private static final UUID PRO_PLAN_ID = UUID.fromString("10000000-0000-0000-0000-000000000003");
+    private static final UUID OTHER_TENANT_ID = UUID.fromString("20000000-0000-0000-0000-000000000276");
+    private static final OffsetDateTime EVENT_CREATED =
+            OffsetDateTime.of(2026, 7, 10, 12, 0, 0, 0, ZoneOffset.UTC);
 
     @Autowired
     BillingService billingService;
@@ -41,8 +45,11 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
     void resetBillingRows() {
         jdbc.update("DELETE FROM processed_stripe_event WHERE event_id LIKE 'evt_%_275'");
         jdbc.update("DELETE FROM billing_audit WHERE tenant_id = ?", TENANT_ID);
+        jdbc.update("DELETE FROM billing_audit WHERE tenant_id = ?", OTHER_TENANT_ID);
         jdbc.update("DELETE FROM billing_subscription WHERE tenant_id = ?", TENANT_ID);
+        jdbc.update("DELETE FROM billing_subscription WHERE tenant_id = ?", OTHER_TENANT_ID);
         jdbc.update("DELETE FROM tenant WHERE id = ?", TENANT_ID);
+        jdbc.update("DELETE FROM tenant WHERE id = ?", OTHER_TENANT_ID);
     }
 
     @AfterEach
@@ -110,7 +117,8 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 "active",
                 false,
                 periodEnd,
-                "price_pro"));
+                "price_pro",
+                EVENT_CREATED));
 
         billingService.handleWebhook("payload", "sig");
         billingService.handleWebhook("payload", "sig");
@@ -141,7 +149,8 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 "canceled",
                 false,
                 null,
-                null));
+                null,
+                EVENT_CREATED));
 
         billingService.handleWebhook("payload", "sig");
 
@@ -165,7 +174,8 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 null,
                 false,
                 null,
-                null));
+                null,
+                EVENT_CREATED));
 
         billingService.handleWebhook("payload", "sig");
         billingService.handleWebhook("payload", "sig");
@@ -199,7 +209,8 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 "paid",
                 false,
                 periodEnd,
-                "price_pro"));
+                "price_pro",
+                EVENT_CREATED));
 
         billingService.handleWebhook("payload", "sig");
 
@@ -214,6 +225,87 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 """, Boolean.class, TENANT_ID)).isTrue();
     }
 
+    @Test
+    void invoiceWithoutTenantMetadataResolvesOwnerThroughAdminPool() {
+        seedTenant();
+        seedSubscription(PRO_PLAN_ID, "cus_owner", "sub_owner", "active");
+        when(stripeClient.parseWebhookEvent(any(), any())).thenReturn(new BillingWebhookEvent(
+                "evt_owner_275",
+                "invoice.payment_failed",
+                null,
+                "cus_owner",
+                "sub_owner",
+                null,
+                false,
+                null,
+                null,
+                EVENT_CREATED));
+
+        billingService.handleWebhook("payload", "sig");
+
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM billing_subscription WHERE tenant_id = ?",
+                String.class, TENANT_ID)).isEqualTo("past_due");
+    }
+
+    @Test
+    void webhookRejectsMetadataThatConflictsWithIdentifierOwner() {
+        seedTenant();
+        seedOtherTenant();
+        seedSubscription(OTHER_TENANT_ID, PRO_PLAN_ID, "cus_other", "sub_other", "active");
+        when(stripeClient.parseWebhookEvent(any(), any())).thenReturn(new BillingWebhookEvent(
+                "evt_mismatch_275",
+                "invoice.payment_failed",
+                TENANT_ID,
+                "cus_other",
+                "sub_other",
+                null,
+                false,
+                null,
+                null,
+                EVENT_CREATED));
+
+        assertThatThrownBy(() -> billingService.handleWebhook("payload", "sig"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("does not match");
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM processed_stripe_event WHERE event_id = 'evt_mismatch_275'",
+                Long.class)).isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM billing_subscription WHERE tenant_id = ?",
+                String.class, OTHER_TENANT_ID)).isEqualTo("active");
+    }
+
+    @Test
+    void olderSubscriptionEventCannotOverwriteNewerState() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(PRO_PLAN_ID, "cus_order", "sub_order", "active");
+        BillingWebhookEvent newerCanceled = new BillingWebhookEvent(
+                "evt_newer_275", "customer.subscription.updated", TENANT_ID,
+                "cus_order", "sub_order", "canceled", false, null, null,
+                EVENT_CREATED.plusMinutes(5));
+        BillingWebhookEvent olderActive = new BillingWebhookEvent(
+                "evt_older_275", "customer.subscription.updated", TENANT_ID,
+                "cus_order", "sub_order", "active", false, null, "price_pro",
+                EVENT_CREATED);
+        when(stripeClient.parseWebhookEvent("newer", "sig")).thenReturn(newerCanceled);
+        when(stripeClient.parseWebhookEvent("older", "sig")).thenReturn(olderActive);
+
+        billingService.handleWebhook("newer", "sig");
+        billingService.handleWebhook("older", "sig");
+
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM billing_subscription WHERE tenant_id = ?",
+                String.class, TENANT_ID)).isEqualTo("canceled");
+        assertThat(jdbc.queryForObject(
+                "SELECT code FROM billing_plan WHERE id = (SELECT plan_id FROM tenant WHERE id = ?)",
+                String.class, TENANT_ID)).isEqualTo("free");
+        assertThat(jdbc.queryForObject(
+                "SELECT last_stripe_event_id FROM billing_subscription WHERE tenant_id = ?",
+                String.class, TENANT_ID)).isEqualTo("evt_newer_275");
+    }
+
     private void seedTenant() {
         jdbc.update("""
                 INSERT INTO tenant(id, name, slug, status)
@@ -222,13 +314,26 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 """, TENANT_ID);
     }
 
+    private void seedOtherTenant() {
+        jdbc.update("""
+                INSERT INTO tenant(id, name, slug, status)
+                VALUES (?, 'Other Billing Tenant', 'billing-tenant-276', 'active')
+                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+                """, OTHER_TENANT_ID);
+    }
+
     private void configureStripePrices() {
         jdbc.update("UPDATE billing_plan SET stripe_price_id = 'price_starter' WHERE id = ?", STARTER_PLAN_ID);
         jdbc.update("UPDATE billing_plan SET stripe_price_id = 'price_pro' WHERE id = ?", PRO_PLAN_ID);
     }
 
     private void seedSubscription(UUID planId, String customerId, String subscriptionId, String status) {
-        jdbc.update("UPDATE tenant SET plan_id = ? WHERE id = ?", planId, TENANT_ID);
+        seedSubscription(TENANT_ID, planId, customerId, subscriptionId, status);
+    }
+
+    private void seedSubscription(
+            UUID tenantId, UUID planId, String customerId, String subscriptionId, String status) {
+        jdbc.update("UPDATE tenant SET plan_id = ? WHERE id = ?", planId, tenantId);
         jdbc.update("""
                 INSERT INTO billing_subscription(tenant_id, plan_id, stripe_customer_id, stripe_subscription_id, status)
                 VALUES (?, ?, ?, ?, ?)
@@ -237,6 +342,6 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                     stripe_customer_id = EXCLUDED.stripe_customer_id,
                     stripe_subscription_id = EXCLUDED.stripe_subscription_id,
                     status = EXCLUDED.status
-                """, TENANT_ID, planId, customerId, subscriptionId, status);
+                """, tenantId, planId, customerId, subscriptionId, status);
     }
 }

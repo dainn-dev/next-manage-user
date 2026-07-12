@@ -118,7 +118,10 @@ public class StripeBillingClient {
                     status,
                     object.path("cancel_at_period_end").asBoolean(false),
                     currentPeriodEnd(object),
-                    extractPriceId(object));
+                    extractPriceId(object),
+                    event.getCreated() == null
+                            ? null
+                            : OffsetDateTime.ofInstant(Instant.ofEpochSecond(event.getCreated()), ZoneOffset.UTC));
         } catch (Exception ex) {
             throw new IllegalArgumentException("Invalid Stripe webhook event", ex);
         }

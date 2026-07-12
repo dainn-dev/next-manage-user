@@ -67,6 +67,14 @@ public class MemberAffiliationService {
                 throw new IllegalArgumentException(
                         "Email belongs to a non-MEMBER account; cannot affiliate");
             }
+            MemberAffiliation.MemberAffiliationId pk =
+                    new MemberAffiliation.MemberAffiliationId(user.getId(), tenantId);
+            boolean consumesSeat = memberAffiliationRepository.findById(pk)
+                    .map(row -> row.getStatus() != MemberAffiliation.Status.ACTIVE)
+                    .orElse(true);
+            if (consumesSeat) {
+                entitlementGuard.assertUserCreationAllowed();
+            }
             return upsertAffiliation(user, tenantId, MemberAffiliation.Status.ACTIVE);
         }
 
@@ -75,8 +83,6 @@ public class MemberAffiliationService {
             throw new IllegalArgumentException(
                     "username and password are required when inviting a new MEMBER");
         }
-
-        entitlementGuard.assertUserCreationAllowed();
 
         CreateUserRequest create = new CreateUserRequest();
         create.setUsername(request.getUsername().trim());

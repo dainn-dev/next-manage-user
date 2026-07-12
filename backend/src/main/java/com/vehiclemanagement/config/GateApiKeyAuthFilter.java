@@ -76,7 +76,9 @@ public class GateApiKeyAuthFilter extends OncePerRequestFilter {
         boolean cameraHeartbeat = "POST".equalsIgnoreCase(request.getMethod())
                 && path.startsWith("/api/cameras/")
                 && path.endsWith("/heartbeat");
-        return cameraHeartbeat
+        boolean parkingEventIngest = "POST".equalsIgnoreCase(request.getMethod())
+                && "/api/v1/parking-events".equals(path);
+        return (cameraHeartbeat || parkingEventIngest)
                 && (request.getHeader(CameraKeyAuthFilter.CAMERA_ID_HEADER) != null
                 || request.getHeader(CameraKeyAuthFilter.CAMERA_KEY_HEADER) != null);
     }

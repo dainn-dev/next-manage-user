@@ -94,6 +94,7 @@ public class CameraService {
             throw new ConflictException("Camera with name '" + request.getName()
                     + "' already exists in this site");
         }
+        entitlementGuard.assertCameraCreationAllowed(request.getSiteId());
 
         Camera camera = Camera.builder()
                 .siteId(request.getSiteId())

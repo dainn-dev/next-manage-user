@@ -27,15 +27,18 @@ public class BillingService {
     private final TransactionTemplate transactionTemplate;
     private final StripeBillingClient stripeClient;
     private final EntitlementGuard entitlementGuard;
+    private final BillingWebhookTenantResolver webhookTenantResolver;
 
     public BillingService(JdbcTemplate jdbc,
                           TransactionTemplate transactionTemplate,
                           StripeBillingClient stripeClient,
-                          EntitlementGuard entitlementGuard) {
+                          EntitlementGuard entitlementGuard,
+                          BillingWebhookTenantResolver webhookTenantResolver) {
         this.jdbc = jdbc;
         this.transactionTemplate = transactionTemplate;
         this.stripeClient = stripeClient;
         this.entitlementGuard = entitlementGuard;
+        this.webhookTenantResolver = webhookTenantResolver;
     }
 
     public BillingCheckoutResponse createCheckoutSession(BillingCheckoutRequest request, String email) {
@@ -91,10 +94,10 @@ public class BillingService {
 
     public void handleWebhook(String payload, String signature) {
         BillingWebhookEvent event = stripeClient.parseWebhookEvent(payload, signature);
-        UUID tenantId = resolveTenantId(event);
-        if (tenantId == null) {
-            throw new IllegalArgumentException("Stripe event does not identify a tenant");
+        if (isStateChangingEvent(event.type()) && event.createdAt() == null) {
+            throw new IllegalArgumentException("Stripe event creation time is required");
         }
+        UUID tenantId = webhookTenantResolver.resolve(event);
 
         UUID previousTenant = TenantContext.getTenantId();
         TenantContext.setTenantId(tenantId);
@@ -111,21 +114,66 @@ public class BillingService {
 
     private void processWebhookEvent(UUID tenantId, BillingWebhookEvent event) {
         int inserted = jdbc.update("""
-                INSERT INTO processed_stripe_event(event_id, event_type)
-                VALUES (?, ?)
+                INSERT INTO processed_stripe_event(event_id, event_type, event_created_at)
+                VALUES (?, ?, ?)
                 ON CONFLICT (event_id) DO NOTHING
-                """, event.id(), event.type());
+                """, event.id(), event.type(), event.createdAt());
         if (inserted == 0) {
             return;
         }
 
+        acquireWebhookLock(tenantId);
+        if (isStateChangingEvent(event.type()) && isStaleEvent(tenantId, event.createdAt())) {
+            return;
+        }
+
+        boolean stateChanged = true;
         switch (event.type()) {
             case "checkout.session.completed", "customer.subscription.updated" -> syncSubscription(tenantId, event);
             case "invoice.payment_failed" -> markPaymentFailed(event);
             case "invoice.paid" -> syncInvoicePaid(event);
-            default -> {
-            }
+            default -> stateChanged = false;
         }
+        if (stateChanged) {
+            markEventApplied(tenantId, event);
+        }
+    }
+
+    private void acquireWebhookLock(UUID tenantId) {
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+                rs -> { }, "stripe-webhook:" + tenantId);
+    }
+
+    private boolean isStaleEvent(UUID tenantId, OffsetDateTime createdAt) {
+        return jdbc.query("""
+                        SELECT last_stripe_event_created_at
+                        FROM billing_subscription
+                        WHERE tenant_id = ?
+                        FOR UPDATE
+                        """,
+                (rs, rowNum) -> rs.getObject("last_stripe_event_created_at", OffsetDateTime.class),
+                tenantId).stream()
+                .filter(value -> value != null)
+                .findFirst()
+                .map(lastApplied -> createdAt.isBefore(lastApplied))
+                .orElse(false);
+    }
+
+    private void markEventApplied(UUID tenantId, BillingWebhookEvent event) {
+        jdbc.update("""
+                UPDATE billing_subscription
+                SET last_stripe_event_created_at = ?,
+                    last_stripe_event_id = ?
+                WHERE tenant_id = ?
+                """, event.createdAt(), event.id(), tenantId);
+    }
+
+    private boolean isStateChangingEvent(String eventType) {
+        return switch (eventType) {
+            case "checkout.session.completed", "customer.subscription.updated",
+                    "invoice.payment_failed", "invoice.paid" -> true;
+            default -> false;
+        };
     }
 
     private void syncSubscription(UUID tenantId, BillingWebhookEvent event) {
@@ -203,19 +251,6 @@ public class BillingService {
         return jdbc.query("""
                 SELECT id FROM billing_plan WHERE stripe_price_id = ?
                 """, (rs, rowNum) -> (UUID) rs.getObject("id"), event.stripePriceId()).stream().findFirst();
-    }
-
-    private UUID resolveTenantId(BillingWebhookEvent event) {
-        if (event.tenantId() != null) {
-            return event.tenantId();
-        }
-        return jdbc.query("""
-                SELECT tenant_id FROM billing_subscription
-                WHERE stripe_customer_id = ? OR stripe_subscription_id = ?
-                """, (rs, rowNum) -> (UUID) rs.getObject("tenant_id"), event.stripeCustomerId(), event.stripeSubscriptionId())
-                .stream()
-                .findFirst()
-                .orElse(null);
     }
 
     private void upsertSubscription(UUID tenantId, UUID planId, String customerId, String subscriptionId, String status,

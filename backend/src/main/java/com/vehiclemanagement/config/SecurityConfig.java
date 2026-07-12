@@ -51,8 +51,10 @@ public class SecurityConfig {
                 // Edge gate endpoints - guarded by the X-Gate-Key filter, not JWT
                 .requestMatchers(HttpMethod.POST, "/api/gates/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/gates/*/heartbeat").permitAll()
-                // Per-camera device endpoint - guarded by X-Camera-Id/X-Camera-Key.
+                // Per-camera device endpoints - permitAll only because CameraKeyAuthFilter
+                // requires X-Camera-Id/X-Camera-Key and binds the camera tenant context.
                 .requestMatchers(HttpMethod.POST, "/api/cameras/*/heartbeat").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/parking-events").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/images/**").permitAll()

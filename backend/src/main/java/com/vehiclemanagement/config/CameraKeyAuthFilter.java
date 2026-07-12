@@ -82,9 +82,9 @@ public class CameraKeyAuthFilter extends OncePerRequestFilter {
 
     private boolean isProtectedRequest(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return "POST".equalsIgnoreCase(request.getMethod())
-                && path.startsWith("/api/cameras/")
-                && path.endsWith("/heartbeat");
+        boolean cameraHeartbeat = path.startsWith("/api/cameras/") && path.endsWith("/heartbeat");
+        boolean parkingEventIngest = "/api/v1/parking-events".equals(path);
+        return "POST".equalsIgnoreCase(request.getMethod()) && (cameraHeartbeat || parkingEventIngest);
     }
 
     private void unauthorized(HttpServletResponse response) throws IOException {

@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -26,29 +27,33 @@ public class EntitlementGuard {
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
     private final CameraRepository cameraRepository;
+    private final BillingFeatureProperties featureProperties;
 
     public EntitlementGuard(JdbcTemplate jdbc,
                             ObjectMapper objectMapper,
-                            CameraRepository cameraRepository) {
+                            CameraRepository cameraRepository,
+                            BillingFeatureProperties featureProperties) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.cameraRepository = cameraRepository;
+        this.featureProperties = featureProperties;
     }
 
     public void assertCameraCreationAllowed(UUID siteId) {
         assertWithinLimit(
                 EntitlementMetric.MAX_CAMERAS_PER_SITE,
+                siteId.toString(),
                 () -> cameraRepository.countBySiteId(siteId));
     }
 
     public void assertSiteCreationAllowed() {
         UUID tenantId = TenantContext.getTenantId();
-        assertWithinLimit(EntitlementMetric.MAX_SITES, () -> countSites(tenantId));
+        assertWithinLimit(EntitlementMetric.MAX_SITES, "tenant", () -> countSites(tenantId));
     }
 
     public void assertUserCreationAllowed() {
         UUID tenantId = TenantContext.getTenantId();
-        assertWithinLimit(EntitlementMetric.USERS_PER_TENANT, () -> countUsers(tenantId));
+        assertWithinLimit(EntitlementMetric.USERS_PER_TENANT, "tenant", () -> countUsers(tenantId));
     }
 
     public Map<String, Long> currentStructuralUsage() {
@@ -106,28 +111,43 @@ public class EntitlementGuard {
         return value == null ? 0 : value;
     }
 
-    private void assertWithinLimit(EntitlementMetric metric, LongSupplier currentUsageSupplier) {
-        if (isPlatformAdmin()) {
+    private void assertWithinLimit(
+            EntitlementMetric metric,
+            String scope,
+            LongSupplier currentUsageSupplier) {
+        if (!featureProperties.isEnabled() || isPlatformAdmin()) {
             return;
         }
         UUID tenantId = TenantContext.getTenantId();
         if (tenantId == null) {
-            log.warn("Skipping entitlement check for {} because tenant context is not bound", metric.limitKey());
-            return;
+            throw new EntitlementCheckUnavailableException(
+                    "Tenant context is required for entitlement enforcement");
+        }
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new EntitlementCheckUnavailableException(
+                    "Entitlement enforcement requires an active transaction");
         }
 
         try {
+            acquireLock(tenantId, metric, scope);
             long currentUsage = currentUsageSupplier.getAsLong();
             OptionalLong limit = currentPlanLimit(tenantId, metric);
             if (limit.isPresent() && currentUsage + 1 > limit.getAsLong()) {
-                throw new EntitlementExceededException(metric.limitKey(), limit.getAsLong(), currentUsage, UPGRADE_URL);
+                throw new EntitlementExceededException(
+                        metric.limitKey(), limit.getAsLong(), currentUsage, UPGRADE_URL);
             }
-        } catch (EntitlementExceededException ex) {
+        } catch (EntitlementExceededException | EntitlementCheckUnavailableException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.warn("Entitlement lookup failed for tenant {} metric {}; allowing request",
-                    tenantId, metric.limitKey(), ex);
+            throw new EntitlementCheckUnavailableException(
+                    "Unable to verify entitlement " + metric.limitKey(), ex);
         }
+    }
+
+    private void acquireLock(UUID tenantId, EntitlementMetric metric, String scope) {
+        String lockKey = tenantId + ":" + metric.limitKey() + ":" + scope;
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
+                rs -> { }, lockKey);
     }
 
     private OptionalLong currentPlanLimit(UUID tenantId, EntitlementMetric metric) {
@@ -138,18 +158,28 @@ public class EntitlementGuard {
                 WHERE t.id = ?
                 """, String.class, tenantId);
         if (limitsJson == null || limitsJson.isBlank()) {
-            return OptionalLong.empty();
+            throw new EntitlementCheckUnavailableException("Billing plan limits are missing");
         }
 
         try {
             JsonNode value = objectMapper.readTree(limitsJson).get(metric.limitKey());
-            if (value == null || value.isNull()) {
+            if (value == null) {
+                throw new EntitlementCheckUnavailableException(
+                        "Billing plan does not define " + metric.limitKey());
+            }
+            if (value.isNull()) {
                 return OptionalLong.empty();
             }
+            if (!value.isIntegralNumber() || !value.canConvertToLong() || value.asLong() < 0) {
+                throw new EntitlementCheckUnavailableException(
+                        "Billing plan limit is invalid for " + metric.limitKey());
+            }
             return OptionalLong.of(value.asLong());
+        } catch (EntitlementCheckUnavailableException ex) {
+            throw ex;
         } catch (Exception ex) {
-            log.warn("Could not parse billing limits for tenant {} metric {}", tenantId, metric.limitKey(), ex);
-            return OptionalLong.empty();
+            throw new EntitlementCheckUnavailableException(
+                    "Could not parse billing limits for " + metric.limitKey(), ex);
         }
     }
 

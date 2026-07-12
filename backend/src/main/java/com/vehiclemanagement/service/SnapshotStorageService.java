@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.UUID;
 
 /**
  * Persists gate snapshot evidence &mdash; the cropped license-plate image captured
@@ -76,6 +77,37 @@ public class SnapshotStorageService {
         } catch (Exception e) {
             // Never fail the access check because evidence capture failed.
             log.warn("Failed to store gate snapshot for plate {}: {}", licensePlate, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Stores one optional ingest snapshot under a camera/event-derived filename.
+     * Invalid images and storage failures remain best-effort so an accepted event
+     * is never replayed solely because evidence storage is temporarily unavailable.
+     */
+    public String storeForIngest(MultipartFile snapshot, UUID cameraId, UUID eventId) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            return null;
+        }
+        if (!imageProcessingUtil.isValidImage(snapshot)) {
+            throw new IllegalArgumentException("Snapshot must be an image");
+        }
+        try {
+            byte[] data = imageProcessingUtil.processImage(snapshot);
+            Path dir = Paths.get(snapshotDir);
+            Files.createDirectories(dir);
+
+            String filename = "camera_" + cameraId + "_event_" + eventId + ".jpg";
+            Path filePath = dir.resolve(filename);
+            Files.write(filePath, data, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+            String webPath = joinUrl(snapshotUrlPrefix, filename);
+            log.debug("Stored ingest snapshot for camera {} event {} -> {}", cameraId, eventId, webPath);
+            return webPath;
+        } catch (Exception e) {
+            log.warn("Failed to store ingest snapshot for camera {} event {}: {}",
+                    cameraId, eventId, e.getMessage());
             return null;
         }
     }
