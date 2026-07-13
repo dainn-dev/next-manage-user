@@ -1,6 +1,6 @@
 # ADR-0801: Polygon storage as PostGIS geometry vs JSON
 
-- Status: Proposed
+- Status: Accepted by DAI-297
 - Date: 2026-07-09
 - Deciders: Principal Architect
 - Context doc: 08_Parking_Map_Designer
@@ -17,9 +17,10 @@ geometry type vs a plain JSON array of points — belongs to this doc.
 
 ## Decision
 
-Store `ParkingSlot.polygon` as a **PostGIS `GEOMETRY(Polygon, SRID)`** column, using a
-site-local planar SRID (not geographic WGS84) so distances/areas behave in ordinary Euclidean
-terms after the homography transform. Point-in-polygon tests use `ST_Contains`/`ST_Within` with a
+Store immutable `ParkingSlotGeometry.polygon` revisions as a **PostGIS
+`GEOMETRY(Polygon, 0)`** column, using the explicit `site-local-meters-v1` Cartesian coordinate
+space (not geographic WGS84) so distances/areas behave in ordinary Euclidean terms after the
+homography transform. Point-in-polygon tests use boundary-inclusive `ST_Covers` with a
 **GiST spatial index** on the column. A denormalized JSON copy of the same vertices is included in
 API responses to the frontend editor purely as a convenience for rendering (the editor works in
 image-pixel space, not the stored planar space) — but the column itself, and all server-side
@@ -46,5 +47,5 @@ validation/queries, are PostGIS geometry.
   convert between its native pixel-space vertex arrays and the stored planar geometry, which needs
   care to avoid drift between the "display" JSON and the "source of truth" geometry.
 - Follow-ups: confirm Testcontainers Postgres image used in `backend/` tests supports PostGIS (or
-  pin a `postgis/postgis` image) so slot validation logic is testable in CI; define the site-local
-  SRID convention in `09_AI_Calibration`'s homography design.
+  pin a `postgis/postgis` image) so slot validation logic is testable in CI. Coordinate and
+  containment semantics are normative in ADR-1102.

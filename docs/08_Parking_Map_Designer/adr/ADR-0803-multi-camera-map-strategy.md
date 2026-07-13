@@ -1,6 +1,6 @@
 # ADR-0803: Multi-camera wide-lot map strategy — partitioned coverage vs merge/dedup
 
-- Status: Proposed
+- Status: Accepted by DAI-297
 - Date: 2026-07-09
 - Deciders: Principal Architect
 - Context doc: 08_Parking_Map_Designer

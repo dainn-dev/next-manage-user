@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://parkvision.local/events/common/domain-event-envelope-v1.json",
+  "title": "ParkVision domain event envelope v1",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "tenant_id",
+    "site_id",
+    "occurred_at",
+    "correlation_id",
+    "causation_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {"$ref": "#/$defs/uuid"},
+    "event_type": {
+      "enum": ["VehicleEntered", "VehicleExited", "VehicleRelocated"]
+    },
+    "event_version": {"const": 1},
+    "tenant_id": {"$ref": "#/$defs/uuid"},
+    "site_id": {"$ref": "#/$defs/uuid"},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "correlation_id": {"$ref": "#/$defs/uuid"},
+    "causation_id": {"$ref": "#/$defs/uuid"},
+    "payload": {"type": "object"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "uuid": {"type": "string", "format": "uuid"},
+    "sitePoint": {
+      "type": "object",
+      "required": ["x", "y", "coordinate_space"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"},
+        "coordinate_space": {"const": "site-local-meters-v1"}
+      },
+      "additionalProperties": false
+    },
+    "trackerIdentity": {
+      "type": "object",
+      "required": ["camera_id", "session_id", "track_id"],
+      "properties": {
+        "camera_id": {"$ref": "#/$defs/uuid"},
+        "session_id": {"$ref": "#/$defs/uuid"},
+        "track_id": {"type": "string", "minLength": 1, "maxLength": 128}
+      },
+      "additionalProperties": false
+    },
+    "vehicleIdentity": {
+      "type": "object",
+      "required": ["tracker"],
+      "properties": {
+        "tracker": {"$ref": "#/$defs/trackerIdentity"},
+        "vehicle_id": {"$ref": "#/$defs/uuid"},
+        "license_plate": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{5,12}$"
+        },
+        "reconciled_by": {
+          "enum": ["track", "exact_plate", "unique_fuzzy_plate"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "assignment": {
+      "type": "object",
+      "required": [
+        "reference_point_method",
+        "site_point",
+        "confidence",
+        "observation_count",
+        "confirmed_at"
+      ],
+      "properties": {
+        "reference_point_method": {
+          "enum": ["bbox_bottom_center", "bbox_center_fallback"]
+        },
+        "site_point": {"$ref": "#/$defs/sitePoint"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "observation_count": {"type": "integer", "minimum": 1},
+        "confirmed_at": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "snapshotEvidence": {
+      "type": "object",
+      "required": ["status", "snapshots"],
+      "properties": {
+        "status": {"enum": ["complete", "partial", "unavailable"]},
+        "snapshots": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["snapshot_id", "kind"],
+            "properties": {
+              "snapshot_id": {"$ref": "#/$defs/uuid"},
+              "kind": {
+                "enum": ["entry", "exit", "relocation_old", "relocation_new"]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+

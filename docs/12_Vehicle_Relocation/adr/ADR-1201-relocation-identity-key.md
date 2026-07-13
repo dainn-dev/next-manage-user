@@ -1,6 +1,6 @@
 # ADR-1201: Relocation Identity Key — track_id vs license_plate vs Both, and Dedup Window
 
-- Status: Proposed
+- Status: Accepted by DAI-297
 - Date: 2026-07-09
 - Deciders: Principal Architect
 - Context doc: 12_Vehicle_Relocation
@@ -23,11 +23,13 @@ away from the tuned `ANPR_GATE` camera angle versus an `OVERVIEW` camera used fo
 
 Use **`track_id` as the primary identity key** while a track is continuous (cheapest, no OCR
 dependency, works even when the plate is not legible from an overview angle), and **fall back to
-`license_plate` matching** (exact match or small edit-distance) to re-bind identity whenever the
-track is lost or a cross-camera handoff occurs. A relocation is only emitted when the
+`license_plate` matching** within the same site and a 30-second reconciliation window to re-bind
+identity whenever the track is lost or a cross-camera handoff occurs. Exact plate match is
+preferred. Edit-distance ≤ 1 is permitted only at OCR confidence ≥ 0.90 when a single unique
+candidate exists; ambiguous matches are rejected. A relocation is only emitted when the
 (`track_id` OR reconciled-by-plate) identity's slot assignment changes and passes the upstream
 debounce (11_Parking_Slot_Detection). Apply an additional **identity-level dedup window**
-(proposed default: 60 seconds) after emitting `VehicleRelocated` for a given identity, before a
+(default: 60 seconds) after emitting `VehicleRelocated` for a given identity, before a
 second relocation event can be emitted for it, to absorb residual jitter/oscillation at slot
 boundaries.
 
@@ -47,6 +49,9 @@ boundaries.
   similar plates are present at the same site during the reconciliation window.
 
 ## Consequences
+
+The complete normative transition, transaction, event, and evidence contract is defined by
+[ADR-1102](../../11_Parking_Slot_Detection/adr/ADR-1102-slot-runtime-and-event-contract.md).
 
 - Positive: relocation detection survives the common tracker-loss scenarios instead of only the
   ANPR-gate case; the dedup window prevents notification spam from boundary jitter.

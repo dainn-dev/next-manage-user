@@ -3,28 +3,26 @@
 This document defines how the platform maps a tracked vehicle (produced by the AI pipeline,
 see 10_AI_Pipeline) to a physical parking slot: geometry, reference-point choice, debouncing,
 confidence, the per-slot occupancy state machine, and how edge and backend computations are
-reconciled. **This entire capability is greenfield** — nothing described here exists in the
-codebase today.
+reconciled. **The runtime capability is greenfield**; this document and its schemas define the
+contract the implementation must follow.
 
-Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
+Status: Runtime contract signed off (DAI-297) · Owner: Principal Architect · Last updated: 2026-07-14
 
 ## 1. Current State vs Target
 
 ### Current
 
-The repo has **no parking-slot or occupancy logic today** (brief §1): there is no `ParkingSlot`
-entity, no polygon storage, no map component in the frontend, and no camera/video component —
-`Gate.cameraRtspUrl` is data-only. "Tracking" on the edge today is a per-plate-string dict of
-timestamps, not a real multi-object tracker, so there is no stable per-vehicle identity to
-attach a slot to even if slot geometry existed.
+The repository now has a signed-off runtime contract and versioned event schemas, but the
+parking-slot projector and occupancy persistence remain implementation work for the child tasks.
+The existing edge tracking path is still a per-plate-string timestamp dictionary rather than a
+stable multi-object tracker, so runtime slot assignment still depends on the AI tracking work.
 
 ### Target
 
-A `ParkingSlot` entity (brief §4: `id, site_id, zone_id, code, polygon GEOMETRY(Polygon),
-status{free,occupied,reserved,disabled}, current_vehicle_id, updated_at`) with slot polygons
-authored in the Parking-Map Designer (08_Parking_Map_Designer) and evaluated against each
-tracked vehicle's reference point via point-in-polygon testing (architecture decision 4:
-PostGIS + on-edge shapely).
+A stable logical `ParkingSlot` identity plus immutable, map-versioned `ParkingSlotGeometry`
+records authored in the Parking-Map Designer. Runtime occupancy is stored separately. A tracked
+vehicle reference point is mapped provisionally on the edge and authoritatively by PostGIS on
+the backend, as specified by ADR-1102.
 
 ## 2. Reference Point Selection
 
@@ -40,8 +38,9 @@ reference point materially affects mapping accuracy, especially from angled over
 ## 3. Point-in-Polygon Test
 
 Given a reference point and the set of `ParkingSlot` polygons for the site, containment is
-tested with `shapely.geometry.Point.within()` on the edge (cached polygons) and PostGIS
-`ST_Contains`/`ST_Within` on the backend (authoritative). See **ADR-1101** for the full
+tested with `shapely` `covers()` on the edge (cached polygons) and PostGIS `ST_Covers` on the
+backend (authoritative). Boundary points therefore have identical containment semantics on both
+sides. See **ADR-1101** for the full
 edge-vs-backend trade-off and why both run.
 
 This site-scoped selection (polygons by `site_id`, not per-camera) is also what unifies a
@@ -57,8 +56,8 @@ spanning two slots do happen in practice:
    resolve by the polygon with the larger overlap area against an approximate vehicle footprint
    polygon (not just the point).
 2. If a vehicle's approximate footprint polygon intersects a second slot beyond a configurable
-   overlap-ratio threshold (proposed default 15%), mark that slot `partial` for admin review
-   rather than silently flipping its state to `occupied`.
+   overlap-ratio threshold (proposed default 15%), record an overlap-review flag and hold the
+   prior occupancy rather than inventing a third `partial` occupancy state.
 3. Persistent overlap flags for the same slot pair are a signal to correct the polygon in
    08_Parking_Map_Designer, not a runtime condition to keep resolving indefinitely.
 
@@ -70,6 +69,9 @@ of cooldown + min-detection-duration confirmation used for plate events today:
 - **Debounce window**: a candidate slot must be the top match for N consecutive confirmed
   frames or T seconds before it is committed, absorbing tracker/geometry jitter near polygon
   boundaries.
+- **Signed-off defaults**: enter after 3 consecutive frames or 600 ms; relocate after 5 frames
+  or 1 second; exit after tracker TTL plus 5 seconds. Deployments may tune these values without
+  changing the event contract.
 - **Confidence** is a composite of: (a) vehicle-detector confidence, (b) geometric confidence
   (distance from the reference point to the polygon centroid relative to distance to the nearest
   edge — points near the centroid score higher than points near a boundary), and (c) track
@@ -79,14 +81,18 @@ of cooldown + min-detection-duration confirmation used for plate events today:
 
 ## 6. Occupancy State Machine
 
-| State | Meaning | Entered from | Exits to |
-|---|---|---|---|
-| `free` | No vehicle mapped to the slot | `occupied` (vacated), `reserved` (expired/cancelled), `disabled` (re-enabled), initial | `occupied`, `reserved`, `disabled` |
-| `occupied` | A vehicle's footprint is confirmed (debounced) inside the polygon | `free`, `reserved` (reserved vehicle arrives) | `free` (vacated or relocated away), `disabled` |
-| `reserved` | Slot booked ahead of arrival (app/booking flow) | `free` | `occupied` (arrival, plate match), `free` (expired/cancelled) |
-| `disabled` | Administratively taken out of service | `free`, `occupied` | `free` (re-enabled) |
+Runtime `SlotOccupancy.status` has exactly two values:
 
-See `diagrams/slot-occupancy-state.mmd` for the full transition diagram.
+| State | Meaning | Transition |
+|---|---|---|
+| `free` | No authoritative vehicle identity is assigned. | To `occupied` after the entry guard commits. |
+| `occupied` | One authoritative vehicle identity owns the slot. | To `free` after exit, or atomically with another slot during relocation. |
+
+Administrative lifecycle is a separate `ParkingSlot.admin_status` dimension
+(`enabled | disabled | retired`). Disabled/retired slots are excluded from candidate mapping;
+changing this flag does not masquerade as a vehicle transition event. Reservation belongs to the
+booking domain and may gate assignment, but it is not an occupancy state. See
+`diagrams/slot-occupancy-state.mmd` and ADR-1102.
 
 ## 7. Reconciling Edge-Computed vs Backend-Computed Slot
 
@@ -101,16 +107,21 @@ rationale and alternatives are in **ADR-1101**.
 - `diagrams/slot-mapping-flowchart.mmd` — end-to-end flow from tracked vehicle to committed slot
   assignment or relocation candidate.
 - `diagrams/slot-occupancy-state.mmd` — per-slot state machine
-  (`free → occupied → reserved → disabled`).
+  (`free ↔ occupied`) with the independent administrative guard.
 - `diagrams/point-in-polygon-concept.mmd` — conceptual containment test against multiple slot
   polygons, including the overlap-resolution case.
 - `diagrams/vehicle-to-slot-sequence.mmd` — sequence from edge tracking through provisional
   mapping, ingest, PostGIS authoritative recomputation, and persistence.
+- `diagrams/slot-runtime-sequence.mmd` — signed-off map loading, authoritative transition,
+  transactional outbox, and best-effort evidence capture.
+- `diagrams/slot-transition-state.mmd` — per-identity transition guards and event boundaries.
 
 ## 9. Decisions / ADRs
 
 - `adr/ADR-1101-slot-mapping-location.md` — on-edge (shapely) vs backend (PostGIS) vs the chosen
   hybrid, and the cache-invalidation trade-off.
+- `adr/ADR-1102-slot-runtime-and-event-contract.md` — accepted source, coordinate, identity,
+  transition, event-boundary, snapshot, reconciliation, and failure-handling contract.
 
 ## 10. Open Questions / Risks
 
@@ -118,9 +129,9 @@ rationale and alternatives are in **ADR-1101**.
   slot layouts.
 - Debounce window length trades off responsiveness (how fast a slot shows as `occupied`) against
   jitter suppression; needs tuning per site density.
-- Coordinate system / homography calibration (camera pixel space → site-plane coordinates) is
-  owned by 09_AI_Calibration but is a hard dependency for accurate point-in-polygon testing —
-  not yet specified end-to-end.
+- Calibration quality remains a deployment concern, but the interface is resolved: both slot
+  polygons and projected vehicle points use `site-local-meters-v1`; raw image observations use
+  `original-frame-pixels` and must be transformed before containment testing (ADR-1102).
 - Reserved-slot arrival matching depends on plate OCR reliability at arrival, which is still
   being evaluated (see 10_AI_Pipeline, ADR-1001).
 

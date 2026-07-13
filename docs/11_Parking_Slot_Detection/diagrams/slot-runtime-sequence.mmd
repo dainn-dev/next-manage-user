@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant E as Edge tracking pipeline
+    participant C as Published slot-map cache
+    participant I as Camera ingest
+    participant P as PostGIS mapper
+    participant O as Occupancy state machine
+    participant B as Outbox
+
+    E->>C: Load map by camera with ETag
+    C-->>E: Map version, calibration version, polygons
+    E->>E: Bottom-centre pixel to site-local metres
+    E->>E: Provisional polygon.covers(point)
+    E->>I: VehicleDetected plus slotObservation
+    I->>I: Derive tenant and site from camera credential
+    I->>P: Authoritative point and current published map
+    P-->>I: Slot assignment or explicit failure
+    I->>O: Ordered authoritative observation
+    O->>O: Debounce, conflict and transition guards
+    alt committed transition
+        O->>B: Occupancy, history, domain event and outbox in one transaction
+    else hold/no transition
+        O-->>I: Last-seen update or failure reason
+    end
+

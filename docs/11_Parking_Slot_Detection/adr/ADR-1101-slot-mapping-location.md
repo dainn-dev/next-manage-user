@@ -1,6 +1,6 @@
 # ADR-1101: Where Parking-Slot Mapping Runs — On-Edge vs Backend PostGIS
 
-- Status: Proposed
+- Status: Accepted by DAI-297
 - Date: 2026-07-09
 - Deciders: Principal Architect
 - Context doc: 11_Parking_Slot_Detection
@@ -20,11 +20,14 @@ silently disagree about occupancy.
 
 ## Decision
 
+The exact source, coordinate, containment, transition, and event semantics are normative in
+[ADR-1102](ADR-1102-slot-runtime-and-event-contract.md).
+
 **Hybrid.** The edge computes a **provisional** point-in-polygon slot mapping using `shapely`
 against a locally cached snapshot of the site's slot polygons (refreshed on gate heartbeat/poll),
 so gate-local logic (relocation-candidate flagging, kiosk UI feedback) works with low latency and
 while offline. The backend recomputes the **authoritative** mapping via PostGIS
-`ST_Contains`/`ST_Within` on every ingested event, and that authoritative value is what gets
+`ST_Covers` on every ingested event, and that authoritative value is what gets
 persisted to `ParkingSlot`/`Vehicle.current_slot_id` and used to write `ParkingHistory`. If the
 edge's provisional `slot_id` and the backend's authoritative `slot_id` disagree, the backend
 value wins and the edge's polygon cache is invalidated so it resyncs on the next poll.

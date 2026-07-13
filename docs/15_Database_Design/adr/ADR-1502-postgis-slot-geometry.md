@@ -1,6 +1,6 @@
 # ADR-1502: PostGIS for parking-slot geometry
 
-- Status: Proposed
+- Status: Accepted by DAI-297
 - Date: 2026-07-09
 - Deciders: Principal Architect
 - Context doc: 15_Database_Design
@@ -17,10 +17,10 @@ slot (if any) it is inside — a point-in-polygon test — to drive `ParkingSlot
 
 ## Decision
 
-Add the **PostGIS** extension to the Postgres database and give `ParkingSlot.polygon` the
-type `GEOMETRY(Polygon, 4326)` (planar, calibration-defined local coordinate system per site,
-not literal lat/lon — SRID 4326 is used as a neutral, well-supported default rather than a
-geographic claim). Point-in-polygon resolution (`ST_Contains(slot.polygon, vehicle_point)`)
+Add the **PostGIS** extension to the Postgres database and store immutable
+`ParkingSlotGeometry.polygon` revisions as `GEOMETRY(Polygon, 0)` in the explicit
+`site-local-meters-v1` Cartesian coordinate space. Point-in-polygon resolution
+(`ST_Covers(slot_geometry.polygon, vehicle_point)`)
 runs as a **GiST-indexed spatial query** in Postgres, invoked by the backend when processing a
 `VehicleDetected`/tracking update from the edge. `Site.geo` (the site's map location) also
 becomes a PostGIS `geometry(Point, 4326)` for map-view display.
@@ -55,6 +55,5 @@ becomes a PostGIS `geometry(Point, 4326)` for map-view display.
   PostGIS-enabled Postgres image (`postgis/postgis`) instead of the plain `postgres` image;
   local dev setup (docker-compose) needs the same image swap; Hibernate Spatial adds a new
   dependency and mapping type the team must learn.
-- Follow-ups: pick and document the calibration/homography convention that maps camera pixel
-  coordinates to the site-local polygon coordinate system used by `polygon` (owned by the AI
-  calibration doc, `09_AI_Calibration`, not this one).
+- Follow-ups: implement the calibration/homography convention signed off in ADR-1102 and cover
+  shared-boundary behavior with PostGIS integration tests.

@@ -60,7 +60,9 @@ brief §4 so this document, the OpenAPI spec (`14_Backend_API`), and the event s
 | `Zone` | site | id, site_id, name | Optional grouping (floor/section) |
 | `Camera` | site | id, site_id, name, rtsp_url, role, panel_type, status, last_heartbeat_at, calibration_json | Supersedes/extends today's `Gate` as the device record |
 | `Gate` | site | id, site_id, name, camera_id, direction | Today's `Gate`, now site-scoped, references `Camera` |
-| `ParkingSlot` | site+zone | id, site_id, zone_id, code, polygon (PostGIS), status, current_vehicle_id, updated_at | See ADR-1502 |
+| `ParkingSlot` | tenant+site+zone | stable id, tenant_id, site_id, zone_id, code, admin_status | Logical identity across map versions; see ADR-1102/ADR-1502 |
+| `ParkingSlotGeometry` | site+map version | id, slot_id, map_version_id, polygon (PostGIS site-local metres) | Immutable geometry revision |
+| `SlotOccupancy` | tenant+site | slot_id, status, vehicle_id, camera/session/track, last_seen_at, version | Runtime state, separate from map geometry |
 | `Vehicle` | tenant | id, tenant_id, owner_user_id (nullable), license_plate, type, make/model/color, current_slot_id, current_site_id, last_seen_at, snapshot_url | Evolves today's `Vehicle`; `employee` FK → optional `owner_user_id` |
 | `VehicleTrack` | site+camera | id, site_id, camera_id, track_id, license_plate (nullable), first_seen_at, last_seen_at | ByteTrack tracklet |
 | `ParkingEvent` | tenant+site | id, tenant_id, site_id, camera_id, type, license_plate, track_id, slot_id, old_slot_id, new_slot_id, person_present, confidence, snapshot_id, occurred_at, event_id, payload | Event-sourced log, partitioned by time — see ADR-1503 |
@@ -95,9 +97,10 @@ the schema-level view):
 
 ## 4. PostGIS geometry
 
-`Site.geo` is `geometry(Point, 4326)`; `ParkingSlot.polygon` is `geometry(Polygon, 4326)`.
-Point-in-polygon resolution (`ST_Contains`) determines which slot a detected vehicle occupies;
-a GiST index on `polygon` keeps this fast per-camera at real-time detection rates. Rationale
+`Site.geo` is `geometry(Point, 4326)` for geographic display. Runtime slot geometry is stored as
+immutable `ParkingSlotGeometry.polygon` revisions using `geometry(Polygon, 0)` in the explicit
+`site-local-meters-v1` coordinate space. Boundary-inclusive point-in-polygon resolution uses
+`ST_Covers`; a GiST index on `polygon` keeps this fast per-camera at real-time detection rates. Rationale
 and alternatives: `adr/ADR-1502-postgis-slot-geometry.md`.
 
 ## 5. Time-partitioning ParkingEvent
@@ -159,17 +162,43 @@ CREATE INDEX idx_site_tenant ON site(tenant_id);
 
 CREATE TABLE parking_slot (
     id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id          UUID NOT NULL REFERENCES tenant(id),
     site_id            UUID NOT NULL REFERENCES site(id),
     zone_id            UUID REFERENCES zone(id),
     code               VARCHAR(20) NOT NULL,
-    polygon            geometry(Polygon, 4326) NOT NULL,
-    status             VARCHAR(20) NOT NULL DEFAULT 'free',
-    current_vehicle_id UUID REFERENCES vehicle(id),
-    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (site_id, code)
+    admin_status       VARCHAR(20) NOT NULL DEFAULT 'enabled'
+                       CHECK (admin_status IN ('enabled', 'disabled', 'retired')),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_parking_slot_polygon ON parking_slot USING GIST (polygon);
 CREATE INDEX idx_parking_slot_site ON parking_slot(site_id);
+CREATE UNIQUE INDEX uq_parking_slot_site_code
+    ON parking_slot(site_id, lower(code))
+    WHERE admin_status <> 'retired';
+
+CREATE TABLE parking_slot_geometry (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    slot_id            UUID NOT NULL REFERENCES parking_slot(id),
+    map_version_id     UUID NOT NULL REFERENCES site_map_version(id),
+    polygon            geometry(Polygon, 0) NOT NULL,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (slot_id, map_version_id)
+);
+CREATE INDEX idx_parking_slot_geometry_polygon
+    ON parking_slot_geometry USING GIST (polygon);
+
+CREATE TABLE slot_occupancy (
+    slot_id            UUID PRIMARY KEY REFERENCES parking_slot(id),
+    tenant_id          UUID NOT NULL REFERENCES tenant(id),
+    site_id            UUID NOT NULL REFERENCES site(id),
+    status             VARCHAR(20) NOT NULL DEFAULT 'free'
+                       CHECK (status IN ('free', 'occupied')),
+    current_vehicle_id UUID REFERENCES vehicle(id),
+    camera_id          UUID REFERENCES camera(id),
+    session_id         UUID,
+    track_id           VARCHAR(128),
+    last_seen_at       TIMESTAMPTZ,
+    version            BIGINT NOT NULL DEFAULT 0
+);
 
 CREATE TABLE parking_event (
     id             UUID NOT NULL DEFAULT gen_random_uuid(),

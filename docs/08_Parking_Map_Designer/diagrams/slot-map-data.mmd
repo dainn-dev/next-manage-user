@@ -3,9 +3,11 @@ erDiagram
     SITE ||--o{ CAMERA : has
     SITE ||--o{ SITE_MAP_VERSION : has
     CAMERA ||--o{ SITE_MAP_VERSION : "captured from (OVERVIEW role)"
-    SITE_MAP_VERSION ||--o{ PARKING_SLOT : contains
+    SITE_MAP_VERSION ||--o{ PARKING_SLOT_GEOMETRY : contains
     ZONE ||--o{ PARKING_SLOT : groups
-    PARKING_SLOT }o--o| VEHICLE : "current_vehicle_id (optional)"
+    PARKING_SLOT ||--o{ PARKING_SLOT_GEOMETRY : revisions
+    PARKING_SLOT ||--o| SLOT_OCCUPANCY : has
+    SLOT_OCCUPANCY }o--o| VEHICLE : occupant
 
     SITE {
         uuid id PK
@@ -37,14 +39,26 @@ erDiagram
     }
     PARKING_SLOT {
         uuid id PK
+        uuid tenant_id FK
         uuid site_id FK
         uuid zone_id FK
-        uuid map_version_id FK
         string code
+        string admin_status
+        timestamp updated_at
+    }
+    PARKING_SLOT_GEOMETRY {
+        uuid id PK
+        uuid slot_id FK
+        uuid map_version_id FK
         geometry polygon
+        timestamp created_at
+    }
+    SLOT_OCCUPANCY {
+        uuid slot_id PK
         string status
         uuid current_vehicle_id FK
-        timestamp updated_at
+        string track_id
+        timestamp last_seen_at
     }
     VEHICLE {
         uuid id PK

@@ -3,6 +3,7 @@ erDiagram
     Tenant ||--o{ Vehicle : "owns"
     Tenant ||--o{ User : "has (nullable for platform admins)"
     Tenant ||--o{ ParkingEvent : "scopes"
+    Tenant ||--o{ ParkingSlot : "scopes"
     Tenant ||--o{ ParkingHistory : "scopes"
     Tenant ||--o{ Snapshot : "scopes"
     Tenant ||--o{ Subscription : "has"
@@ -17,18 +18,22 @@ erDiagram
     Site ||--o{ Camera : "has"
     Site ||--o{ Gate : "has"
     Site ||--o{ ParkingSlot : "scopes"
+    Site ||--o{ SiteMapVersion : "publishes"
     Site ||--o{ VehicleTrack : "scopes"
     Site ||--o{ ParkingEvent : "scopes"
     Site ||--o{ MotionEvent : "scopes"
     Site ||--o{ Snapshot : "scopes"
 
     Zone ||--o{ ParkingSlot : "contains"
+    ParkingSlot ||--o{ ParkingSlotGeometry : "has immutable revisions"
+    SiteMapVersion ||--o{ ParkingSlotGeometry : "contains"
+    ParkingSlot ||--o| SlotOccupancy : "has runtime state"
     Camera ||--o{ Gate : "faces"
     Camera ||--o{ VehicleTrack : "detects"
     Camera ||--o{ ParkingEvent : "sources"
     Camera ||--o{ MotionEvent : "sources"
 
-    ParkingSlot |o--o| Vehicle : "currently holds"
+    SlotOccupancy |o--o| Vehicle : "currently holds"
     Vehicle ||--o{ ParkingEvent : "involved in"
     User ||--o{ Vehicle : "owns"
     User ||--o{ Notification : "receives"
@@ -78,13 +83,38 @@ erDiagram
     }
     ParkingSlot {
         uuid id PK
+        uuid tenant_id FK
         uuid site_id FK
         uuid zone_id FK
         string code "e.g. A01"
-        geometry polygon "GEOMETRY(Polygon,4326)"
-        string status "free,occupied,reserved,disabled"
-        uuid current_vehicle_id FK
+        string admin_status "enabled,disabled,retired"
         timestamp updated_at
+    }
+    SiteMapVersion {
+        uuid id PK
+        uuid site_id FK
+        int version
+        string coordinate_space "site-local-meters-v1"
+        string status "draft,published,retired"
+    }
+    ParkingSlotGeometry {
+        uuid id PK
+        uuid slot_id FK
+        uuid map_version_id FK
+        geometry polygon "GEOMETRY(Polygon,0)"
+        timestamp created_at
+    }
+    SlotOccupancy {
+        uuid slot_id PK_FK
+        uuid tenant_id FK
+        uuid site_id FK
+        string status "free,occupied"
+        uuid current_vehicle_id FK
+        uuid camera_id FK
+        uuid session_id
+        string track_id
+        timestamp last_seen_at
+        bigint version
     }
     Vehicle {
         uuid id PK

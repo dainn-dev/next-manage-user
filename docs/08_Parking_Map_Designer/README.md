@@ -7,7 +7,7 @@ the camera↔ground homography reference points that `09_AI_Calibration` turns i
 pixel-to-world transform. Today none of this exists: there is no map UI, no polygon data model,
 and no geospatial storage anywhere in the repo. This document is a from-scratch design.
 
-Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
+Status: Architecture signed off (DAI-297) · Owner: Principal Architect · Last updated: 2026-07-14
 
 ## 1. Current state vs Target
 
@@ -61,21 +61,32 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | UUID PK | |
+| `id` | UUID PK | stable logical `slot_id`; retained across compatible map revisions |
+| `tenant_id` | UUID FK → Tenant | denormalized isolation key; must agree with `site_id` |
 | `site_id` | UUID FK → Site | |
 | `zone_id` | UUID FK → Zone, nullable | optional grouping |
-| `map_version_id` | UUID FK → SiteMapVersion | which draft/published version this slot belongs to |
-| `code` | string | e.g. `A01`; unique within `(site_id, map_version_id)` |
-| `polygon` | `GEOMETRY(Polygon, SRID)` | PostGIS; see ADR-0801 for storage decision |
-| `status` | enum `free`, `occupied`, `reserved`, `disabled` | runtime state, updated by the AI pipeline (out of scope here — see `09_AI_Calibration` and the parking-events doc) |
-| `current_vehicle_id` | UUID FK → Vehicle, nullable | set when `status = occupied` |
+| `code` | string | e.g. `A01`; case-insensitively unique within the site's logical layout |
+| `admin_status` | enum `enabled`, `disabled`, `retired` | administrative lifecycle, separate from runtime occupancy |
 | `updated_at` | timestamp | |
 
-### 3.2 `Zone` (per §4 of the shared brief)
+### 3.2 `ParkingSlotGeometry`
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | immutable `slot_geometry_id` |
+| `slot_id` | UUID FK → ParkingSlot | stable logical slot |
+| `map_version_id` | UUID FK → SiteMapVersion | published/draft geometry revision |
+| `polygon` | `GEOMETRY(Polygon, 0)` | site-local Cartesian metres; `site-local-meters-v1` |
+| `created_at` | timestamp | |
+
+Runtime `SlotOccupancy` is owned by `11_Parking_Slot_Detection`; it references the stable
+`slot_id` and does not mutate a historical geometry revision.
+
+### 3.3 `Zone` (per §4 of the shared brief)
 
 `id, site_id, name` — an optional grouping (floor/section, e.g. "Level 2 / Section B").
 
-### 3.3 `SiteMapVersion` (new — introduced by this doc, follows the same tenant/site-scoped
+### 3.4 `SiteMapVersion` (new — introduced by this doc, follows the same tenant/site-scoped
 pattern as the rest of §4 of the shared brief)
 
 | Field | Type | Notes |
@@ -89,9 +100,11 @@ pattern as the rest of §4 of the shared brief)
 | `calibration_json` | jsonb, nullable | homography points captured in this session, handed to `Camera.calibration_json` on publish (see `09_AI_Calibration` §… for the full shape) |
 | `published_at` | timestamp, nullable | |
 
-`ParkingSlot` rows reference a `map_version_id` rather than being mutated in place, so a
-published map is an immutable snapshot: editing always happens on a new draft version, and slot
-history (which polygon was active when an old event was recorded) stays reconstructable.
+`ParkingSlotGeometry` rows reference `map_version_id` and are never mutated after publish.
+Compatible edits create a new geometry for the existing logical `slot_id`; physical deletion
+retires that logical slot. Events record `slot_id`, `slot_geometry_id`, and `map_version_id`, so
+history remains reconstructable without generating relocation events merely because a map was
+republished. The normative runtime contract is ADR-1102.
 
 A site with multiple `OVERVIEW` cameras carries one published `SiteMapVersion` per camera, but
 runtime queries select slots by `site_id` across all of them — see the multi-camera subsection in
@@ -175,7 +188,7 @@ Enforced both client-side (fast feedback while drawing) and server-side (source 
 | Polygon is simple (no self-intersection) | best-effort | yes (PostGIS `ST_IsValid`) |
 | Polygon lies within the source image bounds | yes (canvas clamp) | yes (`ST_Within` against frame bbox) |
 | No two slots in the same map version overlap | best-effort (bbox check) | yes (PostGIS `ST_Overlaps` pairwise) |
-| Slot `code` unique within `(site_id, map_version_id)` | yes | yes (DB constraint) |
+| Slot `code` unique within the site's active logical layout | yes | yes (case-insensitive DB constraint) |
 
 Server-side validation runs on every save, not just publish, so a draft can never silently
 persist an invalid polygon.
@@ -211,6 +224,8 @@ Publishing a map version does two things relevant to `09_AI_Calibration`:
   library.
 - [ADR-0803](adr/ADR-0803-multi-camera-map-strategy.md) — Multi-camera wide-lot map strategy:
   partitioned coverage + runtime query by site vs merge/dedup.
+- [ADR-1102](../11_Parking_Slot_Detection/adr/ADR-1102-slot-runtime-and-event-contract.md) —
+  signed-off published-map handoff, stable slot identity, coordinate and validation contract.
 
 ## 11. Open questions / risks
 

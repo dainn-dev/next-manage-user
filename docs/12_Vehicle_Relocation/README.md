@@ -3,26 +3,23 @@
 This document defines how the platform detects that a vehicle already mapped to a parking slot
 has moved to a different slot, and what happens once that is confirmed: a `VehicleRelocated`
 domain event, an updated `Vehicle.current_slot_id`, a `ParkingHistory` record, and a
-notification. **This capability is greenfield** — nothing described here exists in the codebase
-today.
+notification. **The runtime capability is greenfield**; the transition and event contract is now
+defined for implementation.
 
-Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
+Status: Runtime contract signed off (DAI-297) · Owner: Principal Architect · Last updated: 2026-07-14
 
 ## 1. Current State vs Target
 
 ### Current
 
-No relocation detection exists today, and it could not, given the current building blocks
-(brief §1): there is no `ParkingSlot`/occupancy concept at all, and edge "tracking" is only a
-per-plate-string dict of first-seen/last-sent timestamps used for cooldown/min-detection-duration
-confirmation — it is explicitly **not** a real multi-object tracker, so there is no notion of
-track continuity to detect movement between two locations in the first place. There is also no
-`ParkingHistory` table and no `current_slot_id` on `Vehicle` today.
+The relocation runtime is not yet implemented, but its source data, identity rules, transition
+guards, event fields, and evidence policy are now signed off in ADR-1102. The current edge path
+still lacks the stable multi-object tracking needed to exercise this contract at runtime.
 
 ### Target
 
-Rule (from the target vision, brief §2): **same identity (`track_id` or `license_plate`) but
-slot changed ⇒ emit `VehicleRelocated`**, update `Vehicle.current_slot_id`, write
+Rule (from the target vision, brief §2): **same reconciled identity but stable logical
+`slot_id` changed ⇒ the backend emits `VehicleRelocated`**, updates `Vehicle.current_slot_id`, writes
 `ParkingHistory(old_slot, new_slot)`, and save snapshots at both the old and new slot. This
 depends directly on 11_Parking_Slot_Detection for the committed slot assignment and on
 ByteTrack (10_AI_Pipeline) for track continuity.
@@ -69,9 +66,10 @@ debounce):
 When ByteTrack loses a track (occlusion, the vehicle leaves the camera's field of view, or the
 edge process restarts), the system attempts re-identification by plate:
 
-1. Look at recent detections on the same camera within a short time window.
-2. If the lost track had a legible plate read, search new/candidate tracks for a matching plate
-   (exact match, or edit-distance ≤ 1 to tolerate OCR noise).
+1. Look at recent detections at the same site within a 30-second reconciliation window.
+2. If the lost track had a legible plate read, search new/candidate tracks for an exact match.
+   Fuzzy edit-distance ≤ 1 is allowed only when OCR confidence is at least 0.90 and there is one
+   unique candidate in the window; otherwise the match is ambiguous and rejected.
 3. On a match at the **same camera**, re-bind the identity and continue relocation logic under
    the new `track_id`.
 4. On a match at a **different camera at the same site**, this is a cross-camera handoff — since
@@ -123,14 +121,16 @@ deduplicated `VehicleRelocated` event; notification delivery semantics live in 1
 ## 10. Decisions / ADRs
 
 - `adr/ADR-1201-relocation-identity-key.md` — identity key choice (`track_id` primary,
-  `license_plate` fallback) and the proposed dedup window.
+  `license_plate` fallback), reconciliation guard, and 60-second default dedup window.
+- `../11_Parking_Slot_Detection/adr/ADR-1102-slot-runtime-and-event-contract.md` — normative
+  relocation transition, event payload, transaction, and snapshot policy.
 
 ## 11. Open Questions / Risks
 
-- The 60-second dedup window (ADR-1201) is a starting proposal; needs validation against real
-  reparking behavior (e.g. a driver who repositions within a minute of parking).
-- Cross-camera handoff correlation at the backend needs an explicit time/space window definition
-  (how "adjacent" must two cameras be, and how long is a valid handoff gap) — not yet specified.
+- The signed-off 60-second dedup default still needs validation against real reparking behavior;
+  it is deployment-tunable and does not change the event schema.
+- Cross-camera handoff is limited to the same site and a 30-second window. Camera adjacency can
+  be added as a stricter deployment filter without weakening tenant/site isolation.
 - Plate-based reconciliation quality is bounded by OCR accuracy, which is still under evaluation
   (10_AI_Pipeline, ADR-1001); a higher OCR error rate directly increases false-match risk here.
 - "Stolen vehicle" framing for the notification (§8) needs a product decision on severity/copy

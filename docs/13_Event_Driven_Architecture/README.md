@@ -6,7 +6,7 @@ transactional outbox pattern that makes publishing atomic with persistence, and 
 idempotency/ordering/retry contract that ties it all together. This document is the
 reference for anyone producing or consuming a ParkVision domain event.
 
-Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
+Status: Draft; slot-transition contract signed off by DAI-297 · Owner: Principal Architect · Last updated: 2026-07-14
 
 ## 1. Current state vs Target
 
@@ -55,7 +55,7 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
 ## 2. Domain events
 
 All nine events share a common envelope (`event_id`, `event_type`, `event_version`,
-`tenant_id`, `site_id`, `occurred_at`, `payload`); the table below lists the
+`tenant_id`, `site_id`, `occurred_at`, `correlation_id`, `causation_id`, `payload`); the table below lists the
 event-specific fields carried in `payload` and where they originate.
 
 | Event | Emitted by | Key payload fields | Typical consumers |
@@ -63,18 +63,39 @@ event-specific fields carried in `payload` and where they originate.
 | `MotionDetected` | Edge (OpenCV MOG2 gate) | camera_id, person_present, roi | analytics, db-projector (`MotionEvent`) |
 | `VehicleDetected` | Edge (YOLOv11) | camera_id, track_id, bbox, confidence | analytics |
 | `PlateRecognized` | Edge (YOLOv5 plate/char + PaddleOCR) | camera_id, track_id, license_plate, confidence | db-projector, notification |
-| `VehicleEntered` | Edge → Ingest API | site_id, camera_id, gate_id, license_plate, track_id, slot_id (nullable) | db-projector, notification, analytics, chatbot-index |
-| `VehicleRelocated` | Edge (ByteTrack + slot mapping) | track_id, license_plate, old_slot_id, new_slot_id | db-projector, notification, chatbot-index |
-| `VehicleExited` | Edge → Ingest API | site_id, camera_id, gate_id, license_plate, track_id, slot_id | db-projector, notification, analytics, chatbot-index |
+| `VehicleEntered` | Backend occupancy projector | vehicle identity, tracker, slot/map/geometry IDs, transition sequence, assignment, evidence | notification, analytics, chatbot-index |
+| `VehicleRelocated` | Backend occupancy projector | vehicle identity, tracker, old/new slot/map/geometry IDs, transition sequence, assignment, evidence | notification, analytics, chatbot-index |
+| `VehicleExited` | Backend occupancy projector | vehicle identity, tracker, slot/map/geometry IDs, exit reason, last seen, transition sequence, evidence | notification, analytics, chatbot-index |
 | `PersonDetected` | Edge (YOLOv11 person class) | camera_id, bbox, confidence | analytics |
 | `SnapshotSaved` | Ingest API (on multipart upload) | snapshot_id, kind, object_url, related event_id | snapshot, chatbot-index |
 | `NotificationSent` | Notification service | user_id, channel, notification_id, related event_id | analytics (delivery metrics) |
 
-`VehicleEntered` / `VehicleExited` / `VehicleRelocated` are the three that also replace the
-gate-access "state machine" behavior implicit in today's `Vehicle.status`
-(`approved → entered → exited`, mutated inside `VehicleService.checkVehicleAccess`) — see
-`14_Backend_API` for how the ingest endpoint that raises these maps onto the existing
-`check-vehicle` contract.
+`VehicleEntered` / `VehicleExited` / `VehicleRelocated` in this contract describe authoritative
+**parking-slot occupancy transitions**, not gate authorization. The backend is their only domain
+event producer: edge `VehicleDetected` observations are provisional inputs. Gate access may be a
+cause or consumer, but remains a separate state machine.
+
+### DAI-297 normative slot-transition events
+
+The accepted boundary and failure semantics are in
+`../11_Parking_Slot_Detection/adr/ADR-1102-slot-runtime-and-event-contract.md`. The executable
+JSON Schemas are stored under `backend/src/main/resources/events/schemas/`:
+
+- `common/domain-event-envelope-v1.json`
+- `vehicle-entered/v1.json`
+- `vehicle-exited/v1.json`
+- `vehicle-relocated/v1.json`
+
+The event is written with the occupancy/history changes and transactional outbox in one database
+transaction. `event_id` provides delivery idempotency; monotonic `transition_sequence` provides
+per-identity stale/out-of-order detection. `correlation_id` links a parking lifecycle and
+`causation_id` points to the observation or prior event that caused the transition. Snapshot
+evidence is best-effort: an event remains valid with `partial` or `unavailable`
+evidence status and must not be rolled back because object storage is unavailable.
+
+The HTTP edge-ingress profiles below use camelCase transport fields. Projection to the domain
+bus is an explicit trust boundary: the backend derives tenant/site scope and emits the snake_case
+envelope validated by the registry schemas.
 
 ### DAI-288 typed LPR ingress profiles (`lpr-mvp-v1`)
 
@@ -259,12 +280,11 @@ sequence in `diagrams/outbox-relay-sequence.mmd`.
 
 RabbitMQ preserves order **within a single queue for a single publisher connection**, but
 the platform does **not** guarantee global cross-event ordering across different event types
-or across sites. Consumers that need strict per-vehicle ordering (e.g. `VehicleEntered`
-before `VehicleRelocated` before `VehicleExited` for the same `track_id`) should key off
-`occurred_at` and `track_id` in the payload and treat the queue order as a hint, not a
-guarantee — a redelivered/retried message can arrive out of original order. The event store
-(`ParkingEvent`, ordered by `occurred_at`) is the source of truth for sequencing, not queue
-order.
+or across sites. Consumers that need strict per-vehicle ordering should compare the monotonic
+`transition_sequence` for the reconciled vehicle identity and treat queue order as a hint, not a
+guarantee. `occurred_at` remains useful for history display but is not a safe concurrency token:
+a redelivered/retried message can arrive out of original order. The event store and occupancy
+projector state are the source of truth.
 
 ## 7. Retries / DLQ
 
@@ -284,6 +304,11 @@ order.
 Every event is versioned independently via `event_version` in the envelope; payload changes
 within a version must be additive-only. See `adr/ADR-1303-event-schema-versioning-registry.md`
 for the full policy and the file-based JSON Schema registry.
+
+DAI-297 adds the first concrete domain-bus artifacts to that registry: the common v1 envelope
+and v1 schemas for `VehicleEntered`, `VehicleExited`, and `VehicleRelocated`. Producers must
+validate before inserting the outbox row; consumer contract tests must validate representative
+messages against the same schema version.
 
 ## 9. Event store
 

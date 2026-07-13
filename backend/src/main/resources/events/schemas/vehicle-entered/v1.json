@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://parkvision.local/events/vehicle-entered/v1.json",
+  "title": "VehicleEntered v1",
+  "allOf": [
+    {"$ref": "../common/domain-event-envelope-v1.json"},
+    {
+      "type": "object",
+      "properties": {
+        "event_type": {"const": "VehicleEntered"},
+        "payload": {
+          "type": "object",
+          "required": [
+            "identity",
+            "slot_id",
+            "slot_geometry_id",
+            "map_version_id",
+            "transition_sequence",
+            "assignment",
+            "evidence"
+          ],
+          "properties": {
+            "identity": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/vehicleIdentity"
+            },
+            "slot_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "slot_geometry_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "map_version_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "zone_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "transition_sequence": {"type": "integer", "minimum": 1},
+            "assignment": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/assignment"
+            },
+            "evidence": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/snapshotEvidence"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
+

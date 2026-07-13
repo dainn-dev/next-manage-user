@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://parkvision.local/events/vehicle-relocated/v1.json",
+  "title": "VehicleRelocated v1",
+  "allOf": [
+    {"$ref": "../common/domain-event-envelope-v1.json"},
+    {
+      "type": "object",
+      "properties": {
+        "event_type": {"const": "VehicleRelocated"},
+        "payload": {
+          "type": "object",
+          "required": [
+            "identity",
+            "old_slot_id",
+            "old_slot_geometry_id",
+            "old_map_version_id",
+            "new_slot_id",
+            "new_slot_geometry_id",
+            "new_map_version_id",
+            "transition_sequence",
+            "assignment",
+            "evidence"
+          ],
+          "properties": {
+            "identity": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/vehicleIdentity"
+            },
+            "old_slot_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "old_slot_geometry_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "old_map_version_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "old_zone_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "new_slot_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "new_slot_geometry_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "new_map_version_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "new_zone_id": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/uuid"
+            },
+            "transition_sequence": {"type": "integer", "minimum": 1},
+            "assignment": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/assignment"
+            },
+            "evidence": {
+              "$ref": "../common/domain-event-envelope-v1.json#/$defs/snapshotEvidence"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  ]
+}
+

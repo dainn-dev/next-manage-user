@@ -53,6 +53,11 @@ different from what wrote it.
 
 ## Consequences
 
+DAI-297 implements the first registry slice at
+`backend/src/main/resources/events/schemas/`: the common v1 envelope and v1 schemas for
+`VehicleEntered`, `VehicleExited`, and `VehicleRelocated`. The wider nine-event registry remains
+follow-up work, so this ADR's overall status is unchanged.
+
 - Positive: consumers can be upgraded independently; old events in `ParkingEvent.payload`
   remain interpretable because `event_version` travels with them; no new infra to operate.
 - Negative / trade-offs: compatibility is convention + CI-enforced, not broker-enforced — a
