@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+@TestPropertySource(properties = "billing.enabled=true")
 class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final UUID TENANT_ID = UUID.fromString("20000000-0000-0000-0000-000000000275");

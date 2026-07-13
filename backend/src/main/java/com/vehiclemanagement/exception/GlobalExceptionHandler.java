@@ -2,6 +2,7 @@ package com.vehiclemanagement.exception;
 
 import com.vehiclemanagement.billing.EntitlementExceededException;
 import com.vehiclemanagement.billing.EntitlementCheckUnavailableException;
+import com.vehiclemanagement.billing.BillingDisabledException;
 import com.vehiclemanagement.service.CameraIngestService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -134,6 +135,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EntitlementCheckUnavailableException.class)
     public ResponseEntity<ErrorResponse> handleEntitlementCheckUnavailableException(
             EntitlementCheckUnavailableException ex) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                ex.getMessage(),
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @ExceptionHandler(BillingDisabledException.class)
+    public ResponseEntity<ErrorResponse> handleBillingDisabledException(BillingDisabledException ex) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.SERVICE_UNAVAILABLE.value(),
                 ex.getMessage(),

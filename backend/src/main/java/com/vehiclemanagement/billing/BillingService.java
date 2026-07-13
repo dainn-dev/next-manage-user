@@ -28,20 +28,24 @@ public class BillingService {
     private final StripeBillingClient stripeClient;
     private final EntitlementGuard entitlementGuard;
     private final BillingWebhookTenantResolver webhookTenantResolver;
+    private final BillingFeatureProperties billingFeatureProperties;
 
     public BillingService(JdbcTemplate jdbc,
                           TransactionTemplate transactionTemplate,
                           StripeBillingClient stripeClient,
                           EntitlementGuard entitlementGuard,
-                          BillingWebhookTenantResolver webhookTenantResolver) {
+                          BillingWebhookTenantResolver webhookTenantResolver,
+                          BillingFeatureProperties billingFeatureProperties) {
         this.jdbc = jdbc;
         this.transactionTemplate = transactionTemplate;
         this.stripeClient = stripeClient;
         this.entitlementGuard = entitlementGuard;
         this.webhookTenantResolver = webhookTenantResolver;
+        this.billingFeatureProperties = billingFeatureProperties;
     }
 
     public BillingCheckoutResponse createCheckoutSession(BillingCheckoutRequest request, String email) {
+        requireBillingEnabled();
         UUID tenantId = requireTenant();
         return transactionTemplate.execute(status -> {
             BillingPlan plan = findPlan(request.getPlanId())
@@ -65,6 +69,7 @@ public class BillingService {
     }
 
     public BillingPortalResponse createPortalSession(BillingPortalRequest request) {
+        requireBillingEnabled();
         UUID tenantId = requireTenant();
         BillingSubscription subscription = findSubscriptionByTenant(tenantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tenant does not have a Stripe customer yet"));
@@ -74,6 +79,7 @@ public class BillingService {
     }
 
     public BillingStatusResponse getBillingStatus() {
+        requireBillingEnabled();
         UUID tenantId = requireTenant();
         BillingPlan plan = jdbc.queryForObject("""
                 SELECT p.id, p.code, p.name, p.limits::text, p.price_cents, p.currency, p.stripe_price_id, p.active
@@ -93,7 +99,11 @@ public class BillingService {
     }
 
     public void handleWebhook(String payload, String signature) {
+        requireBillingEnabled();
         BillingWebhookEvent event = stripeClient.parseWebhookEvent(payload, signature);
+        if (!isStateChangingEvent(event.type())) {
+            return;
+        }
         if (isStateChangingEvent(event.type()) && event.createdAt() == null) {
             throw new IllegalArgumentException("Stripe event creation time is required");
         }
@@ -176,6 +186,12 @@ public class BillingService {
         };
     }
 
+
+    private void requireBillingEnabled() {
+        if (!billingFeatureProperties.isEnabled()) {
+            throw new BillingDisabledException();
+        }
+    }
     private void syncSubscription(UUID tenantId, BillingWebhookEvent event) {
         UUID planId = planIdForEvent(event).orElse(null);
         if (planId == null && "canceled".equals(event.status())) {

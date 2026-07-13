@@ -24,6 +24,7 @@ class StripeBillingClientTest {
     @Test
     void signedWebhookIsVerifiedAndCreatedTimeIsParsed() throws Exception {
         long created = Instant.parse("2026-07-10T12:00:00Z").getEpochSecond();
+        long signatureTimestamp = Instant.now().getEpochSecond();
         String payload = """
                 {
                   "id":"evt_signed_275",
@@ -46,7 +47,7 @@ class StripeBillingClientTest {
         StripeBillingClient client = new StripeBillingClient(properties, new ObjectMapper());
 
         BillingWebhookEvent event = client.parseWebhookEvent(
-                payload, signatureHeader(created, payload, WEBHOOK_SECRET));
+                payload, signatureHeader(signatureTimestamp, payload, WEBHOOK_SECRET));
 
         assertThat(event.id()).isEqualTo("evt_signed_275");
         assertThat(event.tenantId()).isEqualTo(TENANT_ID);
