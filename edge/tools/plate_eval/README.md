@@ -53,7 +53,27 @@ and a stage-based error taxonomy:
 `plate` comparison is separator-insensitive (`76M-514.43` == `76m51443`), so
 labellers don't have to match the app's exact `-`/`.` formatting.
 
+## DAI-292 same-crop OCR comparison
+
+`compare_ocr.py` reuses the same `filename,plate,tags` manifest but evaluates already-cropped plate
+images with PaddleOCR, EasyOCR, and VietOCR independently. It decodes each file once and gives each
+engine an identical pixel copy. Install its isolated dependencies with
+`requirements-ocr-benchmark.txt`; provide explicit local model roots so the run does not download
+weights.
+
+The JSON output records per-crop predictions, nullable confidence, threshold disposition, exact
+match, edit distance/CER, latency, errors, dimensions, SHA-256, and tags. The Markdown output reports
+overall plus `day`/`night` sections and says `not demonstrated` when a condition is absent. Use
+`--strict-day-night` for acceptance runs. Comparator results are offline evidence only and never
+replace PaddleOCR output in the edge worker.
+
+The checked-in `labels.example.csv` demonstrates schema, not benchmark evidence. A human-labeled,
+representative day/night corpus and versioned local model bundles are required before reporting
+accuracy or promoting the OCR decision.
+
 ## Files
 - `export_testset.py` — DB → labelling manifest (read-only; `psycopg2-binary`).
-- `eval_baseline.py` — labelled set → metrics + error taxonomy (`torch`, `opencv`).
+- `eval_baseline.py` — labelled set → legacy metrics + error taxonomy (`torch`, `opencv`).
+- `compare_ocr.py` — identical crops → PaddleOCR/EasyOCR/VietOCR report.
+- `requirements-ocr-benchmark.txt` — optional offline comparator dependencies.
 - `labels.example.csv` — manifest schema example.

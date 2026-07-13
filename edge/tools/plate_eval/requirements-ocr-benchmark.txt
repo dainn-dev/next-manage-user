@@ -1,0 +1,4 @@
+-r ../../edge/requirements-ocr-production.txt
+# Offline comparison only; these packages/models are never loaded by CameraProcessingService.
+easyocr==1.7.2
+vietocr==0.3.13

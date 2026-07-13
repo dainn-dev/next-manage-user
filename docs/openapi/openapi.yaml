@@ -6,8 +6,9 @@ info:
     Target REST contract for the ParkVision multi-tenant Smart Parking SaaS. This is a design
     artifact (Status: Draft, 2026-07-09) for issue DAI-260, aligned with docs/14_Backend_API.
 
-    Tenancy is implicit: the tenant is resolved from the JWT (`tid` claim) and enforced by
-    PostgreSQL Row-Level Security; `siteId` scopes queries within a tenant. Legacy endpoints
+    Tenancy is implicit: user requests resolve the tenant from the JWT (`tid` claim), while
+    camera ingest resolves tenant/site from X-Camera-Id plus X-Camera-Key; PostgreSQL Row-Level
+    Security enforces both paths. Legacy endpoints
     under `/api` (auth, vehicles/check-vehicle, gates, vehicle-logs, access-requests) remain and
     are documented in code via springdoc; this spec focuses on the new `/api/v1` SaaS surface plus
     the edge ingest contract.
@@ -227,38 +228,47 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/ParkingEvent' }
-
-  /ingest/events:
     post:
       tags: [Ingest]
-      summary: Edge event ingest (idempotent). Authenticated with a per-camera key.
+      summary: Authenticated, idempotent camera event ingest
       description: >-
-        The edge posts confirmed detections/relocations here. Send JSON, or multipart with a
-        `snapshot` part for evidence. Idempotency is keyed on `eventId`; the backend persists the
-        event and relays it to the domain event bus via the transactional outbox. Mirrors the
-        current `POST /api/vehicles/check-vehicle` contract, generalized to all event types.
+        The camera identity is authenticated by X-Camera-Id and X-Camera-Key. Tenant and site are
+        derived server-side from that credential. Send JSON, or multipart with an event JSON part
+        and one optional snapshot. Idempotency is scoped to (authenticated camera ID, event ID).
       security:
-        - cameraKey: []
+        - cameraId: []
+          cameraKey: []
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/IngestEvent' }
+            schema:
+              anyOf:
+                - $ref: '#/components/schemas/VehicleDetectedIngestEvent'
+                - $ref: '#/components/schemas/PlateRecognizedIngestEvent'
+                - $ref: '#/components/schemas/CameraIngestRequest'
           multipart/form-data:
             schema:
               type: object
+              required: [event]
               properties:
-                event: { $ref: '#/components/schemas/IngestEvent' }
-                snapshot: { type: string, format: binary }
+                event: { $ref: '#/components/schemas/CameraIngestRequest' }
+                snapshot:
+                  type: string
+                  format: binary
+                  description: Optional single evidence image, maximum 5 MB.
+            encoding:
+              event:
+                contentType: application/json
       responses:
-        '200':
-          description: Delivered (or already seen — idempotent replay)
+        '202':
+          description: Accepted or idempotent replay
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/IngestAck' }
+              schema: { $ref: '#/components/schemas/CameraIngestAccepted' }
+        '400': { description: Malformed event or mismatched body camera ID }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '409': { description: Duplicate eventId (already processed) }
-        '429': { $ref: '#/components/responses/RateLimited' }
+        '413': { description: Snapshot exceeds the configured 5 MB limit }
 
   /subscriptions/current:
     get:
@@ -340,11 +350,16 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    cameraId:
+      type: apiKey
+      in: header
+      name: X-Camera-Id
+      description: Non-secret UUID of the camera that is presenting its ingest credential.
     cameraKey:
       type: apiKey
       in: header
-      name: X-Gate-Key
-      description: Per-camera ingest key (evolution of today's shared GATE_API_KEY).
+      name: X-Camera-Key
+      description: Per-camera ingest credential. Combined with X-Camera-Id, it derives tenant and site scope server-side.
 
   parameters:
     SiteId:
@@ -395,7 +410,7 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
-        tenantId: { type: string, format: uuid, nullable: true }
+        tenantId: { type: [string, 'null'], format: uuid }
         username: { type: string }
         email: { type: string }
         role:
@@ -411,7 +426,7 @@ components:
         name: { type: string }
         slug: { type: string }
         status: { type: string, enum: [active, suspended, trial] }
-        planId: { type: string, format: uuid, nullable: true }
+        planId: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
     TenantCreate:
       type: object
@@ -419,7 +434,7 @@ components:
       properties:
         name: { type: string }
         slug: { type: string }
-        planId: { type: string, format: uuid, nullable: true }
+        planId: { type: [string, 'null'], format: uuid }
     Site:
       type: object
       properties:
@@ -445,7 +460,7 @@ components:
         role: { type: string, enum: [ANPR_GATE, OVERVIEW] }
         panelType: { type: string, enum: [entry, exit] }
         status: { type: string, enum: [online, offline, disabled] }
-        lastHeartbeatAt: { type: string, format: date-time, nullable: true }
+        lastHeartbeatAt: { type: [string, 'null'], format: date-time }
     CameraCreate:
       type: object
       required: [name, role]
@@ -467,10 +482,10 @@ components:
       properties:
         id: { type: string, format: uuid }
         siteId: { type: string, format: uuid }
-        zoneId: { type: string, format: uuid, nullable: true }
+        zoneId: { type: [string, 'null'], format: uuid }
         code: { type: string, example: A01 }
         status: { type: string, enum: [free, occupied, reserved, disabled] }
-        currentVehicleId: { type: string, format: uuid, nullable: true }
+        currentVehicleId: { type: [string, 'null'], format: uuid }
         polygon:
           type: array
           description: Image-space polygon [[x,y], ...]; stored server-side as PostGIS geometry.
@@ -482,7 +497,7 @@ components:
       required: [code, polygon]
       properties:
         code: { type: string }
-        zoneId: { type: string, format: uuid, nullable: true }
+        zoneId: { type: [string, 'null'], format: uuid }
         polygon:
           type: array
           items:
@@ -495,10 +510,10 @@ components:
         tenantId: { type: string, format: uuid }
         licensePlate: { type: string }
         type: { type: string, enum: [car, motorbike, truck, bus] }
-        currentSlotId: { type: string, format: uuid, nullable: true }
-        currentSiteId: { type: string, format: uuid, nullable: true }
-        lastSeenAt: { type: string, format: date-time, nullable: true }
-        snapshotUrl: { type: string, nullable: true }
+        currentSlotId: { type: [string, 'null'], format: uuid }
+        currentSiteId: { type: [string, 'null'], format: uuid }
+        lastSeenAt: { type: [string, 'null'], format: date-time }
+        snapshotUrl: { type: [string, 'null'] }
     VehiclePage:
       type: object
       properties:
@@ -514,10 +529,10 @@ components:
       properties:
         vehicleId: { type: string, format: uuid }
         licensePlate: { type: string }
-        siteId: { type: string, format: uuid, nullable: true }
-        slotCode: { type: string, nullable: true }
-        lastSeenAt: { type: string, format: date-time, nullable: true }
-        snapshotUrl: { type: string, nullable: true }
+        siteId: { type: [string, 'null'], format: uuid }
+        slotCode: { type: [string, 'null'] }
+        lastSeenAt: { type: [string, 'null'], format: date-time }
+        snapshotUrl: { type: [string, 'null'] }
     EventType:
       type: string
       enum:
@@ -536,37 +551,217 @@ components:
         id: { type: string, format: uuid }
         tenantId: { type: string, format: uuid }
         siteId: { type: string, format: uuid }
-        cameraId: { type: string, format: uuid, nullable: true }
+        cameraId: { type: [string, 'null'], format: uuid }
         type: { $ref: '#/components/schemas/EventType' }
-        licensePlate: { type: string, nullable: true }
-        trackId: { type: string, nullable: true }
-        slotId: { type: string, format: uuid, nullable: true }
-        oldSlotId: { type: string, format: uuid, nullable: true }
-        newSlotId: { type: string, format: uuid, nullable: true }
-        personPresent: { type: boolean, nullable: true }
-        confidence: { type: number, nullable: true }
+        licensePlate: { type: [string, 'null'] }
+        trackId: { type: [string, 'null'] }
+        slotId: { type: [string, 'null'], format: uuid }
+        oldSlotId: { type: [string, 'null'], format: uuid }
+        newSlotId: { type: [string, 'null'], format: uuid }
+        personPresent: { type: [boolean, 'null'] }
+        confidence: { type: [number, 'null'] }
         occurredAt: { type: string, format: date-time }
-    IngestEvent:
+    CameraIngestRequest:
       type: object
-      required: [eventId, type, cameraId, occurredAt]
+      description: >-
+        Current durable camera-ingest envelope. eventType is canonical; the runtime also accepts
+        type as a legacy alias. cameraId is optional and, when supplied, must match X-Camera-Id.
+        Tenant/site/object storage identity is derived by the backend and is never request input.
+      required: [eventId, eventType, occurredAt]
       properties:
-        eventId: { type: string, format: uuid, description: Idempotency key }
-        type: { $ref: '#/components/schemas/EventType' }
-        cameraId: { type: string, format: uuid }
-        licensePlate: { type: string, nullable: true }
-        trackId: { type: string, nullable: true }
-        slotCode: { type: string, nullable: true }
-        oldSlotCode: { type: string, nullable: true }
-        newSlotCode: { type: string, nullable: true }
-        personPresent: { type: boolean, nullable: true }
-        confidence: { type: number, nullable: true }
-        occurredAt: { type: string, format: date-time }
-    IngestAck:
+        eventId:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key, unique within the authenticated camera.
+        eventType:
+          type: string
+          maxLength: 40
+          description: Canonical event name; VehicleDetected and PlateRecognized have typed lpr-mvp-v1 profiles.
+        cameraId:
+          type: string
+          format: uuid
+          description: Optional echoed camera ID; cannot select or impersonate another camera.
+        occurredAt:
+          type: string
+          format: date-time
+          description: RFC 3339 detection time retained across offline retries.
+        payload:
+          type: object
+          additionalProperties: true
+          description: Generic structured event payload. Typed LPR profiles are additive conventions inside this field.
+      additionalProperties: true
+
+    VehicleDetectedIngestEvent:
+      allOf:
+        - $ref: '#/components/schemas/CameraIngestRequest'
+        - type: object
+          properties:
+            eventType: { const: VehicleDetected }
+            payload: { $ref: '#/components/schemas/VehicleDetectedPayload' }
+          example:
+            eventId: afc28cc1-7d60-4edb-a1d8-92881e00d8e4
+            eventType: VehicleDetected
+            cameraId: 6f5e50b3-b5a7-49b6-b341-bb16f1429100
+            occurredAt: '2026-07-13T09:18:42.381+07:00'
+            payload:
+              eventVersion: 1
+              pipeline: { id: lpr-mvp-v1, configurationHash: 'sha256:6e4b1d...' }
+              frame: { capturedAt: '2026-07-13T09:18:42.381+07:00', width: 1920, height: 1080, coordinateSpace: original-frame-pixels }
+              tracker: { sessionId: 8dc0d470-f897-4c15-abf9-03c7a8f0ac7f, trackId: '42' }
+              vehicle:
+                class: car
+                confidence: 0.93
+                boundingBox: { x: 492, y: 243, width: 916, height: 540 }
+              models:
+                vehicleDetector: { name: yolo11n, artifactVersion: '2026.07.0', confidenceThreshold: 0.4 }
+
+    PlateRecognizedIngestEvent:
+      allOf:
+        - $ref: '#/components/schemas/CameraIngestRequest'
+        - type: object
+          properties:
+            eventType: { const: PlateRecognized }
+            payload: { $ref: '#/components/schemas/PlateRecognizedPayload' }
+          example:
+            eventId: 28e2e297-3285-45a3-89e5-94cc2e1fbbd3
+            eventType: PlateRecognized
+            cameraId: 6f5e50b3-b5a7-49b6-b341-bb16f1429100
+            occurredAt: '2026-07-13T09:18:42.581+07:00'
+            payload:
+              eventVersion: 1
+              causationEventId: afc28cc1-7d60-4edb-a1d8-92881e00d8e4
+              pipeline: { id: lpr-mvp-v1, configurationHash: 'sha256:6e4b1d...' }
+              frame: { capturedAt: '2026-07-13T09:18:42.581+07:00', width: 1920, height: 1080, coordinateSpace: original-frame-pixels }
+              tracker: { sessionId: 8dc0d470-f897-4c15-abf9-03c7a8f0ac7f, trackId: '42' }
+              vehicle:
+                class: car
+                confidence: 0.94
+                boundingBox: { x: 492, y: 243, width: 916, height: 540 }
+              plate:
+                text: 51A-123.45
+                normalizedText: 51A12345
+                detectionConfidence: 0.94
+                recognitionConfidence: 0.96
+                boundingBox: { x: 780, y: 554, width: 242, height: 78 }
+              snapshots:
+                - { kind: original_frame, capturedAt: '2026-07-13T09:18:42.581+07:00', contentType: image/jpeg, width: 1920, height: 1080, sha256: 'sha256:0ad1...' }
+                - { kind: plate_crop, contentType: image/jpeg, width: 242, height: 78, sha256: 'sha256:c62e...' }
+              snapshotUpload: { part: snapshot, kind: plate_crop }
+              models:
+                vehicleDetector: { name: yolo11n, artifactVersion: '2026.07.0', confidenceThreshold: 0.4 }
+                plateDetector: { name: lp-detector-nano, artifactVersion: '61', confidenceThreshold: 0.6 }
+                ocr: { name: PaddleOCR, artifactVersion: pp-ocr-mobile, recognitionConfidenceThreshold: 0.8 }
+
+    VehicleDetectedPayload:
       type: object
+      required: [eventVersion, pipeline, frame, tracker, vehicle, models]
+      properties:
+        eventVersion: { const: 1 }
+        pipeline: { $ref: '#/components/schemas/PipelineProvenance' }
+        frame: { $ref: '#/components/schemas/FrameMetadata' }
+        tracker: { $ref: '#/components/schemas/TrackerIdentity' }
+        vehicle: { $ref: '#/components/schemas/VehicleDetection' }
+        models:
+          type: object
+          required: [vehicleDetector]
+          properties:
+            vehicleDetector: { $ref: '#/components/schemas/ModelProvenance' }
+
+    PlateRecognizedPayload:
+      allOf:
+        - $ref: '#/components/schemas/VehicleDetectedPayload'
+        - type: object
+          required: [causationEventId, plate, models]
+          properties:
+            causationEventId: { type: string, format: uuid }
+            plate: { $ref: '#/components/schemas/PlateRecognition' }
+            snapshots:
+              type: array
+              description: Descriptive evidence metadata only; object keys and URLs are server-generated.
+              items: { $ref: '#/components/schemas/SnapshotMetadata' }
+            snapshotUpload:
+              type: object
+              description: "Current multipart convention: the one optional snapshot part is a plate crop."
+              properties:
+                part: { const: snapshot }
+                kind: { const: plate_crop }
+            models:
+              type: object
+              required: [vehicleDetector, plateDetector, ocr]
+              properties:
+                vehicleDetector: { $ref: '#/components/schemas/ModelProvenance' }
+                plateDetector: { $ref: '#/components/schemas/ModelProvenance' }
+                ocr: { $ref: '#/components/schemas/ModelProvenance' }
+
+    PipelineProvenance:
+      type: object
+      required: [id, configurationHash]
+      properties:
+        id: { const: lpr-mvp-v1 }
+        configurationHash: { type: string, pattern: '^sha256:' }
+    FrameMetadata:
+      type: object
+      required: [capturedAt, width, height, coordinateSpace]
+      properties:
+        capturedAt: { type: string, format: date-time }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+        coordinateSpace: { const: original-frame-pixels }
+    TrackerIdentity:
+      type: object
+      required: [sessionId, trackId]
+      properties:
+        sessionId: { type: string, format: uuid }
+        trackId: { type: string, minLength: 1 }
+    BoundingBox:
+      type: object
+      required: [x, y, width, height]
+      properties:
+        x: { type: integer, minimum: 0 }
+        y: { type: integer, minimum: 0 }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+    VehicleDetection:
+      type: object
+      required: [class, confidence, boundingBox]
+      properties:
+        class: { type: string, enum: [car, motorbike] }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        boundingBox: { $ref: '#/components/schemas/BoundingBox' }
+    PlateRecognition:
+      type: object
+      required: [text, normalizedText, detectionConfidence, recognitionConfidence, boundingBox]
+      properties:
+        text: { type: string, minLength: 1 }
+        normalizedText: { type: string, pattern: '^[A-Z0-9]+$' }
+        detectionConfidence: { type: number, minimum: 0, maximum: 1 }
+        recognitionConfidence: { type: number, minimum: 0, maximum: 1 }
+        boundingBox: { $ref: '#/components/schemas/BoundingBox' }
+    ModelProvenance:
+      type: object
+      required: [name, artifactVersion]
+      properties:
+        name: { type: string }
+        artifactVersion: { type: string }
+        confidenceThreshold: { type: number, minimum: 0, maximum: 1 }
+        recognitionConfidenceThreshold: { type: number, minimum: 0, maximum: 1 }
+    SnapshotMetadata:
+      type: object
+      required: [kind, contentType, width, height, sha256]
+      properties:
+        kind: { type: string, enum: [original_frame, plate_crop] }
+        capturedAt: { type: string, format: date-time }
+        contentType: { type: string, pattern: '^image/' }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+        sha256: { type: string, pattern: '^sha256:' }
+        sourceBoundingBox: { $ref: '#/components/schemas/BoundingBox' }
+    CameraIngestAccepted:
+      type: object
+      required: [eventId, status]
       properties:
         eventId: { type: string, format: uuid }
-        status: { type: string, enum: [delivered, duplicate] }
-        decision: { type: string, enum: [approved, denied, pending, none], nullable: true }
+        status: { const: accepted }
     Subscription:
       type: object
       properties:
@@ -588,7 +783,7 @@ components:
         type: { type: string, example: VehicleRelocated }
         channel: { type: string, enum: [push, email, ws] }
         payload: { type: object, additionalProperties: true }
-        readAt: { type: string, format: date-time, nullable: true }
+        readAt: { type: [string, 'null'], format: date-time }
         sentAt: { type: string, format: date-time }
     OccupancyReport:
       type: object
@@ -610,7 +805,7 @@ components:
       type: object
       required: [message]
       properties:
-        conversationId: { type: string, format: uuid, nullable: true }
+        conversationId: { type: [string, 'null'], format: uuid }
         message: { type: string, example: "Xe tôi đang ở đâu?" }
     ChatResponse:
       type: object

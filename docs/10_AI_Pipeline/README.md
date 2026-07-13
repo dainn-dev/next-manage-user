@@ -36,8 +36,12 @@ any parking-slot/occupancy logic, any map or live-camera UI.
 ### Target
 
 ```
-Motion Detection → Vehicle Detection → Plate Detection → OCR → ByteTrack → Slot Mapping → Events
+RTSP camera stream → MOG2 motion gate → YOLOv11 vehicle detector → plate detector → PaddleOCR → ByteTrack → camera ingest event
 ```
+
+`lpr-mvp-v1` ends at the authenticated camera-ingest boundary. Slot mapping and occupancy
+projection remain follow-on consumers of the track identity; they are not prerequisites for the
+first typed detection events.
 
 - **Motion Detection** (NEW) — OpenCV MOG2 background subtraction gates all downstream GPU work.
 - **Vehicle Detection** (NEW) — YOLOv11, car/motorbike classes.
@@ -66,7 +70,47 @@ Motion Detection → Vehicle Detection → Plate Detection → OCR → ByteTrack
 | 10 | Confirmation | existing, extended | raw detections | confirmed event | existing cooldown + min-detection-duration logic, extended to cover relocation (see 12_Vehicle_Relocation) |
 | 11 | Event Emission | evolved | confirmed detection | typed domain event | `MotionDetected, VehicleDetected, PlateRecognized, VehicleEntered, VehicleRelocated, VehicleExited, PersonDetected, SnapshotSaved` |
 | 12 | Store-and-Forward | existing | event | durable enqueue | SQLite queue, kept & extended |
-| 13 | Ingest | existing endpoint, evolving payload | queued event | HTTP POST | `X-Gate-Key` to `/api/vehicles/check-vehicle` today; target moves toward a generic `/api/v1/events` ingest per architecture decision 5 |
+| 13 | Ingest | existing endpoint, evolving payload | queued event | HTTP POST | `X-Gate-Key` to `/api/vehicles/check-vehicle` today; `lpr-mvp-v1` targets `X-Camera-Id` + `X-Camera-Key` to `POST /api/v1/parking-events` |
+
+### `lpr-mvp-v1` configuration and emission contract
+
+This is the normative configuration profile for the MVP architecture. Future edge configuration
+must expose every value below as a per-deployment/per-camera override; these defaults are not a
+claim that the current YOLOv5 edge implementation already executes the new stages.
+
+| Stage | Default | Contract |
+|---|---|---|
+| Capture | `frameIntervalMs: 200` | At most 5 frames/s enter the heavy pipeline, retaining the current edge cadence. |
+| Motion gate | OpenCV MOG2; `history: 500`, `varThreshold: 16`, `detectShadows: false`, `minForegroundAreaRatio: 0.005`, `minConsecutiveActiveFrames: 2` | CPU gate; a no-motion frame does not run vehicle/plate/OCR inference. |
+| Vehicle detector | YOLOv11 `yolo11n`; `imageSize: 640`, `confidenceThreshold: 0.40`, `nmsIouThreshold: 0.50` | Emit only logical classes `car` and `motorbike`; a COCO `motorcycle` result maps to platform `motorbike`. |
+| Plate detector | YOLO plate detector; `confidenceThreshold: 0.60` | Runs within the associated vehicle crop; returned boxes are translated back to original-frame pixels. |
+| OCR | PaddleOCR mobile profile; `minRecognitionConfidence: 0.80` | PaddleOCR is the only latency-path OCR engine. EasyOCR and VietOCR are disabled-by-default sampled benchmark comparators, never automatic production fallbacks. |
+| Tracker | ByteTrack; `highConfidenceThreshold: 0.40`, `lowConfidenceThreshold: 0.10`, `matchThreshold: 0.80`, `trackBufferFrames: 30`, `minTrackHits: 3` | `trackId` is scoped to one `sessionId` and camera stream; it is not a global vehicle identity. |
+
+Every emitted typed event records the profile ID, a non-secret resolved configuration hash, and
+model artifact versions. This makes downstream interpretation reproducible without exposing RTSP
+URLs, credentials, or edge-host details.
+
+**Emission policy.** The tracker and confirmation layer suppress per-frame floods: emit one
+`VehicleDetected` only after a track reaches `minTrackHits`, and emit one `PlateRecognized` once
+OCR consensus is stable for that track. A later recognition may supersede a prior low-confidence
+result only with a distinct event ID and an explicit causal relationship.
+
+### Day/night promotion gates
+
+A candidate `lpr-mvp-v1` model/configuration may be promoted only after a held-out,
+condition-tagged evaluation set. Day means at least 50 lux; night means below 50 lux and includes
+IR-assisted captures. Values are minimums, not expected averages.
+
+| Metric | Day minimum | Night minimum |
+|---|---:|---:|
+| Vehicle detection mAP@0.5 | 0.90 | 0.85 |
+| Vehicle detection recall at IoU ≥ 0.5 | 0.95 | 0.90 |
+| Normalized plate exact-match accuracy among ground-truth-readable plates | 0.95 | 0.90 |
+| Tracker IDF1 | 0.90 | 0.85 |
+
+Camera-specific calibration overrides must produce a new configuration hash and meet the same
+condition split before promotion.
 
 ## 3. Model Management
 
@@ -109,13 +153,14 @@ the promotion/retirement thresholds referenced in ADR-1001.
 
 ## 6. Snapshot Capture
 
-Today, snapshots are sent as evidence in the multipart `check-vehicle` POST and are **not**
-persisted on the edge device except transiently inside the offline SQLite queue's BLOB when a
-send is retried; the backend stores received snapshots on local disk (`uploads/snapshots`,
-served at `/uploads/**`). The target introduces a first-class `Snapshot` entity
-(`kind: original | plate_crop | scene`) backed by object storage (MinIO/S3), per architecture
-decision 7, with local disk retained only for dev environments. Relocation events in particular
-require capturing snapshots at both the old and new slot (see 12_Vehicle_Relocation).
+Today, legacy `check-vehicle` snapshots are sent as evidence and are **not** persisted on the
+edge except transiently inside the offline SQLite queue's BLOB when a send is retried. Camera
+multipart ingest already stores its one optional snapshot in S3-compatible object storage under a
+server-generated tenant/camera/event key; the event ledger stores that opaque key, never image
+bytes or a public URL. `lpr-mvp-v1` treats that one part as the plate crop. The event profile also
+describes original-frame metadata, but uploading a second binary object and persisting multiple
+snapshot references is a later additive API/schema extension. Relocation events will eventually
+need evidence at both the old and new slot (see 12_Vehicle_Relocation).
 
 ## 7. Diagrams
 

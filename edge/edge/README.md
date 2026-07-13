@@ -126,3 +126,198 @@ python edge/edge/test_edge_resilience.py
    `POST /api/vehicles/check-vehicle` with the correct `gateId`, and pushes
    `/topic/gate/{id}/check`.
 3. Wrong/missing `X-Gate-Key` → backend returns 401 and the edge logs the error.
+
+## Camera pipeline scaffold (DAI-290)
+
+`run_edge.py` remains the legacy gate service above. The additive camera pipeline scaffold is a
+separate entry point for the future `lpr-mvp-v1` contract; it does not register a gate, open RTSP,
+write snapshots, queue events, or call the backend. Model loading is isolated to runtime readiness
+or motion-active vehicle frames; the plain file metadata dry run remains model-free.
+
+```bash
+# Safe local smoke test: validates the JSON profile, reads one image, and emits JSON stage logs.
+python edge/run_camera_pipeline.py \
+  --config edge/camera-pipeline.dry-run.example.json \
+  --dry-run
+
+# Future deployment readiness only: checks the configured artifacts, camera key, source, and
+# snapshot-output parent without opening the source or sending an ingest request.
+python edge/run_camera_pipeline.py \
+  --config edge/camera-pipeline.dry-run.example.json \
+  --validate-runtime
+```
+
+The committed profile intentionally leaves the camera key empty and references future model
+artifacts, so it succeeds in `--dry-run` and fails descriptively in `--validate-runtime`. Override
+deployment values through environment variables rather than committing secrets:
+
+| Variable | Overrides |
+|---|---|
+| `DAI_CAMERA_SOURCE` | `camera.source.path` (file) or `camera.source.url` (RTSP) |
+| `DAI_CAMERA_SOURCE_USERNAME`, `DAI_CAMERA_SOURCE_PASSWORD` | Future RTSP credentials |
+| `DAI_TENANT_ID`, `DAI_SITE_ID`, `DAI_CAMERA_ID` | Local operational camera identity |
+| `DAI_INGEST_URL`, `DAI_CAMERA_KEY` | Future `POST /api/v1/parking-events` destination and per-camera key |
+| `DAI_SNAPSHOT_OUTPUT_DIR` | Future local snapshot-output directory |
+
+Tenant and site values are local operational metadata only. Future outbound events echo only the
+camera ID; the backend derives tenant/site from `X-Camera-Id` plus `X-Camera-Key`. The scaffold
+prepares typed event serialization but intentionally leaves model inference and ingest transport to
+later DAI stages.
+
+### Motion-gate diagnostic (DAI-289)
+
+The scaffold now contains a CPU-only OpenCV MOG2 gate before future expensive inference. It is
+configured under `thresholds.motion` and applies to every injected frame, while no-motion frames
+produce no downstream `MotionWindow` handoff:
+
+```json
+"motion": {
+  "history": 500,
+  "var_threshold": 16,
+  "detect_shadows": false,
+  "min_foreground_area_ratio": 0.005,
+  "min_consecutive_active_frames": 2,
+  "warmup_frames": 30,
+  "cooldown_frames": 10
+}
+```
+
+`warmup_frames` adapts the background model without emitting motion. The debounce setting requires
+consecutive above-threshold frames before one internal window opens; `cooldown_frames` suppresses
+flicker-driven retriggers after movement ends. The gate retains the original BGR debounce frames
+in memory for DAI-291, but does not write or upload snapshots.
+
+Use deterministic, in-memory smoke sequences without opening the configured file/RTSP source:
+
+```bash
+python edge/run_camera_pipeline.py \
+  --config edge/camera-pipeline.dry-run.example.json \
+  --dry-run-sequence static
+
+python edge/run_camera_pipeline.py \
+  --config edge/camera-pipeline.dry-run.example.json \
+  --dry-run-sequence moving-vehicle
+```
+
+The static sequence reports `windows_opened: 0`; the moving sequence reports exactly one motion
+window plus structured `active`, `inactive`, and per-frame counter records. Both commands remain
+offline diagnostics with no queue, RTSP source, or ingest HTTP request. Static and other non-active
+frames never load or invoke AI/storage adapters; motion-active frames exercise the configured stages
+and contain any unavailable-model/inference failure in a structured log record. If real vehicle and
+plate artifacts are provisioned, the moving sequence may write to the configured local snapshot root.
+
+### Motion-gated vehicle detection (DAI-291)
+
+The new camera scaffold loads a configured Ultralytics YOLOv11 vehicle model and evaluates only
+frames whose final motion-gate state is `active`. It accepts logical `car` and `motorbike` results
+(`motorcycle` model labels map to `motorbike`), applies the configured confidence/NMS thresholds,
+and normalizes clipped boxes to original-frame `{x, y, width, height}` coordinates. Model or
+per-frame inference errors are logged and do not abort frame processing.
+
+Configure execution explicitly under `models.vehicle_detector`:
+
+```json
+{
+  "name": "yolo11n",
+  "artifact_path": "model/yolo11n.pt",
+  "artifact_version": "2026.07.0",
+  "image_size": 640,
+  "device": "cpu"
+}
+```
+
+`device` supports `cpu`, `cuda`, or `cuda:<index>`. CUDA readiness fails descriptively when the
+configured device is unavailable; it never silently switches to CPU. Runtime readiness also
+requires the model artifact to exist and expose a `car` or `motorcycle`/`motorbike` class. The
+repository intentionally does not bundle/download `yolo11n.pt`. This stage produces normalized
+vehicle results for the plate-candidate stage; OCR, tracking, live capture, and ingest remain later tasks.
+
+### Plate candidates and local evidence (DAI-293)
+
+For every motion-active vehicle result, the scaffold expands and clamps the vehicle box, runs the
+configured local YOLOv5 plate model inside that crop, and translates valid crop-local boxes back to
+original-frame pixels. It never uses the legacy network fallback. Configure the plate model with
+explicit image size/device and tune candidate filtering under `thresholds`:
+
+```json
+"plate_detector": {
+  "name": "lp-detector-nano",
+  "artifact_path": "model/LP_detector_nano_61.pt",
+  "artifact_version": "61",
+  "image_size": 640,
+  "device": "cpu"
+},
+"plate_confidence": 0.6,
+"plate_padding_ratio": 0.1,
+"min_plate_width_px": 20,
+"min_plate_height_px": 8
+```
+
+`plate_padding_ratio` expands both the detector's vehicle-region crop and the final plate evidence
+crop, always clamped to the original frame. Candidates smaller than the configured pixel dimensions
+or outside frame bounds are discarded without failing other vehicles.
+
+The MVP `snapshot.backend` is `local`. Once a frame has at least one plate candidate, the store
+writes one shared original-frame JPEG and one padded plate-crop JPEG per candidate beneath:
+
+```text
+<output>/<tenant>/<site>/<camera>/<yyyy>/<mm>/<dd>/
+  frame-<number>-<timestamp>/original-frame.jpg
+  frame-<number>-<timestamp>/candidate-<uuid>/plate-crop.jpg
+```
+
+Writes use temporary files plus atomic replacement. Metadata records capture timestamp, stored image
+dimensions, SHA-256, parent vehicle box, original-frame plate box, and the local opaque reference.
+A failed original-frame write leaves successful plate crops marked incomplete; a failed plate-crop
+write drops only that candidate artifact. This stage detects plate candidates and evidence only; the
+following OCR stage consumes successfully stored crop artifacts.
+
+### PaddleOCR and offline comparison (DAI-292)
+
+PaddleOCR is the only production-path OCR engine. The edge recognizes the in-memory padded crop
+after its JPEG artifact is stored, attaches the local crop reference, and records raw text,
+separator-insensitive normalized text, character-weighted confidence, and one disposition:
+`accepted`, `low_confidence`, or `no_text`. It does not emit a final `PlateRecognized` event;
+tracking and event policy remain downstream work.
+
+The configured local bundle must be laid out without runtime downloads:
+
+```text
+<models.ocr.artifact_path>/
+  det/
+  rec/
+```
+
+Configure `models.ocr.device` as `cpu`, `cuda`, or `cuda:<index>`. Install the CPU production
+baseline separately from the core edge dependencies:
+
+```bash
+pip install -r edge/edge/requirements-ocr-production.txt
+```
+
+`thresholds.ocr_confidence` is the single production threshold. With
+`ocr.low_confidence_policy: reject`, low-confidence observations remain available for logs/debugging
+but are ineligible downstream. `accept_flagged` keeps them eligible while retaining the warning.
+`ocr.automatic_fallback` must remain `false`.
+
+EasyOCR and VietOCR are available only in the offline same-crop harness:
+
+```bash
+pip install -r edge/tools/plate_eval/requirements-ocr-benchmark.txt
+python edge/tools/plate_eval/compare_ocr.py \
+  --config edge/camera-pipeline.dry-run.example.json \
+  --manifest /path/to/labels.csv \
+  --images /path/to/crops \
+  --easyocr-model-root /path/to/easyocr-models \
+  --vietocr-config /path/to/vietocr-config.yml \
+  --vietocr-weights /path/to/vietocr.pth \
+  --json-out ocr-results.json \
+  --markdown-out ocr-report.md \
+  --strict-day-night
+```
+
+Every engine receives an identical decoded crop. Reports include exact normalized match, CER,
+threshold coverage, selective accuracy, latency, errors, and explicit day/night sections. The
+repository currently has neither the local OCR model bundles nor a representative labeled day/night
+corpus, so real comparative accuracy is not demonstrated yet; fake-engine tests validate only the
+harness mechanics. Comparator output never votes on or replaces PaddleOCR in production.

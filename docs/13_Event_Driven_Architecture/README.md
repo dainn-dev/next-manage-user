@@ -76,6 +76,145 @@ gate-access "state machine" behavior implicit in today's `Vehicle.status`
 `14_Backend_API` for how the ingest endpoint that raises these maps onto the existing
 `check-vehicle` contract.
 
+### DAI-288 typed LPR ingress profiles (`lpr-mvp-v1`)
+
+The HTTP camera-ingest ledger and the future event-store/outbox/bus are deliberately separate
+layers. Today, `POST /api/v1/parking-events` durably accepts a generic envelope containing
+`eventId`, `eventType` (or the legacy `type` alias), `occurredAt`, optional echoed `cameraId`,
+and a JSON `payload`. It is idempotent by `(authenticatedCameraId, eventId)`. It does **not** yet
+validate, project, or publish the typed profiles below. A later event-store/outbox implementation
+may project them into the target envelope in §2; this contract must not be interpreted as proof
+that RabbitMQ or `ParkingEvent` exists today.
+
+#### Trust, versioning, and coordinate invariants
+
+- The device authenticates with `X-Camera-Id` and `X-Camera-Key`. The backend derives the tenant
+  and site from that credential before ingest; neither `tenantId` nor `siteId` is accepted as
+  edge authority. `cameraId`, when echoed in the body, must equal the authenticated header ID.
+- `eventType` is the canonical transport name. Typed LPR payloads require
+  `payload.eventVersion: 1`; `type` remains only a compatibility alias for existing generic
+  producers. Additive fields within a version are compatible; a semantic break requires a new
+  `eventVersion`.
+- Timestamps are RFC 3339 offset date-times. Detection/OCR confidences use `[0,1]`. Bounding
+  boxes are `{x, y, width, height}` in original-frame pixels with a top-left origin and must fit
+  within the accompanying frame dimensions.
+- A tracker identity is the pair `(sessionId, trackId)`, scoped to one camera stream session. It
+  is not a global vehicle identifier and must never be used as cross-camera authorization.
+- Edge JSON may describe evidence but cannot submit an object key, signed URL, storage status, or
+  retention decision. The backend generates its opaque storage key from trusted tenant/camera/
+  event scope after receiving the optional multipart binary.
+
+#### `VehicleDetected` profile
+
+```json
+{
+  "eventId": "afc28cc1-7d60-4edb-a1d8-92881e00d8e4",
+  "eventType": "VehicleDetected",
+  "cameraId": "6f5e50b3-b5a7-49b6-b341-bb16f1429100",
+  "occurredAt": "2026-07-13T09:18:42.381+07:00",
+  "payload": {
+    "eventVersion": 1,
+    "pipeline": { "id": "lpr-mvp-v1", "configurationHash": "sha256:6e4b1d..." },
+    "frame": {
+      "capturedAt": "2026-07-13T09:18:42.381+07:00",
+      "width": 1920,
+      "height": 1080,
+      "coordinateSpace": "original-frame-pixels"
+    },
+    "tracker": { "sessionId": "8dc0d470-f897-4c15-abf9-03c7a8f0ac7f", "trackId": "42" },
+    "vehicle": {
+      "class": "car",
+      "confidence": 0.93,
+      "boundingBox": { "x": 492, "y": 243, "width": 916, "height": 540 }
+    },
+    "models": {
+      "vehicleDetector": {
+        "name": "yolo11n",
+        "artifactVersion": "2026.07.0",
+        "confidenceThreshold": 0.4
+      }
+    }
+  }
+}
+```
+
+#### `PlateRecognized` profile
+
+```json
+{
+  "eventId": "28e2e297-3285-45a3-89e5-94cc2e1fbbd3",
+  "eventType": "PlateRecognized",
+  "cameraId": "6f5e50b3-b5a7-49b6-b341-bb16f1429100",
+  "occurredAt": "2026-07-13T09:18:42.581+07:00",
+  "payload": {
+    "eventVersion": 1,
+    "causationEventId": "afc28cc1-7d60-4edb-a1d8-92881e00d8e4",
+    "pipeline": { "id": "lpr-mvp-v1", "configurationHash": "sha256:6e4b1d..." },
+    "frame": {
+      "capturedAt": "2026-07-13T09:18:42.581+07:00",
+      "width": 1920,
+      "height": 1080,
+      "coordinateSpace": "original-frame-pixels"
+    },
+    "tracker": { "sessionId": "8dc0d470-f897-4c15-abf9-03c7a8f0ac7f", "trackId": "42" },
+    "vehicle": {
+      "class": "car",
+      "confidence": 0.94,
+      "boundingBox": { "x": 492, "y": 243, "width": 916, "height": 540 }
+    },
+    "plate": {
+      "text": "51A-123.45",
+      "normalizedText": "51A12345",
+      "detectionConfidence": 0.94,
+      "recognitionConfidence": 0.96,
+      "boundingBox": { "x": 780, "y": 554, "width": 242, "height": 78 }
+    },
+    "models": {
+      "vehicleDetector": {
+        "name": "yolo11n",
+        "artifactVersion": "2026.07.0",
+        "confidenceThreshold": 0.4
+      },
+      "plateDetector": {
+        "name": "lp-detector-nano",
+        "artifactVersion": "61",
+        "confidenceThreshold": 0.6
+      },
+      "ocr": {
+        "name": "PaddleOCR",
+        "artifactVersion": "pp-ocr-mobile",
+        "recognitionConfidenceThreshold": 0.8
+      }
+    },
+    "snapshots": [
+      {
+        "kind": "original_frame",
+        "capturedAt": "2026-07-13T09:18:42.581+07:00",
+        "contentType": "image/jpeg",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "sha256:0ad1..."
+      },
+      {
+        "kind": "plate_crop",
+        "contentType": "image/jpeg",
+        "width": 242,
+        "height": 78,
+        "sha256": "sha256:c62e...",
+        "sourceBoundingBox": { "x": 780, "y": 554, "width": 242, "height": 78 }
+      }
+    ],
+    "snapshotUpload": { "part": "snapshot", "kind": "plate_crop" }
+  }
+}
+```
+
+`original_frame` and `plate_crop` metadata are descriptive, edge-supplied evidence attributes.
+The current API accepts one optional binary part named `snapshot`; for this profile it is the
+`plate_crop`. The server stores that object under its trusted tenant/camera/event prefix and
+persists the resulting opaque key. Uploading an original-frame binary or retaining multiple object
+references requires a later additive multipart/storage design.
+
 ## 3. RabbitMQ topology
 
 - **Exchange**: `parkvision.events`, type `topic`, durable.

@@ -12,7 +12,6 @@ requests
 pandas
 ultralytics
 scipy
-# Optional OCR fallbacks — install only the one referenced by ocr.fallback_method:
-#   easyocr           # ocr.fallback_method = "easyocr"
-#   pytesseract       # ocr.fallback_method = "tesseract" (needs the tesseract binary)
-#   google-cloud-vision  # ocr.fallback_method = "google_vision"
+# DAI-292 OCR dependencies are deliberately separated:
+#   requirements-ocr-production.txt                  PaddleOCR production path
+#   ../tools/plate_eval/requirements-ocr-benchmark.txt  EasyOCR/VietOCR offline comparison

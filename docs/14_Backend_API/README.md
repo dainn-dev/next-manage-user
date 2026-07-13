@@ -101,11 +101,11 @@ sub-routes) is generated at `/api-docs`. Role column reflects `SecurityConfig` U
 | POST | `/api/v1/sites/{siteId}/zones` | TENANT_ADMIN | Create zone |
 | GET | `/api/v1/sites/{siteId}/zones` | TENANT_ADMIN | List zones |
 | PUT/DELETE | `/api/v1/zones/{id}` | TENANT_ADMIN | Update / remove zone |
-| POST | `/api/v1/cameras` | TENANT_ADMIN | Register camera (issues per-camera `X-Gate-Key`) |
+| POST | `/api/v1/cameras` | TENANT_ADMIN | Register camera (issues a per-camera `X-Camera-Key`) |
 | GET | `/api/v1/sites/{siteId}/cameras` | TENANT_ADMIN | List cameras |
 | PUT | `/api/v1/cameras/{id}` | TENANT_ADMIN | Update rtsp/role/panel_type |
 | PATCH | `/api/v1/cameras/{id}/calibration` | TENANT_ADMIN | Save homography/calibration JSON |
-| POST | `/api/v1/cameras/{id}/heartbeat` | device (`X-Gate-Key`) | Camera liveness |
+| POST | `/api/cameras/{id}/heartbeat` | device (`X-Camera-Id` + `X-Camera-Key`) | Camera liveness |
 | POST | `/api/v1/parking-slots` | TENANT_ADMIN | Define slot polygon |
 | GET | `/api/v1/sites/{siteId}/parking-slots` | TENANT_ADMIN, MEMBER | List slots + status |
 | PUT | `/api/v1/parking-slots/{id}` | TENANT_ADMIN | Edit polygon / manual status override |
@@ -113,7 +113,7 @@ sub-routes) is generated at `/api-docs`. Role column reflects `SecurityConfig` U
 | GET | `/api/v1/vehicles/{id}` | TENANT_ADMIN, MEMBER (own) | Vehicle detail |
 | GET | `/api/v1/vehicles/{id}/location` | MEMBER (own), TENANT_ADMIN | Current site/slot ("where is my car") |
 | GET | `/api/v1/vehicles/by-plate/{plate}` | TENANT_ADMIN | Plate lookup |
-| POST | `/api/v1/parking-events` | device (`X-Gate-Key`, per-camera) | **Ingest endpoint** — see §5 |
+| POST | `/api/v1/parking-events` | device (`X-Camera-Id` + `X-Camera-Key`) | **Ingest endpoint** — see §5 |
 | GET | `/api/v1/parking-events` | TENANT_ADMIN | Query event log (filterable) |
 | GET | `/api/v1/parking-events/{id}` | same | Event detail |
 | GET | `/api/v1/snapshots/{id}` | TENANT_ADMIN | Fetch snapshot metadata / signed URL |
@@ -164,30 +164,32 @@ For `/api/v1`, extend this envelope **additively** with an optional machine-read
 clients can branch on error type without string-matching `message` — existing clients
 ignore the new field, so this is non-breaking per ADR-1401.
 
-## 5. AI ingest endpoint contract
+## 5. Camera ingest endpoint contract
 
-`POST /api/v1/parking-events` (full sequence in `diagrams/ingest-sequence.mmd`):
+`POST /api/v1/parking-events` is the current device-facing camera-ingest endpoint.
 
-- **Auth**: `X-Gate-Key` header, one key **per camera** (not the single shared
-  `GATE_API_KEY` env var used by today's `/api/gates/register`/`/heartbeat`) — resolved by
-  the auth filter to `camera_id` → `site_id` → `tenant_id`, so scope is derived from the key,
-  never trusted from the request body. See ADR-1402.
-- **Idempotency**: required `eventId` (UUID) + `occurredAt` (ISO-8601), matching the pattern
-  the edge already implements today for `check-vehicle`. A unique constraint on
-  `ParkingEvent.event_id` makes retries safe — a duplicate returns the original response with
-  no side effects re-run.
-- **Body**: JSON for events with no image (`MotionDetected`, `VehicleDetected`,
-  `PersonDetected`), or `multipart/form-data` with an optional `snapshot` part for events that
-  carry evidence (`PlateRecognized`, `VehicleEntered`, `VehicleExited`, `VehicleRelocated`) —
-  same JSON-or-multipart duality as today's `check-vehicle` endpoint.
-- **Backpressure**: synchronous work is limited to validate → idempotency check → single-TX
-  insert (`ParkingEvent` + `outbox_message`); the response returns before the RabbitMQ publish
-  happens (async via the outbox relay), so ingest latency never depends on broker health.
-  Per-camera-key rate limiting (Redis token bucket) returns `429` + `Retry-After`, which the
-  edge's existing exponential-backoff retry already respects.
-- **Response**: `202 Accepted { "eventId": "...", "status": "accepted" }` on success/duplicate;
-  `4xx` with the standard error envelope on validation/auth failure (never persisted, never
-  retried by design — the edge should surface these, not loop on them).
+- **Auth and scope**: send both `X-Camera-Id` (UUID) and `X-Camera-Key` (the per-camera secret).
+  This is distinct from the legacy `X-Gate-Key` / `GATE_API_KEY` used by `/api/gates/**` and
+  `/api/vehicles/check-vehicle`. The camera credential resolves `camera_id` → `site_id` →
+  `tenant_id` before transactional work; tenant and site are never selected from request JSON.
+  An optional body `cameraId` is an echo only and is rejected when it differs from the authenticated
+  camera.
+- **Body**: either `application/json` containing required UUID `eventId`, `eventType` (with
+  legacy alias `type`), and RFC 3339 `occurredAt`, plus an optional structured `payload`; or
+  `multipart/form-data` with an `event` JSON part and one optional binary `snapshot` part. The
+  snapshot limit is 5 MB. The backend derives and stores the resulting object reference; the edge
+  does not submit object keys or signed URLs.
+- **Idempotency**: the durable ingest ledger uses `(authenticatedCameraId, eventId)`. Replays
+  do not reinsert the event or reprocess its snapshot. The same `eventId` remains valid for a
+  different authenticated camera.
+- **Response**: both a first delivery and an idempotent replay return
+  `202 Accepted { "eventId": "...", "status": "accepted" }`. Malformed data returns `400`,
+  missing/invalid camera credentials return `401`, and an oversized snapshot returns `413`.
+
+DAI-288 documents typed LPR payload profiles within the existing generic `payload` field. It does
+**not** introduce typed server-side DTO validation, a `ParkingEvent` event store, a transactional
+outbox/RabbitMQ relay, Redis rate limiting, or a multi-file snapshot upload contract; those remain
+future additive implementation work.
 
 ## 6. WebSocket / STOMP topics
 
@@ -233,8 +235,8 @@ lands — see that document's cross-reference for the upgrade path.
 
 ## 10. Cross-references
 
-- `13_Event_Driven_Architecture` — what happens after `/api/v1/parking-events` accepts an
-  event: outbox, RabbitMQ, consumers.
+- `13_Event_Driven_Architecture` — the current generic ingest ledger and the separately planned
+  outbox, RabbitMQ, and consumer architecture.
 - `15_Database_Design` — full schema backing every `/api/v1` resource (Tenant, Site, Zone,
   Camera, ParkingSlot, Vehicle, ParkingEvent, Snapshot, Subscription, Notification).
 - `03_SaaS_Architecture`, `04_Multi_Tenant_Design` — tenant/site scoping and RLS enforcement

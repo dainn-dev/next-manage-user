@@ -21,12 +21,14 @@ and fast enough to run within the per-stage latency budget on mixed CPU/GPU edge
 
 ## Decision
 
-Adopt **PaddleOCR** (detector + recognizer) as the **primary** OCR engine, replacing YOLOv5-char
-as the default path. Keep the existing YOLOv5-char model and add **EasyOCR** and **VietOCR** as
-**comparators** running in shadow mode against PaddleOCR to (a) build a labeled accuracy/eval
-dataset continuously and (b) provide a confidence-based fallback vote when PaddleOCR's
-confidence is below threshold. Retire YOLOv5-char as a runtime dependency only once PaddleOCR
-demonstrably reaches parity or better on the eval harness (see README "Accuracy & Evaluation").
+Adopt **PaddleOCR** (detector + recognizer) as the **only production latency-path OCR engine**,
+replacing YOLOv5-char as the default path. A configurable confidence threshold retains
+low-confidence observations for debugging while the policy either rejects them from downstream
+event consideration or explicitly accepts them as flagged. **EasyOCR** and **VietOCR** are
+benchmark-only comparators run through the offline same-crop harness; their output never replaces,
+votes on, or automatically falls back from PaddleOCR in production. Retire YOLOv5-char as a
+runtime dependency only once PaddleOCR demonstrably reaches parity or better on the eval harness
+(see README "Accuracy & Evaluation").
 
 ## Alternatives considered
 
@@ -56,14 +58,12 @@ demonstrably reaches parity or better on the eval harness (see README "Accuracy 
 
 ## Consequences
 
-- Positive: a single well-supported OCR core going forward; shadow-mode comparators produce
-  continuously labeled eval data; confidence-based fallback preserves accuracy while PaddleOCR
-  is being fine-tuned.
-- Negative / trade-offs: running comparators in shadow mode costs extra CPU/GPU cycles
-  (mitigated by motion gating, see ADR-1002, and by sampling comparators at a reduced rate
-  rather than every frame); migration effort to fine-tune PaddleOCR on VN plate data; temporary
-  complexity of up to four OCR paths running concurrently during the transition.
-- Follow-ups: define the eval harness and metrics (character error rate, exact plate-match
-  accuracy, per-orientation accuracy); assemble a VN plate fine-tuning dataset; define the
-  promotion threshold for making PaddleOCR sole primary and the retirement criteria for
-  YOLOv5-char; decide the comparator sampling rate in production.
+- Positive: a single well-supported production OCR core; deterministic low-confidence handling;
+  offline comparators produce reproducible evidence without adding latency or divergent decisions
+  to the edge worker.
+- Negative / trade-offs: migration effort to package/fine-tune PaddleOCR on VN plate data;
+  comparator benchmarks require separately provisioned dependencies, local model bundles, and a
+  human-labeled day/night crop corpus.
+- Follow-ups: assemble the VN plate corpus, run exact-match/CER/latency reports, define the
+  promotion threshold and YOLOv5-char retirement criteria, and revisit runtime comparator policy
+  only through a new approved ADR if benchmark evidence justifies it.
