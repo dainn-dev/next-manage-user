@@ -143,6 +143,12 @@ gate:
 camera-credentials:
   rotation-grace-period: ${CAMERA_KEY_ROTATION_GRACE_PERIOD:24h}
 
+# Camera liveness. A scheduled platform-admin sweep marks stale online cameras
+# offline after this timeout; heartbeat calls return eligible cameras online.
+camera:
+  heartbeat-timeout-seconds: ${CAMERA_HEARTBEAT_TIMEOUT_SECONDS:60}
+  heartbeat-check-rate-ms: ${CAMERA_HEARTBEAT_CHECK_RATE_MS:30000}
+
 # Evidence snapshots (Phase 4.2): the cropped license-plate image the edge sends
 # with a check-vehicle call is written under snapshot-dir and served by the
 # /uploads/** static handler (see WebConfig). Keep snapshot-dir under ./uploads

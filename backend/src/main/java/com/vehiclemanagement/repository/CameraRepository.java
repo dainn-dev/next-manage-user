@@ -33,6 +33,7 @@ public interface CameraRepository extends JpaRepository<Camera, UUID> {
      * Online cameras whose last heartbeat is older than the cutoff — candidates to
      * mark offline. Disabled/provisioned cameras are excluded by the status filter.
      */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<Camera> findByStatusAndLastHeartbeatAtBefore(Camera.CameraStatus status, LocalDateTime cutoff);
 
     long countByStatus(Camera.CameraStatus status);

@@ -23,7 +23,7 @@ class StripeBillingClientTest {
 
     @Test
     void signedWebhookIsVerifiedAndCreatedTimeIsParsed() throws Exception {
-        long created = Instant.parse("2026-07-10T12:00:00Z").getEpochSecond();
+        long created = Instant.now().getEpochSecond();
         String payload = """
                 {
                   "id":"evt_signed_275",

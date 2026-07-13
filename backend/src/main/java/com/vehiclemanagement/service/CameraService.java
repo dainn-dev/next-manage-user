@@ -2,6 +2,7 @@ package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.billing.EntitlementGuard;
 import com.vehiclemanagement.config.CameraCredentialProperties;
+import com.vehiclemanagement.config.PlatformAdminOperation;
 import com.vehiclemanagement.dto.CameraCreateRequest;
 import com.vehiclemanagement.dto.CameraDto;
 import com.vehiclemanagement.dto.CameraWithKeyDto;
@@ -14,8 +15,10 @@ import com.vehiclemanagement.repository.SiteRepository;
 import com.vehiclemanagement.repository.ZoneRepository;
 import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +63,9 @@ public class CameraService {
 
     @Autowired
     private CameraCredentialProperties credentialProperties;
+
+    @Value("${camera.heartbeat-timeout-seconds:60}")
+    private long heartbeatTimeoutSeconds;
 
     private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
@@ -187,6 +193,24 @@ public class CameraService {
             camera.setStatus(Camera.CameraStatus.online);
         }
         return new CameraDto(cameraRepository.save(camera));
+    }
+
+    /**
+     * Marks online cameras offline when they have not sent a heartbeat within the
+     * configured timeout. This runs through the platform-admin datasource because
+     * scheduled work has no request-bound tenant context.
+     */
+    @Scheduled(fixedRateString = "${camera.heartbeat-check-rate-ms:30000}")
+    @PlatformAdminOperation
+    public void markStaleCamerasOffline() {
+        LocalDateTime cutoff = LocalDateTime.now().minusSeconds(heartbeatTimeoutSeconds);
+        List<Camera> stale = cameraRepository.findByStatusAndLastHeartbeatAtBefore(
+                Camera.CameraStatus.online, cutoff);
+        if (stale.isEmpty()) {
+            return;
+        }
+        stale.forEach(camera -> camera.setStatus(Camera.CameraStatus.offline));
+        cameraRepository.saveAll(stale);
     }
 
     private CameraWithKeyDto saveNewActiveKey(Camera camera, LocalDateTime previousExpiresAt) {
