@@ -86,7 +86,11 @@
     "dry_run": true,
     "max_attempts": 3,
     "retry_base_seconds": 0.5,
-    "retry_max_seconds": 5.0
+    "retry_max_seconds": 5.0,
+    "queue_enabled": true,
+    "queue_path": "camera-event-queue.sqlite3",
+    "queue_max_events": 5000,
+    "queue_retry_seconds": 5.0
   },
   "logging": {
     "level": "INFO",

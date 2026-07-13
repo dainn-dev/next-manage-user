@@ -131,6 +131,10 @@ class IngestConfig:
     max_attempts: int
     retry_base_seconds: float
     retry_max_seconds: float
+    queue_enabled: bool = False
+    queue_path: Path = Path("camera-event-queue.sqlite3")
+    queue_max_events: int = 5000
+    queue_retry_seconds: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -330,6 +334,19 @@ def load_camera_pipeline_config(path: str | Path,
             ingest, "retry_base_seconds", "ingest.retry_base_seconds", issues, minimum=0),
         retry_max_seconds=_number(
             ingest, "retry_max_seconds", "ingest.retry_max_seconds", issues, minimum=0),
+        queue_enabled=_value_or_default(
+            ingest, "queue_enabled", "ingest.queue_enabled", issues, True, bool),
+        queue_path=_resolve_path(
+            _value_or_default(
+                ingest, "queue_path", "ingest.queue_path", issues,
+                "camera-event-queue.sqlite3", str),
+            base_dir),
+        queue_max_events=_integer_or_default(
+            ingest, "queue_max_events", "ingest.queue_max_events", issues,
+            5000, minimum=1),
+        queue_retry_seconds=_number_or_default(
+            ingest, "queue_retry_seconds", "ingest.queue_retry_seconds", issues,
+            5.0, minimum=0.1),
     )
     if ingest_config.snapshot_part != "snapshot":
         issues.append("ingest.snapshot_part must be 'snapshot'")
@@ -424,6 +441,33 @@ def _string(parent: Mapping[str, object], key: str, path: str, issues: list[str]
 def _optional_string(parent: Mapping[str, object], key: str) -> str:
     value = parent.get(key, "")
     return value.strip() if isinstance(value, str) else ""
+
+
+def _value_or_default(parent: Mapping[str, object], key: str, path: str,
+                      issues: list[str], default: object,
+                      expected_type: type) -> object:
+    value = parent.get(key, default)
+    if not isinstance(value, expected_type) or (
+            expected_type is str and not value.strip()):
+        issues.append(f"{path} must be a {expected_type.__name__}")
+        return default
+    return value.strip() if expected_type is str else value
+
+
+def _integer_or_default(parent: Mapping[str, object], key: str, path: str,
+                        issues: list[str], default: int,
+                        minimum: int | None = None) -> int:
+    if key not in parent:
+        return default
+    return _integer(parent, key, path, issues, minimum=minimum)
+
+
+def _number_or_default(parent: Mapping[str, object], key: str, path: str,
+                       issues: list[str], default: float,
+                       minimum: float | None = None) -> float:
+    if key not in parent:
+        return default
+    return _number(parent, key, path, issues, minimum=minimum)
 
 
 def _integer(parent: Mapping[str, object], key: str, path: str, issues: list[str],

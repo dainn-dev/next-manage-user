@@ -70,7 +70,7 @@ class LocalSnapshotStore:
             candidate.plate_crop, self.config.jpeg_quality, max_width=None)
         relative = (
             self._frame_directory(candidate.frame)
-            / f"candidate-{candidate.candidate_id}"
+            / f"candidate-{candidate.candidate_id.hex[:12]}"
             / "plate-crop.jpg"
         )
         return self._store(
@@ -90,11 +90,11 @@ class LocalSnapshotStore:
     def _frame_directory(self, frame: RetainedFrame) -> Path:
         captured = frame.metadata.captured_at
         date = captured.strftime("%Y/%m/%d")
-        timestamp = captured.strftime("%Y%m%dT%H%M%S%f%z")
+        timestamp = captured.strftime("%H%M%S%f%z")
         return Path(
-            self.tenant_id,
-            self.site_id,
-            self.camera_id,
+            _scope("tenant", self.tenant_id),
+            _scope("site", self.site_id),
+            _scope("camera", self.camera_id),
             date,
             f"frame-{frame.frame_number:08d}-{timestamp}",
         )
@@ -102,7 +102,9 @@ class LocalSnapshotStore:
     def _store(self, relative: Path, encoded: bytes,
                descriptor: SnapshotDescriptor) -> StoredSnapshot:
         destination = self.config.output_dir / relative
-        temporary = destination.with_name(f".{destination.name}.{uuid4().hex}.tmp")
+        # Keep the temporary name short: the tenant/site/camera hierarchy is already
+        # deep enough to approach the legacy Windows MAX_PATH limit.
+        temporary = destination.parent / f".{uuid4().hex[:8]}.tmp"
         try:
             destination.parent.mkdir(parents=True, exist_ok=True)
             temporary.write_bytes(encoded)
@@ -138,3 +140,9 @@ def _encode_jpeg(pixels: np.ndarray, quality: int,
 
 def _sha256(data: bytes) -> str:
     return f"sha256:{sha256(data).hexdigest()}"
+
+
+def _scope(kind: str, value: str) -> str:
+    """Keep tenant hierarchy stable without exceeding Windows path limits."""
+    digest = sha256(value.encode("utf-8")).hexdigest()[:12]
+    return f"{kind}-{digest}"

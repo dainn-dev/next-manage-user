@@ -9,6 +9,8 @@ from datetime import datetime, timedelta, timezone
 import json
 import logging
 from pathlib import Path
+import signal
+import threading
 
 import numpy as np
 import cv2
@@ -20,6 +22,7 @@ if str(ROOT) not in sys.path:
 
 from edge.camera_config import ConfigValidationError, load_camera_pipeline_config
 from edge.camera_processing_service import CameraProcessingService, configure_json_logging
+from edge.camera_runtime import run_camera_source
 
 CONFIG_ERROR = 2
 RUNTIME_READINESS_ERROR = 3
@@ -128,8 +131,12 @@ def main(argv: list[str] | None = None) -> int:
                       help="Run deterministic in-memory motion-gate frames without opening a source")
     mode.add_argument("--run-feed", type=Path,
                       help="Run a local image/video through models, tracking, snapshots, and ingest")
+    mode.add_argument("--run-camera", action="store_true",
+                      help="Run the configured file/RTSP source with RTSP reconnect support")
     parser.add_argument("--max-frames", type=int, default=0,
                         help="Bound --run-feed frames; 0 reads a complete video or one image")
+    parser.add_argument("--reconnect-seconds", type=float, default=2.0,
+                        help="Delay before reconnecting a failed RTSP source")
     args = parser.parse_args(argv)
 
     configure_json_logging("INFO")
@@ -161,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
                     source=replace(
                         config.camera.source, source_type="file", location=str(source))),
             )
+            service.close()
             service = CameraProcessingService(
                 runtime_config, configure_json_logging(runtime_config.logging.level))
             service.validate_runtime()
@@ -169,9 +177,38 @@ def main(argv: list[str] | None = None) -> int:
                 "configuration", "complete", "local feed processing completed",
                 source_path=str(source), frames_processed=processed)
             return 0
+        if args.run_camera:
+            if args.max_frames < 0:
+                raise ConfigValidationError(["--max-frames cannot be negative"])
+            if args.reconnect_seconds < 0:
+                raise ConfigValidationError(["--reconnect-seconds cannot be negative"])
+            service.validate_runtime()
+            stop_event = threading.Event()
+
+            def stop_runtime(_signum: int, _frame: object) -> None:
+                stop_event.set()
+
+            for name in ("SIGINT", "SIGTERM"):
+                signum = getattr(signal, name, None)
+                if signum is not None:
+                    signal.signal(signum, stop_runtime)
+            processed = run_camera_source(
+                service,
+                config.camera.source,
+                max_frames=args.max_frames,
+                reconnect_seconds=args.reconnect_seconds,
+                stop_event=stop_event,
+            )
+            service._log(
+                "capture", "complete", "configured camera source stopped",
+                source_type=config.camera.source.source_type,
+                frames_processed=processed)
+            return 0
     except ConfigValidationError as exc:
         _bootstrap_log("ERROR", "configuration", "failed", str(exc))
         return RUNTIME_READINESS_ERROR
+    finally:
+        service.close()
 
     _bootstrap_log("ERROR", "configuration", "failed", "unsupported execution mode")
     return UNSUPPORTED_MODE_ERROR

@@ -87,7 +87,11 @@ Start from `edge/camera-pipeline.dry-run.example.json`. Important production fie
     "dry_run": false,
     "max_attempts": 3,
     "retry_base_seconds": 0.5,
-    "retry_max_seconds": 5.0
+    "retry_max_seconds": 5.0,
+    "queue_enabled": true,
+    "queue_path": "camera-event-queue.sqlite3",
+    "queue_max_events": 5000,
+    "queue_retry_seconds": 5.0
   }
 }
 ```
@@ -129,6 +133,20 @@ python edge/run_camera_pipeline.py `
 events are real when ingest dry-run is disabled. The backend derives tenant/site from the camera
 credential, so they must not be added to request payloads.
 
+## Production file/RTSP runtime
+
+Set `camera.source.type` to `rtsp`, provide its URL through `DAI_CAMERA_SOURCE`, and run:
+
+```powershell
+python edge/run_edge.py `
+  --camera-pipeline-config D:/lpr/config/site-a.json
+```
+
+This entry point runs `CameraProcessingService`, throttles inference using `frame_interval_ms`,
+reconnects a failed RTSP capture, and flushes the durable SQLite camera-event spool. RTSP username
+and password may be supplied separately through `DAI_CAMERA_SOURCE_USERNAME` and
+`DAI_CAMERA_SOURCE_PASSWORD`; source credentials are not written to logs.
+
 ## Troubleshooting
 
 | Symptom | Action |
@@ -140,7 +158,7 @@ credential, so they must not be added to request payloads.
 | Plate events absent | Check `min_hits`, OCR confidence policy, plate crop logs, and per-track duplicate suppression. |
 | HTTP 401 | Verify the camera UUID and its per-camera key; do not use `X-Gate-Key`. |
 | HTTP 400/413 | Compare the dry-run event with `docs/openapi/openapi.yaml`; verify snapshot size and multipart part name. |
-| Retryable failures | Inspect structured ingest logs for attempts/status; `408`, `425`, `429`, network failures, and `5xx` are retryable. |
+| Retryable failures | Inspect structured ingest logs and the configured SQLite queue; `408`, `425`, `429`, network failures, and `5xx` are spooled after bounded immediate retries. |
 | Report says “not demonstrated” | Add ground-truth-readable plates and both day/night conditions to the held-out manifest. |
 
 ## Known limitations and recommended next iteration
@@ -158,8 +176,8 @@ credential, so they must not be added to request payloads.
   memory, temperature, and sustained multi-camera load should be added next.
 - Lighting condition is manifest metadata. Add measured lux/IR metadata and dataset governance so
   day/night labels are auditable.
-- Ingest retries are synchronous. A durable camera-event spool should be added for long backend
-  outages before unattended production rollout.
+- The durable SQLite spool is single-device/local-disk resilience. Monitor queue depth and disk
+  health; replicated delivery across failed edge hardware remains outside the MVP.
 
 For backend handoff, the emitted samples are the approved `/api/v1/parking-events` contract. For
 edge handoff, retain the manifest, report, configuration hash, model artifact versions, hardware,

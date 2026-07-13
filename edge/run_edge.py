@@ -32,7 +32,16 @@ def main():
                         help="Run one-shot detection on an image file and exit")
     parser.add_argument("--register-only", action="store_true",
                         help="Register the gate and send a single heartbeat, then exit")
+    parser.add_argument("--camera-pipeline-config", default=None,
+                        help="Run the lpr-mvp-v1 file/RTSP pipeline using this JSON profile")
     args = parser.parse_args()
+
+    if args.camera_pipeline_config:
+        from run_camera_pipeline import main as run_camera_pipeline
+        return run_camera_pipeline([
+            "--config", args.camera_pipeline_config,
+            "--run-camera",
+        ])
 
     # Allow overriding the config file before the singleton is heavily used.
     import config_manager as config_module

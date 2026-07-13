@@ -666,6 +666,16 @@ components:
           required: [vehicleDetector]
           properties:
             vehicleDetector: { $ref: '#/components/schemas/ModelProvenance' }
+        snapshots:
+          type: array
+          description: Descriptive evidence metadata; enter events may include the original frame.
+          items: { $ref: '#/components/schemas/SnapshotMetadata' }
+        snapshotUpload:
+          type: object
+          description: "When present on VehicleDetected, the optional multipart snapshot is the original frame."
+          properties:
+            part: { const: snapshot }
+            kind: { type: string, enum: [original_frame, plate_crop] }
 
     PlateRecognizedPayload:
       allOf:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import replace
 import json
 import logging
 from pathlib import Path
@@ -226,7 +227,8 @@ def test_pipeline_builds_vehicle_and_plate_contracts_with_snapshot_context() -> 
 
     service._emit_ingest_event(
         TrackLifecycleEvent(TrackEventType.ENTER, "42", NOW, vehicle.bounding_box),
-        frame, [track], [(candidate, observation)], {candidate.candidate_id: artifacts})
+        frame, [track], [(candidate, observation)], {candidate.candidate_id: artifacts},
+        [original, crop])
     service._emit_ingest_event(
         TrackLifecycleEvent(
             TrackEventType.PLATE_RECOGNIZED, "42", NOW, vehicle.bounding_box, "51A12345"),
@@ -235,6 +237,11 @@ def test_pipeline_builds_vehicle_and_plate_contracts_with_snapshot_context() -> 
     assert [item[0].event_type for item in ingest.sent] == [
         "VehicleDetected", "PlateRecognized"]
     vehicle_event, plate_event = [item[0] for item in ingest.sent]
+    assert [item["kind"] for item in vehicle_event.payload["snapshots"]] == [
+        "original_frame", "plate_crop"]
+    assert vehicle_event.payload["snapshotUpload"] == {
+        "part": "snapshot", "kind": "original_frame"}
+    assert ingest.sent[0][1] == config.snapshot.output_dir / "frame/original.jpg"
     assert plate_event.payload["causationEventId"] == str(vehicle_event.event_id)
     assert plate_event.payload["tracker"]["trackId"] == "42"
     assert plate_event.payload["plate"]["normalizedText"] == "51A12345"
@@ -267,6 +274,30 @@ def test_unexpected_transport_failure_logs_complete_event_context() -> None:
     assert failure["error"] == "synthetic transport failure"
 
 
+def test_retryable_failure_is_spooled_and_replayed_with_same_idempotency_key() -> None:
+    event = _event()
+    with tempfile.TemporaryDirectory() as raw:
+        config = replace(
+            _config(max_attempts=1),
+            queue_enabled=True,
+            queue_path=Path(raw) / "camera-events.sqlite3",
+            queue_retry_seconds=0.0,
+        )
+        offline = _Backend([requests.exceptions.ConnectionError("offline")])
+        client = CameraIngestClient(config, CAMERA_ID, post=offline.post, sleep=lambda _: None)
+
+        result = client.send(event)
+
+        assert result.retryable is True
+        assert client.queue is not None and client.queue.count() == 1
+        recovered = _Backend([_accepted(event)])
+        client._post = recovered.post
+        stats = client.flush_pending()
+        assert stats == {"attempted": 1, "delivered": 1, "discarded": 0, "remaining": 0}
+        assert recovered.calls[0]["headers"]["Idempotency-Key"] == str(event.event_id)
+        client.close()
+
+
 def run() -> None:
     tests = (
         test_json_auth_idempotency_and_ack_contract,
@@ -276,6 +307,7 @@ def run() -> None:
         test_dry_run_returns_exact_payload_without_network,
         test_pipeline_builds_vehicle_and_plate_contracts_with_snapshot_context,
         test_unexpected_transport_failure_logs_complete_event_context,
+        test_retryable_failure_is_spooled_and_replayed_with_same_idempotency_key,
     )
     for test in tests:
         test()

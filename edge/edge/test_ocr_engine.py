@@ -124,8 +124,8 @@ def test_paddle_items_are_ordered_and_confidence_is_character_weighted():
         expected = (0.90 * 3 + 0.60 * 5) / 8
         assert abs(read.confidence - expected) < 1e-9
         assert len(factory.calls) == 1
-        assert factory.calls[0]["det_model_dir"].endswith("/det")
-        assert factory.calls[0]["rec_model_dir"].endswith("/rec")
+        assert Path(factory.calls[0]["det_model_dir"]).name == "det"
+        assert Path(factory.calls[0]["rec_model_dir"]).name == "rec"
         assert factory.calls[0]["use_gpu"] is False
         assert model.calls[0][1] == {"det": True, "cls": False}
         engine.recognize(np.zeros((30, 80, 3), dtype=np.uint8))

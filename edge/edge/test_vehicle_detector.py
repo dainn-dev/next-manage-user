@@ -99,7 +99,8 @@ def test_adapter_forwards_configuration_filters_classes_and_normalizes_boxes() -
 
     detections = detector.detect(_frame())
 
-    assert loader.paths == ["/models/yolo11n.pt"]
+    assert len(loader.paths) == 1
+    assert Path(loader.paths[0]).as_posix().endswith("/models/yolo11n.pt")
     assert len(model.calls) == 1
     call = model.calls[0]
     assert call["imgsz"] == 640

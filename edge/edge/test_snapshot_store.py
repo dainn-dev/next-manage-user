@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
 import logging
@@ -32,6 +33,7 @@ from edge.camera_types import (
 from edge.motion_gate import ForegroundMeasurement, MotionDecision, MotionState
 from edge.plate_detector import PlateInferenceError
 from edge.snapshot_store import LocalSnapshotStore, SnapshotStoreError
+from edge.vehicle_tracker import TrackEventType, TrackLifecycleEvent
 
 SAMPLE_PROFILE = ROOT / "camera-pipeline.dry-run.example.json"
 
@@ -189,10 +191,55 @@ def test_service_isolates_vehicle_and_original_snapshot_failures():
     }
 
 
+def test_relocate_and_exit_reuse_linked_original_and_plate_evidence():
+    with tempfile.TemporaryDirectory() as raw:
+        config = load_camera_pipeline_config(SAMPLE_PROFILE, environ={})
+        config = replace(
+            config,
+            snapshot=replace(config.snapshot, output_dir=Path(raw) / "snapshots"),
+        )
+        records = []
+        store = LocalSnapshotStore(
+            config.snapshot, config.camera.tenant_id,
+            config.camera.site_id, config.camera.camera_id)
+        service = CameraProcessingService(
+            config, _capture_logger(records), snapshot_store=store)
+        frame = _frame()
+        candidate = _candidate(frame)
+        artifact = PlateCandidateArtifacts(
+            candidate, store.store_original_frame(frame), store.store_plate_crop(candidate))
+        service._last_track_frames["7"] = frame
+        service._latest_track_artifacts["7"] = artifact
+
+        relocate = service._store_lifecycle_snapshots(
+            TrackLifecycleEvent(
+                TrackEventType.RELOCATE, "7", frame.metadata.captured_at,
+                candidate.vehicle.bounding_box, "51A12345"),
+            frame)
+        exit_evidence = service._store_lifecycle_snapshots(
+            TrackLifecycleEvent(
+                TrackEventType.EXIT, "7", frame.metadata.captured_at,
+                candidate.vehicle.bounding_box, "51A12345"),
+            frame)
+
+        assert {item.descriptor.kind for item in relocate} == {
+            "original_frame", "plate_crop"}
+        assert {item.descriptor.kind for item in exit_evidence} == {
+            "original_frame", "plate_crop"}
+        assert all((config.snapshot.output_dir / item.storage_reference).is_file()
+                   for item in relocate + exit_evidence)
+        lifecycle_logs = [item for item in records
+                          if item.get("message") == "lifecycle snapshot evidence linked"]
+        assert [item["eventType"] for item in lifecycle_logs] == ["relocate", "exit"]
+        assert all(item["artifacts_complete"] for item in lifecycle_logs)
+        service.close()
+
+
 def run():
     tests = (
         test_local_store_writes_atomic_jpegs_and_metadata_with_shared_frame_path,
         test_service_isolates_vehicle_and_original_snapshot_failures,
+        test_relocate_and_exit_reuse_linked_original_and_plate_evidence,
     )
     for test in tests:
         test()

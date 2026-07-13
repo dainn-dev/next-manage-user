@@ -26,6 +26,7 @@ from edge.camera_types import (
     PlateCandidateArtifacts,
     PlateOcrObservation,
     RetainedFrame,
+    StoredSnapshot,
     TrackIdentity,
     VehicleDetection,
 )
@@ -123,6 +124,8 @@ class CameraProcessingService:
         self.ingest_client = ingest_client or CameraIngestClient(
             config.ingest, config.camera.camera_id)
         self._vehicle_event_ids: dict[str, UUID] = {}
+        self._last_track_frames: dict[str, RetainedFrame] = {}
+        self._latest_track_artifacts: dict[str, PlateCandidateArtifacts] = {}
 
     def validate_runtime(self) -> None:
         self._log("configuration", "started", "validating runtime readiness")
@@ -170,6 +173,7 @@ class CameraProcessingService:
 
     def process_frame(self, pixels: np.ndarray, captured_at: datetime | None = None) -> MotionDecision:
         """Evaluate one injected BGR frame and return the internal downstream handoff."""
+        self.flush_ingest_queue()
         self._frame_number += 1
         retained = RetainedFrame.from_bgr(
             self._frame_number,
@@ -220,16 +224,30 @@ class CameraProcessingService:
                             if item.candidate_id in by_candidate]
         lifecycle_events = self.track_state_manager.update(
             retained.frame_number, retained.metadata.captured_at, tracks, observations)
+        for track in tracks:
+            self._last_track_frames[track.track_id] = retained
+            artifact = next((
+                item for item in artifacts_by_candidate.values()
+                if item.candidate.vehicle == track.detection), None)
+            if artifact is not None:
+                self._latest_track_artifacts[track.track_id] = artifact
         for event in lifecycle_events:
             self._log("event", "emitted", "track lifecycle event emitted", **event.to_log_dict())
+            lifecycle_snapshots = self._store_lifecycle_snapshots(event, retained)
             self._emit_ingest_event(
-                event, retained, tracks, observations, artifacts_by_candidate)
+                event, retained, tracks, observations, artifacts_by_candidate,
+                lifecycle_snapshots)
+            if event.event_type.value == "exit":
+                self._last_track_frames.pop(event.track_id, None)
+                self._latest_track_artifacts.pop(event.track_id, None)
         return decision
 
     def _emit_ingest_event(self, lifecycle_event: TrackLifecycleEvent, frame: RetainedFrame,
                            tracks: list[TrackedVehicle],
                            observations: list[tuple[PlateCandidate, PlateOcrObservation]],
-                           artifacts: dict[UUID, PlateCandidateArtifacts]) -> None:
+                           artifacts: dict[UUID, PlateCandidateArtifacts],
+                           lifecycle_snapshots: list[StoredSnapshot] | None = None) -> None:
+        lifecycle_snapshots = lifecycle_snapshots or []
         track = next(
             (item for item in tracks if item.track_id == lifecycle_event.track_id), None)
         if lifecycle_event.event_type.value == "exit":
@@ -254,9 +272,15 @@ class CameraProcessingService:
                 track=identity,
                 vehicle=track.detection,
                 vehicle_model=vehicle_model,
+                snapshots=[item.descriptor for item in lifecycle_snapshots],
             )
             self._vehicle_event_ids[track.track_id] = outbound.event_id
-            self._send_ingest(outbound)
+            original = next((
+                item for item in lifecycle_snapshots
+                if item.descriptor.kind == "original_frame"), None)
+            snapshot_path = None if original is None else (
+                self.config.snapshot.output_dir / original.storage_reference)
+            self._send_ingest(outbound, snapshot_path)
             return
 
         if lifecycle_event.event_type.value != "plate-recognize":
@@ -314,6 +338,66 @@ class CameraProcessingService:
             snapshots=snapshot_descriptors,
         )
         self._send_ingest(outbound, snapshot_path)
+
+    def _store_lifecycle_snapshots(self, event: TrackLifecycleEvent,
+                                   current_frame: RetainedFrame) -> list[StoredSnapshot]:
+        frame = (self._last_track_frames.get(event.track_id)
+                 if event.event_type.value == "exit" else current_frame)
+        if frame is None:
+            self._log("snapshot", "failed", "lifecycle frame evidence is unavailable",
+                      level="ERROR", **event.to_log_dict())
+            return []
+        artifact = self._latest_track_artifacts.get(event.track_id)
+        snapshots: list[StoredSnapshot] = []
+        if artifact is not None and artifact.candidate.frame.frame_number == frame.frame_number:
+            if artifact.original_frame is not None:
+                snapshots.append(artifact.original_frame)
+            else:
+                try:
+                    snapshots.append(self.snapshot_store.store_original_frame(frame))
+                except Exception as exc:
+                    self._log(
+                        "snapshot", "failed", "lifecycle original-frame snapshot failed",
+                        level="ERROR", **event.to_log_dict(),
+                        error_type=type(exc).__name__, error=str(exc))
+            snapshots.append(artifact.plate_crop)
+        else:
+            try:
+                snapshots.append(self.snapshot_store.store_original_frame(frame))
+            except Exception as exc:
+                self._log(
+                    "snapshot", "failed", "lifecycle original-frame snapshot failed",
+                    level="ERROR", **event.to_log_dict(),
+                    error_type=type(exc).__name__, error=str(exc))
+            if artifact is not None:
+                snapshots.append(artifact.plate_crop)
+        self._log(
+            "snapshot", "complete", "lifecycle snapshot evidence linked",
+            **event.to_log_dict(),
+            snapshots=[item.to_dict() for item in snapshots],
+            artifacts_complete={item.descriptor.kind for item in snapshots}
+            >= {"original_frame", "plate_crop"},
+        )
+        return snapshots
+
+    def flush_ingest_queue(self) -> None:
+        flush = getattr(self.ingest_client, "flush_pending", None)
+        if not callable(flush):
+            return
+        try:
+            stats = flush()
+        except Exception as exc:
+            self._log("ingest", "failed", "durable ingest queue flush failed",
+                      level="ERROR", error_type=type(exc).__name__, error=str(exc))
+            return
+        if stats.get("attempted", 0):
+            self._log("ingest", "queue_flush", "durable ingest queue processed",
+                      **stats)
+
+    def close(self) -> None:
+        close = getattr(self.ingest_client, "close", None)
+        if callable(close):
+            close()
 
     def _send_ingest(self, event: OutboundEvent,
                      snapshot_path: Path | None = None) -> None:

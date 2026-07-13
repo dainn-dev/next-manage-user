@@ -9,29 +9,29 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
 
 ## 1. Current State vs Target
 
-### Current (verified from `edge/`)
+### Legacy runtime and current MVP runtime (verified from `edge/`)
 
-The edge service is a headless Python process (`edge/edge/`: `EdgeService`, `DetectionCore`,
-`GateClient`, `EventQueue`) plus a legacy PyQt5 desktop app (`license_plate_monitor.py`). One
-process handles **one RTSP stream == one gate**.
+The repository retains the legacy `EdgeService`/`DetectionCore` path for compatibility. The
+`lpr-mvp-v1` production entry point is `run_edge.py --camera-pipeline-config <profile>`, which
+runs `CameraProcessingService` for one configured file or RTSP source.
 
-| Aspect | Current implementation |
+| Aspect | `lpr-mvp-v1` implementation |
 |---|---|
-| Capture | `cv2.VideoCapture(rtsp, CAP_FFMPEG)`, frame validation, throttled to `frame_interval_ms` (200ms) |
-| Plate detection | **YOLOv5** (torch.hub, vendored `ultralytics_yolov5_master`) — one model detects the plate bounding box |
-| OCR | A **second YOLOv5 model detects individual characters** ("OCR-by-detection"); boxes sorted and assembled into VN 1-line/2-line plate strings in `function/helper.py` |
-| Skew handling | 4-orientation deskew retry |
-| Fallback OCR | Optional **EasyOCR / Tesseract / Google Vision** behind guarded imports (not default) |
-| "Tracking" | A per-plate-string dict of first-seen/last-sent timestamps with cooldown + min-detection-duration confirmation — **not** a real multi-object tracker |
-| Motion detection | **None** — no MOG2 or any pre-filter before running the plate detector |
-| Vehicle-level detection | **None** — no car/motorbike bounding box, only plate boxes |
+| Capture | Configured local file or RTSP via OpenCV/FFmpeg; inference throttling, credential-safe URL construction, reconnect, and graceful shutdown |
+| Motion detection | OpenCV MOG2 with warm-up, debounce, cooldown, and retained trigger frames |
+| Vehicle-level detection | YOLOv11 car/motorbike adapter with explicit device policy and normalized boxes |
+| Plate detection | Existing local YOLOv5 plate model applied to vehicle regions with padded crops |
+| OCR | PaddleOCR primary; EasyOCR/VietOCR remain offline comparators rather than automatic fallbacks |
+| Tracking | ByteTrack plus a per-track enter/relocate/plate-recognize/exit state machine |
 | Parking-slot logic | **None** |
-| Offline resilience | Durable bounded FIFO **SQLite** queue (`edge/edge_queue/events.sqlite3`), background retry worker, exponential backoff, idempotent dedup by `event_id` |
-| Backend comms | `GateClient` with `X-Gate-Key`: `POST /api/gates/register`, `POST /api/gates/{id}/heartbeat`, `POST /api/vehicles/check-vehicle` (JSON or multipart with snapshot; payload carries `eventId` UUID + `occurredAt` for idempotency) |
-| Snapshots | Sent as evidence in the check-vehicle call; **not saved locally** except inside the offline queue's BLOB |
+| Offline resilience | Durable bounded SQLite camera-event spool preserving envelope, snapshot, event ID, retry schedule, and idempotency key |
+| Backend comms | `CameraIngestClient` with `X-Camera-Id`, `X-Camera-Key`, and `Idempotency-Key` to `POST /api/v1/parking-events` |
+| Snapshots | Original frame and plate crop stored locally; typed events include evidence descriptors and upload the contract-selected binary part |
 
-**Explicitly absent today:** PaddleOCR, VietOCR, ByteTrack, DeepSORT, motion detection (MOG2),
-any parking-slot/occupancy logic, any map or live-camera UI.
+The MVP runtime now includes MOG2 motion gating, YOLOv11 vehicle detection, the existing plate
+detector, PaddleOCR, ByteTrack, lifecycle evidence snapshots, typed camera ingest, and a durable
+SQLite camera-event spool. Parking-slot/occupancy logic, a map UI, and a representative labeled
+day/night evaluation corpus remain outside or incomplete for this milestone.
 
 ### Target
 
@@ -153,9 +153,9 @@ the promotion/retirement thresholds referenced in ADR-1001.
 
 ## 6. Snapshot Capture
 
-Today, legacy `check-vehicle` snapshots are sent as evidence and are **not** persisted on the
-edge except transiently inside the offline SQLite queue's BLOB when a send is retried. Camera
-multipart ingest already stores its one optional snapshot in S3-compatible object storage under a
+The legacy `check-vehicle` path only retains snapshots transiently. The `lpr-mvp-v1` runtime stores
+original-frame and plate-crop evidence locally under the configured camera hierarchy. Camera
+multipart ingest stores its one optional uploaded snapshot in S3-compatible object storage under a
 server-generated tenant/camera/event key; the event ledger stores that opaque key, never image
 bytes or a public URL. `lpr-mvp-v1` treats that one part as the plate crop. The event profile also
 describes original-frame metadata, but uploading a second binary object and persisting multiple
@@ -190,8 +190,9 @@ need evidence at both the old and new slot (see 12_Vehicle_Relocation).
   PaddleOCR needs a VN-plate fine-tuning dataset before it can be trusted as sole primary.
 - Edge hardware heterogeneity (some sites may be CPU-only) means the latency budget in §4 is
   optimistic for non-GPU deployments; needs a CPU-only budget pass.
-- The event schema (`MotionDetected` … `SnapshotSaved`) needs a concrete payload contract shared
-  with the backend ingest API — currently only named, not specified field-by-field.
+- The ingest boundary intentionally exposes only typed `VehicleDetected` and `PlateRecognized`
+  payloads today. Relocate/exit lifecycle evidence remains local until an additive backend event
+  contract is approved.
 
 ## 10. Cross-References
 

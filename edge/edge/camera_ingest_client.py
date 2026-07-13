@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import time
 from typing import Callable, Protocol
@@ -11,6 +12,7 @@ from typing import Callable, Protocol
 import requests
 
 from edge.camera_config import IngestConfig
+from edge.camera_event_queue import CameraEventQueue
 from edge.camera_types import OutboundEvent
 
 
@@ -41,16 +43,23 @@ class CameraIngestClient:
 
     def __init__(self, config: IngestConfig, camera_id: str, *,
                  post: Callable[..., object] | None = None,
-                 sleep: Callable[[float], None] = time.sleep):
+                 sleep: Callable[[float], None] = time.sleep,
+                 queue: CameraEventQueue | None = None):
         self.config = config
         self.camera_id = camera_id
         self._post = post or requests.post
         self._sleep = sleep
+        self.queue = queue
 
     def ensure_ready(self) -> None:
         if not self.config.dry_run and not self.config.camera_key.strip():
             raise CameraIngestError(
                 "camera ingest key is required unless ingest.dry_run is enabled")
+        if self.config.queue_enabled and not self.config.dry_run:
+            parent = self.config.queue_path.parent
+            if not parent.is_dir() or not os.access(parent, os.W_OK):
+                raise CameraIngestError(
+                    f"camera event queue parent '{parent}' is not a writable directory")
 
     def send(self, event: OutboundEvent,
              snapshot_path: Path | None = None) -> IngestResult:
@@ -67,11 +76,84 @@ class CameraIngestClient:
                 delivered=False, retryable=False, dry_run=False, attempts=0,
                 status_code=None, error=f"unable to read snapshot '{snapshot_path}': {exc}")
 
+        result = self._deliver(
+            envelope,
+            str(event.event_id),
+            snapshot=snapshot,
+            snapshot_name=snapshot_path.name if snapshot_path is not None else None,
+            snapshot_content_type=(
+                event.snapshot.content_type if event.snapshot is not None else "image/jpeg"),
+        )
+        if result.retryable and self.queue is not None:
+            self.queue.enqueue(
+                envelope,
+                snapshot=snapshot,
+                snapshot_name=snapshot_path.name if snapshot_path is not None else None,
+                snapshot_content_type=(
+                    event.snapshot.content_type if event.snapshot is not None else "image/jpeg"),
+                next_attempt=time.time() + self.config.queue_retry_seconds,
+            )
+        elif result.retryable and self.config.queue_enabled:
+            self._ensure_queue().enqueue(
+                envelope,
+                snapshot=snapshot,
+                snapshot_name=snapshot_path.name if snapshot_path is not None else None,
+                snapshot_content_type=(
+                    event.snapshot.content_type if event.snapshot is not None else "image/jpeg"),
+                next_attempt=time.time() + self.config.queue_retry_seconds,
+            )
+        return result
+
+    def flush_pending(self, limit: int = 20) -> dict[str, int]:
+        """Attempt due durable events without changing their idempotency keys."""
+        stats = {"attempted": 0, "delivered": 0, "discarded": 0, "remaining": 0}
+        if self.config.dry_run or (self.queue is None and not self.config.queue_enabled):
+            return stats
+        queue = self._ensure_queue()
+        for item in queue.due_events(limit):
+            stats["attempted"] += 1
+            envelope = item["envelope"]
+            result = self._deliver(
+                envelope,
+                str(envelope["eventId"]),
+                snapshot=item["snapshot"],
+                snapshot_name=item["snapshot_name"],
+                snapshot_content_type=item["snapshot_content_type"] or "image/jpeg",
+            )
+            if result.delivered:
+                queue.delete(int(item["id"]))
+                stats["delivered"] += 1
+            elif result.retryable:
+                delay = min(
+                    300.0,
+                    self.config.queue_retry_seconds * (2 ** min(int(item["attempts"]), 8)),
+                )
+                queue.mark_attempt(int(item["id"]), time.time() + delay)
+            else:
+                queue.delete(int(item["id"]))
+                stats["discarded"] += 1
+        stats["remaining"] = queue.count()
+        return stats
+
+    def close(self) -> None:
+        if self.queue is not None:
+            self.queue.close()
+
+    def _ensure_queue(self) -> CameraEventQueue:
+        if self.queue is None:
+            self.queue = CameraEventQueue(
+                self.config.queue_path, self.config.queue_max_events)
+        return self.queue
+
+    def _deliver(self, envelope: dict[str, object], event_id: str, *,
+                 snapshot: bytes | None, snapshot_name: str | None,
+                 snapshot_content_type: str) -> IngestResult:
+
         headers = {
             "Accept": "application/json",
             "X-Camera-Id": self.camera_id,
             "X-Camera-Key": self.config.camera_key,
-            "Idempotency-Key": str(event.event_id),
+            "Idempotency-Key": event_id,
         }
         for attempt in range(1, self.config.max_attempts + 1):
             try:
@@ -86,8 +168,8 @@ class CameraIngestClient:
                         "event": (None, json.dumps(envelope, separators=(",", ":")),
                                   "application/json"),
                         self.config.snapshot_part: (
-                            snapshot_path.name if snapshot_path is not None else "plate.jpg",
-                            snapshot, event.snapshot.content_type if event.snapshot else "image/jpeg"),
+                            snapshot_name or "snapshot.jpg", snapshot,
+                            snapshot_content_type),
                     }
                     response = self._post(
                         self.config.url, files=files, headers=headers,
@@ -108,7 +190,7 @@ class CameraIngestClient:
                 except (TypeError, ValueError):
                     body = None
                 if (isinstance(body, dict)
-                        and body.get("eventId") == str(event.event_id)
+                        and body.get("eventId") == event_id
                         and body.get("status") == "accepted"):
                     return IngestResult(
                         delivered=True, retryable=False, dry_run=False, attempts=attempt,

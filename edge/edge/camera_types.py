@@ -430,7 +430,10 @@ class OutboundEvent:
     def vehicle_detected(cls, *, camera_id: UUID, occurred_at: datetime,
                          pipeline_id: str, configuration_hash: str, frame: FrameMetadata,
                          track: TrackIdentity, vehicle: VehicleDetection,
-                         vehicle_model: ModelProvenance, event_id: UUID | None = None) -> "OutboundEvent":
+                         vehicle_model: ModelProvenance,
+                         snapshots: Iterable[SnapshotDescriptor] = (),
+                         event_id: UUID | None = None) -> "OutboundEvent":
+        snapshot_values = tuple(snapshots)
         payload = {
             "eventVersion": 1,
             "pipeline": {"id": pipeline_id, "configurationHash": configuration_hash},
@@ -439,7 +442,13 @@ class OutboundEvent:
             "vehicle": vehicle.to_dict(frame),
             "models": {"vehicleDetector": vehicle_model.to_dict()},
         }
-        return cls(event_id or uuid4(), "VehicleDetected", camera_id, occurred_at, payload)
+        if snapshot_values:
+            payload["snapshots"] = [item.to_dict() for item in snapshot_values]
+        original = next((item for item in snapshot_values if item.kind == "original_frame"), None)
+        if original is not None:
+            payload["snapshotUpload"] = {"part": "snapshot", "kind": "original_frame"}
+        return cls(event_id or uuid4(), "VehicleDetected", camera_id, occurred_at,
+                   payload, original)
 
     @classmethod
     def plate_recognized(cls, *, camera_id: UUID, occurred_at: datetime,

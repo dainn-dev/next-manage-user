@@ -104,8 +104,8 @@ def test_vehicle_crop_inference_maps_boxes_to_original_frame_and_filters_rows():
 
     assert len(loader.calls) == 1
     repository, artifact = loader.calls[0]
-    assert repository.endswith("edge/model/ultralytics_yolov5_master")
-    assert artifact.endswith("edge/model/LP_detector_nano_61.pt")
+    assert Path(repository).as_posix().endswith("edge/model/ultralytics_yolov5_master")
+    assert Path(artifact).as_posix().endswith("edge/model/LP_detector_nano_61.pt")
     assert model.devices == ["cpu"]
     assert model.eval_called is True
     assert model.conf == 0.6
