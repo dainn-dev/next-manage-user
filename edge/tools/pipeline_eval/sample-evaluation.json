@@ -1,0 +1,24 @@
+{
+  "mode": "fixture",
+  "pipeline_config": "../../camera-pipeline.dry-run.example.json",
+  "max_frames": 3,
+  "output_json": "reports/sample-evaluation.json",
+  "feeds": [
+    {
+      "id": "sample-day",
+      "condition": "day",
+      "source": "samples/day.ppm",
+      "expected_plates": ["51A12345"],
+      "fixture_plate": "51A-123.45",
+      "fixture_confidence": 0.96
+    },
+    {
+      "id": "sample-night",
+      "condition": "night",
+      "source": "samples/night.ppm",
+      "expected_plates": ["30A99999"],
+      "fixture_plate": "30A-999.99",
+      "fixture_confidence": 0.91
+    }
+  ]
+}

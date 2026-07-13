@@ -1,0 +1,20 @@
+{
+  "mode": "models",
+  "pipeline_config": "../../camera-pipeline.dry-run.example.json",
+  "max_frames": 300,
+  "output_json": "reports/model-evaluation.json",
+  "feeds": [
+    {
+      "id": "site-a-day",
+      "condition": "day",
+      "source": "D:/lpr-eval/site-a-day.mp4",
+      "expected_plates": ["51A12345"]
+    },
+    {
+      "id": "site-a-night",
+      "condition": "night",
+      "source": "D:/lpr-eval/site-a-night.mp4",
+      "expected_plates": ["30A99999"]
+    }
+  ]
+}

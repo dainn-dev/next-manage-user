@@ -39,6 +39,7 @@ edge/__pycache__/
 edge/**/__pycache__/
 edge/*.pyc
 edge/model/*.pt
+edge/tools/pipeline_eval/reports/
 # edge runtime state / secrets — never commit (use config.example.json as the template)
 edge/config.json
 edge/license_plates.json

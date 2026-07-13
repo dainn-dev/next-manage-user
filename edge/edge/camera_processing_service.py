@@ -1,4 +1,4 @@
-"""No-side-effect DAI-290 camera pipeline scaffold and structured dry-run logs."""
+"""Camera LPR pipeline orchestration, lifecycle events, and ingest delivery."""
 
 from __future__ import annotations
 
@@ -7,18 +7,26 @@ import json
 import logging
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 
+from edge.camera_ingest_client import (
+    CameraIngestClient,
+    CameraIngestError,
+    CameraIngestTransport,
+)
 from edge.camera_config import CameraPipelineConfig, ConfigValidationError, validate_dry_run, validate_runtime
 from edge.camera_types import (
     FrameMetadata,
+    ModelProvenance,
+    OutboundEvent,
     PlateCandidate,
     PlateCandidateArtifacts,
     PlateOcrObservation,
     RetainedFrame,
+    TrackIdentity,
     VehicleDetection,
 )
 from edge.motion_gate import MotionDecision, MotionGate, MotionState
@@ -38,6 +46,14 @@ from edge.vehicle_detector import (
     UltralyticsVehicleDetector,
     VehicleDetector,
     VehicleDetectorError,
+)
+from edge.vehicle_tracker import (
+    TrackLifecycleEvent,
+    TrackStateManager,
+    TrackedVehicle,
+    UltralyticsByteTracker,
+    VehicleTracker,
+    VehicleTrackerError,
 )
 
 
@@ -66,13 +82,16 @@ def configure_json_logging(level: str) -> logging.Logger:
 
 
 class CameraProcessingService:
-    """Scaffold boundary; later DAI stages supply actual inference and ingest adapters."""
+    """Coordinate frame processing through tracking, OCR, events, and ingest."""
 
     def __init__(self, config: CameraPipelineConfig, logger: logging.Logger | None = None,
                  vehicle_detector: VehicleDetector | None = None,
                  plate_detector: PlateDetector | None = None,
                  snapshot_store: SnapshotStore | None = None,
-                 ocr_engine: OcrEngine | None = None):
+                 ocr_engine: OcrEngine | None = None,
+                 vehicle_tracker: VehicleTracker | None = None,
+                 track_state_manager: TrackStateManager | None = None,
+                 ingest_client: CameraIngestTransport | None = None):
         self.config = config
         self.logger = logger or configure_json_logging(config.logging.level)
         self.run_id = str(uuid4())
@@ -96,15 +115,25 @@ class CameraProcessingService:
         )
         self.ocr_engine = ocr_engine or LocalPaddleOcrEngine(
             config.models.ocr, config.ocr.languages)
+        frame_rate = max(1, round(1000 / config.pipeline.frame_interval_ms))
+        self.vehicle_tracker = vehicle_tracker or UltralyticsByteTracker(
+            config.thresholds.tracker, frame_rate=frame_rate)
+        self.track_state_manager = track_state_manager or TrackStateManager(
+            config.thresholds.tracker.buffer_frames)
+        self.ingest_client = ingest_client or CameraIngestClient(
+            config.ingest, config.camera.camera_id)
+        self._vehicle_event_ids: dict[str, UUID] = {}
 
     def validate_runtime(self) -> None:
         self._log("configuration", "started", "validating runtime readiness")
         validate_runtime(self.config)
         issues: list[str] = []
-        for adapter in (self.vehicle_detector, self.plate_detector, self.snapshot_store, self.ocr_engine):
+        for adapter in (self.vehicle_detector, self.plate_detector, self.snapshot_store,
+                        self.ocr_engine, self.vehicle_tracker, self.ingest_client):
             try:
                 adapter.ensure_ready()
-            except (VehicleDetectorError, PlateDetectorError, SnapshotStoreError, OcrEngineError) as exc:
+            except (VehicleDetectorError, PlateDetectorError, SnapshotStoreError, OcrEngineError,
+                    VehicleTrackerError, CameraIngestError) as exc:
                 issues.append(str(exc))
         if issues:
             raise ConfigValidationError(issues)
@@ -176,12 +205,164 @@ class CameraProcessingService:
                 f"motion gate transitioned to {decision.transition}",
                 **details,
             )
+        vehicles = self._detect_vehicles(retained) if decision.state == MotionState.ACTIVE else []
+        tracks = self._track_vehicles(retained, vehicles)
+        observations = []
+        artifacts_by_candidate: dict[UUID, PlateCandidateArtifacts] = {}
         if decision.state == MotionState.ACTIVE:
-            vehicles = self._detect_vehicles(retained)
             candidates = self._detect_plates(retained, vehicles)
             artifacts = self._store_snapshots(retained, candidates)
-            self._recognize_plates(artifacts)
+            artifacts_by_candidate = {
+                item.candidate.candidate_id: item for item in artifacts}
+            recognized = self._recognize_plates(artifacts)
+            by_candidate = {item.candidate.candidate_id: item.candidate for item in artifacts}
+            observations = [(by_candidate[item.candidate_id], item) for item in recognized
+                            if item.candidate_id in by_candidate]
+        lifecycle_events = self.track_state_manager.update(
+            retained.frame_number, retained.metadata.captured_at, tracks, observations)
+        for event in lifecycle_events:
+            self._log("event", "emitted", "track lifecycle event emitted", **event.to_log_dict())
+            self._emit_ingest_event(
+                event, retained, tracks, observations, artifacts_by_candidate)
         return decision
+
+    def _emit_ingest_event(self, lifecycle_event: TrackLifecycleEvent, frame: RetainedFrame,
+                           tracks: list[TrackedVehicle],
+                           observations: list[tuple[PlateCandidate, PlateOcrObservation]],
+                           artifacts: dict[UUID, PlateCandidateArtifacts]) -> None:
+        track = next(
+            (item for item in tracks if item.track_id == lifecycle_event.track_id), None)
+        if lifecycle_event.event_type.value == "exit":
+            self._vehicle_event_ids.pop(lifecycle_event.track_id, None)
+            return
+        if lifecycle_event.event_type.value == "relocate" or track is None:
+            return
+
+        identity = TrackIdentity(UUID(self.session_id), track.track_id)
+        vehicle_model = ModelProvenance(
+            self.config.models.vehicle_detector.name,
+            self.config.models.vehicle_detector.artifact_version,
+            confidence_threshold=self.config.thresholds.vehicle.confidence,
+        )
+        if lifecycle_event.event_type.value == "enter":
+            outbound = OutboundEvent.vehicle_detected(
+                camera_id=UUID(self.config.camera.camera_id),
+                occurred_at=frame.metadata.captured_at,
+                pipeline_id=self.config.pipeline.profile_id,
+                configuration_hash=self.config.configuration_hash,
+                frame=frame.metadata,
+                track=identity,
+                vehicle=track.detection,
+                vehicle_model=vehicle_model,
+            )
+            self._vehicle_event_ids[track.track_id] = outbound.event_id
+            self._send_ingest(outbound)
+            return
+
+        if lifecycle_event.event_type.value != "plate-recognize":
+            return
+        match = next((
+            (candidate, observation)
+            for candidate, observation in observations
+            if candidate.vehicle == track.detection
+            and observation.accepted_for_downstream
+            and observation.normalized_text == lifecycle_event.plate
+        ), None)
+        causation_event_id = self._vehicle_event_ids.get(track.track_id)
+        if match is None or causation_event_id is None:
+            self._log(
+                "ingest", "skipped",
+                "plate event lacks a confirmed candidate or causation event",
+                level="ERROR", track_id=track.track_id, plate=lifecycle_event.plate,
+                candidate_found=match is not None,
+                causation_event_found=causation_event_id is not None,
+            )
+            return
+
+        candidate, observation = match
+        artifact = artifacts.get(candidate.candidate_id)
+        snapshot_descriptors = []
+        snapshot_path = None
+        if artifact is not None:
+            if artifact.original_frame is not None:
+                snapshot_descriptors.append(artifact.original_frame.descriptor)
+            snapshot_descriptors.append(artifact.plate_crop.descriptor)
+            snapshot_path = (
+                self.config.snapshot.output_dir / artifact.plate_crop.storage_reference)
+        outbound = OutboundEvent.plate_recognized(
+            camera_id=UUID(self.config.camera.camera_id),
+            occurred_at=frame.metadata.captured_at,
+            causation_event_id=causation_event_id,
+            pipeline_id=self.config.pipeline.profile_id,
+            configuration_hash=self.config.configuration_hash,
+            frame=frame.metadata,
+            track=identity,
+            vehicle=track.detection,
+            plate=candidate.plate,
+            ocr=observation.to_ocr_result(),
+            vehicle_model=vehicle_model,
+            plate_model=ModelProvenance(
+                self.config.models.plate_detector.name,
+                self.config.models.plate_detector.artifact_version,
+                confidence_threshold=self.config.thresholds.plate_confidence,
+            ),
+            ocr_model=ModelProvenance(
+                self.config.models.ocr.name,
+                self.config.models.ocr.artifact_version,
+                recognition_confidence_threshold=self.config.thresholds.ocr_confidence,
+            ),
+            snapshots=snapshot_descriptors,
+        )
+        self._send_ingest(outbound, snapshot_path)
+
+    def _send_ingest(self, event: OutboundEvent,
+                     snapshot_path: Path | None = None) -> None:
+        envelope = event.to_ingest_envelope()
+        try:
+            result = self.ingest_client.send(event, snapshot_path)
+        except Exception as exc:
+            self._log(
+                "ingest", "failed", "unexpected ingest transport failure",
+                level="ERROR", event=envelope,
+                snapshot_path=str(snapshot_path) if snapshot_path else None,
+                retryable=True, attempts=0, status_code=None,
+                error_type=type(exc).__name__, error=str(exc))
+            return
+        if result.dry_run:
+            self._log(
+                "ingest", "dry_run", "ingest payload validated without sending",
+                event=envelope, snapshot_path=str(snapshot_path) if snapshot_path else None)
+        elif result.delivered:
+            self._log(
+                "ingest", "delivered", "ingest API accepted event",
+                event_id=str(event.event_id), event_type=event.event_type,
+                attempts=result.attempts, status_code=result.status_code)
+        else:
+            self._log(
+                "ingest", "failed", "ingest API did not accept event",
+                level="ERROR", event=envelope,
+                snapshot_path=str(snapshot_path) if snapshot_path else None,
+                retryable=result.retryable, attempts=result.attempts,
+                status_code=result.status_code, error=result.error)
+
+    def _track_vehicles(self, frame: RetainedFrame,
+                        vehicles: list[VehicleDetection]) -> list[TrackedVehicle]:
+        try:
+            tracks = self.vehicle_tracker.update(vehicles)
+            self._log(
+                "tracking", "complete", "ByteTrack evaluated vehicle detections",
+                **frame.to_log_dict(),
+                input_count=len(vehicles),
+                tracks=[{"trackId": track.track_id,
+                         "vehicle": track.detection.to_dict(frame.metadata)} for track in tracks],
+            )
+            return tracks
+        except Exception as exc:
+            self._log(
+                "tracking", "failed", "vehicle tracking failed; frame processing will continue",
+                level="ERROR", **frame.to_log_dict(), error_type=type(exc).__name__, error=str(exc),
+            )
+            return []
 
     def _detect_vehicles(self, frame: RetainedFrame) -> list[VehicleDetection]:
         try:

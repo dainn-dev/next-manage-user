@@ -127,6 +127,10 @@ class IngestConfig:
     timeout_seconds: int
     camera_key: str
     snapshot_part: str
+    dry_run: bool
+    max_attempts: int
+    retry_base_seconds: float
+    retry_max_seconds: float
 
 
 @dataclass(frozen=True)
@@ -320,9 +324,17 @@ def load_camera_pipeline_config(path: str | Path,
         timeout_seconds=_integer(ingest, "timeout_seconds", "ingest.timeout_seconds", issues, minimum=1),
         camera_key=camera_key,
         snapshot_part=_string(ingest, "snapshot_part", "ingest.snapshot_part", issues),
+        dry_run=_boolean(ingest, "dry_run", "ingest.dry_run", issues),
+        max_attempts=_integer(ingest, "max_attempts", "ingest.max_attempts", issues, minimum=1),
+        retry_base_seconds=_number(
+            ingest, "retry_base_seconds", "ingest.retry_base_seconds", issues, minimum=0),
+        retry_max_seconds=_number(
+            ingest, "retry_max_seconds", "ingest.retry_max_seconds", issues, minimum=0),
     )
     if ingest_config.snapshot_part != "snapshot":
         issues.append("ingest.snapshot_part must be 'snapshot'")
+    if ingest_config.retry_max_seconds < ingest_config.retry_base_seconds:
+        issues.append("ingest.retry_max_seconds cannot be less than retry_base_seconds")
 
     logging_config = LoggingConfig(
         level=_string(logging, "level", "logging.level", issues).upper(),

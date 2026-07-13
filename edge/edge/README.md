@@ -156,13 +156,11 @@ deployment values through environment variables rather than committing secrets:
 | `DAI_CAMERA_SOURCE` | `camera.source.path` (file) or `camera.source.url` (RTSP) |
 | `DAI_CAMERA_SOURCE_USERNAME`, `DAI_CAMERA_SOURCE_PASSWORD` | Future RTSP credentials |
 | `DAI_TENANT_ID`, `DAI_SITE_ID`, `DAI_CAMERA_ID` | Local operational camera identity |
-| `DAI_INGEST_URL`, `DAI_CAMERA_KEY` | Future `POST /api/v1/parking-events` destination and per-camera key |
+| `DAI_INGEST_URL`, `DAI_CAMERA_KEY` | `POST /api/v1/parking-events` destination and per-camera key |
 | `DAI_SNAPSHOT_OUTPUT_DIR` | Future local snapshot-output directory |
 
-Tenant and site values are local operational metadata only. Future outbound events echo only the
-camera ID; the backend derives tenant/site from `X-Camera-Id` plus `X-Camera-Key`. The scaffold
-prepares typed event serialization but intentionally leaves model inference and ingest transport to
-later DAI stages.
+Tenant and site values are local operational metadata only. Outbound events echo only the camera
+ID; the backend derives tenant/site from `X-Camera-Id` plus `X-Camera-Key`.
 
 ### Motion-gate diagnostic (DAI-289)
 
@@ -230,7 +228,7 @@ Configure execution explicitly under `models.vehicle_detector`:
 configured device is unavailable; it never silently switches to CPU. Runtime readiness also
 requires the model artifact to exist and expose a `car` or `motorcycle`/`motorbike` class. The
 repository intentionally does not bundle/download `yolo11n.pt`. This stage produces normalized
-vehicle results for the plate-candidate stage; OCR, tracking, live capture, and ingest remain later tasks.
+vehicle results for the plate-candidate, tracking, OCR, and ingest stages.
 
 ### Plate candidates and local evidence (DAI-293)
 
@@ -277,8 +275,24 @@ following OCR stage consumes successfully stored crop artifacts.
 PaddleOCR is the only production-path OCR engine. The edge recognizes the in-memory padded crop
 after its JPEG artifact is stored, attaches the local crop reference, and records raw text,
 separator-insensitive normalized text, character-weighted confidence, and one disposition:
-`accepted`, `low_confidence`, or `no_text`. It does not emit a final `PlateRecognized` event;
-tracking and event policy remain downstream work.
+`accepted`, `low_confidence`, or `no_text`. Accepted observations are associated with confirmed
+ByteTrack identities and may emit one de-duplicated `PlateRecognized` event per track/plate pair.
+
+### Camera ingest transport (DAI-294)
+
+The camera pipeline emits the documented `VehicleDetected` and `PlateRecognized` envelopes to
+`POST /api/v1/parking-events`. Requests carry `X-Camera-Id`, `X-Camera-Key`, and an
+`Idempotency-Key` equal to the event UUID. Plate evidence uses multipart form data with an `event`
+JSON part and the configured `snapshot` binary part. Retryable network, timeout, `408`, `425`,
+`429`, and `5xx` failures use bounded exponential backoff and preserve the original event UUID.
+Other `4xx` responses are permanent failures and are logged with the complete non-secret event
+context. Set `ingest.dry_run` to log contract payloads without sending HTTP.
+
+### Full-pipeline evaluation (DAI-296)
+
+See [`../tools/pipeline_eval/README.md`](../tools/pipeline_eval/README.md) for the runnable day/night
+fixture, real-model manifest, metrics/report format, bounded ingest-enabled feed command,
+troubleshooting, current limitations, and promotion guidance.
 
 The configured local bundle must be laid out without runtime downloads:
 

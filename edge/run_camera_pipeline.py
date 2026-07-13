@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
-"""DAI-290 camera pipeline scaffold entry point.
-
-This intentionally does not start inference, RTSP capture, persistence, or HTTP transport.
-Use --dry-run to validate a local image profile safely, or --validate-runtime to report
-future deployment prerequisites before later pipeline stages are installed.
-"""
+"""Camera pipeline diagnostics and bounded local-feed runtime entry point."""
 
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import json
 import logging
 from pathlib import Path
 
 import numpy as np
+import cv2
 import sys
 
 ROOT = Path(__file__).resolve().parent
@@ -88,8 +85,39 @@ def _run_synthetic_sequence(service: CameraProcessingService, mode: str) -> None
     )
 
 
+def _run_feed(service: CameraProcessingService, source: Path,
+              max_frames: int) -> int:
+    """Run a bounded image/video feed through the configured production adapters."""
+    image = cv2.imread(str(source))
+    started_at = datetime.now(timezone.utc)
+    interval = timedelta(milliseconds=service.config.pipeline.frame_interval_ms)
+    if image is not None:
+        count = max_frames if max_frames > 0 else 1
+        for index in range(count):
+            service.process_frame(np.array(image, copy=True), started_at + interval * index)
+        return count
+
+    capture = cv2.VideoCapture(str(source))
+    if not capture.isOpened():
+        raise ConfigValidationError([
+            f"run feed '{source}' is not a readable image or video"])
+    processed = 0
+    try:
+        while max_frames <= 0 or processed < max_frames:
+            ok, frame = capture.read()
+            if not ok:
+                break
+            service.process_frame(frame, started_at + interval * processed)
+            processed += 1
+    finally:
+        capture.release()
+    if processed == 0:
+        raise ConfigValidationError([f"run feed '{source}' produced no frames"])
+    return processed
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="DAI-290 camera pipeline scaffold")
+    parser = argparse.ArgumentParser(description="LPR camera pipeline diagnostics and local-feed runner")
     parser.add_argument("--config", required=True, help="Required JSON camera-pipeline profile")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true",
@@ -98,6 +126,10 @@ def main(argv: list[str] | None = None) -> int:
                       help="Validate future artifact, credential, and output prerequisites without side effects")
     mode.add_argument("--dry-run-sequence", choices=("static", "moving-vehicle"),
                       help="Run deterministic in-memory motion-gate frames without opening a source")
+    mode.add_argument("--run-feed", type=Path,
+                      help="Run a local image/video through models, tracking, snapshots, and ingest")
+    parser.add_argument("--max-frames", type=int, default=0,
+                        help="Bound --run-feed frames; 0 reads a complete video or one image")
     args = parser.parse_args(argv)
 
     configure_json_logging("INFO")
@@ -117,6 +149,25 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.dry_run_sequence:
             _run_synthetic_sequence(service, args.dry_run_sequence)
+            return 0
+        if args.run_feed:
+            if args.max_frames < 0:
+                raise ConfigValidationError(["--max-frames cannot be negative"])
+            source = args.run_feed.resolve()
+            runtime_config = replace(
+                config,
+                camera=replace(
+                    config.camera,
+                    source=replace(
+                        config.camera.source, source_type="file", location=str(source))),
+            )
+            service = CameraProcessingService(
+                runtime_config, configure_json_logging(runtime_config.logging.level))
+            service.validate_runtime()
+            processed = _run_feed(service, source, args.max_frames)
+            service._log(
+                "configuration", "complete", "local feed processing completed",
+                source_path=str(source), frames_processed=processed)
             return 0
     except ConfigValidationError as exc:
         _bootstrap_log("ERROR", "configuration", "failed", str(exc))
