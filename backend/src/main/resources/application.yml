@@ -158,6 +158,16 @@ storage:
   snapshot-dir: ${SNAPSHOT_DIR:uploads/snapshots}
   snapshot-url-prefix: ${SNAPSHOT_URL_PREFIX:/uploads/snapshots}
 
+# S3-compatible storage for camera-ingest snapshots. Set credentials through the
+# environment; MinIO is supplied by docker-compose for local development.
+object-storage:
+  endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
+  bucket: ${OBJECT_STORAGE_BUCKET:vehicle-management-snapshots}
+  region: ${OBJECT_STORAGE_REGION:us-east-1}
+  access-key: ${OBJECT_STORAGE_ACCESS_KEY:}
+  secret-key: ${OBJECT_STORAGE_SECRET_KEY:}
+  path-style-access: ${OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+
 management:
   endpoints:
     web:

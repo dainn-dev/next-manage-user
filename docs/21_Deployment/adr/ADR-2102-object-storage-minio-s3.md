@@ -33,8 +33,13 @@ deployments and as the default in Kubernetes, with the option to point at a mana
   (`21_Deployment` diagram) adds a MinIO service alongside Postgres so the dev environment
   exercises the real code path (S3 API) without needing cloud credentials, rather than branching
   application logic between "disk mode" and "S3 mode."
+- Camera-event ingestion uses a backend server-side S3 PUT: the edge sends its snapshot in the
+  authenticated multipart ingest request, the backend writes a tenant/camera-scoped object key,
+  and the event stores that key rather than image bytes or a public URL. This keeps storage
+  credentials off edge devices and preserves the current device-facing API.
 - Presigned URLs are used for the frontend/mobile app to fetch snapshots directly from object
-  storage rather than proxying every image byte through the backend.
+  storage rather than proxying every image byte through the backend. A future retrieval endpoint
+  resolves the stored object key and issues a short-lived presigned GET after authorization.
 - Retention/lifecycle policies (tied to billing-plan retention days, brief §3.10) are enforced via
   bucket lifecycle rules where possible, reducing custom cleanup-job code.
 

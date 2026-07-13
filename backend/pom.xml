@@ -23,6 +23,7 @@
           1.21.x brings a docker-java new enough to talk to modern engines.
         -->
         <testcontainers.version>1.21.4</testcontainers.version>
+        <aws.sdk.version>2.25.47</aws.sdk.version>
     </properties>
     <dependencies>
         <dependency>
@@ -87,6 +88,17 @@
             <groupId>com.stripe</groupId>
             <artifactId>stripe-java</artifactId>
             <version>29.1.0</version>
+        </dependency>
+        <!-- S3-compatible snapshot storage (MinIO for dev/on-prem, managed S3 in cloud). -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>${aws.sdk.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>

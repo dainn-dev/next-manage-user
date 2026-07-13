@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -20,12 +21,24 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.DockerImageName;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
+import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
+import javax.imageio.ImageIO;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -44,7 +57,22 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final String ADMIN_LOGIN = "app_admin_login";
     private static final String ADMIN_LOGIN_PW = "app_admin_login_283_pw";
+    private static final String STORAGE_ACCESS_KEY = "minioadmin";
+    private static final String STORAGE_SECRET_KEY = "minioadmin";
+    private static final String STORAGE_BUCKET = "camera-ingest-test";
     private static final UUID TENANT = UUID.fromString("00000000-0000-0000-0000-0000000283aa");
+
+    @SuppressWarnings("resource")
+    private static final GenericContainer<?> MINIO = new GenericContainer<>(
+            DockerImageName.parse("minio/minio:RELEASE.2024-05-10T01-41-38Z"))
+            .withEnv("MINIO_ROOT_USER", STORAGE_ACCESS_KEY)
+            .withEnv("MINIO_ROOT_PASSWORD", STORAGE_SECRET_KEY)
+            .withCommand("server /data")
+            .withExposedPorts(9000);
+
+    static {
+        MINIO.start();
+    }
 
     @DynamicPropertySource
     static void registerAdminDataSource(DynamicPropertyRegistry registry) {
@@ -53,6 +81,13 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
         registry.add("app.admin-datasource.password", () -> ADMIN_LOGIN_PW);
         registry.add("app.admin-datasource.hikari.maximum-pool-size", () -> "1");
         registry.add("app.admin-datasource.hikari.minimum-idle", () -> "0");
+        registry.add("object-storage.endpoint",
+                () -> "http://" + MINIO.getHost() + ":" + MINIO.getMappedPort(9000));
+        registry.add("object-storage.bucket", () -> STORAGE_BUCKET);
+        registry.add("object-storage.region", () -> "us-east-1");
+        registry.add("object-storage.access-key", () -> STORAGE_ACCESS_KEY);
+        registry.add("object-storage.secret-key", () -> STORAGE_SECRET_KEY);
+        registry.add("object-storage.path-style-access", () -> "true");
     }
 
     @BeforeAll
@@ -93,6 +128,9 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     CameraService cameraService;
+
+    @Autowired
+    S3Client s3Client;
 
     @Test
     void acceptsEventAndReturnsStableResponseForSequentialRetry() {
@@ -163,6 +201,27 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void storesMultipartSnapshotUnderTrustedTenantAndCameraPrefix() {
+        CameraCredentials camera = createCamera("snapshot");
+        UUID eventId = UUID.randomUUID();
+
+        ResponseEntity<String> response = postMultipart(camera, eventId);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        String snapshotKey = jdbc.queryForObject(
+                "SELECT snapshot_path FROM camera_ingest_event WHERE camera_id = ? AND event_id = ?",
+                String.class, camera.id(), eventId.toString());
+        assertThat(snapshotKey).isEqualTo("tenants/" + TENANT + "/cameras/" + camera.id()
+                + "/events/" + eventId + ".png");
+
+        ResponseBytes<GetObjectResponse> stored = s3Client.getObjectAsBytes(builder -> builder
+                .bucket(STORAGE_BUCKET)
+                .key(snapshotKey));
+        assertThat(stored.asByteArray()).startsWith((byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47);
+        assertThat(stored.response().contentType()).isEqualTo("image/png");
+    }
+
+    @Test
     void rejectsMalformedAndWrongCameraRequestsWithoutPersistence() {
         CameraCredentials camera = createCamera("reject");
         UUID eventId = UUID.randomUUID();
@@ -194,6 +253,36 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
     private ResponseEntity<String> post(CameraCredentials camera, String body) {
         return rest.exchange(url(), HttpMethod.POST,
                 new HttpEntity<>(body, cameraHeaders(camera.id(), camera.key())), String.class);
+    }
+
+    private ResponseEntity<String> postMultipart(CameraCredentials camera, UUID eventId) {
+        HttpHeaders eventHeaders = new HttpHeaders();
+        eventHeaders.setContentType(MediaType.APPLICATION_JSON);
+        MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+        parts.add("event", new HttpEntity<>(eventBody(eventId, camera.id()), eventHeaders));
+        parts.add("snapshot", new ByteArrayResource(imageFixture()) {
+            @Override
+            public String getFilename() {
+                return "snapshot.png";
+            }
+        });
+
+        HttpHeaders headers = cameraHeaders(camera.id(), camera.key());
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        return rest.exchange(url(), HttpMethod.POST, new HttpEntity<>(parts, headers), String.class);
+    }
+
+    private byte[] imageFixture() {
+        try {
+            BufferedImage image = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+            image.setRGB(0, 0, Color.WHITE.getRGB());
+            image.setRGB(1, 1, Color.BLACK.getRGB());
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", output);
+            return output.toByteArray();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Unable to create image fixture", ex);
+        }
     }
 
     private HttpHeaders cameraHeaders(UUID cameraId, String key) {

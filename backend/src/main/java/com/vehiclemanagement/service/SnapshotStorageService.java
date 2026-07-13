@@ -1,16 +1,23 @@
 package com.vehiclemanagement.service;
 
+import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.util.ImageProcessingUtil;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -31,6 +38,7 @@ public class SnapshotStorageService {
     private static final Logger log = LoggerFactory.getLogger(SnapshotStorageService.class);
 
     private final ImageProcessingUtil imageProcessingUtil;
+    private final ObjectStorageService objectStorageService;
 
     /** Physical directory (relative to the working dir) snapshots are written to. */
     @Value("${storage.snapshot-dir:uploads/snapshots}")
@@ -40,8 +48,10 @@ public class SnapshotStorageService {
     @Value("${storage.snapshot-url-prefix:/uploads/snapshots}")
     private String snapshotUrlPrefix;
 
-    public SnapshotStorageService(ImageProcessingUtil imageProcessingUtil) {
+    public SnapshotStorageService(ImageProcessingUtil imageProcessingUtil,
+                                  ObjectStorageService objectStorageService) {
         this.imageProcessingUtil = imageProcessingUtil;
+        this.objectStorageService = objectStorageService;
     }
 
     /**
@@ -82,9 +92,11 @@ public class SnapshotStorageService {
     }
 
     /**
-     * Stores one optional ingest snapshot under a camera/event-derived filename.
-     * Invalid images and storage failures remain best-effort so an accepted event
-     * is never replayed solely because evidence storage is temporarily unavailable.
+     * Stores one optional ingest snapshot in S3-compatible object storage. The
+     * object key is scoped from the tenant established by camera-key authentication,
+     * never from client-controlled multipart data. Invalid images and storage
+     * failures remain best-effort so an accepted event is not replayed solely
+     * because evidence storage is temporarily unavailable.
      */
     public String storeForIngest(MultipartFile snapshot, UUID cameraId, UUID eventId) {
         if (snapshot == null || snapshot.isEmpty()) {
@@ -93,22 +105,44 @@ public class SnapshotStorageService {
         if (!imageProcessingUtil.isValidImage(snapshot)) {
             throw new IllegalArgumentException("Snapshot must be an image");
         }
+        UUID tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            log.warn("Skipping ingest snapshot for camera {} event {}: no tenant context", cameraId, eventId);
+            return null;
+        }
         try {
             byte[] data = imageProcessingUtil.processImage(snapshot);
-            Path dir = Paths.get(snapshotDir);
-            Files.createDirectories(dir);
-
-            String filename = "camera_" + cameraId + "_event_" + eventId + ".jpg";
-            Path filePath = dir.resolve(filename);
-            Files.write(filePath, data, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-
-            String webPath = joinUrl(snapshotUrlPrefix, filename);
-            log.debug("Stored ingest snapshot for camera {} event {} -> {}", cameraId, eventId, webPath);
-            return webPath;
+            return objectStorageService.storeIngestSnapshot(tenantId, cameraId, eventId, data,
+                    contentTypeFor(data));
         } catch (Exception e) {
-            log.warn("Failed to store ingest snapshot for camera {} event {}: {}",
-                    cameraId, eventId, e.getMessage());
+            log.warn("Failed to store ingest snapshot for tenant {} camera {} event {}: {}",
+                    tenantId, cameraId, eventId, e.getMessage());
             return null;
+        }
+    }
+
+    private String contentTypeFor(byte[] image) throws IOException {
+        try (ImageInputStream stream = ImageIO.createImageInputStream(new ByteArrayInputStream(image))) {
+            if (stream == null) {
+                throw new IOException("Unable to inspect snapshot format");
+            }
+            var readers = ImageIO.getImageReaders(stream);
+            if (!readers.hasNext()) {
+                throw new IOException("Unsupported snapshot format");
+            }
+            ImageReader reader = readers.next();
+            try {
+                return switch (reader.getFormatName().toLowerCase(Locale.ROOT)) {
+                    case "jpeg", "jpg" -> "image/jpeg";
+                    case "png" -> "image/png";
+                    case "gif" -> "image/gif";
+                    case "bmp" -> "image/bmp";
+                    case "wbmp" -> "image/wbmp";
+                    default -> throw new IOException("Unsupported snapshot format: " + reader.getFormatName());
+                };
+            } finally {
+                reader.dispose();
+            }
         }
     }
 

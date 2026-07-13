@@ -18,6 +18,20 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - vehicle-management-network
+
   backend:
     build:
       context: ./backend
@@ -43,6 +57,13 @@ services:
       # Required X-Gate-Key header secret for public gate endpoints
       # (/api/vehicles/check-vehicle, POST /api/vehicle-logs). Empty = open (dev).
       GATE_API_KEY: ${GATE_API_KEY:-}
+      # Camera-ingest snapshots use server-side S3 PUTs to this local MinIO service.
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-vehicle-management-snapshots}
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      OBJECT_STORAGE_PATH_STYLE_ACCESS: "true"
     ports:
       - "8080:8080"  # Backend API port
     volumes:
@@ -76,6 +97,7 @@ volumes:
   postgres_data:
   file_storage:
   csv_storage:
+  minio_data:
 
 networks:
   vehicle-management-network:
