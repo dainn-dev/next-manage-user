@@ -20,6 +20,7 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Collections;
 
 /** Persists camera events exactly once per authenticated camera and event id. */
 @Service
@@ -48,11 +49,21 @@ public class CameraIngestService {
     public CameraIngestResponse ingest(UUID authenticatedCameraId,
                                        CameraIngestRequest request,
                                        MultipartFile snapshot) {
+        return ingest(authenticatedCameraId, request,
+                snapshot == null ? Collections.emptyMap() : Map.of("snapshot", snapshot));
+    }
+
+    @Transactional
+    public CameraIngestResponse ingest(UUID authenticatedCameraId,
+                                       CameraIngestRequest request,
+                                       Map<String, MultipartFile> snapshots) {
         if (request.getCameraId() != null && !authenticatedCameraId.equals(request.getCameraId())) {
             throw new CameraOwnershipException();
         }
-        if (snapshot != null && !snapshot.isEmpty() && snapshot.getSize() > maxSnapshotBytes) {
-            throw new PayloadTooLargeException("Snapshot exceeds the 5 MB limit");
+        long totalSnapshotBytes = snapshots.values().stream().filter(file -> file != null && !file.isEmpty())
+                .mapToLong(MultipartFile::getSize).sum();
+        if (totalSnapshotBytes > maxSnapshotBytes) {
+            throw new PayloadTooLargeException("Combined snapshots exceed the 5 MB limit");
         }
 
         String payload = serializePayload(request);
@@ -65,19 +76,44 @@ public class CameraIngestService {
         if (inserted == 0) {
             return CameraIngestResponse.accepted(request.getEventId());
         }
-
         String snapshotPath = null;
-        if (snapshot != null && !snapshot.isEmpty()) {
-            snapshotPath = snapshotStorageService.storeForIngest(snapshot, authenticatedCameraId,
-                    request.getEventId());
-            if (snapshotPath != null) {
-                repository.updateSnapshotPath(authenticatedCameraId,
-                        request.getEventId().toString(), snapshotPath);
+        for (Map.Entry<String, MultipartFile> entry : snapshots.entrySet()) {
+            MultipartFile file = entry.getValue();
+            if (file == null || file.isEmpty()) continue;
+            String kind = "snapshot".equals(entry.getKey()) ? snapshotKind(request) : entry.getKey();
+            String stored = snapshotStorageService.storeForIngest(file, authenticatedCameraId,
+                    request.getEventId(), "snapshot".equals(entry.getKey()) ? null : kind);
+            if (stored != null) {
+                repository.insertSnapshot(authenticatedCameraId, request.getEventId().toString(), kind, stored);
+                if (snapshotPath == null || "plate_crop".equals(kind)) snapshotPath = stored;
             }
         }
+        if (snapshotPath != null) repository.updateSnapshotPath(authenticatedCameraId,
+                request.getEventId().toString(), snapshotPath);
         trackingOccupancyIntegrationService.project(authenticatedCameraId, request.getEventId(),
                 request.getEventType().trim(), request.getOccurredAt(), request.getPayload(), snapshotPath);
+        repository.insertOutboxMessage(authenticatedCameraId, request.getEventId().toString(),
+                "camera.ingest." + request.getEventType().trim(), outboxPayload(authenticatedCameraId, request));
         return CameraIngestResponse.accepted(request.getEventId());
+    }
+
+    private String outboxPayload(UUID cameraId, CameraIngestRequest request) {
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("eventId", request.getEventId());
+        envelope.put("cameraId", cameraId);
+        envelope.put("eventType", request.getEventType().trim());
+        envelope.put("occurredAt", request.getOccurredAt());
+        envelope.put("payload", request.getPayload());
+        try {
+            return objectMapper.writeValueAsString(envelope);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("Malformed event payload");
+        }
+    }
+
+    private String snapshotKind(CameraIngestRequest request) {
+        JsonNode kind = request.getPayload() == null ? null : request.getPayload().path("snapshotUpload").path("kind");
+        return kind != null && "original_frame".equals(kind.asText()) ? "original_frame" : "plate_crop";
     }
 
     private String serializePayload(CameraIngestRequest request) {

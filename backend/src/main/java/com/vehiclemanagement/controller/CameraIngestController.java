@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Device-facing camera event ingest, authenticated by the Stage 2 camera key. */
 @RestController
@@ -50,7 +52,7 @@ public class CameraIngestController {
     public ResponseEntity<CameraIngestResponse> ingestJson(
             @Valid @RequestBody CameraIngestRequest request,
             HttpServletRequest httpRequest) {
-        return ingest(httpRequest, request, null);
+        return ingest(httpRequest, request, Map.of());
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -60,18 +62,31 @@ public class CameraIngestController {
     public ResponseEntity<CameraIngestResponse> ingestMultipart(
             @Valid @RequestPart("event") CameraIngestRequest request,
             @RequestPart(value = "snapshot", required = false) MultipartFile snapshot,
+            @RequestPart(value = "original_frame", required = false) MultipartFile originalFrame,
+            @RequestPart(value = "plate_crop", required = false) MultipartFile plateCrop,
             HttpServletRequest httpRequest) {
-        return ingest(httpRequest, request, snapshot);
+        Map<String, MultipartFile> snapshots = new LinkedHashMap<>();
+        if (originalFrame != null) snapshots.put("original_frame", originalFrame);
+        if (plateCrop != null) snapshots.put("plate_crop", plateCrop);
+        if (snapshot != null) snapshots.put("snapshot", snapshot);
+        return ingest(httpRequest, request, snapshots);
     }
 
     private ResponseEntity<CameraIngestResponse> ingest(HttpServletRequest httpRequest,
                                                          CameraIngestRequest request,
                                                          MultipartFile snapshot) {
+        return ingest(httpRequest, request,
+                snapshot == null ? Map.of() : Map.of("snapshot", snapshot));
+    }
+
+    private ResponseEntity<CameraIngestResponse> ingest(HttpServletRequest httpRequest,
+                                                         CameraIngestRequest request,
+                                                         Map<String, MultipartFile> snapshots) {
         Object authenticatedId = httpRequest.getAttribute(CameraKeyAuthFilter.AUTHENTICATED_CAMERA_ATTRIBUTE);
         if (!(authenticatedId instanceof UUID cameraId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ingestService.ingest(cameraId, request, snapshot));
+                .body(ingestService.ingest(cameraId, request, snapshots));
     }
 }

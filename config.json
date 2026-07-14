@@ -1,0 +1,93 @@
+{
+    "api": {
+        "base_url": "http://localhost:8080",
+        "endpoint": "/api/vehicles/check-vehicle",
+        "timeout": 10,
+        "gate_key": ""
+    },
+    "gate": {
+        "id": "",
+        "name": "",
+        "location": "",
+        "camera_rtsp": "",
+        "panel_type": "entry",
+        "device_id": "device_1",
+        "heartbeat_interval": 30,
+        "heartbeat_backoff_max": 300,
+        "send_snapshot": true,
+        "snapshot_max_width": 640,
+        "snapshot_jpeg_quality": 80,
+        "queue": {
+            "enabled": true,
+            "dir": "edge_queue",
+            "path": "",
+            "max_events": 5000,
+            "retry_base_seconds": 1.0,
+            "retry_max_seconds": 60.0,
+            "poll_interval_seconds": 5.0,
+            "batch_size": 20
+        }
+    },
+    "detection": {
+        "cooldown": 5,
+        "cache_duration": 300,
+        "max_cameras": 10,
+        "frame_interval_ms": 200
+    },
+    "rate_limiting": {
+        "max_requests_per_minute": 30,
+        "enabled": true
+    },
+    "ui": {
+        "window_width": 1400,
+        "window_height": 800,
+        "video_width": 640,
+        "video_height": 480
+    },
+    "models": {
+        "lp_detector": "model/LP_detector_nano_61.pt",
+        "lp_ocr": "model/LP_ocr_nano_62.pt",
+        "confidence_threshold": 0.6
+    },
+    "ocr": {
+        "fallback_enabled": true,
+        "fallback_method": "tesseract",
+        "tesseract_cmd": "",
+        "easyocr_languages": [
+            "en",
+            "vi"
+        ],
+        "easyocr_gpu": false,
+        "easyocr_min_confidence": 0.4,
+        "google_vision_credentials": "",
+        "google_vision_language_hints": [
+            "vi",
+            "en"
+        ]
+    },
+    "rtsp_devices": {
+        "device_1": {
+            "enabled": false,
+            "name": "RTSP Device 1",
+            "url": "rtsp://username:password@192.168.1.100:554/stream1"
+        },
+        "device_2": {
+            "enabled": false,
+            "name": "RTSP Device 2",
+            "url": "rtsp://username:password@192.168.1.101:554/stream1"
+        }
+    },
+    "rtsp_optimization": {
+        "buffer_size": 1,
+        "drop_frames": true,
+        "low_latency": true,
+        "tcp_transport": false,
+        "connection_timeout": 5000,
+        "read_timeout": 1000,
+        "frame_skip_threshold": 3,
+        "h264_error_handling": true,
+        "frame_validation": true,
+        "max_resolution_width": 640,
+        "max_resolution_height": 480
+    }
+}

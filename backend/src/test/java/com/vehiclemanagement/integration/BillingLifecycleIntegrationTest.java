@@ -1,6 +1,7 @@
 package com.vehiclemanagement.integration;
 
 import com.vehiclemanagement.billing.BillingService;
+import com.vehiclemanagement.billing.BillingDunningService;
 import com.vehiclemanagement.billing.BillingWebhookEvent;
 import com.vehiclemanagement.billing.StripeBillingClient;
 import com.vehiclemanagement.billing.dto.BillingCheckoutRequest;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -23,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+@TestPropertySource(properties = "billing.enabled=true")
 class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final UUID TENANT_ID = UUID.fromString("20000000-0000-0000-0000-000000000275");
@@ -34,6 +37,9 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     BillingService billingService;
+
+    @Autowired
+    BillingDunningService dunningService;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -81,6 +87,11 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 SELECT count(*) FROM billing_subscription
                 WHERE tenant_id = ? AND plan_id = ? AND stripe_customer_id = ? AND status = 'incomplete'
                 """, Long.class, TENANT_ID, STARTER_PLAN_ID, "cus_test_275")).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM billing_audit
+                WHERE tenant_id = ? AND action = 'checkout_started'
+                  AND detail ->> 'checkout_session_id' = 'cs_test_275'
+                """, Long.class, TENANT_ID)).isEqualTo(1L);
     }
 
     @Test
@@ -133,6 +144,12 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 SELECT count(*) FROM billing_subscription
                 WHERE tenant_id = ? AND plan_id = ? AND stripe_subscription_id = ? AND status = 'active'
                 """, Long.class, TENANT_ID, PRO_PLAN_ID, "sub_sync")).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM billing_audit
+                WHERE tenant_id = ? AND action = 'plan_changed'
+                  AND detail ->> 'previous_plan_id' = ?
+                  AND detail ->> 'plan_id' = ?
+                """, Long.class, TENANT_ID, STARTER_PLAN_ID.toString(), PRO_PLAN_ID.toString())).isEqualTo(1L);
     }
 
     @Test
@@ -158,6 +175,53 @@ class BillingLifecycleIntegrationTest extends AbstractPostgresIntegrationTest {
                 String.class, TENANT_ID)).isEqualTo("free");
         assertThat(jdbc.queryForObject("SELECT status FROM billing_subscription WHERE tenant_id = ?",
                 String.class, TENANT_ID)).isEqualTo("canceled");
+    }
+
+    @Test
+    void subscriptionDeletedWebhookCancelsAndDowngradesTenant() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(PRO_PLAN_ID, "cus_deleted", "sub_deleted", "active");
+        when(stripeClient.parseWebhookEvent(any(), any())).thenReturn(new BillingWebhookEvent(
+                "evt_deleted_275", "customer.subscription.deleted", TENANT_ID,
+                "cus_deleted", "sub_deleted", "canceled", false, null, null, EVENT_CREATED));
+
+        billingService.handleWebhook("payload", "sig");
+
+        assertThat(jdbc.queryForObject("SELECT status FROM billing_subscription WHERE tenant_id=?",
+                String.class, TENANT_ID)).isEqualTo("canceled");
+        assertThat(jdbc.queryForObject("SELECT code FROM billing_plan WHERE id=(SELECT plan_id FROM tenant WHERE id=?)",
+                String.class, TENANT_ID)).isEqualTo("free");
+    }
+
+    @Test
+    void dunningSuspendsOnlyAfterGraceAndPaidInvoiceRestoresBillingSuspension() {
+        seedTenant();
+        configureStripePrices();
+        seedSubscription(PRO_PLAN_ID, "cus_grace", "sub_grace", "past_due");
+        jdbc.update("UPDATE billing_subscription SET past_due_since=CURRENT_TIMESTAMP WHERE tenant_id=?", TENANT_ID);
+
+        assertThat(dunningService.suspendExpiredGracePeriods()).isZero();
+        assertThat(jdbc.queryForObject("SELECT status FROM tenant WHERE id=?", String.class, TENANT_ID))
+                .isEqualTo("active");
+
+        jdbc.update("UPDATE billing_subscription SET past_due_since=CURRENT_TIMESTAMP - interval '8 days' WHERE tenant_id=?",
+                TENANT_ID);
+        assertThat(dunningService.suspendExpiredGracePeriods()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM tenant WHERE id=?", String.class, TENANT_ID))
+                .isEqualTo("suspended");
+        assertThat(jdbc.queryForObject("SELECT billing_suspended_at IS NOT NULL FROM tenant WHERE id=?",
+                Boolean.class, TENANT_ID)).isTrue();
+
+        when(stripeClient.parseWebhookEvent(any(), any())).thenReturn(new BillingWebhookEvent(
+                "evt_grace_paid_275", "invoice.paid", TENANT_ID, "cus_grace", "sub_grace",
+                "paid", false, EVENT_CREATED.plusMonths(1), "price_pro", EVENT_CREATED));
+        billingService.handleWebhook("payload", "sig");
+
+        assertThat(jdbc.queryForObject("SELECT status FROM tenant WHERE id=?", String.class, TENANT_ID))
+                .isEqualTo("active");
+        assertThat(jdbc.queryForObject("SELECT billing_suspended_at IS NULL FROM tenant WHERE id=?",
+                Boolean.class, TENANT_ID)).isTrue();
     }
 
     @Test

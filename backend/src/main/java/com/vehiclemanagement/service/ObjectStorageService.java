@@ -67,6 +67,11 @@ public class ObjectStorageService {
      */
     public String storeIngestSnapshot(UUID tenantId, UUID cameraId, UUID eventId,
                                       byte[] snapshot, String contentType) {
+        return storeIngestSnapshot(tenantId, cameraId, eventId, null, snapshot, contentType);
+    }
+
+    public String storeIngestSnapshot(UUID tenantId, UUID cameraId, UUID eventId, String kind,
+                                      byte[] snapshot, String contentType) {
         if (tenantId == null || cameraId == null || eventId == null) {
             throw new IllegalArgumentException("Tenant, camera, and event IDs are required for snapshot storage");
         }
@@ -75,7 +80,9 @@ public class ObjectStorageService {
         }
 
         ensureBucket();
-        String key = ingestSnapshotKey(tenantId, cameraId, eventId, contentType);
+        String key = kind == null ? ingestSnapshotKey(tenantId, cameraId, eventId, contentType)
+                : "tenants/" + tenantId + "/cameras/" + cameraId + "/events/" + eventId
+                + "/" + kind + "." + extensionFor(contentType);
         s3Client.putObject(PutObjectRequest.builder()
                         .bucket(properties.getBucket())
                         .key(key)

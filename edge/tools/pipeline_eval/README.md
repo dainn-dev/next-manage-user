@@ -27,6 +27,8 @@ Every feed reports:
 - unique recognized plates and normalized exact-match read rate;
 - vehicle, plate, and OCR confidence distributions (`min`, mean, p50, p95, `max`);
 - `VehicleDetected` and `PlateRecognized` event counts;
+- TrackIds observed per normalized plate plus an ID-switch count (a plate moving to a second
+  TrackId in one feed counts as a switch);
 - wall-clock FPS plus mean, p50, p95, and maximum frame latency;
 - sample dry-run ingest payloads, including TrackId, boxes, model provenance, and snapshots.
 
@@ -178,6 +180,19 @@ and password may be supplied separately through `DAI_CAMERA_SOURCE_USERNAME` and
   day/night labels are auditable.
 - The durable SQLite spool is single-device/local-disk resilience. Monitor queue depth and disk
   health; replicated delivery across failed edge hardware remains outside the MVP.
+
+## Evidence and tracker durability
+
+Production ingest uploads `original_frame` and `plate_crop` as separate multipart parts. Retryable
+delivery stores both binaries in the SQLite spool, so reconnect does not silently discard one
+artifact. The backend links the resulting object keys to the same ingest event by evidence kind.
+Enter and plate-recognize events carry their evidence directly; relocate and exit lifecycle frames
+are delivered as `SnapshotSaved` evidence events causally linked to the original vehicle event.
+
+The edge also maintains `tracker-state.sqlite3`, an upserted audit projection of
+`session_id + track_id -> plate + bounding box + observed_at`. This survives process restart for
+diagnostics and reconciliation; ByteTrack itself intentionally starts a new stream session after a
+restart rather than pretending its in-memory Kalman state survived.
 
 For backend handoff, the emitted samples are the approved `/api/v1/parking-events` contract. For
 edge handoff, retain the manifest, report, configuration hash, model artifact versions, hardware,

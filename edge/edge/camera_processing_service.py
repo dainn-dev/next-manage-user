@@ -56,6 +56,7 @@ from edge.vehicle_tracker import (
     VehicleTracker,
     VehicleTrackerError,
 )
+from edge.tracker_state_store import TrackerStateStore
 
 
 STAGES = (
@@ -92,7 +93,8 @@ class CameraProcessingService:
                  ocr_engine: OcrEngine | None = None,
                  vehicle_tracker: VehicleTracker | None = None,
                  track_state_manager: TrackStateManager | None = None,
-                 ingest_client: CameraIngestTransport | None = None):
+                 ingest_client: CameraIngestTransport | None = None,
+                 tracker_state_store: TrackerStateStore | None = None):
         self.config = config
         self.logger = logger or configure_json_logging(config.logging.level)
         self.run_id = str(uuid4())
@@ -123,6 +125,9 @@ class CameraProcessingService:
             config.thresholds.tracker.buffer_frames)
         self.ingest_client = ingest_client or CameraIngestClient(
             config.ingest, config.camera.camera_id)
+        self.tracker_state_store = tracker_state_store or TrackerStateStore(
+            ":memory:" if config.ingest.dry_run
+            else config.ingest.queue_path.with_name("tracker-state.sqlite3"))
         self._vehicle_event_ids: dict[str, UUID] = {}
         self._last_track_frames: dict[str, RetainedFrame] = {}
         self._latest_track_artifacts: dict[str, PlateCandidateArtifacts] = {}
@@ -224,7 +229,12 @@ class CameraProcessingService:
                             if item.candidate_id in by_candidate]
         lifecycle_events = self.track_state_manager.update(
             retained.frame_number, retained.metadata.captured_at, tracks, observations)
+        plate_by_track = {event.track_id: event.plate for event in lifecycle_events if event.plate}
         for track in tracks:
+            self.tracker_state_store.upsert(self.session_id, track.track_id,
+                                            track.detection.bounding_box,
+                                            retained.metadata.captured_at,
+                                            plate_by_track.get(track.track_id))
             self._last_track_frames[track.track_id] = retained
             artifact = next((
                 item for item in artifacts_by_candidate.values()
@@ -250,10 +260,20 @@ class CameraProcessingService:
         lifecycle_snapshots = lifecycle_snapshots or []
         track = next(
             (item for item in tracks if item.track_id == lifecycle_event.track_id), None)
-        if lifecycle_event.event_type.value == "exit":
-            self._vehicle_event_ids.pop(lifecycle_event.track_id, None)
+        if lifecycle_event.event_type.value in {"exit", "relocate"}:
+            evidence = OutboundEvent.snapshot_saved(
+                camera_id=UUID(self.config.camera.camera_id),
+                occurred_at=frame.metadata.captured_at,
+                lifecycle=lifecycle_event.event_type.value,
+                track=TrackIdentity(UUID(self.session_id), lifecycle_event.track_id),
+                snapshots=[item.descriptor for item in lifecycle_snapshots],
+                causation_event_id=self._vehicle_event_ids.get(lifecycle_event.track_id),
+            )
+            self._send_ingest(evidence, self._snapshot_paths(lifecycle_snapshots))
+            if lifecycle_event.event_type.value == "exit":
+                self._vehicle_event_ids.pop(lifecycle_event.track_id, None)
             return
-        if lifecycle_event.event_type.value == "relocate" or track is None:
+        if track is None:
             return
 
         identity = TrackIdentity(UUID(self.session_id), track.track_id)
@@ -278,9 +298,7 @@ class CameraProcessingService:
             original = next((
                 item for item in lifecycle_snapshots
                 if item.descriptor.kind == "original_frame"), None)
-            snapshot_path = None if original is None else (
-                self.config.snapshot.output_dir / original.storage_reference)
-            self._send_ingest(outbound, snapshot_path)
+            self._send_ingest(outbound, self._snapshot_paths(lifecycle_snapshots))
             return
 
         if lifecycle_event.event_type.value != "plate-recognize":
@@ -306,13 +324,13 @@ class CameraProcessingService:
         candidate, observation = match
         artifact = artifacts.get(candidate.candidate_id)
         snapshot_descriptors = []
-        snapshot_path = None
+        snapshot_paths: dict[str, Path] = {}
         if artifact is not None:
             if artifact.original_frame is not None:
                 snapshot_descriptors.append(artifact.original_frame.descriptor)
             snapshot_descriptors.append(artifact.plate_crop.descriptor)
-            snapshot_path = (
-                self.config.snapshot.output_dir / artifact.plate_crop.storage_reference)
+            snapshot_paths = self._snapshot_paths([
+                item for item in (artifact.original_frame, artifact.plate_crop) if item is not None])
         outbound = OutboundEvent.plate_recognized(
             camera_id=UUID(self.config.camera.camera_id),
             occurred_at=frame.metadata.captured_at,
@@ -337,7 +355,7 @@ class CameraProcessingService:
             ),
             snapshots=snapshot_descriptors,
         )
-        self._send_ingest(outbound, snapshot_path)
+        self._send_ingest(outbound, snapshot_paths)
 
     def _store_lifecycle_snapshots(self, event: TrackLifecycleEvent,
                                    current_frame: RetainedFrame) -> list[StoredSnapshot]:
@@ -398,9 +416,14 @@ class CameraProcessingService:
         close = getattr(self.ingest_client, "close", None)
         if callable(close):
             close()
+        self.tracker_state_store.close()
+
+    def _snapshot_paths(self, snapshots: list[StoredSnapshot]) -> dict[str, Path]:
+        return {item.descriptor.kind: self.config.snapshot.output_dir / item.storage_reference
+                for item in snapshots}
 
     def _send_ingest(self, event: OutboundEvent,
-                     snapshot_path: Path | None = None) -> None:
+                     snapshot_path: Path | dict[str, Path] | None = None) -> None:
         envelope = event.to_ingest_envelope()
         try:
             result = self.ingest_client.send(event, snapshot_path)

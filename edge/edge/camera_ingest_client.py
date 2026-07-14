@@ -35,7 +35,7 @@ class CameraIngestTransport(Protocol):
     def ensure_ready(self) -> None: ...
 
     def send(self, event: OutboundEvent,
-             snapshot_path: Path | None = None) -> IngestResult: ...
+             snapshot_path: Path | dict[str, Path] | None = None) -> IngestResult: ...
 
 
 class CameraIngestClient:
@@ -62,44 +62,46 @@ class CameraIngestClient:
                     f"camera event queue parent '{parent}' is not a writable directory")
 
     def send(self, event: OutboundEvent,
-             snapshot_path: Path | None = None) -> IngestResult:
+             snapshot_path: Path | dict[str, Path] | None = None) -> IngestResult:
         envelope = event.to_ingest_envelope()
         if self.config.dry_run:
             return IngestResult(
                 delivered=False, retryable=False, dry_run=True, attempts=0,
                 status_code=None, response=envelope)
 
+        paths = ({"snapshot": snapshot_path} if isinstance(snapshot_path, Path)
+                 else (snapshot_path or {}))
         try:
-            snapshot = snapshot_path.read_bytes() if snapshot_path is not None else None
+            snapshots = {
+                kind: (path.name, path.read_bytes(), _content_type(path))
+                for kind, path in paths.items()
+            }
         except OSError as exc:
             return IngestResult(
                 delivered=False, retryable=False, dry_run=False, attempts=0,
-                status_code=None, error=f"unable to read snapshot '{snapshot_path}': {exc}")
+                status_code=None, error=f"unable to read snapshots: {exc}")
 
         result = self._deliver(
             envelope,
             str(event.event_id),
-            snapshot=snapshot,
-            snapshot_name=snapshot_path.name if snapshot_path is not None else None,
-            snapshot_content_type=(
-                event.snapshot.content_type if event.snapshot is not None else "image/jpeg"),
+            snapshots=snapshots,
         )
         if result.retryable and self.queue is not None:
             self.queue.enqueue(
                 envelope,
-                snapshot=snapshot,
-                snapshot_name=snapshot_path.name if snapshot_path is not None else None,
-                snapshot_content_type=(
-                    event.snapshot.content_type if event.snapshot is not None else "image/jpeg"),
+                snapshot=next((item[1] for item in snapshots.values()), None),
+                snapshot_name=next((item[0] for item in snapshots.values()), None),
+                snapshot_content_type=next((item[2] for item in snapshots.values()), None),
+                snapshots=snapshots,
                 next_attempt=time.time() + self.config.queue_retry_seconds,
             )
         elif result.retryable and self.config.queue_enabled:
             self._ensure_queue().enqueue(
                 envelope,
-                snapshot=snapshot,
-                snapshot_name=snapshot_path.name if snapshot_path is not None else None,
-                snapshot_content_type=(
-                    event.snapshot.content_type if event.snapshot is not None else "image/jpeg"),
+                snapshot=next((item[1] for item in snapshots.values()), None),
+                snapshot_name=next((item[0] for item in snapshots.values()), None),
+                snapshot_content_type=next((item[2] for item in snapshots.values()), None),
+                snapshots=snapshots,
                 next_attempt=time.time() + self.config.queue_retry_seconds,
             )
         return result
@@ -116,9 +118,10 @@ class CameraIngestClient:
             result = self._deliver(
                 envelope,
                 str(envelope["eventId"]),
-                snapshot=item["snapshot"],
-                snapshot_name=item["snapshot_name"],
-                snapshot_content_type=item["snapshot_content_type"] or "image/jpeg",
+                snapshots=(item.get("snapshots") or {"snapshot": (item["snapshot_name"] or "snapshot.jpg",
+                                            item["snapshot"],
+                                            item["snapshot_content_type"] or "image/jpeg")}
+                           if item["snapshot"] is not None else {}),
             )
             if result.delivered:
                 queue.delete(int(item["id"]))
@@ -146,8 +149,7 @@ class CameraIngestClient:
         return self.queue
 
     def _deliver(self, envelope: dict[str, object], event_id: str, *,
-                 snapshot: bytes | None, snapshot_name: str | None,
-                 snapshot_content_type: str) -> IngestResult:
+                 snapshots: dict[str, tuple[str, bytes, str]]) -> IngestResult:
 
         headers = {
             "Accept": "application/json",
@@ -157,20 +159,16 @@ class CameraIngestClient:
         }
         for attempt in range(1, self.config.max_attempts + 1):
             try:
-                if snapshot is None:
+                if not snapshots:
                     response = self._post(
                         self.config.url, json=envelope,
                         headers={**headers, "Content-Type": "application/json"},
                         timeout=self.config.timeout_seconds,
                     )
                 else:
-                    files = {
-                        "event": (None, json.dumps(envelope, separators=(",", ":")),
-                                  "application/json"),
-                        self.config.snapshot_part: (
-                            snapshot_name or "snapshot.jpg", snapshot,
-                            snapshot_content_type),
-                    }
+                    files = {"event": (None, json.dumps(envelope, separators=(",", ":")),
+                                       "application/json")}
+                    files.update(snapshots)
                     response = self._post(
                         self.config.url, files=files, headers=headers,
                         timeout=self.config.timeout_seconds,
@@ -223,3 +221,7 @@ class CameraIngestClient:
             self.config.retry_max_seconds,
             self.config.retry_base_seconds * (2 ** (attempt - 1)),
         )
+
+
+def _content_type(path: Path) -> str:
+    return "image/png" if path.suffix.lower() == ".png" else "image/jpeg"

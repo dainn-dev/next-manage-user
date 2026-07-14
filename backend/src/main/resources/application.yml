@@ -126,6 +126,9 @@ app:
 
 billing:
   enabled: ${BILLING_ENABLED:false}
+  dunning:
+    grace-period: ${BILLING_DUNNING_GRACE_PERIOD:7d}
+    check-rate-ms: ${BILLING_DUNNING_CHECK_RATE_MS:60000}
   stripe:
     secret-key: ${STRIPE_SECRET_KEY:}
     webhook-secret: ${STRIPE_WEBHOOK_SECRET:}

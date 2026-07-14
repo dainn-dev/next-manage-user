@@ -99,6 +99,10 @@ public class SnapshotStorageService {
      * because evidence storage is temporarily unavailable.
      */
     public String storeForIngest(MultipartFile snapshot, UUID cameraId, UUID eventId) {
+        return storeForIngest(snapshot, cameraId, eventId, null);
+    }
+
+    public String storeForIngest(MultipartFile snapshot, UUID cameraId, UUID eventId, String kind) {
         if (snapshot == null || snapshot.isEmpty()) {
             return null;
         }
@@ -112,7 +116,7 @@ public class SnapshotStorageService {
         }
         try {
             byte[] data = imageProcessingUtil.processImage(snapshot);
-            return objectStorageService.storeIngestSnapshot(tenantId, cameraId, eventId, data,
+            return objectStorageService.storeIngestSnapshot(tenantId, cameraId, eventId, kind, data,
                     contentTypeFor(data));
         } catch (Exception e) {
             log.warn("Failed to store ingest snapshot for tenant {} camera {} event {}: {}",

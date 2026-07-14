@@ -60,6 +60,11 @@ public class BillingService {
 
             StripeBillingClient.CheckoutSession session = stripeClient.createCheckoutSession(
                     tenantId, customerId, plan.stripePriceId(), request.getSuccessUrl(), request.getCancelUrl());
+            audit(tenantId, email == null || email.isBlank() ? "tenant_admin" : email,
+                    "checkout_started", null,
+                    Map.of("plan_id", plan.id().toString(),
+                            "stripe_customer_id", customerId,
+                            "checkout_session_id", session.id()));
             return new BillingCheckoutResponse(session.id(), session.url());
         });
     }
@@ -129,7 +134,8 @@ public class BillingService {
 
         boolean stateChanged = true;
         switch (event.type()) {
-            case "checkout.session.completed", "customer.subscription.updated" -> syncSubscription(tenantId, event);
+            case "checkout.session.completed", "customer.subscription.created",
+                    "customer.subscription.updated", "customer.subscription.deleted" -> syncSubscription(tenantId, event);
             case "invoice.payment_failed" -> markPaymentFailed(event);
             case "invoice.paid" -> syncInvoicePaid(event);
             default -> stateChanged = false;
@@ -170,13 +176,15 @@ public class BillingService {
 
     private boolean isStateChangingEvent(String eventType) {
         return switch (eventType) {
-            case "checkout.session.completed", "customer.subscription.updated",
+            case "checkout.session.completed", "customer.subscription.created",
+                    "customer.subscription.updated", "customer.subscription.deleted",
                     "invoice.payment_failed", "invoice.paid" -> true;
             default -> false;
         };
     }
 
     private void syncSubscription(UUID tenantId, BillingWebhookEvent event) {
+        BillingSubscription previous = findSubscriptionByTenant(tenantId).orElse(null);
         UUID planId = planIdForEvent(event).orElse(null);
         if (planId == null && "canceled".equals(event.status())) {
             planId = FREE_PLAN_ID;
@@ -199,8 +207,17 @@ public class BillingService {
             return;
         }
         jdbc.update("UPDATE tenant SET plan_id = ? WHERE id = ?", planId, tenantId);
-        audit(tenantId, "stripe_webhook", auditActionForSubscription(status), event,
-                Map.of("stripe_subscription_id", nullToEmpty(event.stripeSubscriptionId()), "status", status));
+        restoreBillingSuspendedTenant(tenantId, status);
+        boolean planChanged = previous != null && !previous.planId().equals(planId);
+        Map<String, String> detail = new LinkedHashMap<>();
+        detail.put("stripe_subscription_id", nullToEmpty(event.stripeSubscriptionId()));
+        detail.put("status", status);
+        if (planChanged) {
+            detail.put("previous_plan_id", previous.planId().toString());
+            detail.put("plan_id", planId.toString());
+        }
+        audit(tenantId, "stripe_webhook", planChanged ? "plan_changed" : auditActionForSubscription(status),
+                event, detail);
     }
 
     private void markPaymentFailed(BillingWebhookEvent event) {
@@ -240,6 +257,7 @@ public class BillingService {
                     WHERE stripe_customer_id = ? OR stripe_subscription_id = ?
                     """, event.currentPeriodEnd(), event.stripeCustomerId(), event.stripeSubscriptionId());
         }
+        restoreBillingSuspendedTenant(tenantId, "active");
         audit(tenantId, "stripe_webhook", "invoice_paid", event,
                 Map.of("stripe_subscription_id", nullToEmpty(event.stripeSubscriptionId())));
     }
@@ -251,6 +269,14 @@ public class BillingService {
         return jdbc.query("""
                 SELECT id FROM billing_plan WHERE stripe_price_id = ?
                 """, (rs, rowNum) -> (UUID) rs.getObject("id"), event.stripePriceId()).stream().findFirst();
+    }
+
+    private void restoreBillingSuspendedTenant(UUID tenantId, String status) {
+        if (!"active".equals(status) && !"trialing".equals(status)) return;
+        jdbc.update("""
+                UPDATE tenant SET status='active', billing_suspended_at=NULL
+                 WHERE id=? AND status='suspended' AND billing_suspended_at IS NOT NULL
+                """, tenantId);
     }
 
     private void upsertSubscription(UUID tenantId, UUID planId, String customerId, String subscriptionId, String status,
@@ -336,11 +362,13 @@ public class BillingService {
 
     private void audit(UUID tenantId, String actor, String action, BillingWebhookEvent event, Map<String, String> detail) {
         Map<String, String> auditDetail = new LinkedHashMap<>(detail);
-        auditDetail.put("event_type", event.type());
+        if (event != null) {
+            auditDetail.put("event_type", event.type());
+        }
         jdbc.update("""
                 INSERT INTO billing_audit(tenant_id, actor, action, stripe_event_id, detail)
                 VALUES (?, ?, ?, ?, ?::jsonb)
-                """, tenantId, actor, action, event.id(), toJson(auditDetail));
+                """, tenantId, actor, action, event == null ? null : event.id(), toJson(auditDetail));
     }
 
     private String toJson(Map<String, String> detail) {

@@ -246,6 +246,16 @@ def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
     expected = sorted({normalize_vietnamese_plate(str(item))
                        for item in feed.get("expected_plates", [])})
     matched = sorted(set(expected).intersection(recognized))
+    plate_track_ids: dict[str, set[str]] = {}
+    for item in payloads:
+        if item.get("eventType") != "PlateRecognized":
+            continue
+        payload = item.get("payload", {})
+        plate = str(payload.get("plate", {}).get("normalizedText"))
+        track_id = str(payload.get("tracker", {}).get("trackId"))
+        if plate not in {"", "None"} and track_id not in {"", "None"}:
+            plate_track_ids.setdefault(plate, set()).add(track_id)
+    id_switches = sum(max(0, len(track_ids) - 1) for track_ids in plate_track_ids.values())
     read_rate = len(matched) / len(expected) if expected else None
     vehicle_confidences = [float(detection["confidence"])
                            for item in vehicle_records
@@ -270,6 +280,11 @@ def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
         "expectedReadablePlates": expected,
         "matchedReadablePlates": matched,
         "readRate": read_rate,
+        "trackerIdentity": {
+            "trackIdsByPlate": {plate: sorted(ids) for plate, ids in sorted(plate_track_ids.items())},
+            "idSwitches": id_switches,
+            "stable": id_switches == 0,
+        },
         "confidenceDistributions": {
             "vehicle": _distribution(vehicle_confidences),
             "plate": _distribution(plate_confidences),

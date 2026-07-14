@@ -44,4 +44,31 @@ public interface CameraIngestEventRepository extends JpaRepository<CameraIngestE
             @Param("cameraId") UUID cameraId,
             @Param("eventId") String eventId,
             @Param("snapshotPath") String snapshotPath);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO camera_ingest_snapshot(tenant_id,event_id,kind,object_key)
+            SELECT event.tenant_id,event.id,:kind,:objectKey
+              FROM camera_ingest_event event
+             WHERE event.camera_id=:cameraId AND event.event_id=:eventId
+            ON CONFLICT(event_id,kind) DO NOTHING
+            """, nativeQuery = true)
+    int insertSnapshot(@Param("cameraId") UUID cameraId, @Param("eventId") String eventId,
+                       @Param("kind") String kind, @Param("objectKey") String objectKey);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO outbox_message
+                (id, tenant_id, routing_key, payload, aggregate_type, source_event_id, camera_id)
+            SELECT gen_random_uuid(), event.tenant_id, :routingKey, CAST(:payload AS jsonb),
+                   'camera_ingest', event.event_id, event.camera_id
+              FROM camera_ingest_event event
+             WHERE event.camera_id = :cameraId AND event.event_id = :eventId
+            ON CONFLICT (camera_id, source_event_id)
+                WHERE aggregate_type = 'camera_ingest' DO NOTHING
+            """, nativeQuery = true)
+    int insertOutboxMessage(@Param("cameraId") UUID cameraId,
+                            @Param("eventId") String eventId,
+                            @Param("routingKey") String routingKey,
+                            @Param("payload") String payload);
 }

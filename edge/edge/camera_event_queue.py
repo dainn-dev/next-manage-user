@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 import threading
 import time
+import base64
 
 
 _SCHEMA = """
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS camera_events (
     snapshot_name         TEXT,
     snapshot_content_type TEXT,
     snapshot              BLOB,
+    snapshot_bundle_json  TEXT,
     attempts              INTEGER NOT NULL DEFAULT 0,
     next_attempt          REAL NOT NULL DEFAULT 0,
     created_at            REAL NOT NULL
@@ -38,24 +40,33 @@ class CameraEventQueue:
         self._connection.row_factory = sqlite3.Row
         with self._connection:
             self._connection.executescript(_SCHEMA)
+            columns = {row[1] for row in self._connection.execute("PRAGMA table_info(camera_events)")}
+            if "snapshot_bundle_json" not in columns:
+                self._connection.execute("ALTER TABLE camera_events ADD COLUMN snapshot_bundle_json TEXT")
 
     def enqueue(self, envelope: dict[str, object], *, snapshot: bytes | None = None,
                 snapshot_name: str | None = None,
                 snapshot_content_type: str | None = None,
+                snapshots: dict[str, tuple[str, bytes, str]] | None = None,
                 next_attempt: float = 0.0) -> None:
         event_id = str(envelope.get("eventId", "")).strip()
         if not event_id:
             raise ValueError("camera event envelope requires eventId")
         value = json.dumps(envelope, sort_keys=True, separators=(",", ":"))
+        bundle = None if not snapshots else json.dumps({
+            kind: {"name": item[0], "data": base64.b64encode(item[1]).decode("ascii"), "content_type": item[2]}
+            for kind, item in snapshots.items()
+        }, sort_keys=True, separators=(",", ":"))
         with self._lock:
             try:
                 with self._connection:
                     self._connection.execute(
                         "INSERT INTO camera_events "
                         "(event_id, envelope_json, snapshot_name, snapshot_content_type, "
-                        "snapshot, next_attempt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        "snapshot, snapshot_bundle_json, next_attempt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         (event_id, value, snapshot_name, snapshot_content_type,
                          sqlite3.Binary(snapshot) if snapshot is not None else None,
+                         bundle,
                          float(next_attempt), time.time()),
                     )
             except sqlite3.IntegrityError:
@@ -103,6 +114,8 @@ class CameraEventQueue:
     @staticmethod
     def _row(row: sqlite3.Row) -> dict[str, object]:
         snapshot = row["snapshot"]
+        bundle_raw = row["snapshot_bundle_json"]
+        bundle_json = json.loads(bundle_raw) if bundle_raw else {}
         return {
             "id": int(row["id"]),
             "attempts": int(row["attempts"]),
@@ -110,4 +123,6 @@ class CameraEventQueue:
             "snapshot_name": row["snapshot_name"],
             "snapshot_content_type": row["snapshot_content_type"],
             "snapshot": bytes(snapshot) if snapshot is not None else None,
+            "snapshots": {kind: (item["name"], base64.b64decode(item["data"]), item["content_type"])
+                          for kind, item in bundle_json.items()},
         }

@@ -164,6 +164,33 @@ def test_snapshot_uses_multipart_event_and_binary_part() -> None:
     assert call["files"]["snapshot"][2] == "image/jpeg"
 
 
+def test_original_and_plate_crop_are_uploaded_and_spooled_together() -> None:
+    event = _event()
+    with tempfile.TemporaryDirectory() as raw:
+        root = Path(raw)
+        original = root / "original.jpg"
+        crop = root / "plate.jpg"
+        original.write_bytes(b"original")
+        crop.write_bytes(b"crop")
+        config = replace(_config(max_attempts=1), queue_enabled=True,
+                         queue_path=root / "queue.sqlite3", queue_retry_seconds=0.0)
+        offline = _Backend([requests.exceptions.ConnectionError("offline")])
+        client = CameraIngestClient(config, CAMERA_ID, post=offline.post)
+
+        result = client.send(event, {"original_frame": original, "plate_crop": crop})
+        queued = client.queue.due_events()[0]
+
+        assert result.retryable
+        assert queued["snapshots"]["original_frame"][1] == b"original"
+        assert queued["snapshots"]["plate_crop"][1] == b"crop"
+        recovered = _Backend([_accepted(event)])
+        client._post = recovered.post
+        assert client.flush_pending()["delivered"] == 1
+        assert recovered.calls[0]["files"]["original_frame"][1] == b"original"
+        assert recovered.calls[0]["files"]["plate_crop"][1] == b"crop"
+        client.close()
+
+
 def test_dry_run_returns_exact_payload_without_network() -> None:
     event = _event()
 
@@ -233,20 +260,34 @@ def test_pipeline_builds_vehicle_and_plate_contracts_with_snapshot_context() -> 
         TrackLifecycleEvent(
             TrackEventType.PLATE_RECOGNIZED, "42", NOW, vehicle.bounding_box, "51A12345"),
         frame, [track], [(candidate, observation)], {candidate.candidate_id: artifacts})
+    service._emit_ingest_event(
+        TrackLifecycleEvent(TrackEventType.RELOCATE, "42", NOW, vehicle.bounding_box, "51A12345"),
+        frame, [track], [], {}, [original, crop])
+    service._emit_ingest_event(
+        TrackLifecycleEvent(TrackEventType.EXIT, "42", NOW, vehicle.bounding_box, "51A12345"),
+        frame, [], [], {}, [original, crop])
 
     assert [item[0].event_type for item in ingest.sent] == [
-        "VehicleDetected", "PlateRecognized"]
-    vehicle_event, plate_event = [item[0] for item in ingest.sent]
+        "VehicleDetected", "PlateRecognized", "SnapshotSaved", "SnapshotSaved"]
+    vehicle_event, plate_event = [item[0] for item in ingest.sent[:2]]
     assert [item["kind"] for item in vehicle_event.payload["snapshots"]] == [
         "original_frame", "plate_crop"]
     assert vehicle_event.payload["snapshotUpload"] == {
         "part": "snapshot", "kind": "original_frame"}
-    assert ingest.sent[0][1] == config.snapshot.output_dir / "frame/original.jpg"
+    assert ingest.sent[0][1] == {
+        "original_frame": config.snapshot.output_dir / "frame/original.jpg",
+        "plate_crop": config.snapshot.output_dir / "frame/plate.jpg",
+    }
     assert plate_event.payload["causationEventId"] == str(vehicle_event.event_id)
     assert plate_event.payload["tracker"]["trackId"] == "42"
     assert plate_event.payload["plate"]["normalizedText"] == "51A12345"
     assert len(plate_event.payload["snapshots"]) == 2
-    assert ingest.sent[1][1] == config.snapshot.output_dir / "frame/plate.jpg"
+    assert ingest.sent[1][1] == {
+        "original_frame": config.snapshot.output_dir / "frame/original.jpg",
+        "plate_crop": config.snapshot.output_dir / "frame/plate.jpg",
+    }
+    assert [item[0].payload["lifecycle"] for item in ingest.sent[2:]] == ["relocate", "exit"]
+    assert all(set(item[1]) == {"original_frame", "plate_crop"} for item in ingest.sent[2:])
     delivered_log = [item for item in records if item["stage"] == "ingest"][-1]
     assert delivered_log["tenant_id"] == config.camera.tenant_id
     assert delivered_log["site_id"] == config.camera.site_id

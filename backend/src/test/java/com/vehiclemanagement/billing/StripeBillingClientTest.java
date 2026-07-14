@@ -66,6 +66,26 @@ class StripeBillingClientTest {
     }
 
     @Test
+    void subscriptionDeletedUsesObjectIdAndCanceledStatus() throws Exception {
+        long created = Instant.now().getEpochSecond();
+        String payload = """
+                {"id":"evt_deleted","object":"event","created":%d,"livemode":false,
+                 "pending_webhooks":1,"type":"customer.subscription.deleted",
+                 "data":{"object":{"id":"sub_deleted","object":"subscription",
+                 "customer":"cus_deleted","status":"canceled","metadata":{"tenant_id":"%s"}}}}
+                """.formatted(created, TENANT_ID);
+        BillingProperties properties = new BillingProperties();
+        properties.setWebhookSecret(WEBHOOK_SECRET);
+        StripeBillingClient client = new StripeBillingClient(properties, new ObjectMapper());
+
+        BillingWebhookEvent event = client.parseWebhookEvent(
+                payload, signatureHeader(created, payload, WEBHOOK_SECRET));
+
+        assertThat(event.stripeSubscriptionId()).isEqualTo("sub_deleted");
+        assertThat(event.status()).isEqualTo("canceled");
+    }
+
+    @Test
     void missingWebhookSecretIsRejected() {
         StripeBillingClient client = new StripeBillingClient(new BillingProperties(), new ObjectMapper());
 

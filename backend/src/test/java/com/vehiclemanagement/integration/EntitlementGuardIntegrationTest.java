@@ -23,7 +23,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -269,7 +268,7 @@ class EntitlementGuardIntegrationTest extends AbstractPostgresIntegrationTest {
     private void restoreFreePlanLimits() {
         jdbc.update("""
                 UPDATE billing_plan
-                SET limits = '{"max_sites":1,"max_cameras_per_site":2,"retention_days":7,"ai_minutes_month":500,"chatbot_messages_month":100,"users_per_tenant":3}'::jsonb
+                SET limits = '{"max_sites":1,"max_cameras_per_site":2,"retention_days":7,"ai_minutes_month":500,"chatbot_messages_month":100,"users_per_tenant":3,"camera_events_month":1000}'::jsonb
                 WHERE code = 'free'
                 """);
     }

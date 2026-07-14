@@ -234,7 +234,8 @@ paths:
       description: >-
         The camera identity is authenticated by X-Camera-Id and X-Camera-Key. Tenant and site are
         derived server-side from that credential. Send JSON, or multipart with an event JSON part
-        and one optional snapshot. Idempotency is scoped to (authenticated camera ID, event ID).
+        and optional original_frame / plate_crop evidence parts. The legacy snapshot part remains
+        accepted. Idempotency is scoped to (authenticated camera ID, event ID).
       security:
         - cameraId: []
           cameraKey: []
@@ -256,7 +257,15 @@ paths:
                 snapshot:
                   type: string
                   format: binary
-                  description: Optional single evidence image, maximum 5 MB.
+                  description: Legacy optional evidence image.
+                original_frame:
+                  type: string
+                  format: binary
+                  description: Optional original-frame evidence.
+                plate_crop:
+                  type: string
+                  format: binary
+                  description: Optional cropped-plate evidence. Combined evidence maximum is 5 MB.
             encoding:
               event:
                 contentType: application/json

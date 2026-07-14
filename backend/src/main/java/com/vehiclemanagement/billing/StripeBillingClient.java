@@ -99,13 +99,16 @@ public class StripeBillingClient {
             String type = event.getType();
             UUID tenantId = extractTenantId(object);
             String customerId = text(object, "customer");
-            String subscriptionId = "customer.subscription.updated".equals(type)
+            String subscriptionId = type.startsWith("customer.subscription.")
                     ? text(object, "id")
                     : text(object, "subscription");
             if (subscriptionId == null) {
                 subscriptionId = text(object.path("parent").path("subscription_details"), "subscription");
             }
             String status = text(object, "status");
+            if ("customer.subscription.deleted".equals(type)) {
+                status = "canceled";
+            }
             if ("checkout.session.completed".equals(type)) {
                 status = "active";
             }

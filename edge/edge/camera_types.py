@@ -412,7 +412,7 @@ class OutboundEvent:
     snapshot: SnapshotDescriptor | None = None
 
     def __post_init__(self) -> None:
-        if self.event_type not in {"VehicleDetected", "PlateRecognized"}:
+        if self.event_type not in {"VehicleDetected", "PlateRecognized", "SnapshotSaved"}:
             raise ValueError("unsupported outbound event_type")
         _timestamp(self.occurred_at)
 
@@ -488,3 +488,19 @@ class OutboundEvent:
         if plate_crop is not None:
             payload["snapshotUpload"] = {"part": "snapshot", "kind": "plate_crop"}
         return cls(event_id or uuid4(), "PlateRecognized", camera_id, occurred_at, payload, plate_crop)
+
+    @classmethod
+    def snapshot_saved(cls, *, camera_id: UUID, occurred_at: datetime, lifecycle: str,
+                       track: TrackIdentity, snapshots: Iterable[SnapshotDescriptor],
+                       causation_event_id: UUID | None = None,
+                       event_id: UUID | None = None) -> "OutboundEvent":
+        values = tuple(snapshots)
+        payload: dict[str, object] = {
+            "eventVersion": 1,
+            "lifecycle": lifecycle,
+            "tracker": track.to_dict(),
+            "snapshots": [item.to_dict() for item in values],
+        }
+        if causation_event_id is not None:
+            payload["causationEventId"] = str(causation_event_id)
+        return cls(event_id or uuid4(), "SnapshotSaved", camera_id, occurred_at, payload)

@@ -28,7 +28,7 @@ public class BillingController {
         this.billingService = billingService;
     }
 
-    @GetMapping("/status")
+    @GetMapping({"/subscription", "/status"})
     @Operation(summary = "Get tenant billing status")
     public BillingStatusResponse getStatus() {
         return billingService.getBillingStatus();

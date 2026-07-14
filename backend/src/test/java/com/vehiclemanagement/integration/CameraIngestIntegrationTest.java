@@ -5,6 +5,7 @@ import com.vehiclemanagement.dto.CameraDto;
 import com.vehiclemanagement.dto.CameraWithKeyDto;
 import com.vehiclemanagement.dto.SiteDto;
 import com.vehiclemanagement.service.CameraService;
+import com.vehiclemanagement.service.CameraIngestOutboxRelay;
 import com.vehiclemanagement.service.SiteService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -131,10 +132,14 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
     CameraService cameraService;
 
     @Autowired
+    CameraIngestOutboxRelay outboxRelay;
+
+    @Autowired
     S3Client s3Client;
 
     @Test
     void acceptsEventAndReturnsStableResponseForSequentialRetry() {
+        long usageBefore = cameraEventUsage();
         CameraCredentials camera = createCamera("basic");
         UUID eventId = UUID.randomUUID();
         String body = eventBody(eventId, camera.id());
@@ -149,6 +154,30 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT tenant_id FROM camera_ingest_event WHERE camera_id = ? AND event_id = ?",
                 UUID.class, camera.id(), eventId.toString())).isEqualTo(TENANT);
+        assertThat(outboxCount(camera.id(), eventId)).isEqualTo(1);
+        java.util.Map<String, Object> message = jdbc.queryForMap("""
+                SELECT id, routing_key, payload::text AS payload
+                  FROM outbox_message
+                 WHERE aggregate_type='camera_ingest' AND camera_id=? AND source_event_id=?
+                """, camera.id(), eventId.toString());
+        assertThat(message.get("routing_key")).isEqualTo("camera.ingest.VehicleDetected");
+        assertThat((String) message.get("payload"))
+                .contains(eventId.toString(), camera.id().toString(), "51A-12345");
+
+        outboxRelay.relayPending();
+        assertThat(jdbc.queryForObject("""
+                SELECT status FROM outbox_message
+                 WHERE aggregate_type='camera_ingest' AND camera_id=? AND source_event_id=?
+                """, String.class, camera.id(), eventId.toString())).isEqualTo("dispatched");
+        assertThat(jdbc.queryForObject("""
+                SELECT qty FROM billing_usage_record
+                 WHERE tenant_id=? AND metric='camera_events_month'
+                """, Long.class, TENANT)).isGreaterThanOrEqualTo(usageBefore + 1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM processed_usage_event WHERE message_id=?",
+                Long.class, message.get("id"))).isEqualTo(1L);
+        outboxRelay.relayPending();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM processed_usage_event WHERE message_id=?",
+                Long.class, message.get("id"))).isEqualTo(1L);
     }
 
     @Test
@@ -199,6 +228,7 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
                     + "\",\"status\":\"accepted\"}");
         });
         assertThat(count(camera.id(), eventId)).isEqualTo(1);
+        assertThat(outboxCount(camera.id(), eventId)).isEqualTo(1);
     }
 
     @Test
@@ -220,6 +250,35 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
                 .key(snapshotKey));
         assertThat(stored.asByteArray()).startsWith((byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47);
         assertThat(stored.response().contentType()).isEqualTo("image/png");
+    }
+
+    @Test
+    void storesAndLinksOriginalAndPlateCropForOneEvent() {
+        CameraCredentials camera = createCamera("multi-snapshot");
+        UUID eventId = UUID.randomUUID();
+        HttpHeaders eventHeaders = new HttpHeaders();
+        eventHeaders.setContentType(MediaType.APPLICATION_JSON);
+        MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+        parts.add("event", new HttpEntity<>(eventBody(eventId, camera.id()), eventHeaders));
+        parts.add("original_frame", imagePart("original.png"));
+        parts.add("plate_crop", imagePart("plate.png"));
+        HttpHeaders headers = cameraHeaders(camera.id(), camera.key());
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        ResponseEntity<String> response = rest.exchange(url(), HttpMethod.POST,
+                new HttpEntity<>(parts, headers), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        List<java.util.Map<String, Object>> snapshots = jdbc.queryForList("""
+                SELECT snapshot.kind,snapshot.object_key
+                  FROM camera_ingest_snapshot snapshot
+                  JOIN camera_ingest_event event ON event.id=snapshot.event_id
+                 WHERE event.camera_id=? AND event.event_id=? ORDER BY snapshot.kind
+                """, camera.id(), eventId.toString());
+        assertThat(snapshots).extracting(row -> row.get("kind"))
+                .containsExactly("original_frame", "plate_crop");
+        assertThat(snapshots).allSatisfy(row -> assertThat((String) row.get("object_key"))
+                .startsWith("tenants/" + TENANT + "/cameras/" + camera.id() + "/events/" + eventId + "/"));
     }
 
     @Test
@@ -350,6 +409,12 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
         return rest.exchange(url(), HttpMethod.POST, new HttpEntity<>(parts, headers), String.class);
     }
 
+    private HttpEntity<ByteArrayResource> imagePart(String filename) {
+        return new HttpEntity<>(new ByteArrayResource(imageFixture()) {
+            @Override public String getFilename() { return filename; }
+        });
+    }
+
     private byte[] imageFixture() {
         try {
             BufferedImage image = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
@@ -434,6 +499,20 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
         return jdbc.queryForObject(
                 "SELECT count(*) FROM camera_ingest_event WHERE camera_id = ? AND event_id = ?",
                 Integer.class, cameraId, eventId.toString());
+    }
+
+    private int outboxCount(UUID cameraId, UUID eventId) {
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM outbox_message
+                 WHERE aggregate_type='camera_ingest' AND camera_id=? AND source_event_id=?
+                """, Integer.class, cameraId, eventId.toString());
+    }
+
+    private long cameraEventUsage() {
+        return jdbc.query("""
+                SELECT qty FROM billing_usage_record
+                 WHERE tenant_id=? AND metric='camera_events_month'
+                """, (rs, row) -> rs.getLong(1), TENANT).stream().findFirst().orElse(0L);
     }
 
     private CameraCredentials createCamera(String suffix) {

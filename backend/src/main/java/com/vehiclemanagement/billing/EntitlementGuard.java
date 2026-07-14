@@ -56,6 +56,18 @@ public class EntitlementGuard {
         assertWithinLimit(EntitlementMetric.USERS_PER_TENANT, "tenant", () -> countUsers(tenantId));
     }
 
+    public void assertFeatureEnabled(String featureKey) {
+        if (!featureProperties.isEnabled() || isPlatformAdmin()) return;
+        UUID tenantId = TenantContext.getTenantId();
+        Boolean enabled = jdbc.queryForObject("""
+                SELECT COALESCE((p.limits ->> ?)::boolean, false)
+                  FROM tenant t JOIN billing_plan p ON p.id=t.plan_id WHERE t.id=?
+                """, Boolean.class, featureKey, tenantId);
+        if (!Boolean.TRUE.equals(enabled)) {
+            throw new EntitlementExceededException(featureKey, 0, 0, UPGRADE_URL);
+        }
+    }
+
     public Map<String, Long> currentStructuralUsage() {
         UUID tenantId = TenantContext.getTenantId();
         Map<String, Long> usage = new LinkedHashMap<>();
