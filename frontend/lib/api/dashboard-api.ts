@@ -130,7 +130,9 @@ export const dashboardApi = {
       lastSeenAt: row.lastHeartbeatAt || row.lastSeenAt || null,
       streamUrl: mediaUrl(row.stream?.url || row.hlsUrl || row.webrtcUrl || row.mjpegUrl),
       snapshotUrl: mediaUrl(row.snapshotUrl || row.latestSnapshotUrl),
-      streamKind: row.stream?.kind || (row.hlsUrl ? 'HLS' : row.webrtcUrl ? 'WEBRTC' : row.mjpegUrl ? 'MJPEG' : null),
+      streamKind: row.stream?.kind
+        ? String(row.stream.kind).toUpperCase()
+        : (row.hlsUrl ? 'HLS' : row.webrtcUrl ? 'WEBRTC' : row.mjpegUrl ? 'MJPEG' : null),
       streamExpiresAt: row.stream?.expiresAt || null,
     }))
   },
@@ -213,6 +215,6 @@ export function normalizeRealtimeEvent(payload: any): DashboardEvent {
     occurredAt: payload?.occurredAt || data.occurredAt || new Date().toISOString(),
     plate: data.plate || data.licensePlateNumber || null,
     cameraId: data.cameraId || null, slotId: data.slotId || null, zoneId: data.zoneId || null, version: data.version,
-    snapshotUrl: data.snapshotUrl || data.imageUrl || data.imagePath || null,
+    snapshotUrl: mediaUrl(data.snapshotUrl || data.imageUrl || data.imagePath),
   }
 }

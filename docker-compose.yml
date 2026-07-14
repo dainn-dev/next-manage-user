@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgis/postgis:15-3.4-alpine
     container_name: vehicle-management-db
     environment:
       POSTGRES_DB: vehicle_management
@@ -46,10 +46,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vehicle_management
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-password}
+      APP_ADMIN_DATASOURCE_USERNAME: ${APP_ADMIN_DATASOURCE_USERNAME:-postgres}
+      APP_ADMIN_DATASOURCE_PASSWORD: ${APP_ADMIN_DATASOURCE_PASSWORD:-password}
       SPRING_PROFILES_ACTIVE: docker
       # JWT configuration (set JWT_SECRET in your .env or shell environment)
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400}
+      PASSWORD_RESET_FINGERPRINT_SECRET: ${PASSWORD_RESET_FINGERPRINT_SECRET:?PASSWORD_RESET_FINGERPRINT_SECRET is required}
       # File upload configuration
       SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE: 50MB
       SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE: 50MB

@@ -169,6 +169,9 @@ dependencies:
     version: 3.25.67
 
 devDependencies:
+  '@tailwindcss/oxide-linux-x64-gnu':
+    specifier: 4.3.2
+    version: 4.3.2
   '@tailwindcss/postcss':
     specifier: ^4.1.9
     version: 4.3.2
@@ -1839,7 +1842,6 @@ packages:
     os: [linux]
     requiresBuild: true
     dev: true
-    optional: true
 
   /@tailwindcss/oxide-linux-x64-musl@4.3.2:
     resolution: {integrity: sha512-cixpqbh2toJDmkuCRI68nXA8ZxNmdK9Y+9v5h3MC3ZQKy/0BO8AWzlkWyRM7JAFSGBlfig4YVTPsK6MVgqz1uw==}

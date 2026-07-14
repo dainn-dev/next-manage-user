@@ -101,7 +101,24 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     const update = normalizeRealtimeSlot(payload)
     if (!update.id || update.siteId !== selectedSiteId) return
     if (selectedZoneId && update.zoneId !== selectedZoneId) return
-    setSlots((current) => current.map((slot) => slot.id === update.id ? { ...slot, ...update } : slot))
+    setSlots((current) => {
+      const existing = current.find((slot) => slot.id === update.id)
+      if (existing) return current.map((slot) => slot.id === update.id ? { ...slot, ...update } : slot)
+      // Slot definitions normally arrive through REST, but accepting a complete
+      // realtime payload prevents a newly provisioned slot from being invisible
+      // until the next poll.
+      if (!update.siteId || !update.zoneId || !(payload as any)?.data?.code && !(payload as any)?.code) return current
+      return [...current, {
+        id: update.id,
+        siteId: update.siteId,
+        zoneId: update.zoneId,
+        code: (payload as any)?.data?.code || (payload as any)?.code,
+        status: update.status || 'UNKNOWN',
+        plate: update.plate || null,
+        lastSeenAt: update.lastSeenAt || null,
+        polygon: [],
+      }]
+    })
     setLastUpdatedAt(new Date().toISOString())
   }, [selectedSiteId, selectedZoneId])
 
@@ -120,6 +137,10 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       setSlots((current) => current.map((slot) => slot.id === event.slotId
         ? { ...slot, status: 'OCCUPIED', plate: event.plate, lastSeenAt: event.occurredAt }
         : slot.plate === event.plate ? { ...slot, status: 'AVAILABLE', plate: null, lastSeenAt: event.occurredAt } : slot))
+    } else if (event.plate && event.type === 'VEHICLE_ENTERED' && event.slotId) {
+      setSlots((current) => current.map((slot) => slot.id === event.slotId
+        ? { ...slot, status: 'OCCUPIED', plate: event.plate, lastSeenAt: event.occurredAt }
+        : slot))
     }
     setLastUpdatedAt(new Date().toISOString())
   }, [selectedSiteId, selectedZoneId, eventFilter])
@@ -130,8 +151,21 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   React.useEffect(() => {
     if (!selectedSiteId || realtime === 'live') return
-    const interval = window.setInterval(() => void refresh(), document.hidden ? 60000 : 15000)
-    return () => window.clearInterval(interval)
+    let interval: number
+    const schedule = () => {
+      window.clearInterval(interval)
+      interval = window.setInterval(() => void refresh(), document.hidden ? 60000 : 15000)
+    }
+    const onVisibilityChange = () => {
+      schedule()
+      if (!document.hidden) void refresh()
+    }
+    schedule()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [selectedSiteId, realtime, refresh])
 
   const searchVehicles = React.useCallback(async (query: string) => {
