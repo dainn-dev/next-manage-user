@@ -102,8 +102,9 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         String token = (String) response.getBody().get("token");
 
         assertThat(response.getBody().get("role")).isEqualTo("TENANT_ADMIN");
+        assertThat(response.getBody().get("tenantSlug")).isEqualTo("acme-parking-" + unique);
         assertThat(jwtUtil.extractTenantId(token)).isEqualTo(tenantId);
-        assertThat(jwtUtil.extractSiteIds(token)).containsExactly(siteId);
+        assertThat(jwtUtil.extractSiteIds(token)).isEmpty();
         assertThat(jwtUtil.extractRole(token)).isEqualTo("TENANT_ADMIN");
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM tenant WHERE id = ?", Long.class, tenantId))

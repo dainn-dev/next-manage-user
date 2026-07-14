@@ -1,6 +1,7 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.VehicleLogDto;
+import com.vehiclemanagement.dto.VehicleLogTodayStatisticsDto;
 import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.service.VehicleLogService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -164,12 +165,9 @@ public class VehicleLogController {
     
     @GetMapping("/statistics/today")
     @Operation(summary = "Get today's statistics", description = "Get entry/exit statistics for today")
-    public ResponseEntity<Object> getTodayStatistics() {
-        return ResponseEntity.ok(new Object() {
-            public final long entryCount = vehicleLogService.getTodayEntryCount();
-            public final long exitCount = vehicleLogService.getTodayExitCount();
-            public final long uniqueVehicles = vehicleLogService.getTodayUniqueVehicles();
-        });
+    public ResponseEntity<VehicleLogTodayStatisticsDto> getTodayStatistics(
+            @RequestParam(required = false) UUID siteId) {
+        return ResponseEntity.ok(vehicleLogService.getTodayStatistics(siteId));
     }
     
     @GetMapping("/owner-info")

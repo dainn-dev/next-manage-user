@@ -55,8 +55,6 @@ export interface DashboardAnalytics {
   entries: number
   exits: number
   uniqueVehicles: number
-  totalVehicles: number
-  activeVehicles: number
   averageDwellSeconds: number
   completedDwellSessions: number
 }
@@ -170,15 +168,15 @@ export const dashboardApi = {
   },
 
   async analytics(siteId: string): Promise<DashboardAnalytics> {
-    const [today, vehicles, dwell] = await Promise.all([
-      request<any>('/vehicle-logs/statistics/today'),
-      request<any>('/vehicles/statistics/overview'),
+    const params = new URLSearchParams({ siteId })
+    const [today, dwell] = await Promise.all([
+      request<any>(`/vehicle-logs/statistics/today?${params}`),
       request<any>(`/sites/${siteId}/analytics/average-dwell`),
     ])
     return {
-      entries: today.entryCount || 0, exits: today.exitCount || 0,
-      uniqueVehicles: today.uniqueVehicles || 0,
-      totalVehicles: vehicles.totalVehicles || 0, activeVehicles: vehicles.activeVehicles || 0,
+      entries: Number(today.entryCount) || 0,
+      exits: Number(today.exitCount) || 0,
+      uniqueVehicles: Number(today.uniqueVehicles) || 0,
       averageDwellSeconds: Number(dwell.averageDwellSeconds) || 0,
       completedDwellSessions: Number(dwell.completedSessions) || 0,
     }

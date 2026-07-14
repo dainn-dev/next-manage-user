@@ -1,6 +1,7 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleLogDto;
+import com.vehiclemanagement.dto.VehicleLogTodayStatisticsDto;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.entity.User;
@@ -24,7 +25,6 @@ import java.time.LocalTime;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -73,21 +73,22 @@ public class VehicleLogService {
     }
     
     public Page<VehicleLogDto> getVehicleLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+        Page<VehicleLog> logs;
         if (siteAccess.isRestricted()) {
-            return searchVehicleLogs(null, null, null, null, startDate, endDate, pageable);
+            List<UUID> siteIds = siteAccess.allowedSiteIds();
+            logs = siteIds.isEmpty()
+                    ? Page.empty(pageable)
+                    : vehicleLogRepository.findBySiteIdInAndEntryExitTimeBetween(
+                            siteIds, startDate, endDate, pageable);
+        } else {
+            logs = vehicleLogRepository.findByEntryExitTimeBetween(startDate, endDate, pageable);
         }
-        Page<VehicleLog> logs = vehicleLogRepository.findByEntryExitTimeBetween(startDate, endDate, pageable);
         return logs.map(this::convertToDto);
     }
-    
+
     public Page<VehicleLogDto> getTodayLogs(Pageable pageable) {
         LocalDate today = LocalDate.now();
-        if (siteAccess.isRestricted()) {
-            return searchVehicleLogs(null, null, null, null,
-                    today.atStartOfDay(), today.atTime(LocalTime.MAX), pageable);
-        }
-        Page<VehicleLog> logs = vehicleLogRepository.findByDate(today, pageable);
-        return logs.map(this::convertToDto);
+        return getVehicleLogsByDateRange(today.atStartOfDay(), today.atTime(LocalTime.MAX), pageable);
     }
     
     public Page<VehicleLogDto> getWeeklyLogs(Pageable pageable) {
@@ -227,16 +228,34 @@ public class VehicleLogService {
     }
     
     // Statistics methods
+    public VehicleLogTodayStatisticsDto getTodayStatistics(UUID requestedSiteId) {
+        LocalDate today = LocalDate.now();
+        List<UUID> siteIds = resolveStatisticsSiteIds(requestedSiteId);
+        if (siteIds != null && siteIds.isEmpty()) {
+            return new VehicleLogTodayStatisticsDto(0, 0, 0);
+        }
+        if (siteIds == null) {
+            return new VehicleLogTodayStatisticsDto(
+                    vehicleLogRepository.countByTypeAndDate(VehicleLog.LogType.entry, today),
+                    vehicleLogRepository.countByTypeAndDate(VehicleLog.LogType.exit, today),
+                    vehicleLogRepository.countDistinctVehiclesByDate(today));
+        }
+        return new VehicleLogTodayStatisticsDto(
+                vehicleLogRepository.countByTypeAndDateAndSiteIdIn(VehicleLog.LogType.entry, today, siteIds),
+                vehicleLogRepository.countByTypeAndDateAndSiteIdIn(VehicleLog.LogType.exit, today, siteIds),
+                vehicleLogRepository.countDistinctVehiclesByDateAndSiteIdIn(today, siteIds));
+    }
+
     public long getTodayEntryCount() {
-        return vehicleLogRepository.countByTypeAndDate(VehicleLog.LogType.entry, LocalDate.now());
+        return getTodayStatistics(null).entryCount();
     }
-    
+
     public long getTodayExitCount() {
-        return vehicleLogRepository.countByTypeAndDate(VehicleLog.LogType.exit, LocalDate.now());
+        return getTodayStatistics(null).exitCount();
     }
-    
+
     public long getTodayUniqueVehicles() {
-        return vehicleLogRepository.countDistinctVehiclesByDate(LocalDate.now());
+        return getTodayStatistics(null).uniqueVehicles();
     }
 
     // Log-based statistics
@@ -413,11 +432,25 @@ public class VehicleLogService {
         return result;
     }
 
+    private List<UUID> resolveStatisticsSiteIds(UUID requestedSiteId) {
+        if (requestedSiteId != null) {
+            siteAccess.assertSiteAllowed(requestedSiteId);
+            return List.of(requestedSiteId);
+        }
+        return siteAccess.isRestricted() ? siteAccess.allowedSiteIds() : null;
+    }
+
     private List<VehicleLog> fetchLogs(LocalDate start, LocalDate end) {
-        Page<VehicleLog> page = vehicleLogRepository.findByEntryExitTimeBetween(
-                start.atStartOfDay(),
-                end.atTime(LocalTime.MAX),
-                PageRequest.of(0, STATS_FETCH_LIMIT));
+        Pageable pageable = PageRequest.of(0, STATS_FETCH_LIMIT);
+        List<UUID> siteIds = resolveStatisticsSiteIds(null);
+        if (siteIds != null && siteIds.isEmpty()) {
+            return List.of();
+        }
+        Page<VehicleLog> page = siteIds == null
+                ? vehicleLogRepository.findByEntryExitTimeBetween(
+                        start.atStartOfDay(), end.atTime(LocalTime.MAX), pageable)
+                : vehicleLogRepository.findBySiteIdInAndEntryExitTimeBetween(
+                        siteIds, start.atStartOfDay(), end.atTime(LocalTime.MAX), pageable);
         return page.getContent();
     }
 

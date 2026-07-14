@@ -6,6 +6,7 @@ import com.vehiclemanagement.dto.TenantOnboardingResponse;
 import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.platform.PlatformAuditService;
 import com.vehiclemanagement.util.JwtUtil;
+import com.vehiclemanagement.util.TenantSlugNormalizer;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -47,7 +48,10 @@ public class TenantOnboardingService {
         }
 
         String tenantName = request.getTenantName().trim();
-        String tenantSlug = normalizeSlug(request.getTenantSlug(), tenantName);
+        String slugSource = request.getTenantSlug() == null || request.getTenantSlug().isBlank()
+                ? tenantName
+                : request.getTenantSlug();
+        String tenantSlug = TenantSlugNormalizer.normalize(slugSource);
         String siteName = request.getSiteName().trim();
         String managementModel = request.getManagementModel().trim().toLowerCase(Locale.ROOT);
         Integer areaCount = request.getAreaCount();
@@ -82,7 +86,7 @@ public class TenantOnboardingService {
                 blankToNull(request.getAdminLastName()),
                 tenantId);
 
-        String token = issueTenantAdminToken(adminUserId, adminUsername, adminEmail, tenantId, siteId);
+        String token = issueTenantAdminToken(adminUserId, adminUsername, adminEmail, tenantId);
 
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("tenantName", tenantName);
@@ -130,7 +134,7 @@ public class TenantOnboardingService {
         }
     }
 
-    private String issueTenantAdminToken(UUID adminUserId, String username, String email, UUID tenantId, UUID siteId) {
+    private String issueTenantAdminToken(UUID adminUserId, String username, String email, UUID tenantId) {
         User tokenUser = User.builder()
                 .id(adminUserId)
                 .username(username)
@@ -146,19 +150,8 @@ public class TenantOnboardingService {
         claims.put("email", email);
         claims.put("userId", adminUserId.toString());
         claims.put("tenant_id", tenantId.toString());
-        claims.put("site_ids", List.of(siteId.toString()));
+        claims.put("site_ids", List.of());
         return jwtUtil.generateToken(tokenUser, claims);
-    }
-
-    private String normalizeSlug(String requestedSlug, String tenantName) {
-        String source = (requestedSlug == null || requestedSlug.isBlank()) ? tenantName : requestedSlug;
-        String slug = source.trim().toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("(^-|-$)", "");
-        if (slug.isBlank()) {
-            throw new IllegalArgumentException("Tenant slug must contain at least one letter or number");
-        }
-        return slug;
     }
 
     private String blankToNull(String value) {

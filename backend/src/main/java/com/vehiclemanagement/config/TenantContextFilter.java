@@ -1,5 +1,6 @@
 package com.vehiclemanagement.config;
 
+import com.vehiclemanagement.entity.User;
 import com.vehiclemanagement.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class TenantContextFilter extends OncePerRequestFilter {
 
     private static final String PLATFORM_ADMIN = "PLATFORM_ADMIN";
+    private static final String TENANT_ADMIN = "TENANT_ADMIN";
     /** Platform consumer (ADR-0603): JWT omits tenant_id; affiliations in claim. */
     private static final String MEMBER = "MEMBER";
 
@@ -53,24 +55,29 @@ public class TenantContextFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain) throws ServletException, IOException {
         try {
             final String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")
-                    && SecurityContextHolder.getContext().getAuthentication() != null) {
+            var authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authHeader != null && authHeader.startsWith("Bearer ") && authentication != null) {
                 final String jwt = authHeader.substring(7);
                 if (jwtUtil.validateToken(jwt)) {
                     UUID tenantId = jwtUtil.extractTenantId(jwt);
-                    String role = jwtUtil.extractRole(jwt);
+                    String claimRole = jwtUtil.extractRole(jwt);
+                    String effectiveRole = authentication.getPrincipal() instanceof User user
+                            ? user.getRole().name()
+                            : claimRole;
                     if (tenantId != null) {
                         TenantContext.setTenantId(tenantId);
                     } else if (enforceTenantClaim
-                            && !PLATFORM_ADMIN.equals(role)
-                            && !MEMBER.equals(role)) {
+                            && !PLATFORM_ADMIN.equals(effectiveRole)
+                            && !MEMBER.equals(effectiveRole)) {
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                         response.setContentType("application/json");
                         response.setCharacterEncoding("UTF-8");
                         response.getWriter().write("{\"error\":\"Token is missing tenant_id\"}");
                         return;
                     }
-                    List<UUID> siteIds = jwtUtil.extractSiteIds(jwt);
+                    List<UUID> siteIds = TENANT_ADMIN.equals(effectiveRole)
+                            ? List.of()
+                            : jwtUtil.extractSiteIds(jwt);
                     SiteContext.setSiteIds(siteIds);
                 }
             }

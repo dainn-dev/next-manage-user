@@ -72,6 +72,9 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
 
     Page<VehicleLog> findBySiteIdIn(List<UUID> siteIds, Pageable pageable);
 
+    Page<VehicleLog> findBySiteIdInAndEntryExitTimeBetween(
+            List<UUID> siteIds, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
+
     List<VehicleLog> findBySiteIdIn(List<UUID> siteIds);
     
     // Recent checks for a gate since a timestamp — used by the reliable-delivery
@@ -84,9 +87,20 @@ public interface VehicleLogRepository extends JpaRepository<VehicleLog, UUID> {
     // Statistics queries
     @Query("SELECT COUNT(vl) FROM VehicleLog vl WHERE vl.type = :type AND DATE(vl.entryExitTime) = :date")
     long countByTypeAndDate(@Param("type") VehicleLog.LogType type, @Param("date") LocalDate date);
-    
+
+    @Query("SELECT COUNT(vl) FROM VehicleLog vl WHERE vl.type = :type "
+            + "AND DATE(vl.entryExitTime) = :date AND vl.siteId IN :siteIds")
+    long countByTypeAndDateAndSiteIdIn(@Param("type") VehicleLog.LogType type,
+                                      @Param("date") LocalDate date,
+                                      @Param("siteIds") List<UUID> siteIds);
+
     @Query("SELECT COUNT(DISTINCT vl.licensePlateNumber) FROM VehicleLog vl WHERE DATE(vl.entryExitTime) = :date")
     long countDistinctVehiclesByDate(@Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(DISTINCT vl.licensePlateNumber) FROM VehicleLog vl "
+            + "WHERE DATE(vl.entryExitTime) = :date AND vl.siteId IN :siteIds")
+    long countDistinctVehiclesByDateAndSiteIdIn(@Param("date") LocalDate date,
+                                                @Param("siteIds") List<UUID> siteIds);
     
     @Query("SELECT vl.vehicleType, COUNT(vl) FROM VehicleLog vl WHERE DATE(vl.entryExitTime) = :date GROUP BY vl.vehicleType")
     List<Object[]> countByVehicleTypeAndDate(@Param("date") LocalDate date);

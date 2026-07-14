@@ -23,7 +23,11 @@ public class SiteAccess {
     }
 
     public boolean isRestricted() {
-        return currentUserIsSiteScoped() || SiteContext.isRestricted();
+        User.Role role = currentUserRole();
+        if (role == User.Role.TENANT_ADMIN) {
+            return false;
+        }
+        return isSiteScopedRole(role) || SiteContext.isRestricted();
     }
 
     public boolean isSiteAllowed(UUID siteId) {
@@ -49,11 +53,18 @@ public class SiteAccess {
     }
 
     public static boolean currentUserIsSiteScoped() {
+        return isSiteScopedRole(currentUserRole());
+    }
+
+    private static User.Role currentUserRole() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof User user)) {
-            return false;
+            return null;
         }
-        return user.getRole() == User.Role.SITE_MANAGER
-                || user.getRole() == User.Role.SECURITY_GUARD;
+        return user.getRole();
+    }
+
+    private static boolean isSiteScopedRole(User.Role role) {
+        return role == User.Role.SITE_MANAGER || role == User.Role.SECURITY_GUARD;
     }
 }

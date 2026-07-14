@@ -67,7 +67,9 @@ class DashboardApiIntegrationTest extends AbstractPostgresIntegrationTest {
         jdbc.update("INSERT INTO camera(id,tenant_id,site_id,zone_id,name,role,status) VALUES (?,?,?,?,?,'OVERVIEW','online')",
                 cameraA, tenantId, siteA, zoneA, "Dashboard camera");
 
-        adminToken = token(User.Role.TENANT_ADMIN, List.of());
+        // Historical onboarding tokens incorrectly carried the initial site. TENANT_ADMIN
+        // must remain tenant-wide even when that stale claim is present.
+        adminToken = token(User.Role.TENANT_ADMIN, List.of(siteA));
         managerToken = token(User.Role.SITE_MANAGER, List.of(siteA));
         guardToken = token(User.Role.SECURITY_GUARD, List.of(siteA));
         seedReadModels();
@@ -84,6 +86,7 @@ class DashboardApiIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(get("/api/sites/" + siteA + "/events", null).getStatusCode().is4xxClientError()).isTrue();
 
         assertThat(get("/api/sites/" + siteA + "/events", adminToken).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(get("/api/sites/" + siteB + "/events", adminToken).getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(get("/api/sites/" + siteA + "/events", managerToken).getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(get("/api/sites/" + siteA + "/events", guardToken).getStatusCode()).isEqualTo(HttpStatus.OK);
 
@@ -142,11 +145,46 @@ class DashboardApiIntegrationTest extends AbstractPostgresIntegrationTest {
                 .isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    @Test
+    void vehicleLogStatisticsFollowRequestedAndAssignedSiteScope() throws Exception {
+        JsonNode adminSiteB = body(get(
+                "/api/vehicle-logs/statistics/today?siteId=" + siteB, adminToken));
+        assertThat(adminSiteB.path("entryCount").asLong()).isEqualTo(1);
+        assertThat(adminSiteB.path("exitCount").asLong()).isEqualTo(1);
+        assertThat(adminSiteB.path("uniqueVehicles").asLong()).isEqualTo(1);
+
+        JsonNode managerAssigned = body(get("/api/vehicle-logs/statistics/today", managerToken));
+        assertThat(managerAssigned.path("entryCount").asLong()).isEqualTo(1);
+        assertThat(managerAssigned.path("exitCount").asLong()).isZero();
+        assertThat(managerAssigned.path("uniqueVehicles").asLong()).isEqualTo(1);
+        assertThat(get("/api/vehicle-logs/statistics/today?siteId=" + siteB, managerToken).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
+
+        JsonNode overview = body(get("/api/vehicles/statistics/overview", managerToken));
+        JsonNode today = overview.path("dailyStats").get(overview.path("dailyStats").size() - 1);
+        assertThat(today.path("entryCount").asLong()).isEqualTo(1);
+        assertThat(today.path("exitCount").asLong()).isZero();
+    }
+
+    @Test
+    void unmappedApiRouteReturnsNotFoundEnvelope() throws Exception {
+        ResponseEntity<String> response = get("/api/does-not-exist", adminToken);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(objectMapper.readTree(response.getBody()).path("status").asInt()).isEqualTo(404);
+    }
+
     private void seedReadModels() {
         jdbc.update("""
                 INSERT INTO vehicle_log(id,tenant_id,site_id,license_plate_number,type,vehicle_type,entry_exit_time,image_path)
                 VALUES (?,?,?,'51A-123.45','entry','external',?,'/uploads/snapshots/gate.jpg')
                 """, UUID.randomUUID(), tenantId, siteA, base);
+        jdbc.update("""
+                INSERT INTO vehicle_log(id,tenant_id,site_id,license_plate_number,type,vehicle_type,entry_exit_time)
+                VALUES (?,?,?,'52B-678.90','entry','external',?),
+                       (?,?,?,'52B-678.90','exit','external',?)
+                """, UUID.randomUUID(), tenantId, siteB, base.plusMinutes(10),
+                UUID.randomUUID(), tenantId, siteB, base.plusMinutes(11));
         jdbc.update("""
                 INSERT INTO slot_occupancy(slot_id,tenant_id,site_id,zone_id,status,track_id,plate,last_seen_at,
                                            snapshot_reference,snapshot_seen_at)

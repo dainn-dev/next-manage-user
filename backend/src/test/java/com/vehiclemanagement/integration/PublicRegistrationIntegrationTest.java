@@ -66,15 +66,17 @@ class PublicRegistrationIntegrationTest extends AbstractPostgresIntegrationTest 
     JwtUtil jwtUtil;
 
     @Test
-    void publicRegistrationCreatesTenantSiteAdminAndScopedToken() {
+    void publicRegistrationCreatesTenantSiteAdminAndTenantWideToken() {
         String unique = UUID.randomUUID().toString().substring(0, 8);
+        String username = "anhduong-admin-" + unique;
+        String password = "SecurePass123!";
         Map<String, Object> body = Map.of(
                 "organizationName", "Nhà trọ Ánh Dương " + unique,
                 "managementModel", "boarding-house",
                 "areaCount", 3,
-                "username", "anhduong-admin-" + unique,
+                "username", username,
                 "email", "anhduong-" + unique + "@example.com",
-                "password", "SecurePass123!");
+                "password", password);
 
         ResponseEntity<Map> response = rest.postForEntity(
                 url("/api/auth/register"), new HttpEntity<>(body, jsonHeaders()), Map.class);
@@ -92,13 +94,15 @@ class PublicRegistrationIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(response.getBody().get("areaCount")).isEqualTo(3);
         assertThat(response.getBody().get("siteName")).isEqualTo("Khu vực chính");
         assertThat(jwtUtil.extractTenantId(token)).isEqualTo(tenantId);
-        assertThat(jwtUtil.extractSiteIds(token)).containsExactly(siteId);
+        assertThat(jwtUtil.extractSiteIds(token)).isEmpty();
         assertThat(jwtUtil.extractRole(token)).isEqualTo("TENANT_ADMIN");
 
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM tenant
                 WHERE id = ? AND management_model = 'boarding-house' AND area_count = 3
                 """, Long.class, tenantId)).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT slug FROM tenant WHERE id = ?", String.class, tenantId))
+                .isEqualTo("nha-tro-anh-duong-" + unique);
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM site WHERE id = ? AND tenant_id = ?", Long.class, siteId, tenantId))
                 .isEqualTo(1L);
@@ -113,6 +117,33 @@ class PublicRegistrationIntegrationTest extends AbstractPostgresIntegrationTest 
                 url("/api/auth/me"), HttpMethod.GET, new HttpEntity<>(tenantHeaders), Map.class);
         assertThat(me.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(me.getBody()).containsEntry("id", userId.toString());
+
+        Map<String, Object> siteBody = Map.of(
+                "name", "Chi nhánh " + unique,
+                "location", "District 2");
+        ResponseEntity<Map> createdSite = rest.exchange(
+                url("/api/sites"), HttpMethod.POST,
+                new HttpEntity<>(siteBody, tenantHeaders), Map.class);
+        assertThat(createdSite.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(createdSite.getBody()).isNotNull();
+        UUID secondSiteId = UUID.fromString((String) createdSite.getBody().get("id"));
+
+        ResponseEntity<Map[]> sites = rest.exchange(
+                url("/api/sites"), HttpMethod.GET, new HttpEntity<>(tenantHeaders), Map[].class);
+        assertThat(sites.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(sites.getBody()).isNotNull();
+        assertThat(sites.getBody()).extracting(row -> row.get("id"))
+                .contains(siteId.toString(), secondSiteId.toString());
+
+        ResponseEntity<Map> login = rest.postForEntity(
+                url("/api/auth/login"),
+                new HttpEntity<>(Map.of("username", username, "password", password), jsonHeaders()),
+                Map.class);
+        assertThat(login.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(login.getBody()).isNotNull();
+        String loginToken = (String) login.getBody().get("token");
+        assertThat(jwtUtil.extractTenantId(loginToken)).isEqualTo(tenantId);
+        assertThat(jwtUtil.extractSiteIds(loginToken)).isEmpty();
     }
 
     @Test

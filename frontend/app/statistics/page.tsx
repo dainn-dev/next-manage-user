@@ -1,649 +1,250 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import type { Employee, Department, VehicleStatistics, User, Position, UserStatistics } from "@/lib/types"
-import { dataService } from "@/lib/data-service"
-import { userApi } from "@/lib/api/user-api"
-import { positionApi, type PositionStatistics } from "@/lib/api/position-api"
-import { StatisticsDashboard } from "@/components/reports/statistics-dashboard"
-import { VehicleStatisticsDashboard } from "@/components/vehicles/vehicle-statistics-dashboard"
-import { ExportDialog } from "@/components/reports/export-dialog"
+import type { LucideIcon } from "lucide-react"
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  CarFront,
+  Clock3,
+  Gauge,
+  ParkingSquare,
+  RefreshCw,
+  TriangleAlert,
+  Video,
+} from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Download, RefreshCw, Users, Building2, Car, Shield, TrendingUp, Activity, UserCheck, Building, Briefcase } from "lucide-react"
-import { exportStatisticsToExcel } from "@/lib/utils/excel-export"
-import { useToast } from "@/hooks/use-toast"
+import { useDashboardData } from "@/lib/dashboard-data-context"
+import { calculateOccupancyMetrics, formatDuration } from "@/lib/dashboard-metrics.mjs"
+import { useDashboardScope } from "@/lib/dashboard-scope-context"
+
+interface MetricCardProps {
+  label: string
+  value: string
+  description: string
+  icon: LucideIcon
+  loading?: boolean
+}
+
+function MetricCard({ label, value, description, icon: Icon, loading = false }: MetricCardProps) {
+  return (
+    <Card aria-label={label}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">{label}</CardTitle>
+        <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="mb-2 h-8 w-24 animate-pulse rounded bg-muted" aria-label="Đang tải" />
+        ) : (
+          <p className="text-2xl font-semibold tabular-nums">{value}</p>
+        )}
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function StatisticsPage() {
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [users, setUsers] = useState<User[]>([])
-  const [positions, setPositions] = useState<Position[]>([])
-  const [vehicles, setVehicles] = useState<any[]>([])
-  const [vehicleStatistics, setVehicleStatistics] = useState<VehicleStatistics | null>(null)
-  const [userStatistics, setUserStatistics] = useState<UserStatistics | null>(null)
-  const [positionStatistics, setPositionStatistics] = useState<PositionStatistics | null>(null)
-  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { toast } = useToast()
+  const {
+    sites,
+    zones,
+    selectedSiteId,
+    selectedZoneId,
+    isLoading: scopeLoading,
+    error: scopeError,
+    retry,
+  } = useDashboardScope()
+  const {
+    cameras,
+    slots,
+    analytics,
+    status,
+    error: dataError,
+    realtime,
+    realtimeError,
+    lastUpdatedAt,
+    refresh,
+  } = useDashboardData()
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  const selectedSite = sites.find((site) => site.id === selectedSiteId)
+  const selectedZone = zones.find((zone) => zone.id === selectedZoneId)
+  const metrics = calculateOccupancyMetrics(slots)
+  const loading = scopeLoading || status === "idle" || status === "loading"
+  const analyticsAvailable = analytics !== null
+  const onlineCameras = cameras.filter((camera) => camera.status === "ONLINE").length
+  const partialError = dataError || realtimeError
 
-  const loadData = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const [employeesData, departmentsData, usersData, positionsData, vehiclesData, vehicleStats, userStats, positionStats] = await Promise.all([
-        dataService.getEmployees(),
-        Promise.resolve(dataService.getDepartments()),
-        userApi.getAllUsersList().catch(() => []),
-        positionApi.getAllPositionsList().then(positions => positions.map(p => positionApi.convertToPosition(p))).catch(() => []),
-        dataService.getVehicles(0, 1000).then(response => response.vehicles).catch(() => []),
-        dataService.getVehicleStatistics(),
-        userApi.getUserStatistics().catch(() => null),
-        positionApi.getPositionStatistics().catch(() => null)
-      ])
-      setEmployees(employeesData)
-      setDepartments(departmentsData)
-      setUsers(usersData)
-      setPositions(positionsData)
-      setVehicles(vehiclesData)
-      setVehicleStatistics(vehicleStats)
-      setUserStatistics(userStats)
-      setPositionStatistics(positionStats)
-    } catch (err) {
-      setError('Không thể tải dữ liệu thống kê')
-      console.error('Error loading statistics data:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleExport = (options: any) => {
-    try {
-      const filename = `bao_cao_thong_ke_${new Date().toISOString().split('T')[0]}`
-      
-      // Prepare data for export
-      const exportData = {
-        employees,
-        vehicles,
-        departments,
-        users,
-        positions,
-        vehicleStats: vehicleStatistics,
-        userStats: userStatistics,
-        positionStats: positionStatistics
-      }
-      
-      const success = exportStatisticsToExcel(exportData, filename)
-      
-      if (success) {
-        toast({
-          title: "Xuất báo cáo thành công",
-          description: "Đã xuất báo cáo thống kê tổng quan ra file CSV (có thể mở bằng Excel)",
-          variant: "default",
-        })
-      } else {
-        throw new Error('Export failed')
-      }
-    } catch (error) {
-      console.error('Export error:', error)
-      toast({
-        title: "Lỗi xuất báo cáo",
-        description: "Có lỗi xảy ra khi xuất báo cáo. Vui lòng thử lại.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleRefresh = () => {
-    loadData()
-  }
-
-  if (loading) {
+  if (!scopeLoading && !selectedSiteId) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-              <RefreshCw className="h-8 w-8 text-blue-600 animate-spin" />
-            </div>
-            <p className="text-blue-600 font-medium">Đang tải dữ liệu thống kê...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
-              <span className="text-red-600 text-2xl">⚠️</span>
-            </div>
+        <Card className="mx-auto max-w-xl">
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <ParkingSquare className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
             <div>
-              <p className="text-red-600 font-medium">{error}</p>
-              <button 
-                onClick={() => loadData()}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
-              >
-                Thử lại
-              </button>
+              <h1 className="text-xl font-semibold">Chưa có khu vực để thống kê</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Tạo hoặc yêu cầu quyền truy cập một khu vực trước khi xem số liệu vận hành.
+              </p>
             </div>
-          </div>
-        </div>
+            {scopeError && (
+              <Button variant="outline" onClick={retry}>
+                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                Thử tải lại
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  // Calculate overall system stats with safety checks
-  const safeEmployees = employees || []
-  const safeUsers = users || []
-  const safeDepartments = departments || []
-  const safePositions = positions || []
-  
-  const totalSystemUsers = safeEmployees.length + safeUsers.length
-  const totalSystemEntities = safeEmployees.length + safeUsers.length + (vehicleStatistics?.totalVehicles || 0) + safeDepartments.length + safePositions.length
+  const trafficValue = (value: number | undefined) =>
+    analyticsAvailable && value !== undefined ? value.toLocaleString("vi-VN") : "—"
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="space-y-6 p-6">
+      <header className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Thống kê tổng quan hệ thống</h1>
-          <p className="text-muted-foreground">Tổng quan toàn bộ dữ liệu và hoạt động trong hệ thống</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold text-foreground">Thống kê vận hành</h1>
+            <Badge variant="outline">{realtime === "live" ? "Realtime" : "Đang đồng bộ"}</Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {selectedSite?.name || "Khu vực đang chọn"}
+            {selectedZone ? ` · ${selectedZone.name}` : " · Tất cả zone"}
+          </p>
+          {lastUpdatedAt && (
+            <time className="mt-1 block text-xs text-muted-foreground" dateTime={lastUpdatedAt}>
+              Cập nhật lúc {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
+            </time>
+          )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadData} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </Button>
-          <Button onClick={() => setIsExportDialogOpen(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            Xuất báo cáo
-          </Button>
+        <Button variant="outline" onClick={() => void refresh()} disabled={loading || !selectedSiteId}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+          Làm mới
+        </Button>
+      </header>
+
+      {partialError && (
+        <div
+          className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4"
+          role="status"
+        >
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-medium">Một số số liệu chưa thể cập nhật</p>
+            <p className="mt-1 text-xs text-muted-foreground">{partialError}</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* System Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng thực thể</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalSystemEntities.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Tất cả dữ liệu trong hệ thống
-            </p>
-          </CardContent>
-        </Card>
+      <section aria-labelledby="occupancy-statistics" className="space-y-3">
+        <div>
+          <h2 id="occupancy-statistics" className="text-lg font-semibold">Công suất hiện tại</h2>
+          <p className="text-sm text-muted-foreground">
+            {selectedZone ? "Số liệu ô đỗ theo zone đang chọn." : "Số liệu ô đỗ trên toàn site đang chọn."}
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Xe đang trong bãi"
+            value={metrics.currentVehicles.toLocaleString("vi-VN")}
+            description={`${metrics.occupiedSlots} ô đang có xe`}
+            icon={CarFront}
+            loading={loading}
+          />
+          <MetricCard
+            label="Tỷ lệ lấp đầy"
+            value={`${(metrics.fillRate * 100).toFixed(1)}%`}
+            description={`${metrics.occupiedSlots}/${metrics.usableSlots} ô khả dụng đang được sử dụng`}
+            icon={Gauge}
+            loading={loading}
+          />
+          <MetricCard
+            label="Ô còn trống"
+            value={metrics.availableSlots.toLocaleString("vi-VN")}
+            description={`${metrics.reservedSlots} ô đặt trước · ${metrics.unknownSlots} chưa xác định`}
+            icon={ParkingSquare}
+            loading={loading}
+          />
+          <MetricCard
+            label="Tổng công suất"
+            value={metrics.usableSlots.toLocaleString("vi-VN")}
+            description={`${metrics.totalSlots} ô cấu hình · ${metrics.disabledSlots} ô tạm ngưng`}
+            icon={ParkingSquare}
+            loading={loading}
+          />
+        </div>
+      </section>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng người dùng</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalSystemUsers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              {safeEmployees.length} quân nhân + {safeUsers.length} tài khoản
-            </p>
-          </CardContent>
-        </Card>
+      <section aria-labelledby="traffic-statistics" className="space-y-3">
+        <div>
+          <h2 id="traffic-statistics" className="text-lg font-semibold">Lưu lượng hôm nay</h2>
+          <p className="text-sm text-muted-foreground">
+            Số liệu ra/vào trên toàn site {selectedSite?.name || "đang chọn"}, không bị giới hạn bởi zone.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <MetricCard
+            label="Lượt vào"
+            value={trafficValue(analytics?.entries)}
+            description="Số lượt xe qua cổng vào hôm nay"
+            icon={ArrowDownToLine}
+            loading={loading}
+          />
+          <MetricCard
+            label="Lượt ra"
+            value={trafficValue(analytics?.exits)}
+            description="Số lượt xe qua cổng ra hôm nay"
+            icon={ArrowUpFromLine}
+            loading={loading}
+          />
+          <MetricCard
+            label="Xe duy nhất"
+            value={trafficValue(analytics?.uniqueVehicles)}
+            description="Biển số khác nhau được ghi nhận hôm nay"
+            icon={CarFront}
+            loading={loading}
+          />
+        </div>
+      </section>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng phương tiện</CardTitle>
-            <Car className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {vehicleStatistics?.totalVehicles?.toLocaleString() || '0'}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Phương tiện được quản lý
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cơ cấu tổ chức</CardTitle>
-            <Building2 className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {(safeDepartments.length + safePositions.length).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {safeDepartments.length} đơn vị + {safePositions.length} chức vụ
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-          <TabsTrigger value="employees">Quân nhân</TabsTrigger>
-          <TabsTrigger value="users">Người dùng</TabsTrigger>
-          <TabsTrigger value="positions">Chức vụ</TabsTrigger>
-          <TabsTrigger value="vehicles">Phương tiện</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* System Health Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Tình trạng hệ thống
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Quân nhân hoạt động</span>
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    {safeEmployees.filter(e => e.status === 'HOAT_DONG').length} / {safeEmployees.length}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Người dùng hoạt động</span>
-                  <Badge variant="default" className="bg-blue-100 text-blue-800">
-                    {userStatistics?.activeUsers || 0} / {userStatistics?.totalUsers || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Phương tiện được duyệt</span>
-                  <Badge variant="default" className="bg-purple-100 text-purple-800">
-                    {vehicleStatistics?.activeVehicles || 0} / {vehicleStatistics?.totalVehicles || 0}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Chức vụ hoạt động</span>
-                  <Badge variant="default" className="bg-orange-100 text-orange-800">
-                    {positionStatistics?.activePositions || 0} / {positionStatistics?.totalPositions || 0}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Access Metrics */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Phân quyền & Bảo mật
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Quản trị viên</span>
-                  <Badge variant="destructive">
-                    {safeEmployees.filter(e => e.accessLevel === 'admin').length + (userStatistics?.adminUsers || 0)}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Quyền hạn chế</span>
-                  <Badge variant="secondary">
-                    {safeEmployees.filter(e => e.accessLevel === 'restricted').length}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Quyền cơ bản</span>
-                  <Badge variant="outline">
-                    {safeEmployees.filter(e => e.accessLevel === 'general').length + (userStatistics?.regularUsers || 0)}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Tài khoản bị khóa</span>
-                  <Badge variant="destructive">
-                    {userStatistics?.lockedUsers || 0}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Time-based Statistics */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Hoạt động hôm nay</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Quân nhân mới</span>
-                    <span className="text-sm font-medium">
-                      {safeEmployees.filter(e => {
-                        const today = new Date().toDateString()
-                        return new Date(e.createdAt).toDateString() === today
-                      }).length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Phương tiện mới</span>
-                    <span className="text-sm font-medium">
-                      {vehicleStatistics?.dailyStats?.[0]?.totalRequests || 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Ra/vào hôm nay</span>
-                    <span className="text-sm font-medium">
-                      {(vehicleStatistics?.dailyStats?.[0]?.entryCount || 0) + (vehicleStatistics?.dailyStats?.[0]?.exitCount || 0)}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Tuần này</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Quân nhân mới</span>
-                    <span className="text-sm font-medium">
-                      {safeEmployees.filter(e => {
-                        const weekAgo = new Date()
-                        weekAgo.setDate(weekAgo.getDate() - 7)
-                        return new Date(e.createdAt) >= weekAgo
-                      }).length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Yêu cầu xe</span>
-                    <span className="text-sm font-medium">
-                      {vehicleStatistics?.weeklyStats?.[0]?.totalRequests || 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Trung bình/ngày</span>
-                    <span className="text-sm font-medium">
-                      {vehicleStatistics?.weeklyStats?.[0]?.averageDailyRequests?.toFixed(1) || '0'}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Tháng này</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Quân nhân mới</span>
-                    <span className="text-sm font-medium">
-                      {safeEmployees.filter(e => {
-                        const monthAgo = new Date()
-                        monthAgo.setMonth(monthAgo.getMonth() - 1)
-                        return new Date(e.createdAt) >= monthAgo
-                      }).length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Xe ra/vào</span>
-                    <span className="text-sm font-medium">
-                      {(vehicleStatistics?.monthlyStats?.[0]?.entryCount || 0) + (vehicleStatistics?.monthlyStats?.[0]?.exitCount || 0)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Ngày cao điểm</span>
-                    <span className="text-sm font-medium">
-                      {vehicleStatistics?.monthlyStats?.[0]?.peakDay?.requestCount || 0}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Department & Position Summary */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Top 5 Đơn vị theo số lượng</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {safeDepartments
-                    .map(dept => ({
-                      name: dept.name,
-                      count: safeEmployees.filter(e => e.department === dept.name).length
-                    }))
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 5)
-                    .map((dept, index) => (
-                      <div key={dept.name} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium w-4">{index + 1}.</span>
-                          <span className="text-sm">{dept.name}</span>
-                        </div>
-                        <Badge variant="secondary">{dept.count}</Badge>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Phương tiện theo loại</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {vehicleStatistics?.vehicleTypeStats && Object.entries(vehicleStatistics.vehicleTypeStats).map(([type, count]) => (
-                    <div key={type} className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        {type === 'car' ? 'Ô tô' : 
-                         type === 'motorbike' ? 'Xe máy' : 
-                         type === 'truck' ? 'Xe tải' : 
-                         type === 'bus' ? 'Xe buýt' : type}
-                      </span>
-                      <Badge variant="outline">{count}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="employees" className="space-y-6">
-          <StatisticsDashboard employees={safeEmployees} departments={safeDepartments} />
-        </TabsContent>
-
-        <TabsContent value="users" className="space-y-6">
-          {userStatistics ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tổng tài khoản</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{userStatistics.totalUsers}</div>
-                    <p className="text-xs text-muted-foreground">Tất cả tài khoản</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Đang hoạt động</CardTitle>
-                    <UserCheck className="h-4 w-4 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-600">{userStatistics.activeUsers}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {((userStatistics.activeUsers / userStatistics.totalUsers) * 100).toFixed(1)}% tổng số
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Quản trị viên</CardTitle>
-                    <Shield className="h-4 w-4 text-red-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-red-600">{userStatistics.adminUsers}</div>
-                    <p className="text-xs text-muted-foreground">Quyền cao nhất</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Bị khóa</CardTitle>
-                    <Shield className="h-4 w-4 text-orange-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-orange-600">{userStatistics.lockedUsers}</div>
-                    <p className="text-xs text-muted-foreground">Tài khoản bị khóa</p>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Phân bố theo vai trò</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {userStatistics?.usersByRole && Object.entries(userStatistics.usersByRole).map(([role, count]) => (
-                        <div key={role} className="flex items-center justify-between">
-                          <span className="text-sm font-medium">{role === 'ADMIN' ? 'Quản trị viên' : 'Người dùng'}</span>
-                          <Badge variant="secondary">{count}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Phân bố theo trạng thái</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {userStatistics?.usersByStatus && Object.entries(userStatistics.usersByStatus).map(([status, count]) => (
-                        <div key={status} className="flex items-center justify-between">
-                          <span className="text-sm font-medium">
-                            {status === 'ACTIVE' ? 'Hoạt động' : 
-                             status === 'INACTIVE' ? 'Không hoạt động' : 
-                             status === 'LOCKED' ? 'Bị khóa' : 'Tạm ngừng'}
-                          </span>
-                          <Badge variant={status === 'ACTIVE' ? 'default' : status === 'LOCKED' ? 'destructive' : 'secondary'}>
-                            {count}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <p className="text-muted-foreground">Không thể tải thống kê người dùng</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="positions" className="space-y-6">
-          {positionStatistics ? (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Tổng chức vụ</CardTitle>
-                    <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{positionStatistics.totalPositions}</div>
-                    <p className="text-xs text-muted-foreground">Tất cả chức vụ</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Đang hoạt động</CardTitle>
-                    <UserCheck className="h-4 w-4 text-green-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-600">{positionStatistics.activePositions}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {((positionStatistics.activePositions / positionStatistics.totalPositions) * 100).toFixed(1)}% tổng số
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Chức vụ gốc</CardTitle>
-                    <Building className="h-4 w-4 text-blue-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-blue-600">{positionStatistics.rootPositions}</div>
-                    <p className="text-xs text-muted-foreground">Cấp cao nhất</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Không hoạt động</CardTitle>
-                    <Building className="h-4 w-4 text-red-600" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-red-600">{positionStatistics.inactivePositions}</div>
-                    <p className="text-xs text-muted-foreground">Tạm ngừng</p>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Phân bố theo cấp bậc</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {positionStatistics?.positionsByLevel && Object.entries(positionStatistics.positionsByLevel).map(([level, count]) => (
-                      <div key={level} className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{level}</span>
-                        <Badge variant="secondary">{count}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <p className="text-muted-foreground">Không thể tải thống kê chức vụ</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="vehicles" className="space-y-6">
-          {vehicleStatistics && (
-            <VehicleStatisticsDashboard statistics={vehicleStatistics} />
-          )}
-        </TabsContent>
-      </Tabs>
-
-      <ExportDialog isOpen={isExportDialogOpen} onClose={() => setIsExportDialogOpen(false)} onExport={handleExport} />
+      <section aria-labelledby="system-statistics" className="space-y-3">
+        <div>
+          <h2 id="system-statistics" className="text-lg font-semibold">Thiết bị và thời gian đỗ</h2>
+          <p className="text-sm text-muted-foreground">
+            Camera theo scope đang chọn; dwell tính trên các lượt đỗ hoàn tất trong 7 ngày gần nhất của site.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <MetricCard
+            label="Camera trực tuyến"
+            value={`${onlineCameras}/${cameras.length}`}
+            description="Camera online trên tổng camera trong scope"
+            icon={Video}
+            loading={loading}
+          />
+          <MetricCard
+            label="Thời gian đỗ trung bình"
+            value={
+              analyticsAvailable
+                ? analytics.completedDwellSessions
+                  ? formatDuration(analytics.averageDwellSeconds)
+                  : "Chưa đủ dữ liệu"
+                : "—"
+            }
+            description={
+              analyticsAvailable
+                ? `${analytics.completedDwellSessions} lượt đỗ hoàn tất trong mẫu`
+                : "Không thể tải dữ liệu dwell"
+            }
+            icon={Clock3}
+            loading={loading}
+          />
+        </div>
+      </section>
     </div>
   )
 }

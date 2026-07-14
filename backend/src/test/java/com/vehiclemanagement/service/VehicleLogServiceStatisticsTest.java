@@ -5,6 +5,7 @@ import com.vehiclemanagement.entity.VehicleLog;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleLogRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.security.SiteAccess;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -12,13 +13,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,6 +38,9 @@ class VehicleLogServiceStatisticsTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private SiteAccess siteAccess;
 
     @InjectMocks
     private VehicleLogService vehicleLogService;
@@ -48,6 +57,7 @@ class VehicleLogServiceStatisticsTest {
                 buildLog("51A-00005", VehicleLog.LogType.exit, today.atTime(12, 0))
         );
 
+        when(siteAccess.isRestricted()).thenReturn(false);
         when(vehicleLogRepository.findByEntryExitTimeBetween(any(), any(), any()))
                 .thenReturn(new PageImpl<>(logs, PageRequest.of(0, 100_000), logs.size()));
 
@@ -99,6 +109,63 @@ class VehicleLogServiceStatisticsTest {
         assertEquals(today, monthStats.getPeakDay().getDate());
         // Peak day has the most requests among the days with logs
         assertTrue(monthStats.getPeakDay().getRequestCount() >= 1);
+    }
+
+    @Test
+    void getLogBasedStatistics_restrictedUserFetchesOnlyAssignedSites() {
+        LocalDate today = LocalDate.now();
+        UUID assignedSite = UUID.randomUUID();
+        List<VehicleLog> logs = List.of(
+                buildLog("51A-00001", VehicleLog.LogType.entry, today.atTime(8, 0)),
+                buildLog("51A-00002", VehicleLog.LogType.exit, today.atTime(9, 0)));
+
+        when(siteAccess.isRestricted()).thenReturn(true);
+        when(siteAccess.allowedSiteIds()).thenReturn(List.of(assignedSite));
+        when(vehicleLogRepository.findBySiteIdInAndEntryExitTimeBetween(
+                eq(List.of(assignedSite)), any(LocalDateTime.class), any(LocalDateTime.class),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(logs, PageRequest.of(0, 100_000), logs.size()));
+
+        VehicleLogService.LogBasedStatistics stats = vehicleLogService.getLogBasedStatistics();
+        VehicleStatisticsDto.VehicleDailyStatsDto todayStats = stats.getDailyStats().stream()
+                .filter(row -> row.getDate().equals(today))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(1, todayStats.getEntryCount());
+        assertEquals(1, todayStats.getExitCount());
+    }
+
+    @Test
+    void getLogBasedStatistics_emptyAssignmentsReturnZeroWithoutQuery() {
+        when(siteAccess.isRestricted()).thenReturn(true);
+        when(siteAccess.allowedSiteIds()).thenReturn(List.of());
+
+        VehicleLogService.LogBasedStatistics stats = vehicleLogService.getLogBasedStatistics();
+
+        assertTrue(stats.getDailyStats().stream().allMatch(row -> row.getTotalRequests() == 0));
+        assertTrue(stats.getWeeklyStats().stream().allMatch(row -> row.getTotalRequests() == 0));
+        assertTrue(stats.getMonthlyStats().stream().allMatch(row -> row.getTotalRequests() == 0));
+        verifyNoInteractions(vehicleLogRepository);
+    }
+
+    @Test
+    void getTodayStatistics_explicitSiteIsAuthorizedAndScoped() {
+        UUID siteId = UUID.randomUUID();
+        LocalDate today = LocalDate.now();
+        when(vehicleLogRepository.countByTypeAndDateAndSiteIdIn(
+                VehicleLog.LogType.entry, today, List.of(siteId))).thenReturn(4L);
+        when(vehicleLogRepository.countByTypeAndDateAndSiteIdIn(
+                VehicleLog.LogType.exit, today, List.of(siteId))).thenReturn(3L);
+        when(vehicleLogRepository.countDistinctVehiclesByDateAndSiteIdIn(today, List.of(siteId)))
+                .thenReturn(5L);
+
+        var result = vehicleLogService.getTodayStatistics(siteId);
+
+        assertEquals(4, result.entryCount());
+        assertEquals(3, result.exitCount());
+        assertEquals(5, result.uniqueVehicles());
+        verify(siteAccess).assertSiteAllowed(siteId);
     }
 
     private boolean weekContains(VehicleStatisticsDto.VehicleWeeklyStatsDto w, LocalDate date) {
