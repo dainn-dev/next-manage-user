@@ -45,7 +45,8 @@ public abstract class AbstractPostgresIntegrationTest {
 
     @SuppressWarnings("resource") // Shared for the JVM; Ryuk removes it at exit.
     static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>(DockerImageName.parse("postgres:15-alpine"))
+            new PostgreSQLContainer<>(DockerImageName.parse("postgis/postgis:15-3.4-alpine")
+                    .asCompatibleSubstituteFor("postgres"))
                     .withDatabaseName("vehicle_management_test")
                     .withUsername("test")
                     .withPassword("test");
