@@ -1,6 +1,7 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.config.ObjectStorageProperties;
+import com.vehiclemanagement.config.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,9 @@ import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.util.UUID;
 
@@ -21,11 +25,40 @@ public class ObjectStorageService {
 
     private final S3Client s3Client;
     private final ObjectStorageProperties properties;
+    private final S3Presigner s3Presigner;
     private volatile boolean bucketReady;
 
-    public ObjectStorageService(S3Client s3Client, ObjectStorageProperties properties) {
+    public ObjectStorageService(S3Client s3Client, S3Presigner s3Presigner, ObjectStorageProperties properties) {
         this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
         this.properties = properties;
+    }
+
+    /** Resolves a stored reference without ever exposing another tenant's object key. */
+    public String resolveReadUrl(String reference) {
+        if (reference == null || reference.isBlank()) {
+            return null;
+        }
+        String value = reference.trim();
+        if (value.startsWith("/uploads/") && !value.startsWith("//")) {
+            return value;
+        }
+        if (value.startsWith("http://") || value.startsWith("https://")) {
+            return value;
+        }
+        UUID tenantId = TenantContext.getTenantId();
+        String tenantPrefix = tenantId == null ? null : "tenants/" + tenantId + "/";
+        if (tenantPrefix == null || !value.startsWith(tenantPrefix)) {
+            log.warn("Rejected snapshot reference outside current tenant scope");
+            return null;
+        }
+        GetObjectRequest get = GetObjectRequest.builder()
+                .bucket(properties.getBucket()).key(value).build();
+        return s3Presigner.presignGetObject(GetObjectPresignRequest.builder()
+                        .signatureDuration(properties.getReadUrlTtl())
+                        .getObjectRequest(get)
+                        .build())
+                .url().toExternalForm();
     }
 
     /**

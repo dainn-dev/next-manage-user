@@ -1,5 +1,5 @@
 /**
- * Client-side preferred site for SITE_MANAGER UX filtering.
+ * Client-side preferred site for site-scoped operator UX filtering.
  * API still returns the union of JWT site_ids; this narrows lists in the UI.
  */
 

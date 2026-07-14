@@ -1,6 +1,7 @@
 package com.vehiclemanagement.service;
 
 import com.vehiclemanagement.dto.VehicleDto;
+import com.vehiclemanagement.dto.PlateSearchResultDto;
 import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleStatisticsDto;
@@ -18,6 +19,7 @@ import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.repository.PlateSearchReadRepository;
 // import com.vehiclemanagement.repository.EntryExitRequestRepository; // Removed
 import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +51,9 @@ public class VehicleService {
     
     @Autowired
     private VehicleRepository vehicleRepository;
+
+    @Autowired
+    private PlateSearchReadRepository plateSearchReadRepository;
     
     @Autowired
     private UserRepository userRepository;
@@ -196,6 +201,18 @@ public class VehicleService {
             return pageMemberVehicles(filterMemberSearch(memberOwnVehicles(), searchTerm), pageable);
         }
         return filterPage(vehicleRepository.findBySearchTerm(searchTerm, pageable), pageable);
+    }
+
+    public List<PlateSearchResultDto> searchPlateAtSite(String plate, UUID siteId, int limit) {
+        if (siteId == null) {
+            throw new IllegalArgumentException("siteId is required");
+        }
+        String normalized = normalizePlate(plate);
+        if (normalized.length() < 2) {
+            throw new IllegalArgumentException("Plate query must contain at least 2 letters or digits");
+        }
+        siteAccess.assertSiteAllowed(siteId);
+        return plateSearchReadRepository.search(siteId, normalized, Math.min(Math.max(limit, 1), 50));
     }
     
     public Page<VehicleDto> searchVehiclesByType(Vehicle.VehicleType vehicleType, String searchTerm, Pageable pageable) {
@@ -818,7 +835,7 @@ public class VehicleService {
         if (plate == null) {
             return "";
         }
-        return plate.toUpperCase(Locale.ROOT).replace("-", "").replace(".", "").replace(" ", "").replace("_", "");
+        return plate.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "");
     }
 
     private static boolean isMemberPrincipal() {

@@ -136,6 +136,7 @@ public class User implements UserDetails {
         PLATFORM_ADMIN,
         TENANT_ADMIN,
         SITE_MANAGER,
+        SECURITY_GUARD,
         MEMBER
     }
     

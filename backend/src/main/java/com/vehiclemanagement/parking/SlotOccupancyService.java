@@ -12,9 +12,12 @@ import java.util.UUID;
 public class SlotOccupancyService {
     private final SlotOccupancyRepository repository;
     private final RelocationEventStore relocationEventStore;
-    public SlotOccupancyService(SlotOccupancyRepository repository, RelocationEventStore relocationEventStore) {
+    private final DashboardRealtimePublisher realtimePublisher;
+    public SlotOccupancyService(SlotOccupancyRepository repository, RelocationEventStore relocationEventStore,
+                                DashboardRealtimePublisher realtimePublisher) {
         this.repository = repository;
         this.relocationEventStore = relocationEventStore;
+        this.realtimePublisher = realtimePublisher;
     }
     @Transactional
     public SlotOccupancyView process(SlotOccupancyObservation event) {
@@ -40,18 +43,26 @@ public class SlotOccupancyService {
                         event.plate() == null || event.plate().isBlank() ? oldOccupancy.plate() : event.plate(),
                         event.occurredAt(), event.snapshotReference());
                 relocationEventStore.append(oldOccupancy, event);
-                return repository.lockTransitionSlots(event.slotId(), event.siteId(), event.trackId()).getFirst();
+                SlotOccupancyView relocated = current(event.siteId(), event.zoneId(), event.slotId());
+                SlotOccupancyView freed = current(event.siteId(), oldOccupancy.zoneId(), oldOccupancy.slotId());
+                realtimePublisher.publishAfterCommit(freed, event.occurredAt());
+                realtimePublisher.publishAfterCommit(relocated, event.occurredAt());
+                return relocated;
             }
             if (current == null || "free".equals(current.status()) || (currentTrack && newer)) {
                 repository.occupy(event.slotId(), event.siteId(), event.zoneId(), event.trackId(), event.plate(),
                         event.occurredAt(), event.snapshotReference());
-                return repository.lockTransitionSlots(event.slotId(), event.siteId(), event.trackId()).getFirst();
+                SlotOccupancyView occupied = current(event.siteId(), event.zoneId(), event.slotId());
+                realtimePublisher.publishAfterCommit(occupied, event.occurredAt());
+                return occupied;
             }
             return current;
         }
         if (currentTrack && newer) {
             repository.free(event.slotId());
-            return repository.lockTransitionSlots(event.slotId(), event.siteId(), event.trackId()).getFirst();
+            SlotOccupancyView freed = current(event.siteId(), event.zoneId(), event.slotId());
+            realtimePublisher.publishAfterCommit(freed, event.occurredAt());
+            return freed;
         }
         return current;
     }
@@ -60,5 +71,12 @@ public class SlotOccupancyService {
     @Transactional(readOnly = true)
     public Optional<SlotOccupancyView> findOccupiedByTrack(UUID siteId, String trackId) {
         return repository.findOccupiedByTrack(siteId, trackId);
+    }
+
+    private SlotOccupancyView current(UUID siteId, UUID zoneId, UUID slotId) {
+        return repository.list(siteId, zoneId).stream()
+                .filter(slot -> slot.slotId().equals(slotId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Updated slot occupancy is missing"));
     }
 }

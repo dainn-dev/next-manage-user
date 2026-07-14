@@ -26,6 +26,9 @@ function toApiRole(role?: UserRole | string): string | undefined {
     case UserRole.SITE_MANAGER:
     case 'SITE_MANAGER':
       return 'SITE_MANAGER'
+    case UserRole.SECURITY_GUARD:
+    case 'SECURITY_GUARD':
+      return 'SECURITY_GUARD'
     case UserRole.USER:
     case 'USER':
     case 'MEMBER':
@@ -39,7 +42,16 @@ function toUiRole(role?: string): UserRole {
   if (role === 'PLATFORM_ADMIN') return UserRole.PLATFORM_ADMIN
   if (role === 'TENANT_ADMIN' || role === 'ADMIN') return UserRole.ADMIN
   if (role === 'SITE_MANAGER') return UserRole.SITE_MANAGER
+  if (role === 'SECURITY_GUARD') return UserRole.SECURITY_GUARD
   return UserRole.USER
+}
+
+function normalizeUser(user: User): User {
+  return { ...user, role: toUiRole(user.role as unknown as string) }
+}
+
+function normalizePage(page: PaginatedResponse<User>): PaginatedResponse<User> {
+  return { ...page, content: page.content.map(normalizeUser) }
 }
 
 interface PaginatedResponse<T> {
@@ -140,17 +152,17 @@ class UserApi {
       sortDir
     })
 
-    return this.request<PaginatedResponse<User>>(`/admin/users?${params}`)
+    return normalizePage(await this.request<PaginatedResponse<User>>(`/admin/users?${params}`))
   }
 
   // Get all users as list (no pagination)
   async getAllUsersList(): Promise<User[]> {
-    return this.request<User[]>('/admin/users/list')
+    return (await this.request<User[]>('/admin/users/list')).map(normalizeUser)
   }
 
   // Get user by ID
   async getUserById(id: string): Promise<User> {
-    return this.request<User>(`/admin/users/${id}`)
+    return normalizeUser(await this.request<User>(`/admin/users/${id}`))
   }
 
   // Get user by username
@@ -165,7 +177,7 @@ class UserApi {
       throw new Error(errorData.message || 'Failed to fetch user')
     }
 
-    return response.json()
+    return normalizeUser(await response.json())
   }
 
   // Search users
@@ -184,7 +196,7 @@ class UserApi {
       sortDir
     })
 
-    return this.request<PaginatedResponse<User>>(`/admin/users/search?${params}`)
+    return normalizePage(await this.request<PaginatedResponse<User>>(`/admin/users/search?${params}`))
   }
 
   // Get users by role
@@ -202,7 +214,7 @@ class UserApi {
       sortDir
     })
 
-    return this.request<PaginatedResponse<User>>(`/admin/users/role/${toApiRole(role)}?${params}`)
+    return normalizePage(await this.request<PaginatedResponse<User>>(`/admin/users/role/${toApiRole(role)}?${params}`))
   }
 
   // Get users by status
@@ -220,7 +232,7 @@ class UserApi {
       sortDir
     })
 
-    return this.request<PaginatedResponse<User>>(`/admin/users/status/${status}?${params}`)
+    return normalizePage(await this.request<PaginatedResponse<User>>(`/admin/users/status/${status}?${params}`))
   }
 
   // Create user

@@ -71,6 +71,8 @@ export function UserTable({
         return "default"
       case UserRole.SITE_MANAGER:
         return "outline"
+      case UserRole.SECURITY_GUARD:
+        return "secondary"
       case UserRole.USER:
         return "secondary"
       default:
@@ -84,6 +86,8 @@ export function UserTable({
         return "Quản trị viên"
       case UserRole.SITE_MANAGER:
         return "Site manager"
+      case UserRole.SECURITY_GUARD:
+        return "Security guard"
       case UserRole.USER:
         return "Người dùng"
       default:

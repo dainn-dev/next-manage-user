@@ -5,6 +5,8 @@ import { ToasterWrapper } from "@/components/ui/toaster-wrapper"
 import { AuthProvider } from "@/lib/auth-context"
 import { ProtectedLayout } from "@/components/layout/protected-layout"
 import { ThemeProvider } from "@/components/theme-provider"
+import { DashboardScopeProvider } from "@/lib/dashboard-scope-context"
+import { DashboardDataProvider } from "@/lib/dashboard-data-context"
 
 const firaSans = Fira_Sans({
   variable: "--font-fira-sans",
@@ -28,9 +30,11 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <ProtectedLayout>
-              {children}
-            </ProtectedLayout>
+            <DashboardScopeProvider>
+              <DashboardDataProvider>
+                <ProtectedLayout>{children}</ProtectedLayout>
+              </DashboardDataProvider>
+            </DashboardScopeProvider>
           </AuthProvider>
           <ToasterWrapper />
         </ThemeProvider>

@@ -23,7 +23,7 @@ public class SiteAccess {
     }
 
     public boolean isRestricted() {
-        return currentUserIsSiteManager() || SiteContext.isRestricted();
+        return currentUserIsSiteScoped() || SiteContext.isRestricted();
     }
 
     public boolean isSiteAllowed(UUID siteId) {
@@ -48,11 +48,12 @@ public class SiteAccess {
         }
     }
 
-    public static boolean currentUserIsSiteManager() {
+    public static boolean currentUserIsSiteScoped() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof User user)) {
             return false;
         }
-        return user.getRole() == User.Role.SITE_MANAGER;
+        return user.getRole() == User.Role.SITE_MANAGER
+                || user.getRole() == User.Role.SECURITY_GUARD;
     }
 }

@@ -31,7 +31,7 @@ public class SiteController {
 
     @GetMapping
     @Operation(summary = "List sites visible to the caller")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved sites")
     public ResponseEntity<List<SiteDto>> list() {
         return ResponseEntity.ok(siteService.list());
@@ -39,7 +39,7 @@ public class SiteController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get site by ID")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved site"),
         @ApiResponse(responseCode = "404", description = "Site not found")

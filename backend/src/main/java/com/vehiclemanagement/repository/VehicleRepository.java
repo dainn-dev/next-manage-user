@@ -39,6 +39,7 @@ public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
            "LOWER(COALESCE(v.owner.firstName, '')) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
            "LOWER(COALESCE(v.owner.lastName, '')) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     Page<Vehicle> findBySearchTerm(@Param("searchTerm") String searchTerm, Pageable pageable);
+
     
     @Query("SELECT v FROM Vehicle v WHERE " +
            "v.vehicleType = :vehicleType AND " +

@@ -5,6 +5,7 @@ import com.vehiclemanagement.dto.VehicleCreateResponse;
 import com.vehiclemanagement.dto.VehicleCheckRequest;
 import com.vehiclemanagement.dto.VehicleCheckResponse;
 import com.vehiclemanagement.dto.VehicleImportResult;
+import com.vehiclemanagement.dto.PlateSearchResultDto;
 import com.vehiclemanagement.config.EdgeTenantResolver;
 import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.entity.Vehicle;
@@ -124,6 +125,18 @@ public class VehicleController {
         
         Page<VehicleDto> vehicles = vehicleService.searchVehicles(searchTerm, pageable);
         return ResponseEntity.ok(vehicles);
+    }
+
+    @GetMapping("/plate-search")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
+    @Operation(summary = "Search plates inside one authorized site",
+            description = "Normalizes punctuation and performs the site predicate in the database.")
+    public ResponseEntity<List<PlateSearchResultDto>> searchPlateAtSite(
+            @RequestParam UUID siteId,
+            @RequestParam String plate,
+            @RequestParam(defaultValue = "20") int size) {
+        int safeSize = Math.min(Math.max(size, 1), 50);
+        return ResponseEntity.ok(vehicleService.searchPlateAtSite(plate, siteId, safeSize));
     }
     
     @GetMapping("/search/type/{vehicleType}")

@@ -7,6 +7,7 @@ import { Topbar } from "./topbar"
 import { useAuth } from "@/lib/auth-context"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { isPlatformAdmin, isMember } from "@/lib/types"
+import { canAccessOperatorRoute, operatorLandingPath } from "@/lib/dashboard-access"
 
 /** Routes that render without auth or app chrome (sidebar/topbar). */
 const PUBLIC_PATHS = new Set(["/", "/login", "/register", "/forgot-password", "/reset-password"])
@@ -47,6 +48,12 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const publicRoute = isPublicPath(pathname)
   const platformUser = isPlatformAdmin(user?.role)
   const memberUser = isMember(user?.role)
+  const tenantOpsRoute = isTenantOpsPath(pathname)
+  const wrongShell = !!user && tenantOpsRoute && (
+    platformUser
+    || memberUser
+    || (!canAccessOperatorRoute(user.role, pathname))
+  )
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !publicRoute) {
@@ -63,6 +70,11 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     // MEMBER uses /me/* consumer shell only.
     if (memberUser && isTenantOpsPath(pathname)) {
       router.replace("/me")
+      return
+    }
+    if (!platformUser && !memberUser && isTenantOpsPath(pathname)
+        && !canAccessOperatorRoute(user?.role, pathname)) {
+      router.replace(operatorLandingPath(user?.role))
     }
   }, [isAuthenticated, isLoading, publicRoute, router, platformUser, memberUser, pathname])
 
@@ -87,6 +99,20 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
   // The redirect to login will happen via useEffect
   if (!isAuthenticated) {
     return null
+  }
+
+  // Do not paint protected content while a role-based redirect is pending.
+  // API authorization remains authoritative, but this prevents a one-frame
+  // disclosure/flash of a tenant view in the wrong shell.
+  if (wrongShell) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+          <p className="text-muted-foreground">Đang chuyển đến khu vực được phép...</p>
+        </div>
+      </div>
+    )
   }
 
   // Per-gate kiosk (/gate/<id>) runs full-screen without the admin sidebar so it

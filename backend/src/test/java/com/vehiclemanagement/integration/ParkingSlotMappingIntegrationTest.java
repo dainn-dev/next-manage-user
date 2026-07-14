@@ -13,6 +13,9 @@ import com.vehiclemanagement.parking.SlotOccupancyObservation;
 import com.vehiclemanagement.parking.SlotOccupancyService;
 import com.vehiclemanagement.parking.SlotOccupancyTransition;
 import com.vehiclemanagement.parking.SlotOccupancyView;
+import com.vehiclemanagement.repository.PlateSearchReadRepository;
+import com.vehiclemanagement.repository.EventTimelineReadRepository;
+import com.vehiclemanagement.repository.AverageDwellReadRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +50,15 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
 
     @Autowired
     SlotOccupancyService occupancyService;
+
+    @Autowired
+    PlateSearchReadRepository plateSearchReadRepository;
+
+    @Autowired
+    EventTimelineReadRepository eventTimelineReadRepository;
+
+    @Autowired
+    AverageDwellReadRepository averageDwellReadRepository;
 
     private UUID siteId;
     private UUID zoneOneId;
@@ -153,7 +165,7 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
                                 new ParkingMapPoint(25, 22), new ParkingMapPoint(23, 22)))));
 
         assertThat(saved).extracting(ParkingSlotView::id).containsExactly(slotA, slotB);
-        assertThat(saved.getFirst().polygon()).hasSize(4);
+        assertThat(saved.get(0).polygon()).hasSize(4);
         assertThat(parkingMapService.list(siteId)).isEqualTo(saved);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM site_map_version WHERE site_id = ? AND status = 'published'",
                 Integer.class, siteId)).isEqualTo(1);
@@ -231,6 +243,110 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
                 .containsExactly(
                         java.util.Map.of("kind", "relocation_new", "snapshot_reference", "new-frame-key"),
                         java.util.Map.of("kind", "relocation_old", "snapshot_reference", "old-frame-key"));
+    }
+
+    @Test
+    void plateReadModelReturnsCurrentSlotThenDurableLastSeenAfterExit() {
+        OffsetDateTime enteredAt = OffsetDateTime.parse("2026-07-14T01:00:00Z");
+        OffsetDateTime exitedAt = enteredAt.plusMinutes(20);
+        jdbc.update("""
+                INSERT INTO vehicle_log(id, tenant_id, site_id, license_plate_number, type,
+                                        vehicle_type, entry_exit_time, image_path)
+                VALUES (?, ?, ?, '51A-123.45', 'entry', 'external', ?, '/uploads/snapshots/old-entry.jpg')
+                """, UUID.randomUUID(), TENANT, siteId, enteredAt.minusMinutes(5));
+        occupancyService.process(new SlotOccupancyObservation(slotA, siteId, zoneOneId,
+                "plate-read-track", "51A-123.45", enteredAt, SlotOccupancyTransition.ENTER,
+                UUID.randomUUID(), "/uploads/snapshots/occupancy.jpg"));
+
+        var parked = plateSearchReadRepository.search(siteId, "51A12345", 20).get(0);
+        assertThat(parked.currentSlotId()).isEqualTo(slotA);
+        assertThat(parked.currentSlotCode()).isEqualTo("A01");
+        assertThat(parked.currentZoneId()).isEqualTo(zoneOneId);
+        assertThat(parked.lastSeenAt()).isEqualTo(enteredAt);
+        assertThat(parked.snapshotUrl()).isEqualTo("/uploads/snapshots/occupancy.jpg");
+
+        occupancyService.process(new SlotOccupancyObservation(slotA, siteId, zoneOneId,
+                "plate-read-track", null, exitedAt, SlotOccupancyTransition.EXIT));
+        jdbc.update("""
+                INSERT INTO vehicle_log(id, tenant_id, site_id, license_plate_number, type,
+                                        vehicle_type, entry_exit_time, image_path)
+                VALUES (?, ?, ?, '51A-123.45', 'exit', 'external', ?, '/uploads/snapshots/exit.jpg')
+                """, UUID.randomUUID(), TENANT, siteId, exitedAt);
+
+        var exited = plateSearchReadRepository.search(siteId, "51A12345", 20).get(0);
+        assertThat(exited.currentSlotId()).isNull();
+        assertThat(exited.lastSeenAt()).isEqualTo(exitedAt);
+        assertThat(exited.lastEventType()).isEqualTo("exit");
+        assertThat(exited.snapshotUrl()).isEqualTo("/uploads/snapshots/exit.jpg");
+    }
+
+    @Test
+    void eventTimelineUnifiesGateRelocationAndCameraEventsWithServerFilters() {
+        OffsetDateTime base = OffsetDateTime.parse("2026-07-14T02:00:00Z");
+        UUID cameraId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO camera(id, tenant_id, site_id, zone_id, name, role, status)
+                VALUES (?, ?, ?, ?, 'Timeline camera', 'OVERVIEW', 'online')
+                """, cameraId, TENANT, siteId, zoneOneId);
+        jdbc.update("""
+                INSERT INTO camera_ingest_event(id, tenant_id, camera_id, event_id, event_type,
+                                                occurred_at, payload, snapshot_path)
+                VALUES (?, ?, ?, 'motion-1', 'MOTION_DETECTED', ?, '{}', '/uploads/snapshots/motion.jpg')
+                """, UUID.randomUUID(), TENANT, cameraId, base.plusMinutes(3));
+        jdbc.update("""
+                INSERT INTO vehicle_log(id, tenant_id, site_id, license_plate_number, type,
+                                        vehicle_type, entry_exit_time, image_path)
+                VALUES (?, ?, ?, '30A-111.11', 'entry', 'external', ?, '/uploads/snapshots/entry.jpg')
+                """, UUID.randomUUID(), TENANT, siteId, base);
+        occupancyService.process(new SlotOccupancyObservation(slotA, siteId, zoneOneId,
+                "timeline-track", "30A-111.11", base.plusMinutes(1), SlotOccupancyTransition.ENTER,
+                UUID.randomUUID(), "/uploads/snapshots/old-slot.jpg"));
+        occupancyService.process(new SlotOccupancyObservation(slotB, siteId, zoneOneId,
+                "timeline-track", "30A-111.11", base.plusMinutes(2), SlotOccupancyTransition.ENTER,
+                UUID.randomUUID(), "/uploads/snapshots/new-slot.jpg"));
+
+        var page = eventTimelineReadRepository.find(siteId, null, null, 0, 2);
+        assertThat(page.totalElements()).isEqualTo(3);
+        assertThat(page.hasNext()).isTrue();
+        assertThat(page.content()).extracting(item -> item.type())
+                .containsExactly("MOTION_DETECTED", "VEHICLE_RELOCATED");
+        assertThat(page.content().get(0).cameraId()).isEqualTo(cameraId);
+        assertThat(page.content().get(0).zoneId()).isEqualTo(zoneOneId);
+        assertThat(page.content().get(0).snapshotUrl()).isEqualTo("/uploads/snapshots/motion.jpg");
+        assertThat(page.content().get(1).slotId()).isEqualTo(slotB);
+        assertThat(page.content().get(1).plate()).isEqualTo("30A-111.11");
+        assertThat(page.content().get(1).snapshotUrl()).isEqualTo("/uploads/snapshots/new-slot.jpg");
+
+        var filtered = eventTimelineReadRepository.find(siteId, zoneOneId, "VEHICLE_RELOCATED", 0, 50);
+        assertThat(filtered.content()).hasSize(1);
+        assertThat(filtered.content().get(0).version()).isEqualTo(1L);
+    }
+
+    @Test
+    void averageDwellUsesOnlyValidCompletedSessionsInSiteAndRange() {
+        OffsetDateTime from = OffsetDateTime.parse("2026-07-07T00:00:00Z");
+        OffsetDateTime to = OffsetDateTime.parse("2026-07-14T00:00:00Z");
+        insertParkingSession("CLOSED", from.plusDays(1), from.plusDays(1).plusMinutes(30));
+        insertParkingSession("CLOSED", from.plusDays(2), from.plusDays(2).plusMinutes(90));
+        insertParkingSession("OPEN", from.plusDays(3), null);
+        insertParkingSession("CLOSED", from.minusDays(2), from.minusDays(2).plusHours(10));
+        jdbc.update("""
+                INSERT INTO parking_session(id, tenant_id, site_id, license_plate, status, started_at, ended_at)
+                VALUES (?, ?, ?, 'INVALID', 'CLOSED', ?, ?)
+                """, UUID.randomUUID(), TENANT, siteId, from.plusDays(4), from.plusDays(4).minusMinutes(1));
+
+        var result = averageDwellReadRepository.calculate(siteId, from, to);
+
+        assertThat(result.completedSessions()).isEqualTo(2);
+        assertThat(result.averageDwellSeconds()).isEqualTo(3600.0);
+    }
+
+    private void insertParkingSession(String status, OffsetDateTime startedAt, OffsetDateTime endedAt) {
+        jdbc.update("""
+                INSERT INTO parking_session(id, tenant_id, site_id, license_plate, status, started_at, ended_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, UUID.randomUUID(), TENANT, siteId, "30A-" + UUID.randomUUID().toString().substring(0, 8),
+                status, startedAt, endedAt);
     }
 
     private void insertSlot(UUID slotId, UUID zoneId, String code, String polygon) {

@@ -261,8 +261,8 @@ public class UserService implements UserDetailsService {
         if (role == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN via tenant user API");
         }
-        if (role == User.Role.SITE_MANAGER) {
-            throw new IllegalArgumentException("Assign SITE_MANAGER via user update with siteIds");
+        if (isSiteScopedRole(role)) {
+            throw new IllegalArgumentException("Assign site-scoped roles via user update with siteIds");
         }
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
@@ -288,7 +288,7 @@ public class UserService implements UserDetailsService {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<UUID> findSiteIdsForUser(User user) {
-        if (user.getRole() != User.Role.SITE_MANAGER || user.getId() == null || user.getTenantId() == null) {
+        if (!isSiteScopedRole(user.getRole()) || user.getId() == null || user.getTenantId() == null) {
             return Collections.emptyList();
         }
         UUID previous = TenantContext.getTenantId();
@@ -377,8 +377,8 @@ public class UserService implements UserDetailsService {
         if (role == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN via tenant user API");
         }
-        if (role == User.Role.SITE_MANAGER) {
-            throw new IllegalArgumentException("Assign SITE_MANAGER via user update with siteIds");
+        if (isSiteScopedRole(role)) {
+            throw new IllegalArgumentException("Assign site-scoped roles via user update with siteIds");
         }
         List<User> users = userRepository.findAllById(userIds);
         for (User user : users) {
@@ -390,11 +390,11 @@ public class UserService implements UserDetailsService {
 
     private void replaceSiteAssignments(User user, User.Role role, List<UUID> siteIds) {
         userSiteRepository.deleteByUserId(user.getId());
-        if (role != User.Role.SITE_MANAGER) {
+        if (!isSiteScopedRole(role)) {
             return;
         }
         if (siteIds == null || siteIds.isEmpty()) {
-            throw new IllegalArgumentException("SITE_MANAGER requires at least one site assignment");
+            throw new IllegalArgumentException(role + " requires at least one site assignment");
         }
         List<UserSite> rows = new ArrayList<>();
         for (UUID siteId : siteIds.stream().distinct().toList()) {
@@ -408,7 +408,7 @@ public class UserService implements UserDetailsService {
 
     private UserDto toDto(User user) {
         UserDto dto = new UserDto(user);
-        if (user.getRole() == User.Role.SITE_MANAGER) {
+        if (isSiteScopedRole(user.getRole())) {
             dto.setSiteIds(userSiteRepository.findSiteIdsByUserId(user.getId()));
         } else {
             dto.setSiteIds(Collections.emptyList());
@@ -419,5 +419,9 @@ public class UserService implements UserDetailsService {
             dto.setAffiliationTenantIds(Collections.emptyList());
         }
         return dto;
+    }
+
+    private boolean isSiteScopedRole(User.Role role) {
+        return role == User.Role.SITE_MANAGER || role == User.Role.SECURITY_GUARD;
     }
 }

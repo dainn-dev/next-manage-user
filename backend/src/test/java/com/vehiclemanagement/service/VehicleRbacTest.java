@@ -6,6 +6,7 @@ import com.vehiclemanagement.entity.Vehicle;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.UserRepository;
 import com.vehiclemanagement.repository.VehicleRepository;
+import com.vehiclemanagement.repository.PlateSearchReadRepository;
 import com.vehiclemanagement.security.SiteAccess;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,9 @@ class VehicleRbacTest {
 
     @Mock
     private VehicleRepository vehicleRepository;
+
+    @Mock
+    private PlateSearchReadRepository plateSearchReadRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -61,7 +65,7 @@ class VehicleRbacTest {
 
     @Test
     void userRole_enumHasExpectedValues() {
-        assertEquals(4, User.Role.values().length);
+        assertEquals(5, User.Role.values().length);
     }
 
     @Test
@@ -69,6 +73,7 @@ class VehicleRbacTest {
         assertDoesNotThrow(() -> User.Role.valueOf("PLATFORM_ADMIN"));
         assertDoesNotThrow(() -> User.Role.valueOf("TENANT_ADMIN"));
         assertDoesNotThrow(() -> User.Role.valueOf("SITE_MANAGER"));
+        assertDoesNotThrow(() -> User.Role.valueOf("SECURITY_GUARD"));
         assertDoesNotThrow(() -> User.Role.valueOf("MEMBER"));
     }
 
@@ -147,5 +152,29 @@ class VehicleRbacTest {
         when(vehicleRepository.findById(missingId)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> vehicleService.rejectVehicle(missingId));
+    }
+
+    @Test
+    void plateSearchAlwaysPushesAuthorizedSitePredicateIntoRepository() {
+        UUID siteId = UUID.randomUUID();
+        vehicle.setCurrentSiteId(siteId);
+        var row = new com.vehiclemanagement.dto.PlateSearchResultDto(vehicle.getId(), vehicle.getLicensePlate(),
+                siteId, vehicle.getStatus(), null, null, null, null, null, null);
+        when(plateSearchReadRepository.search(siteId, "51A123", 20)).thenReturn(java.util.List.of(row));
+
+        var result = vehicleService.searchPlateAtSite("51A-123", siteId, 20);
+
+        verify(siteAccess).assertSiteAllowed(siteId);
+        verify(plateSearchReadRepository).search(siteId, "51A123", 20);
+        assertEquals(siteId, result.getFirst().siteId());
+        assertEquals("51A-12345", result.getFirst().licensePlateNumber());
+    }
+
+    @Test
+    void plateSearchRejectsBroadOneCharacterQueries() {
+        UUID siteId = UUID.randomUUID();
+        assertThrows(IllegalArgumentException.class,
+                () -> vehicleService.searchPlateAtSite("A", siteId, 20));
+        verifyNoInteractions(plateSearchReadRepository);
     }
 }

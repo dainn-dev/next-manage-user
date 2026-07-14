@@ -145,6 +145,8 @@ export function BulkOperationsDialog({
         return "Quản trị viên tenant"
       case UserRole.SITE_MANAGER:
         return "Site manager"
+      case UserRole.SECURITY_GUARD:
+        return "Security guard"
       case UserRole.USER:
         return "Người dùng"
       default:

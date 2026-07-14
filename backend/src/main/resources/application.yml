@@ -167,6 +167,7 @@ object-storage:
   access-key: ${OBJECT_STORAGE_ACCESS_KEY:}
   secret-key: ${OBJECT_STORAGE_SECRET_KEY:}
   path-style-access: ${OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+  read-url-ttl: ${OBJECT_STORAGE_READ_URL_TTL:5m}
 
 management:
   endpoints:

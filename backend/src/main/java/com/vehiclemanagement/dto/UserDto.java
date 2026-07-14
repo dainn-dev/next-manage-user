@@ -37,7 +37,7 @@ public class UserDto {
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    /** Assigned branch ids for SITE_MANAGER; empty for tenant-wide roles. */
+    /** Assigned branch ids for site-scoped roles; empty for tenant-wide roles. */
     private List<UUID> siteIds;
     /** Active org affiliations for platform MEMBER (ADR-0603). */
     private List<UUID> affiliationTenantIds;

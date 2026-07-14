@@ -43,6 +43,7 @@ import {
 import { RealtimeGateDashboard } from "@/components/vehicles/realtime-gate-dashboard"
 import { useAuth } from "@/lib/auth-context"
 import { canViewDashboard } from "@/lib/types"
+import { MvpAnalytics } from "@/components/dashboard/mvp-analytics"
 
 const TIMELINE_PAGE_SIZE = 8
 
@@ -222,6 +223,8 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+
+      <MvpAnalytics />
 
       {/* KPI row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

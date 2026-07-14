@@ -35,14 +35,14 @@ public class ParkingSlotController {
 
     @GetMapping
     @Operation(summary = "List the site's published parking-slot polygons")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     public ResponseEntity<List<ParkingSlotView>> list(@PathVariable UUID siteId) {
         return ResponseEntity.ok(service.list(siteId));
     }
 
     @GetMapping("/occupancy")
     @Operation(summary = "List the current occupancy state for slots in a site or zone")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     public ResponseEntity<List<SlotOccupancyView>> occupancy(
             @PathVariable UUID siteId, @RequestParam(required = false) UUID zoneId) {
         return ResponseEntity.ok(occupancyService.list(siteId, zoneId));

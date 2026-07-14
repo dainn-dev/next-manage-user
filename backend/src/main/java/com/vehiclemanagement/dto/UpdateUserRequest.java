@@ -30,6 +30,6 @@ public class UpdateUserRequest {
     private User.Role role;
     private User.UserStatus status;
 
-    /** When role is SITE_MANAGER, replace membership with these site ids. */
+    /** For SITE_MANAGER and SECURITY_GUARD, replace membership with these site ids. */
     private List<UUID> siteIds;
 }

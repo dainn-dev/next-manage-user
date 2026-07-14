@@ -9,6 +9,8 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner.Builder;
 
 /** Configures a synchronous client for MinIO and other S3-compatible services. */
 @Configuration
@@ -17,6 +19,25 @@ public class ObjectStorageConfig {
     @Bean(destroyMethod = "close")
     public S3Client s3Client(ObjectStorageProperties properties) {
         S3ClientBuilder builder = S3Client.builder()
+                .region(Region.of(properties.getRegion()))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(properties.isPathStyleAccess())
+                        .build());
+        if (properties.getEndpoint() != null) {
+            builder.endpointOverride(properties.getEndpoint());
+        }
+        if (properties.hasStaticCredentials()) {
+            builder.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(
+                    properties.getAccessKey(), properties.getSecretKey())));
+        } else {
+            builder.credentialsProvider(DefaultCredentialsProvider.create());
+        }
+        return builder.build();
+    }
+
+    @Bean(destroyMethod = "close")
+    public S3Presigner s3Presigner(ObjectStorageProperties properties) {
+        Builder builder = S3Presigner.builder()
                 .region(Region.of(properties.getRegion()))
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(properties.isPathStyleAccess())

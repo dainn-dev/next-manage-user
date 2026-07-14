@@ -1,6 +1,7 @@
 package com.vehiclemanagement.dto;
 
 import com.vehiclemanagement.entity.Camera;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -34,7 +35,10 @@ public class CameraDto {
     @NotBlank(message = "Camera name is required")
     private String name;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String rtspUrl;
+    private StreamDto stream;
+    private String snapshotUrl;
     private Camera.CameraRole role;
     private Camera.PanelType panelType;
     private Camera.CameraStatus status;
@@ -49,6 +53,9 @@ public class CameraDto {
         this.zoneId = camera.getZoneId();
         this.name = camera.getName();
         this.rtspUrl = camera.getRtspUrl();
+        this.stream = camera.getStreamKind() == null ? null : new StreamDto(
+                camera.getStreamKind(), camera.getStreamUrl(), camera.getStreamExpiresAt());
+        this.snapshotUrl = camera.getSnapshotUrl();
         this.role = camera.getRole();
         this.panelType = camera.getPanelType();
         this.status = camera.getStatus();
@@ -57,4 +64,6 @@ public class CameraDto {
         this.createdAt = camera.getCreatedAt();
         this.updatedAt = camera.getUpdatedAt();
     }
+
+    public record StreamDto(Camera.StreamKind kind, String url, LocalDateTime expiresAt) { }
 }

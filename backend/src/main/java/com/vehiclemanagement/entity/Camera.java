@@ -46,6 +46,19 @@ public class Camera {
     private String rtspUrl;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "stream_kind")
+    private StreamKind streamKind;
+
+    @Column(name = "stream_url")
+    private String streamUrl;
+
+    @Column(name = "stream_expires_at")
+    private LocalDateTime streamExpiresAt;
+
+    @Column(name = "snapshot_url")
+    private String snapshotUrl;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     @Builder.Default
     private CameraRole role = CameraRole.ANPR_GATE;
@@ -103,5 +116,9 @@ public class Camera {
     /** Lifecycle: see docs/07 §9.2 state diagram. */
     public enum CameraStatus {
         provisioned, online, offline, disabled
+    }
+
+    public enum StreamKind {
+        HLS, WEBRTC, MJPEG, MP4
     }
 }

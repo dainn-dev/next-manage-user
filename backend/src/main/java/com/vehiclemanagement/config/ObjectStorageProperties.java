@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.net.URI;
+import java.time.Duration;
 
 /** Externalized connection settings for S3-compatible snapshot storage. */
 @Component
@@ -16,6 +17,7 @@ public class ObjectStorageProperties {
     private String accessKey = "";
     private String secretKey = "";
     private boolean pathStyleAccess = true;
+    private Duration readUrlTtl = Duration.ofMinutes(5);
 
     public URI getEndpoint() {
         return endpoint;
@@ -68,5 +70,13 @@ public class ObjectStorageProperties {
     public boolean hasStaticCredentials() {
         return accessKey != null && !accessKey.isBlank()
                 && secretKey != null && !secretKey.isBlank();
+    }
+
+    public Duration getReadUrlTtl() {
+        return readUrlTtl;
+    }
+
+    public void setReadUrlTtl(Duration readUrlTtl) {
+        this.readUrlTtl = readUrlTtl;
     }
 }

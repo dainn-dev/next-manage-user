@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import type { User, CreateUserRequest, UpdateUserRequest, Employee } from "@/lib/types"
-import { UserRole, UserStatus } from "@/lib/types"
+import { UserRole, UserStatus, isSiteScopedOperator } from "@/lib/types"
 import { siteApi, type Site } from "@/lib/api/site-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -105,10 +105,10 @@ export function UserForm({
       toast({ title: "Lỗi", description: "Mật khẩu phải có ít nhất 6 ký tự", variant: "destructive" })
       return
     }
-    if (formData.role === UserRole.SITE_MANAGER && formData.siteIds.length === 0) {
+    if (isSiteScopedOperator(formData.role) && formData.siteIds.length === 0) {
       toast({
         title: "Lỗi",
-        description: "Site manager cần được gán ít nhất một khu vực (chi nhánh).",
+        description: "Vai trò vận hành theo site cần được gán ít nhất một khu vực (chi nhánh).",
         variant: "destructive",
       })
       return
@@ -123,7 +123,7 @@ export function UserForm({
         role: formData.role,
         status: formData.status,
         employeeId: formData.employeeId === "none" ? undefined : formData.employeeId || undefined,
-        siteIds: formData.role === UserRole.SITE_MANAGER ? formData.siteIds : [],
+        siteIds: isSiteScopedOperator(formData.role) ? formData.siteIds : [],
       }
       if (!isEditing) {
         ;(userData as CreateUserRequest).password = formData.password
@@ -268,6 +268,12 @@ export function UserForm({
                           <span>Quản lý chi nhánh</span>
                         </div>
                       </SelectItem>
+                      <SelectItem value={UserRole.SECURITY_GUARD}>
+                        <div className="flex items-center space-x-2">
+                          <Shield className="h-4 w-4" />
+                          <span>Nhân viên bảo vệ</span>
+                        </div>
+                      </SelectItem>
                       <SelectItem value={UserRole.ADMIN}>
                         <div className="flex items-center space-x-2">
                           <Shield className="h-4 w-4" />
@@ -313,11 +319,13 @@ export function UserForm({
                 </div>
               </div>
 
-              {formData.role === UserRole.SITE_MANAGER && (
+              {isSiteScopedOperator(formData.role) && (
                 <div className="space-y-2">
                   <Label>Khu vực được gán *</Label>
                   <p className="text-xs text-muted-foreground">
-                    Site manager chỉ vận hành trong các chi nhánh được chọn.
+                    {formData.role === UserRole.SECURITY_GUARD
+                      ? "Security guard chỉ quan sát vận hành trong các chi nhánh được chọn."
+                      : "Site manager chỉ vận hành trong các chi nhánh được chọn."}
                   </p>
                   <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-3">
                     {sites.length === 0 && (

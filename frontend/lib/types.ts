@@ -233,7 +233,7 @@ export interface User {
   lastLogin?: string
   employeeId?: string
   employeeName?: string
-  /** Assigned branch ids when role is SITE_MANAGER. */
+  /** Assigned branch ids for site-scoped operator roles. */
   siteIds?: string[]
   createdAt: string
   updatedAt: string
@@ -268,6 +268,8 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   /** Branch / site operator — maps from backend `SITE_MANAGER`. */
   SITE_MANAGER = 'SITE_MANAGER',
+  /** Site-scoped operational observer. */
+  SECURITY_GUARD = 'SECURITY_GUARD',
   /** Tenant member — maps from backend `MEMBER`. */
   USER = 'USER',
 }
@@ -282,6 +284,18 @@ export function isTenantAdmin(role?: UserRole): boolean {
 
 export function isSiteManager(role?: UserRole): boolean {
   return role === UserRole.SITE_MANAGER
+}
+
+export function isSecurityGuard(role?: UserRole): boolean {
+  return role === UserRole.SECURITY_GUARD
+}
+
+export function isSiteScopedOperator(role?: UserRole): boolean {
+  return role === UserRole.SITE_MANAGER || role === UserRole.SECURITY_GUARD
+}
+
+export function isDashboardOperator(role?: UserRole): boolean {
+  return role === UserRole.ADMIN || role === UserRole.SITE_MANAGER || role === UserRole.SECURITY_GUARD
 }
 
 export function isMember(role?: UserRole): boolean {
@@ -306,7 +320,7 @@ export function canManageVehicles(role?: UserRole): boolean {
 
 /** Operators who see the ParkVision dashboard, monitoring and entry/exit views. */
 export function canViewDashboard(role?: UserRole): boolean {
-  return role === UserRole.ADMIN || role === UserRole.SITE_MANAGER
+  return isDashboardOperator(role)
 }
 
 export enum UserStatus {

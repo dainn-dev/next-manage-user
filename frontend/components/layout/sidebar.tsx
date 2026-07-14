@@ -48,7 +48,8 @@ interface NavigationGroup {
 }
 
 /** Tenant ops IA — hidden from PLATFORM_ADMIN (SaaS operator console). */
-const OPS = [UserRole.ADMIN, UserRole.SITE_MANAGER]
+const OPS = [UserRole.ADMIN, UserRole.SITE_MANAGER, UserRole.SECURITY_GUARD]
+const MANAGERS = [UserRole.ADMIN, UserRole.SITE_MANAGER]
 const TENANT_ADMIN_ONLY = [UserRole.ADMIN]
 const MEMBER_ONLY = [UserRole.USER]
 
@@ -88,19 +89,18 @@ const tenantNavigationGroups: NavigationGroup[] = [
         key: "/vehicles/entry-exit",
         label: "Thông tin ra/vào",
         icon: ArrowLeftRight,
-        roles: OPS,
+        roles: MANAGERS,
       },
       {
         key: "/gate",
         label: "Cổng kiosk",
         icon: DoorOpen,
-        roles: OPS,
+        roles: MANAGERS,
       },
       {
         key: "/events",
         label: "Sự kiện",
         icon: ListTree,
-        comingSoon: true,
         roles: OPS,
       },
     ],
@@ -108,22 +108,23 @@ const tenantNavigationGroups: NavigationGroup[] = [
   {
     label: "Bãi đỗ xe",
     items: [
-      { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, comingSoon: true, roles: OPS },
-      { key: "/parking/cameras", label: "Camera", icon: Camera, comingSoon: true, roles: OPS },
+      { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, roles: OPS },
+      { key: "/parking/cameras", label: "Camera", icon: Camera, roles: OPS },
       { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, comingSoon: true, roles: OPS },
     ],
   },
   {
     label: "Phương tiện",
     items: [
-      { key: "/vehicles", label: "Danh sách xe", icon: Car, roles: OPS },
-      { key: "/vehicles/requests", label: "Yêu cầu ra/vào", icon: FileCheck, roles: OPS },
+      { key: "/vehicles/search", label: "Tìm biển số", icon: ScanLine, roles: OPS },
+      { key: "/vehicles", label: "Danh sách xe", icon: Car, roles: MANAGERS },
+      { key: "/vehicles/requests", label: "Yêu cầu ra/vào", icon: FileCheck, roles: MANAGERS },
     ],
   },
   {
     label: "Phân tích",
     items: [
-      { key: "/statistics", label: "Thống kê", icon: BarChart3, roles: OPS },
+      { key: "/statistics", label: "Thống kê", icon: BarChart3, roles: MANAGERS },
     ],
   },
   {
@@ -199,6 +200,8 @@ function roleLabel(role?: UserRole): string {
       return "Tenant admin"
     case UserRole.SITE_MANAGER:
       return "Site manager"
+    case UserRole.SECURITY_GUARD:
+      return "Security guard"
     case UserRole.USER:
       return "Member"
     default:

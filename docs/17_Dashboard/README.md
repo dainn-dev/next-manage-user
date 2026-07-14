@@ -131,6 +131,9 @@ permanent decision, it is a "not yet, here's the trigger" decision.
   of additions; explicit triggers for adopting react-query.
 - `adr/ADR-1702-parking-map-render-approach.md` — SVG overlay driven by the `08_Parking_Map_Designer`
   polygon data, vs. Canvas or a geo-mapping library.
+- `adr/ADR-1703-dashboard-rbac-realtime-contracts.md` — accepted MVP contract for role visibility,
+  tenant/site/zone/camera/slot scoping, STOMP with polling fallback, REST/event payloads, and the
+  backend gaps that block Stage 5.
 
 ## 9. Open questions / risks
 
@@ -144,6 +147,8 @@ permanent decision, it is a "not yet, here's the trigger" decision.
   for the react-query adoption threshold in ADR-1701.
 - Notifications center UX (read/unread, grouping, do-not-disturb) is scoped to `19_Notifications`,
   not detailed here beyond the inbox route.
+- `SECURITY_GUARD` is part of the accepted Stage 5 dashboard contract but is not yet present in the
+  backend or frontend role enums; see ADR-1703 for the required compatibility work.
 
 ## 10. Cross-references
 

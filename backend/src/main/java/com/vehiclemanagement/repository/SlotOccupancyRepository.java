@@ -45,9 +45,14 @@ public class SlotOccupancyRepository {
     public void occupy(UUID slotId, UUID siteId, UUID zoneId, String trackId, String plate,
                        java.time.OffsetDateTime occurredAt, String snapshotReference) {
         jdbc.update("""
-                INSERT INTO slot_occupancy(slot_id,site_id,zone_id,status,track_id,plate,last_seen_at,snapshot_reference)
-                VALUES(:slotId,:siteId,:zoneId,'occupied',:trackId,:plate,:occurredAt,:snapshotReference)
-                ON CONFLICT(slot_id) DO UPDATE SET zone_id=EXCLUDED.zone_id,status='occupied',track_id=EXCLUDED.track_id,plate=EXCLUDED.plate,last_seen_at=EXCLUDED.last_seen_at,snapshot_reference=COALESCE(EXCLUDED.snapshot_reference, slot_occupancy.snapshot_reference),updated_at=CURRENT_TIMESTAMP""",
+                INSERT INTO slot_occupancy(slot_id,site_id,zone_id,status,track_id,plate,last_seen_at,snapshot_reference,snapshot_seen_at)
+                VALUES(:slotId,:siteId,:zoneId,'occupied',:trackId,:plate,:occurredAt,:snapshotReference,
+                       CASE WHEN CAST(:snapshotReference AS varchar) IS NULL THEN NULL::timestamptz
+                            ELSE CAST(:occurredAt AS timestamptz) END)
+                ON CONFLICT(slot_id) DO UPDATE SET zone_id=EXCLUDED.zone_id,status='occupied',track_id=EXCLUDED.track_id,plate=EXCLUDED.plate,last_seen_at=EXCLUDED.last_seen_at,
+                    snapshot_reference=COALESCE(EXCLUDED.snapshot_reference, slot_occupancy.snapshot_reference),
+                    snapshot_seen_at=CASE WHEN EXCLUDED.snapshot_reference IS NULL THEN slot_occupancy.snapshot_seen_at ELSE EXCLUDED.snapshot_seen_at END,
+                    updated_at=CURRENT_TIMESTAMP""",
                 params(slotId).addValue("siteId",siteId,Types.OTHER).addValue("zoneId",zoneId,Types.OTHER).addValue("trackId",trackId).addValue("plate",plate).addValue("occurredAt",occurredAt).addValue("snapshotReference",snapshotReference));
     }
     public void free(UUID slotId) { jdbc.update("UPDATE slot_occupancy SET status='free',track_id=NULL,plate=NULL,updated_at=CURRENT_TIMESTAMP WHERE slot_id=:slotId",params(slotId)); }

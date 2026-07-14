@@ -34,6 +34,6 @@ public class CreateUserRequest {
     private User.Role role = User.Role.MEMBER;
     private User.UserStatus status = User.UserStatus.ACTIVE;
 
-    /** Required when role is SITE_MANAGER — one or more branch ids. */
+    /** Required for SITE_MANAGER and SECURITY_GUARD — one or more branch ids. */
     private List<UUID> siteIds;
 }

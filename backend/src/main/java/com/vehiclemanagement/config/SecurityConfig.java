@@ -81,7 +81,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/vehicles/*/reject").hasAnyRole("TENANT_ADMIN", "SITE_MANAGER")
 
                 // Vehicle logs
-                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs").hasAnyRole("TENANT_ADMIN", "SITE_MANAGER")
+                .requestMatchers(HttpMethod.GET, "/api/vehicle-logs").hasAnyRole("TENANT_ADMIN", "SITE_MANAGER", "SECURITY_GUARD")
                 .requestMatchers(HttpMethod.GET, "/api/vehicle-logs/export/**").hasAnyRole("TENANT_ADMIN", "SITE_MANAGER")
 
                 // Vehicle export / bulk import

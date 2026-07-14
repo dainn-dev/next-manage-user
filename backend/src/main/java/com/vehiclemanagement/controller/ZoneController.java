@@ -31,7 +31,7 @@ public class ZoneController {
 
     @GetMapping
     @Operation(summary = "List zones, optionally filtered by site")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved zones")
     public ResponseEntity<List<ZoneDto>> list(
             @Parameter(description = "Optional site filter") @RequestParam(required = false) UUID siteId) {
@@ -40,7 +40,7 @@ public class ZoneController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get zone by ID")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved zone"),
         @ApiResponse(responseCode = "404", description = "Zone not found")

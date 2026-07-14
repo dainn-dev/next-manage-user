@@ -14,6 +14,7 @@ const ROLE_MAP: Record<string, UserRole> = {
   PLATFORM_ADMIN: UserRole.PLATFORM_ADMIN,
   TENANT_ADMIN: UserRole.ADMIN,
   SITE_MANAGER: UserRole.SITE_MANAGER,
+  SECURITY_GUARD: UserRole.SECURITY_GUARD,
   MEMBER: UserRole.USER,
   ADMIN: UserRole.ADMIN,
   USER: UserRole.USER,

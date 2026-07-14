@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.net.URI;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -107,6 +108,10 @@ public class CameraService {
                 .zoneId(request.getZoneId())
                 .name(request.getName())
                 .rtspUrl(request.getRtspUrl())
+                .streamKind(request.getStream() == null ? null : request.getStream().kind())
+                .streamUrl(request.getStream() == null ? null : browserUrl(request.getStream().url(), false))
+                .streamExpiresAt(request.getStream() == null ? null : request.getStream().expiresAt())
+                .snapshotUrl(browserUrl(request.getSnapshotUrl(), true))
                 .calibrationJson(request.getCalibrationJson())
                 .build();
         if (request.getRole() != null) {
@@ -253,6 +258,14 @@ public class CameraService {
         if (request.getRtspUrl() != null) {
             camera.setRtspUrl(request.getRtspUrl());
         }
+        if (request.getStream() != null) {
+            camera.setStreamKind(request.getStream().kind());
+            camera.setStreamUrl(browserUrl(request.getStream().url(), false));
+            camera.setStreamExpiresAt(request.getStream().expiresAt());
+        }
+        if (request.getSnapshotUrl() != null) {
+            camera.setSnapshotUrl(browserUrl(request.getSnapshotUrl(), true));
+        }
         if (request.getRole() != null) {
             camera.setRole(request.getRole());
         }
@@ -277,6 +290,22 @@ public class CameraService {
     private Camera findOrThrow(UUID id) {
         return cameraRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Camera not found with id: " + id));
+    }
+
+    private String browserUrl(String value, boolean allowRelative) {
+        if (value == null || value.isBlank()) return null;
+        if (allowRelative && value.startsWith("/") && !value.startsWith("//")) return value;
+        try {
+            URI uri = URI.create(value);
+            String scheme = uri.getScheme();
+            if (uri.getHost() == null || !("http".equalsIgnoreCase(scheme)
+                    || "https".equalsIgnoreCase(scheme) || "wss".equalsIgnoreCase(scheme))) {
+                throw new IllegalArgumentException("Browser media URL must use http, https, or wss");
+            }
+            return value;
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid browser media URL", exception);
+        }
     }
 
     private void requireSite(UUID siteId) {

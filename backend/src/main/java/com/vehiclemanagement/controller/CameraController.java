@@ -33,7 +33,7 @@ public class CameraController {
 
     @GetMapping
     @Operation(summary = "List cameras, optionally filtered by site")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved cameras")
     public ResponseEntity<List<CameraDto>> list(
             @Parameter(description = "Optional site filter") @RequestParam(required = false) UUID siteId) {
@@ -42,7 +42,7 @@ public class CameraController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get camera by ID")
-    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved camera"),
         @ApiResponse(responseCode = "404", description = "Camera not found")
