@@ -250,6 +250,54 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(count(camera.id(), eventId)).isZero();
     }
 
+    @Test
+    void projectsTrackedDetectionsAndLaterLprIntoSiteScopedOccupancy() {
+        CameraCredentials camera = createCamera("tracking");
+        UUID slotA = UUID.randomUUID();
+        UUID slotB = UUID.randomUUID();
+        createPublishedSlots(camera.siteId(), slotA, slotB);
+        UUID sessionId = UUID.randomUUID();
+
+        assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "VehicleDetected", sessionId,
+                "42", 1, 1, null)).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(occupancy(slotA).get("status")).isEqualTo("occupied");
+        assertThat(occupancy(slotA).get("plate")).isNull();
+
+        assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "PlateRecognized", sessionId,
+                "42", null, null, "30A12345")).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(occupancy(slotA).get("plate")).isEqualTo("30A12345");
+
+        assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "VehicleDetected", sessionId,
+                "42", 3, 1, null)).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(occupancy(slotA).get("status")).isEqualTo("free");
+        assertThat(occupancy(slotB).get("status")).isEqualTo("occupied");
+        assertThat(occupancy(slotB).get("plate")).isEqualTo("30A12345");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM parking_event WHERE site_id = ? "
+                + "AND event_type = 'VehicleRelocated'", Integer.class, camera.siteId())).isEqualTo(1);
+    }
+
+    @Test
+    void ignoresPayloadSiteAndSlotClaimsWhenProjectingAnAuthenticatedCamera() {
+        CameraCredentials first = createCamera("tracking-first");
+        CameraCredentials second = createCamera("tracking-second");
+        UUID firstSlot = UUID.randomUUID();
+        UUID secondSlot = UUID.randomUUID();
+        createPublishedSlots(first.siteId(), firstSlot, UUID.randomUUID());
+        createPublishedSlots(second.siteId(), secondSlot, UUID.randomUUID());
+        UUID sessionId = UUID.randomUUID();
+
+        String payload = "{\"eventId\":\"" + UUID.randomUUID() + "\",\"cameraId\":\"" + second.id()
+                + "\",\"eventType\":\"VehicleDetected\",\"occurredAt\":\"2026-07-14T00:00:00Z\","
+                + "\"payload\":{\"tracker\":{\"sessionId\":\"" + sessionId
+                + "\",\"trackId\":\"shared-id\"},\"slotObservation\":{\"siteId\":\""
+                + first.siteId() + "\",\"provisionalSlotId\":\"" + firstSlot
+                + "\",\"referencePoint\":{\"siteMeters\":{\"x\":1,\"y\":1}}}}}";
+
+        assertThat(post(second, payload).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        assertThat(occupancy(secondSlot).get("status")).isEqualTo("occupied");
+        assertThat(occupancy(firstSlot)).isEmpty();
+    }
+
     private ResponseEntity<String> post(CameraCredentials camera, String body) {
         return rest.exchange(url(), HttpMethod.POST,
                 new HttpEntity<>(body, cameraHeaders(camera.id(), camera.key())), String.class);
@@ -303,6 +351,49 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
                 + "\"payload\":{\"licensePlate\":\"51A-12345\",\"confidence\":0.97}}";
     }
 
+    private String trackedEvent(UUID eventId, UUID cameraId, String eventType, UUID sessionId,
+                                String trackId, Integer x, Integer y, String plate) {
+        String slotObservation = x == null ? "" : ",\"slotObservation\":{\"referencePoint\":{"
+                + "\"siteMeters\":{\"x\":" + x + ",\"y\":" + y + "}}}";
+        String platePayload = plate == null ? "" : ",\"plate\":{\"normalizedText\":\"" + plate + "\"}";
+        return "{\"eventId\":\"" + eventId + "\",\"cameraId\":\"" + cameraId
+                + "\",\"eventType\":\"" + eventType + "\",\"occurredAt\":\"2026-07-14T00:00:00Z\","
+                + "\"payload\":{\"tracker\":{\"sessionId\":\"" + sessionId
+                + "\",\"trackId\":\"" + trackId + "\"}" + slotObservation + platePayload + "}}";
+    }
+
+    private void createPublishedSlots(UUID siteId, UUID firstSlot, UUID secondSlot) {
+        TenantContext.setTenantId(TENANT);
+        try {
+            UUID mapVersion = UUID.randomUUID();
+            jdbc.update("""
+                    INSERT INTO site_map_version(id, tenant_id, site_id, version_number, status, published_at)
+                    VALUES (?, ?, ?, 1, 'published', CURRENT_TIMESTAMP)
+                    """, mapVersion, TENANT, siteId);
+            insertSlot(siteId, mapVersion, firstSlot, "A01", "POLYGON((0 0, 2 0, 2 2, 0 2, 0 0))");
+            insertSlot(siteId, mapVersion, secondSlot, "A02", "POLYGON((2 0, 4 0, 4 2, 2 2, 2 0))");
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    private void insertSlot(UUID siteId, UUID mapVersion, UUID slotId, String code, String polygon) {
+        jdbc.update("""
+                INSERT INTO parking_slot(id, tenant_id, site_id, code)
+                VALUES (?, ?, ?, ?)
+                """, slotId, TENANT, siteId, code);
+        jdbc.update("""
+                INSERT INTO parking_slot_geometry(id, tenant_id, site_id, slot_id, map_version_id, polygon)
+                VALUES (?, ?, ?, ?, ?, ST_GeomFromText(?, 0))
+                """, UUID.randomUUID(), TENANT, siteId, slotId, mapVersion, polygon);
+    }
+
+    private java.util.Map<String, Object> occupancy(UUID slotId) {
+        List<java.util.Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT status, track_id, plate FROM slot_occupancy WHERE slot_id = ?", slotId);
+        return rows.isEmpty() ? java.util.Map.of() : rows.getFirst();
+    }
+
     private int count(UUID cameraId, UUID eventId) {
         return jdbc.queryForObject(
                 "SELECT count(*) FROM camera_ingest_event WHERE camera_id = ? AND event_id = ?",
@@ -320,12 +411,12 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
                     .name("Ingest Camera " + suffix + " " + UUID.randomUUID())
                     .build());
             CameraWithKeyDto issued = cameraService.issueKey(camera.getId());
-            return new CameraCredentials(camera.getId(), issued.getIngestKey());
+            return new CameraCredentials(camera.getId(), issued.getIngestKey(), site.getId());
         } finally {
             TenantContext.clear();
         }
     }
 
-    private record CameraCredentials(UUID id, String key) {
+    private record CameraCredentials(UUID id, String key, UUID siteId) {
     }
 }

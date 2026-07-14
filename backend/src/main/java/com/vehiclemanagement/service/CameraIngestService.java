@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vehiclemanagement.dto.CameraIngestRequest;
 import com.vehiclemanagement.dto.CameraIngestResponse;
 import com.vehiclemanagement.exception.PayloadTooLargeException;
+import com.vehiclemanagement.parking.TrackingOccupancyIntegrationService;
 import com.vehiclemanagement.repository.CameraIngestEventRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -27,16 +28,19 @@ public class CameraIngestService {
     private final CameraIngestEventRepository repository;
     private final ObjectMapper objectMapper;
     private final SnapshotStorageService snapshotStorageService;
+    private final TrackingOccupancyIntegrationService trackingOccupancyIntegrationService;
     private final long maxSnapshotBytes;
 
     public CameraIngestService(
             CameraIngestEventRepository repository,
             ObjectMapper objectMapper,
             SnapshotStorageService snapshotStorageService,
+            TrackingOccupancyIntegrationService trackingOccupancyIntegrationService,
             @Value("${camera-ingest.max-snapshot-bytes:5242880}") long maxSnapshotBytes) {
         this.repository = repository;
         this.objectMapper = objectMapper;
         this.snapshotStorageService = snapshotStorageService;
+        this.trackingOccupancyIntegrationService = trackingOccupancyIntegrationService;
         this.maxSnapshotBytes = maxSnapshotBytes;
     }
 
@@ -62,14 +66,17 @@ public class CameraIngestService {
             return CameraIngestResponse.accepted(request.getEventId());
         }
 
+        String snapshotPath = null;
         if (snapshot != null && !snapshot.isEmpty()) {
-            String snapshotPath = snapshotStorageService.storeForIngest(snapshot, authenticatedCameraId,
+            snapshotPath = snapshotStorageService.storeForIngest(snapshot, authenticatedCameraId,
                     request.getEventId());
             if (snapshotPath != null) {
                 repository.updateSnapshotPath(authenticatedCameraId,
                         request.getEventId().toString(), snapshotPath);
             }
         }
+        trackingOccupancyIntegrationService.project(authenticatedCameraId, request.getEventId(),
+                request.getEventType().trim(), request.getOccurredAt(), request.getPayload(), snapshotPath);
         return CameraIngestResponse.accepted(request.getEventId());
     }
 

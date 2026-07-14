@@ -201,6 +201,38 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
         assertThat(occupancyService.list(siteId, zoneOneId)).containsExactly(exited);
     }
 
+    @Test
+    void relocatesTheSameTrackOnceAndQueuesAnEventWithLinkedSnapshots() {
+        OffsetDateTime enteredAt = OffsetDateTime.parse("2026-07-14T00:00:00Z");
+        occupancyService.process(new SlotOccupancyObservation(slotA, siteId, zoneOneId, "track-relocate",
+                "30A-12345", enteredAt, SlotOccupancyTransition.ENTER, UUID.randomUUID(), "old-frame-key"));
+
+        SlotOccupancyView relocated = occupancyService.process(new SlotOccupancyObservation(slotB, siteId, zoneOneId,
+                "track-relocate", null, enteredAt.plusSeconds(2), SlotOccupancyTransition.ENTER,
+                UUID.randomUUID(), "new-frame-key"));
+        occupancyService.process(new SlotOccupancyObservation(slotB, siteId, zoneOneId, "track-relocate",
+                "30A-12345", enteredAt.plusSeconds(2), SlotOccupancyTransition.STAY));
+
+        assertThat(occupancyService.list(siteId, zoneOneId))
+                .extracting(SlotOccupancyView::status, SlotOccupancyView::trackId)
+                .containsExactlyInAnyOrder(org.assertj.core.groups.Tuple.tuple("free", null),
+                        org.assertj.core.groups.Tuple.tuple("occupied", "track-relocate"));
+        assertThat(relocated.slotId()).isEqualTo(slotB);
+        assertThat(relocated.plate()).isEqualTo("30A-12345");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM parking_event WHERE site_id = ? AND event_type = 'VehicleRelocated'",
+                Integer.class, siteId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*)
+                  FROM outbox_message outbox
+                  JOIN parking_event event ON event.id = outbox.event_id
+                 WHERE outbox.status = 'pending' AND event.site_id = ?
+                """, Integer.class, siteId)).isEqualTo(1);
+        assertThat(jdbc.queryForList("SELECT kind, snapshot_reference FROM parking_event_snapshot ORDER BY kind"))
+                .containsExactly(
+                        java.util.Map.of("kind", "relocation_new", "snapshot_reference", "new-frame-key"),
+                        java.util.Map.of("kind", "relocation_old", "snapshot_reference", "old-frame-key"));
+    }
+
     private void insertSlot(UUID slotId, UUID zoneId, String code, String polygon) {
         jdbc.update("""
                 INSERT INTO parking_slot(id, tenant_id, site_id, zone_id, code)

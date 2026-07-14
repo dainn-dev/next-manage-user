@@ -6,7 +6,13 @@ import java.util.UUID;
 /** Idempotent state-machine input; timestamps order repeated/out-of-order detections. */
 public record SlotOccupancyObservation(UUID slotId, UUID siteId, UUID zoneId, String trackId,
                                       String plate, OffsetDateTime occurredAt,
-                                      SlotOccupancyTransition transition) {
+                                      SlotOccupancyTransition transition,
+                                      UUID observationId, String snapshotReference) {
+    public SlotOccupancyObservation(UUID slotId, UUID siteId, UUID zoneId, String trackId,
+                                    String plate, OffsetDateTime occurredAt,
+                                    SlotOccupancyTransition transition) {
+        this(slotId, siteId, zoneId, trackId, plate, occurredAt, transition, null, null);
+    }
     public SlotOccupancyObservation {
         if (slotId == null || siteId == null || trackId == null || trackId.isBlank()
                 || occurredAt == null || transition == null) {
