@@ -3,6 +3,7 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.config.PlatformAdminOperation;
 import com.vehiclemanagement.dto.TenantAdminSummaryDto;
 import com.vehiclemanagement.dto.TenantDetailDto;
+import com.vehiclemanagement.dto.TenantMutationResponse;
 import com.vehiclemanagement.dto.TenantPageResponse;
 import com.vehiclemanagement.dto.TenantSiteSummaryDto;
 import com.vehiclemanagement.dto.TenantStatisticsResponse;
@@ -132,7 +133,7 @@ public class TenantAdminService {
 
     @PlatformAdminOperation
     @Transactional
-    public TenantDetailDto update(UUID id, TenantUpdateRequest request) {
+    public TenantMutationResponse update(UUID id, TenantUpdateRequest request) {
         TenantRecord before = findTenant(id);
         String name = request.name().trim();
         if (name.isBlank()) {
@@ -148,20 +149,22 @@ public class TenantAdminService {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("previousName", before.name());
         detail.put("name", name);
-        auditService.record("tenant_renamed", "tenant", id, detail);
-        return get(id);
+        UUID auditId = auditService.record("tenant_renamed", "tenant", id, detail);
+        return new TenantMutationResponse(get(id), auditId, "tenant_renamed");
     }
 
     @PlatformAdminOperation
     @Transactional
-    public TenantDetailDto updateStatus(UUID id, TenantStatusUpdateRequest request) {
+    public TenantMutationResponse updateStatus(UUID id, TenantStatusUpdateRequest request) {
         TenantRecord tenant = findTenant(id);
         TenantStatus target = request.status();
         if (target == tenant.status()) {
-            return get(id);
+            // No-op: return current state with no audit entry
+            return new TenantMutationResponse(get(id), null, null);
         }
-        if (target == TenantStatus.PENDING_DELETION && (request.reason() == null || request.reason().isBlank())) {
-            throw new IllegalArgumentException("A reason is required before marking a tenant for deletion");
+        // Reason is required for all lifecycle transitions
+        if (request.reason() == null || request.reason().isBlank()) {
+            throw new IllegalArgumentException("A reason is required for tenant status changes");
         }
         if (tenant.status() == TenantStatus.PENDING_DELETION) {
             throw new IllegalArgumentException("A tenant pending deletion cannot change status");
@@ -174,11 +177,9 @@ public class TenantAdminService {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("from", tenant.status().value());
         detail.put("to", target.value());
-        if (request.reason() != null && !request.reason().isBlank()) {
-            detail.put("reason", request.reason().trim());
-        }
-        auditService.record("tenant_status_changed", "tenant", id, detail);
-        return get(id);
+        detail.put("reason", request.reason().trim());
+        UUID auditId = auditService.record("tenant_status_changed", "tenant", id, detail);
+        return new TenantMutationResponse(get(id), auditId, "tenant_status_changed");
     }
 
     private TenantRecord findTenant(UUID id) {

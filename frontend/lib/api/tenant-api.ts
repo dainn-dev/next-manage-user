@@ -47,6 +47,12 @@ export interface TenantDetail {
   tenantAdmins: TenantAdminSummary[]
 }
 
+export interface TenantMutationResponse {
+  tenant: TenantDetail
+  auditId?: string
+  auditAction?: string
+}
+
 export interface TenantOnboardingRequest {
   tenantName: string
   tenantSlug?: string
@@ -144,15 +150,15 @@ class TenantApi {
     return this.request<TenantDetail>(`/v1/tenants/${id}`)
   }
 
-  rename(id: string, name: string): Promise<TenantDetail> {
-    return this.request<TenantDetail>(`/v1/tenants/${id}`, {
+  rename(id: string, name: string): Promise<TenantMutationResponse> {
+    return this.request<TenantMutationResponse>(`/v1/tenants/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     })
   }
 
-  updateStatus(id: string, status: TenantStatus, reason?: string): Promise<TenantDetail> {
-    return this.request<TenantDetail>(`/v1/tenants/${id}/status`, {
+  updateStatus(id: string, status: TenantStatus, reason: string): Promise<TenantMutationResponse> {
+    return this.request<TenantMutationResponse>(`/v1/tenants/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status, reason }),
     })

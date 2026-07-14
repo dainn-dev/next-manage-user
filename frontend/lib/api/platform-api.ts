@@ -83,10 +83,17 @@ export interface CreatePlatformAdminRequest {
   lastName?: string
 }
 
+export interface PlatformAdminMutationResponse {
+  admin: PlatformAdmin
+  auditId?: string
+  auditAction?: string
+}
+
 export interface UpdatePlatformAdminRequest {
   firstName?: string
   lastName?: string
   status?: PlatformAdmin['status']
+  reason?: string
 }
 
 class PlatformApi {
@@ -137,15 +144,15 @@ class PlatformApi {
     return this.request<PlatformAdmin[]>('/v1/platform/admins')
   }
 
-  createAdmin(body: CreatePlatformAdminRequest): Promise<PlatformAdmin> {
-    return this.request<PlatformAdmin>('/v1/platform/admins', {
+  createAdmin(body: CreatePlatformAdminRequest): Promise<PlatformAdminMutationResponse> {
+    return this.request<PlatformAdminMutationResponse>('/v1/platform/admins', {
       method: 'POST',
       body: JSON.stringify(body),
     })
   }
 
-  updateAdmin(id: string, body: UpdatePlatformAdminRequest): Promise<PlatformAdmin> {
-    return this.request<PlatformAdmin>(`/v1/platform/admins/${id}`, {
+  updateAdmin(id: string, body: UpdatePlatformAdminRequest): Promise<PlatformAdminMutationResponse> {
+    return this.request<PlatformAdminMutationResponse>(`/v1/platform/admins/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     })
@@ -156,12 +163,14 @@ class PlatformApi {
     size?: number
     action?: string
     resourceType?: string
+    resourceId?: string
   } = {}): Promise<PlatformAuditPage> {
     const query = new URLSearchParams()
     query.set('page', String(params.page ?? 0))
     query.set('size', String(params.size ?? 20))
     if (params.action?.trim()) query.set('action', params.action.trim())
     if (params.resourceType?.trim()) query.set('resourceType', params.resourceType.trim())
+    if (params.resourceId?.trim()) query.set('resourceId', params.resourceId.trim())
     return this.request<PlatformAuditPage>(`/v1/platform/audit?${query}`)
   }
 }

@@ -8,6 +8,7 @@ import { isPlatformAdmin } from "@/lib/types"
 /**
  * Platform console gate: only PLATFORM_ADMIN may view `/platform/*`.
  * Tenant operators are sent back to the tenant dashboard.
+ * Members are sent to their own shell at /me.
  */
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -16,7 +17,9 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   useEffect(() => {
     if (isLoading || !isAuthenticated) return
     if (!isPlatformAdmin(user?.role)) {
-      router.replace("/dashboard")
+      // MEMBER (USER) goes to the member shell; all operator roles go to dashboard
+      const destination = user?.role === "USER" ? "/me" : "/dashboard"
+      router.replace(destination)
     }
   }, [isLoading, isAuthenticated, user?.role, router])
 

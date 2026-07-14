@@ -2,6 +2,7 @@ package com.vehiclemanagement.parking;
 
 import com.vehiclemanagement.repository.ParkingSlotMappingRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -19,28 +20,44 @@ import java.util.List;
 public class ParkingSlotMappingService {
 
     private final ParkingSlotMappingRepository repository;
+    private final ParkingSlotObservability observability;
 
     public ParkingSlotMappingService(ParkingSlotMappingRepository repository) {
+        this(repository, ParkingSlotObservability.noop());
+    }
+
+    @Autowired
+    public ParkingSlotMappingService(ParkingSlotMappingRepository repository,
+                                      ParkingSlotObservability observability) {
         this.repository = repository;
+        this.observability = observability;
     }
 
     @Transactional(readOnly = true)
     public ParkingSlotMappingResult map(ParkingSlotMappingRequest request) {
         List<ParkingSlotMappingCandidate> candidates = repository.findCoveringSlots(request);
         if (candidates.isEmpty()) {
-            return ParkingSlotMappingResult.noSlot();
+            ParkingSlotMappingResult result = ParkingSlotMappingResult.noSlot();
+            observability.mappingOutcome(result.status(), result.candidates().size());
+            return result;
         }
         if (candidates.size() == 1) {
-            return ParkingSlotMappingResult.matched(candidates.getFirst(), candidates);
+            ParkingSlotMappingResult result = ParkingSlotMappingResult.matched(candidates.getFirst(), candidates);
+            observability.mappingOutcome(result.status(), result.candidates().size());
+            return result;
         }
 
         if (request.currentSlotId() != null) {
             for (ParkingSlotMappingCandidate candidate : candidates) {
                 if (request.currentSlotId().equals(candidate.slotId())) {
-                    return ParkingSlotMappingResult.matched(candidate, candidates);
+                    ParkingSlotMappingResult result = ParkingSlotMappingResult.matched(candidate, candidates);
+                    observability.mappingOutcome(result.status(), result.candidates().size());
+                    return result;
                 }
             }
         }
-        return ParkingSlotMappingResult.ambiguous(candidates);
+        ParkingSlotMappingResult result = ParkingSlotMappingResult.ambiguous(candidates);
+        observability.mappingOutcome(result.status(), result.candidates().size());
+        return result;
     }
 }

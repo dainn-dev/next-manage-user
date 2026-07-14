@@ -28,23 +28,26 @@ public class PlatformAuditService {
 
     @PlatformAdminOperation
     @Transactional
-    public void record(String action, String resourceType, UUID resourceId, Map<String, ?> detail) {
+    public UUID record(String action, String resourceType, UUID resourceId, Map<String, ?> detail) {
         Actor actor = currentActor();
-        jdbc.update("""
+        UUID auditId = jdbc.queryForObject("""
                 INSERT INTO platform_audit_log(actor_user_id, actor_username, action, resource_type, resource_id, detail)
                 VALUES (?, ?, ?, ?, ?, ?::jsonb)
+                RETURNING id
                 """,
+                UUID.class,
                 actor.userId(),
                 actor.username(),
                 action,
                 resourceType,
                 resourceId,
                 toJson(detail == null ? Map.of() : detail));
+        return auditId;
     }
 
     @PlatformAdminOperation
     @Transactional(readOnly = true)
-    public PlatformAuditPageResponse list(int page, int size, String action, String resourceType) {
+    public PlatformAuditPageResponse list(int page, int size, String action, String resourceType, UUID resourceId) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
         String actionFilter = blankToNull(action);
@@ -54,7 +57,8 @@ public class PlatformAuditService {
                 SELECT count(*) FROM platform_audit_log
                 WHERE (CAST(? AS TEXT) IS NULL OR action = ?)
                   AND (CAST(? AS TEXT) IS NULL OR resource_type = ?)
-                """, Long.class, actionFilter, actionFilter, resourceFilter, resourceFilter);
+                  AND (CAST(? AS UUID) IS NULL OR resource_id = ?)
+                """, Long.class, actionFilter, actionFilter, resourceFilter, resourceFilter, resourceId, resourceId);
         long totalCount = total == null ? 0 : total;
 
         List<PlatformAuditEntryDto> content = jdbc.query("""
@@ -62,6 +66,7 @@ public class PlatformAuditService {
                 FROM platform_audit_log
                 WHERE (CAST(? AS TEXT) IS NULL OR action = ?)
                   AND (CAST(? AS TEXT) IS NULL OR resource_type = ?)
+                  AND (CAST(? AS UUID) IS NULL OR resource_id = ?)
                 ORDER BY created_at DESC, id DESC
                 LIMIT ? OFFSET ?
                 """, (rs, rowNum) -> new PlatformAuditEntryDto(
@@ -73,7 +78,7 @@ public class PlatformAuditService {
                         rs.getObject("resource_id", UUID.class),
                         rs.getString("detail"),
                         rs.getTimestamp("created_at").toLocalDateTime()),
-                actionFilter, actionFilter, resourceFilter, resourceFilter,
+                actionFilter, actionFilter, resourceFilter, resourceFilter, resourceId, resourceId,
                 safeSize, safePage * safeSize);
 
         int totalPages = totalCount == 0 ? 0 : (int) Math.ceil((double) totalCount / safeSize);

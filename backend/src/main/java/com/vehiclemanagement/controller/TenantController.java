@@ -1,6 +1,7 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.TenantDetailDto;
+import com.vehiclemanagement.dto.TenantMutationResponse;
 import com.vehiclemanagement.dto.TenantPageResponse;
 import com.vehiclemanagement.dto.TenantStatisticsResponse;
 import com.vehiclemanagement.dto.TenantStatusUpdateRequest;
@@ -60,7 +61,7 @@ public class TenantController {
 
     @PatchMapping("/{id}")
     @Operation(summary = "Rename a tenant")
-    public ResponseEntity<TenantDetailDto> update(
+    public ResponseEntity<TenantMutationResponse> update(
             @PathVariable UUID id,
             @Valid @RequestBody TenantUpdateRequest request) {
         return ResponseEntity.ok(tenantAdminService.update(id, request));
@@ -68,7 +69,7 @@ public class TenantController {
 
     @PatchMapping("/{id}/status")
     @Operation(summary = "Update the tenant lifecycle status")
-    public ResponseEntity<TenantDetailDto> updateStatus(
+    public ResponseEntity<TenantMutationResponse> updateStatus(
             @PathVariable UUID id,
             @Valid @RequestBody TenantStatusUpdateRequest request) {
         return ResponseEntity.ok(tenantAdminService.updateStatus(id, request));

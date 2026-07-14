@@ -1,5 +1,8 @@
 package com.vehiclemanagement.integration;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.vehiclemanagement.config.TenantContext;
 import com.vehiclemanagement.dto.CameraDto;
 import com.vehiclemanagement.dto.CameraWithKeyDto;
@@ -14,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -137,6 +141,9 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Autowired
     S3Client s3Client;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @Test
     void acceptsEventAndReturnsStableResponseForSequentialRetry() {
@@ -362,6 +369,27 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void replaysRepresentativeTrackingFixtureThroughTheAuthenticatedIngestBoundary() throws Exception {
+        CameraCredentials camera = createCamera("fixture-feed");
+        UUID slotA = UUID.randomUUID();
+        UUID slotB = UUID.randomUUID();
+        createPublishedSlots(camera.siteId(), slotA, slotB);
+
+        JsonNode feed = objectMapper.readTree(new ClassPathResource(
+                "fixtures/parking/representative-tracking-feed.json").getInputStream());
+        for (JsonNode sample : feed) {
+            ResponseEntity<String> response = post(camera, fixtureEvent(camera, sample));
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        }
+
+        assertThat(occupancy(slotA).get("status")).isEqualTo("free");
+        assertThat(occupancy(slotB).get("status")).isEqualTo("occupied");
+        assertThat(occupancy(slotB).get("plate")).isEqualTo("30A-12345");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM parking_event WHERE site_id = ? "
+                + "AND event_type = 'VehicleRelocated'", Integer.class, camera.siteId())).isEqualTo(1);
+    }
+
+    @Test
     void ignoresPayloadSiteAndSlotClaimsWhenProjectingAnAuthenticatedCamera() {
         CameraCredentials first = createCamera("tracking-first");
         CameraCredentials second = createCamera("tracking-second");
@@ -462,6 +490,16 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
                 + "\",\"eventType\":\"" + eventType + "\",\"occurredAt\":\"" + occurredAt + "\","
                 + "\"payload\":{\"tracker\":{\"sessionId\":\"" + sessionId
                 + "\",\"trackId\":\"" + trackId + "\"}" + slotObservation + platePayload + "}}";
+    }
+
+    private String fixtureEvent(CameraCredentials camera, JsonNode sample) {
+        ObjectNode event = objectMapper.createObjectNode();
+        event.put("eventId", UUID.randomUUID().toString());
+        event.put("cameraId", camera.id().toString());
+        event.put("eventType", sample.path("eventType").asText());
+        event.put("occurredAt", sample.path("occurredAt").asText());
+        event.set("payload", sample.path("payload"));
+        return event.toString();
     }
 
     private void createPublishedSlots(UUID siteId, UUID firstSlot, UUID secondSlot) {

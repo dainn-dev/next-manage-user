@@ -1,0 +1,39 @@
+[
+  {
+    "eventType": "VehicleDetected",
+    "occurredAt": "2026-07-14T00:00:00Z",
+    "payload": {
+      "tracker": {
+        "sessionId": "11111111-1111-1111-1111-111111111111",
+        "trackId": "feed-track-1"
+      },
+      "slotObservation": {
+        "referencePoint": { "siteMeters": { "x": 1, "y": 1 } }
+      }
+    }
+  },
+  {
+    "eventType": "PlateRecognized",
+    "occurredAt": "2026-07-14T00:00:01Z",
+    "payload": {
+      "tracker": {
+        "sessionId": "11111111-1111-1111-1111-111111111111",
+        "trackId": "feed-track-1"
+      },
+      "plate": { "normalizedText": "30A-12345" }
+    }
+  },
+  {
+    "eventType": "VehicleDetected",
+    "occurredAt": "2026-07-14T00:00:02Z",
+    "payload": {
+      "tracker": {
+        "sessionId": "11111111-1111-1111-1111-111111111111",
+        "trackId": "feed-track-1"
+      },
+      "slotObservation": {
+        "referencePoint": { "siteMeters": { "x": 3, "y": 1 } }
+      }
+    }
+  }
+]

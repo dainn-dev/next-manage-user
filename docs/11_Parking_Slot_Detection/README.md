@@ -143,3 +143,20 @@ rationale and alternatives are in **ADR-1101**.
 - 08_Parking_Map_Designer — where slot polygons are authored and edited.
 - 09_AI_Calibration — camera calibration/homography that establishes the coordinate system slot
   polygons and vehicle reference points share.
+
+## 12. Runtime Validation (DAI-304)
+
+The backend integration suite uses PostGIS and replays the representative feed at
+`backend/src/test/resources/fixtures/parking/representative-tracking-feed.json`. Run it with
+`cd backend && mvn -Dtest='*ParkingSlotMappingIntegrationTest,*CameraIngestIntegrationTest' test`
+against the PostGIS test container. The fixture covers an enter, a plate enrichment, and a
+same-track relocation; the integration assertions verify that the old slot is free, the new slot
+is occupied, and one `VehicleRelocated` event is persisted.
+
+For a running environment, inspect `GET /actuator/prometheus` (or the metrics endpoint) for the
+low-cardinality counters `parking_slot_mapping_outcomes_total{outcome=...}` and
+`parking_slot_occupancy_outcomes_total{outcome=...}`. Expected outcome labels are `matched`,
+`no_slot`, `ambiguous`, `enter`, `stay`, `exit`, `stale_track`, `conflict`, and `relocation`.
+Warnings identify no-slot, ambiguous, stale-track, and conflicting observations without logging
+plates or tracker identifiers. This provides a safe local/staging diagnostic path while keeping
+tenant and vehicle identity out of metric labels and operational logs.

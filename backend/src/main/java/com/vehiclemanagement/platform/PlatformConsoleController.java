@@ -70,14 +70,14 @@ public class PlatformConsoleController {
 
     @PostMapping("/admins")
     @Operation(summary = "Create a platform admin")
-    public ResponseEntity<PlatformAdminUserService.PlatformAdminDto> createAdmin(
+    public ResponseEntity<PlatformAdminUserService.PlatformAdminMutationResponse> createAdmin(
             @Valid @RequestBody PlatformAdminUserService.CreatePlatformAdminRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(adminUserService.create(request));
     }
 
     @PatchMapping("/admins/{id}")
     @Operation(summary = "Update a platform admin")
-    public PlatformAdminUserService.PlatformAdminDto updateAdmin(
+    public PlatformAdminUserService.PlatformAdminMutationResponse updateAdmin(
             @PathVariable UUID id,
             @Valid @RequestBody PlatformAdminUserService.UpdatePlatformAdminRequest request) {
         return adminUserService.update(id, request);
@@ -89,7 +89,8 @@ public class PlatformConsoleController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String action,
-            @RequestParam(required = false) String resourceType) {
-        return auditService.list(page, size, action, resourceType);
+            @RequestParam(required = false) String resourceType,
+            @RequestParam(required = false) UUID resourceId) {
+        return auditService.list(page, size, action, resourceType, resourceId);
     }
 }

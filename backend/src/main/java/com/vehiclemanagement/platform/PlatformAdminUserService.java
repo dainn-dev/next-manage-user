@@ -126,7 +126,7 @@ public class PlatformAdminUserService {
 
     @PlatformAdminOperation
     @Transactional
-    public PlatformAdminDto create(CreatePlatformAdminRequest request) {
+    public PlatformAdminMutationResponse create(CreatePlatformAdminRequest request) {
         String username = request.username().trim();
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         Integer dup = jdbc.queryForObject("""
@@ -152,18 +152,32 @@ public class PlatformAdminUserService {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("username", username);
         detail.put("email", email);
-        auditService.record("platform_admin_created", "platform_admin", id, detail);
-        return get(id);
+        UUID auditId = auditService.record("platform_admin_created", "platform_admin", id, detail);
+        return new PlatformAdminMutationResponse(get(id), auditId, "platform_admin_created");
     }
 
     @PlatformAdminOperation
     @Transactional
-    public PlatformAdminDto update(UUID id, UpdatePlatformAdminRequest request) {
+    public PlatformAdminMutationResponse update(UUID id, UpdatePlatformAdminRequest request) {
         PlatformAdminDto existing = get(id);
         UUID selfId = currentUserId();
         if (selfId != null && selfId.equals(id) && request.status() != null
                 && request.status() != User.UserStatus.ACTIVE) {
             throw new IllegalArgumentException("Cannot suspend your own platform admin account");
+        }
+
+        // Require a reason when deactivating or suspending
+        if (request.status() != null && request.status() != User.UserStatus.ACTIVE) {
+            if (request.reason() == null || request.reason().isBlank()) {
+                throw new IllegalArgumentException("A reason is required when suspending or deactivating a platform admin account");
+            }
+            // Last-active-admin safeguard
+            Long activeCount = jdbc.queryForObject(
+                    "SELECT count(*) FROM users WHERE role = 'PLATFORM_ADMIN' AND status = 'ACTIVE' AND id <> ?",
+                    Long.class, id);
+            if (activeCount == null || activeCount == 0) {
+                throw new IllegalStateException("Cannot deactivate the last active platform admin account");
+            }
         }
 
         String firstName = request.firstName() != null ? blankToNull(request.firstName()) : existing.firstName();
@@ -178,14 +192,17 @@ public class PlatformAdminUserService {
 
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("status", status.name());
+        if (request.reason() != null && !request.reason().isBlank()) {
+            detail.put("reason", request.reason().trim());
+        }
         if (request.firstName() != null) {
             detail.put("firstName", firstName == null ? "" : firstName);
         }
         if (request.lastName() != null) {
             detail.put("lastName", lastName == null ? "" : lastName);
         }
-        auditService.record("platform_admin_updated", "platform_admin", id, detail);
-        return get(id);
+        UUID auditId = auditService.record("platform_admin_updated", "platform_admin", id, detail);
+        return new PlatformAdminMutationResponse(get(id), auditId, "platform_admin_updated");
     }
 
     private PlatformAdminDto get(UUID id) {
@@ -251,6 +268,14 @@ public class PlatformAdminUserService {
     public record UpdatePlatformAdminRequest(
             String firstName,
             String lastName,
-            User.UserStatus status) {
+            User.UserStatus status,
+            @Size(max = 500, message = "Reason must be at most 500 characters")
+            String reason) {
+    }
+
+    public record PlatformAdminMutationResponse(
+            PlatformAdminDto admin,
+            UUID auditId,
+            String auditAction) {
     }
 }
