@@ -50,8 +50,10 @@ public class SlotOccupancyService {
                 return relocated;
             }
             if (current == null || "free".equals(current.status()) || (currentTrack && newer)) {
+                boolean entering = current == null || "free".equals(current.status());
                 repository.occupy(event.slotId(), event.siteId(), event.zoneId(), event.trackId(), event.plate(),
                         event.occurredAt(), event.snapshotReference());
+                if (entering) relocationEventStore.appendEntered(event);
                 SlotOccupancyView occupied = current(event.siteId(), event.zoneId(), event.slotId());
                 realtimePublisher.publishAfterCommit(occupied, event.occurredAt());
                 return occupied;
@@ -59,6 +61,7 @@ public class SlotOccupancyService {
             return current;
         }
         if (currentTrack && newer) {
+            relocationEventStore.appendExited(current, event);
             repository.free(event.slotId());
             SlotOccupancyView freed = current(event.siteId(), event.zoneId(), event.slotId());
             realtimePublisher.publishAfterCommit(freed, event.occurredAt());
@@ -71,6 +74,26 @@ public class SlotOccupancyService {
     @Transactional(readOnly = true)
     public Optional<SlotOccupancyView> findOccupiedByTrack(UUID siteId, String trackId) {
         return repository.findOccupiedByTrack(siteId, trackId);
+    }
+    @Transactional(readOnly = true)
+    public Optional<SlotOccupancyView> findRecentOccupiedByPlate(UUID siteId, String plate,
+                                                                  java.time.OffsetDateTime cutoff) {
+        return repository.findRecentOccupiedByPlate(siteId, plate, cutoff);
+    }
+    @Transactional
+    public int expireStale(UUID siteId, java.time.OffsetDateTime observedAt, String excludedTrack,
+                           long staleSeconds) {
+        List<SlotOccupancyView> expired = repository.findExpired(siteId,
+                observedAt.minusSeconds(staleSeconds), excludedTrack);
+        for (SlotOccupancyView occupancy : expired) {
+            SlotOccupancyObservation stale = new SlotOccupancyObservation(occupancy.slotId(), siteId,
+                    occupancy.zoneId(), occupancy.trackId(), occupancy.plate(), observedAt,
+                    SlotOccupancyTransition.STALE, UUID.randomUUID(), occupancy.snapshotReference());
+            relocationEventStore.appendExited(occupancy, stale);
+            repository.free(occupancy.slotId());
+            realtimePublisher.publishAfterCommit(current(siteId, occupancy.zoneId(), occupancy.slotId()), observedAt);
+        }
+        return expired.size();
     }
 
     private SlotOccupancyView current(UUID siteId, UUID zoneId, UUID slotId) {

@@ -12,9 +12,12 @@ Status: Runtime contract signed off (DAI-297) · Owner: Principal Architect · L
 
 ### Current
 
-The relocation runtime is not yet implemented, but its source data, identity rules, transition
-guards, event fields, and evidence policy are now signed off in ADR-1102. The current edge path
-still lacks the stable multi-object tracking needed to exercise this contract at runtime.
+The backend relocation runtime is implemented. Authenticated camera ingest derives a stream-scoped
+identity from `(camera_id, session_id, track_id)`, applies the ADR-1102 confirmation windows, maps
+the trusted site-space point through PostGIS, and commits occupancy plus domain event/outbox state
+atomically. Exact normalized-plate reconciliation can re-bind a recently observed track at the same
+site; ambiguous matches are deliberately ignored. The edge must still supply stable tracker session
+and track identifiers for this path to operate reliably.
 
 ### Target
 
@@ -135,6 +138,8 @@ deduplicated `VehicleRelocated` event; notification delivery semantics live in 1
   (10_AI_Pipeline, ADR-1001); a higher OCR error rate directly increases false-match risk here.
 - "Stolen vehicle" framing for the notification (§8) needs a product decision on severity/copy
   that is out of scope for this document — flagged for 19_Notification.
+- Confirmation candidates are process-local in the MVP ingest service. A Redis-backed candidate
+  store is required before horizontally scaling camera ingest across multiple backend replicas.
 
 ## 12. Cross-References
 

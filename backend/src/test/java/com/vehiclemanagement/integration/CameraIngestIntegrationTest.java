@@ -37,6 +37,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.time.OffsetDateTime;
 
 import javax.imageio.ImageIO;
 import java.util.concurrent.Callable;
@@ -258,22 +259,46 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
         createPublishedSlots(camera.siteId(), slotA, slotB);
         UUID sessionId = UUID.randomUUID();
 
-        assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "VehicleDetected", sessionId,
-                "42", 1, 1, null)).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        for (int i = 0; i < 3; i++) {
+            assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "VehicleDetected", sessionId,
+                    "42", 1, 1, null, OffsetDateTime.parse("2026-07-14T00:00:00Z")
+                            .plusNanos(i * 300_000_000L).toString())).getStatusCode())
+                    .isEqualTo(HttpStatus.ACCEPTED);
+        }
         assertThat(occupancy(slotA).get("status")).isEqualTo("occupied");
         assertThat(occupancy(slotA).get("plate")).isNull();
 
         assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "PlateRecognized", sessionId,
-                "42", null, null, "30A12345")).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+                "42", null, null, "30A12345", "2026-07-14T00:00:00.700Z")).getStatusCode())
+                .isEqualTo(HttpStatus.ACCEPTED);
         assertThat(occupancy(slotA).get("plate")).isEqualTo("30A12345");
 
-        assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "VehicleDetected", sessionId,
-                "42", 3, 1, null)).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        for (int i = 0; i < 5; i++) {
+            assertThat(post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "VehicleDetected", sessionId,
+                    "42", 3, 1, null, OffsetDateTime.parse("2026-07-14T00:00:01Z")
+                            .plusNanos(i * 300_000_000L).toString())).getStatusCode())
+                    .isEqualTo(HttpStatus.ACCEPTED);
+        }
         assertThat(occupancy(slotA).get("status")).isEqualTo("free");
         assertThat(occupancy(slotB).get("status")).isEqualTo("occupied");
         assertThat(occupancy(slotB).get("plate")).isEqualTo("30A12345");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM parking_event WHERE site_id = ? "
                 + "AND event_type = 'VehicleRelocated'", Integer.class, camera.siteId())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM parking_event WHERE site_id = ? "
+                + "AND event_type = 'VehicleEntered'", Integer.class, camera.siteId())).isEqualTo(1);
+        String relocationPayload = jdbc.queryForObject("""
+                SELECT payload::text FROM parking_event
+                 WHERE site_id=? AND event_type='VehicleRelocated'
+                """, String.class, camera.siteId());
+        assertThat(relocationPayload).contains("old_slot_geometry_id", "new_slot_geometry_id",
+                "old_map_version_id", "new_map_version_id", "assignment", "evidence");
+
+        UUID nextSession = UUID.randomUUID();
+        post(camera, trackedEvent(UUID.randomUUID(), camera.id(), "VehicleDetected", nextSession,
+                "new-track", 1, 1, null, "2026-07-14T00:00:08Z"));
+        assertThat(occupancy(slotB).get("status")).isEqualTo("free");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM parking_event WHERE site_id = ? "
+                + "AND event_type = 'VehicleExited'", Integer.class, camera.siteId())).isEqualTo(1);
     }
 
     @Test
@@ -294,6 +319,11 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
                 + "\",\"referencePoint\":{\"siteMeters\":{\"x\":1,\"y\":1}}}}}";
 
         assertThat(post(second, payload).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        // Use the regular helper for the remaining confirmation frames; payload scope is still ignored.
+        post(second, trackedEvent(UUID.randomUUID(), second.id(), "VehicleDetected", sessionId,
+                "shared-id", 1, 1, null, "2026-07-14T00:00:00.300Z"));
+        post(second, trackedEvent(UUID.randomUUID(), second.id(), "VehicleDetected", sessionId,
+                "shared-id", 1, 1, null, "2026-07-14T00:00:00.600Z"));
         assertThat(occupancy(secondSlot).get("status")).isEqualTo("occupied");
         assertThat(occupancy(firstSlot)).isEmpty();
     }
@@ -353,11 +383,17 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private String trackedEvent(UUID eventId, UUID cameraId, String eventType, UUID sessionId,
                                 String trackId, Integer x, Integer y, String plate) {
+        return trackedEvent(eventId, cameraId, eventType, sessionId, trackId, x, y, plate,
+                "2026-07-14T00:00:00Z");
+    }
+
+    private String trackedEvent(UUID eventId, UUID cameraId, String eventType, UUID sessionId,
+                                String trackId, Integer x, Integer y, String plate, String occurredAt) {
         String slotObservation = x == null ? "" : ",\"slotObservation\":{\"referencePoint\":{"
                 + "\"siteMeters\":{\"x\":" + x + ",\"y\":" + y + "}}}";
         String platePayload = plate == null ? "" : ",\"plate\":{\"normalizedText\":\"" + plate + "\"}";
         return "{\"eventId\":\"" + eventId + "\",\"cameraId\":\"" + cameraId
-                + "\",\"eventType\":\"" + eventType + "\",\"occurredAt\":\"2026-07-14T00:00:00Z\","
+                + "\",\"eventType\":\"" + eventType + "\",\"occurredAt\":\"" + occurredAt + "\","
                 + "\"payload\":{\"tracker\":{\"sessionId\":\"" + sessionId
                 + "\",\"trackId\":\"" + trackId + "\"}" + slotObservation + platePayload + "}}";
     }
@@ -391,7 +427,7 @@ class CameraIngestIntegrationTest extends AbstractPostgresIntegrationTest {
     private java.util.Map<String, Object> occupancy(UUID slotId) {
         List<java.util.Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT status, track_id, plate FROM slot_occupancy WHERE slot_id = ?", slotId);
-        return rows.isEmpty() ? java.util.Map.of() : rows.getFirst();
+        return rows.isEmpty() ? java.util.Map.of() : rows.get(0);
     }
 
     private int count(UUID cameraId, UUID eventId) {

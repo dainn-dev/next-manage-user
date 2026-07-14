@@ -238,8 +238,14 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
                   FROM outbox_message outbox
                   JOIN parking_event event ON event.id = outbox.event_id
                  WHERE outbox.status = 'pending' AND event.site_id = ?
-                """, Integer.class, siteId)).isEqualTo(1);
-        assertThat(jdbc.queryForList("SELECT kind, snapshot_reference FROM parking_event_snapshot ORDER BY kind"))
+                """, Integer.class, siteId)).isEqualTo(2);
+        assertThat(jdbc.queryForList("""
+                SELECT snapshot.kind, snapshot.snapshot_reference
+                  FROM parking_event_snapshot snapshot
+                  JOIN parking_event event ON event.id=snapshot.event_id
+                 WHERE event.event_type='VehicleRelocated'
+                 ORDER BY snapshot.kind
+                """))
                 .containsExactly(
                         java.util.Map.of("kind", "relocation_new", "snapshot_reference", "new-frame-key"),
                         java.util.Map.of("kind", "relocation_old", "snapshot_reference", "old-frame-key"));
@@ -306,7 +312,7 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
                 UUID.randomUUID(), "/uploads/snapshots/new-slot.jpg"));
 
         var page = eventTimelineReadRepository.find(siteId, null, null, 0, 2);
-        assertThat(page.totalElements()).isEqualTo(3);
+        assertThat(page.totalElements()).isEqualTo(4);
         assertThat(page.hasNext()).isTrue();
         assertThat(page.content()).extracting(item -> item.type())
                 .containsExactly("MOTION_DETECTED", "VEHICLE_RELOCATED");
@@ -319,7 +325,7 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
 
         var filtered = eventTimelineReadRepository.find(siteId, zoneOneId, "VEHICLE_RELOCATED", 0, 50);
         assertThat(filtered.content()).hasSize(1);
-        assertThat(filtered.content().get(0).version()).isEqualTo(1L);
+        assertThat(filtered.content().get(0).version()).isEqualTo(2L);
     }
 
     @Test

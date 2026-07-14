@@ -3,8 +3,7 @@
 This document defines how the platform maps a tracked vehicle (produced by the AI pipeline,
 see 10_AI_Pipeline) to a physical parking slot: geometry, reference-point choice, debouncing,
 confidence, the per-slot occupancy state machine, and how edge and backend computations are
-reconciled. **The runtime capability is greenfield**; this document and its schemas define the
-contract the implementation must follow.
+reconciled. The backend runtime is implemented by the authenticated camera-ingest projector.
 
 Status: Runtime contract signed off (DAI-297) · Owner: Principal Architect · Last updated: 2026-07-14
 
@@ -12,10 +11,11 @@ Status: Runtime contract signed off (DAI-297) · Owner: Principal Architect · L
 
 ### Current
 
-The repository now has a signed-off runtime contract and versioned event schemas, but the
-parking-slot projector and occupancy persistence remain implementation work for the child tasks.
-The existing edge tracking path is still a per-plate-string timestamp dictionary rather than a
-stable multi-object tracker, so runtime slot assignment still depends on the AI tracking work.
+The repository has a PostGIS mapper, occupancy transaction boundary, confirmation windows
+(3 frames/600 ms enter and 5 frames/1 s relocation), 5-second stale-track exit projection,
+transactional domain events/outbox, snapshot evidence, and Micrometer outcome counters under
+`parking.slot.observations`. Runtime quality still depends on the edge supplying stable tracker
+session and track identifiers.
 
 ### Target
 

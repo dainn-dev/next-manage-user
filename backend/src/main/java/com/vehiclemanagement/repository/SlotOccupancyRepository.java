@@ -42,6 +42,28 @@ public class SlotOccupancyRepository {
                         .addValue("trackId", trackId), (rs, n) -> view(rs));
         return rows.stream().findFirst();
     }
+    public Optional<SlotOccupancyView> findRecentOccupiedByPlate(UUID siteId, String plate,
+                                                                 java.time.OffsetDateTime cutoff) {
+        List<SlotOccupancyView> rows = jdbc.query("""
+                SELECT slot_id,site_id,zone_id,status,track_id,plate,last_seen_at,snapshot_reference
+                  FROM slot_occupancy
+                 WHERE site_id=:siteId AND status='occupied' AND last_seen_at>=:cutoff
+                   AND regexp_replace(upper(plate),'[^A-Z0-9]','','g')=:plate
+                 ORDER BY last_seen_at DESC LIMIT 2
+                """, new MapSqlParameterSource().addValue("siteId", siteId, Types.OTHER)
+                .addValue("plate", plate).addValue("cutoff", cutoff), (rs, n) -> view(rs));
+        return rows.size() == 1 ? Optional.of(rows.get(0)) : Optional.empty();
+    }
+    public List<SlotOccupancyView> findExpired(UUID siteId, java.time.OffsetDateTime cutoff, String excludedTrack) {
+        return jdbc.query("""
+                SELECT slot_id,site_id,zone_id,status,track_id,plate,last_seen_at,snapshot_reference
+                  FROM slot_occupancy
+                 WHERE site_id=:siteId AND status='occupied' AND last_seen_at<:cutoff
+                   AND (:excludedTrack IS NULL OR track_id<>:excludedTrack)
+                 ORDER BY slot_id FOR UPDATE SKIP LOCKED
+                """, new MapSqlParameterSource().addValue("siteId", siteId, Types.OTHER)
+                .addValue("cutoff", cutoff).addValue("excludedTrack", excludedTrack), (rs, n) -> view(rs));
+    }
     public void occupy(UUID slotId, UUID siteId, UUID zoneId, String trackId, String plate,
                        java.time.OffsetDateTime occurredAt, String snapshotReference) {
         jdbc.update("""

@@ -169,6 +169,16 @@ object-storage:
   path-style-access: ${OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
   read-url-ttl: ${OBJECT_STORAGE_READ_URL_TTL:5m}
 
+# Authoritative tracker confirmation windows. Environment overrides allow tuning
+# against a representative camera feed without changing the event contract.
+parking:
+  occupancy:
+    enter-frames: ${PARKING_OCCUPANCY_ENTER_FRAMES:3}
+    enter-millis: ${PARKING_OCCUPANCY_ENTER_MILLIS:600}
+    relocation-frames: ${PARKING_OCCUPANCY_RELOCATION_FRAMES:5}
+    relocation-millis: ${PARKING_OCCUPANCY_RELOCATION_MILLIS:1000}
+    stale-seconds: ${PARKING_OCCUPANCY_STALE_SECONDS:5}
+
 management:
   endpoints:
     web:
