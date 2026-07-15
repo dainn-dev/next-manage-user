@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 @Component
 public class DashboardWebSocketAuthorizationInterceptor implements ChannelInterceptor {
     private static final Pattern SITE_TOPIC = Pattern.compile("^/topic/site/([0-9a-fA-F-]{36})/(slots|events)$");
+    private static final String USER_NOTIFICATIONS = "/user/queue/notifications";
     private static final String TOKEN = "dashboard.jwt";
     private final JwtUtil jwtUtil;
     private final JdbcTemplate jdbc;
@@ -60,6 +61,10 @@ public class DashboardWebSocketAuthorizationInterceptor implements ChannelInterc
 
     private void authorizeSubscription(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
+        if (USER_NOTIFICATIONS.equals(destination)) {
+            requireToken(accessor, "Authentication required for notification inbox");
+            return;
+        }
         Matcher matcher = SITE_TOPIC.matcher(destination == null ? "" : destination);
         if (!matcher.matches()) return;
         Map<String, Object> attributes = accessor.getSessionAttributes();
@@ -79,6 +84,13 @@ public class DashboardWebSocketAuthorizationInterceptor implements ChannelInterc
         if (!siteBelongsToTenant(siteId, tenantId)) {
             throw new AccessDeniedException("Site is outside tenant scope");
         }
+    }
+
+    private String requireToken(StompHeaderAccessor accessor, String message) {
+        Map<String, Object> attributes = accessor.getSessionAttributes();
+        String token = attributes == null ? null : (String) attributes.get(TOKEN);
+        if (token == null || !jwtUtil.validateToken(token)) throw new AccessDeniedException(message);
+        return token;
     }
 
     private boolean siteBelongsToTenant(UUID siteId, UUID tenantId) {

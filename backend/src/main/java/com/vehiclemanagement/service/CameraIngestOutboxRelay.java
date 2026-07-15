@@ -31,7 +31,7 @@ public class CameraIngestOutboxRelay {
         this.bus = bus;
         this.batchSize = batchSize;
         Gauge.builder("camera.ingest.outbox.pending", jdbc, template -> {
-                    Integer count = template.queryForObject("SELECT count(*) FROM outbox_message WHERE aggregate_type='camera_ingest' AND status IN ('pending','failed')", Integer.class);
+                    Integer count = template.queryForObject("SELECT count(*) FROM outbox_message WHERE aggregate_type IN ('camera_ingest','parking_event') AND status IN ('pending','failed')", Integer.class);
                     return count == null ? 0 : count;
                 })
                 .description("Camera ingest messages waiting for outbox dispatch")
@@ -45,7 +45,7 @@ public class CameraIngestOutboxRelay {
         List<Row> rows = jdbc.query("""
                 SELECT id, tenant_id, routing_key, payload::text
                   FROM outbox_message
-                 WHERE aggregate_type = 'camera_ingest' AND status IN ('pending', 'failed')
+                 WHERE aggregate_type IN ('camera_ingest', 'parking_event') AND status IN ('pending', 'failed')
                  ORDER BY created_at
                  LIMIT ? FOR UPDATE SKIP LOCKED
                 """, (rs, n) -> new Row(

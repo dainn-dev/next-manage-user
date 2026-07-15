@@ -1,5 +1,18 @@
 # 19. Notification
 
+> V1 implementation (DAI-319, 2026-07-15): implemented behind the fail-closed
+> `NOTIFICATION_ENABLED=false` activation gate until dependency DAI-312 is GO.
+
+The backend now consumes durable parking/camera events for `VehicleRelocated`,
+`VehicleExited`, `PersonProximity`, and the heartbeat sweep's deterministic
+`CameraOffline` event. It persists tenant/site/user-scoped inbox and delivery-attempt
+records, enforces site/global preferences and timezone-aware quiet hours, and sends
+addressed in-app messages at `/user/queue/notifications`. User read/acknowledge and
+preference APIs are under `/api/v1/notifications`; authorized operators can query
+retry/dead-letter state at `/api/v1/notifications/deliveries`. Database uniqueness
+makes replay idempotent, rate limiting suppresses storms, and bounded exponential
+retry moves exhausted deliveries to a queryable dead letter state.
+
 Notifications & alerts for ParkVision: turning vision-derived domain events (a vehicle moved,
 left the lot, a person is lingering, a camera dropped) into timely, addressed, de-duplicated
 messages delivered to the right user over the right channel.

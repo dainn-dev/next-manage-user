@@ -1,5 +1,19 @@
 # 16 · AI Chatbot
 
+> V1 backend implemented for DAI-320 on 2026-07-16. Activation remains
+> fail-closed with `CHATBOT_ENABLED=false` until the notification exit gate and
+> DAI-312 pilot dependencies are both GO.
+
+The implementation exposes `POST /api/v1/chat` for authenticated parking
+operators. The Ollama provider can only return an allow-listed tool plan; the
+server discards model-proposed tenant, site, user and role context and executes
+the four tools through existing authorized read services. A deterministic
+Vietnamese/English fallback handles model outages. Responses include their
+authoritative source, freshness timestamp and filtered tool data. V76 adds
+RLS-protected conversations, redacted messages and tool audits, with prompt-
+injection rejection, plan/rate limits, metering, estimated cost, latency,
+operator audit queries and configurable retention deletion.
+
 ParkVision's in-product assistant answers natural-language questions about a tenant's vehicles,
 parking history, and site occupancy by calling tenant-scoped internal read APIs (tool-calling),
 never by querying the database directly. It runs on a pluggable LLM provider — a self-hosted Ollama

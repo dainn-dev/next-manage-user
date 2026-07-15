@@ -1,5 +1,6 @@
 package com.vehiclemanagement.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vehiclemanagement.billing.EntitlementGuard;
 import com.vehiclemanagement.config.CameraCredentialProperties;
 import com.vehiclemanagement.config.PlatformAdminOperation;
@@ -17,6 +18,7 @@ import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -64,6 +66,15 @@ public class CameraService {
 
     @Autowired
     private CameraCredentialProperties credentialProperties;
+
+    @Autowired
+    private OutboxBus outboxBus;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Value("${camera.heartbeat-timeout-seconds:60}")
     private long heartbeatTimeoutSeconds;
@@ -216,6 +227,21 @@ public class CameraService {
         }
         stale.forEach(camera -> camera.setStatus(Camera.CameraStatus.offline));
         cameraRepository.saveAll(stale);
+        cameraRepository.flush();
+        stale.forEach(camera -> {
+            UUID tenantId = jdbcTemplate.queryForObject("SELECT tenant_id FROM camera WHERE id=?", UUID.class, camera.getId());
+            UUID sourceId = UUID.nameUUIDFromBytes(("camera-offline:" + camera.getId() + ":"
+                    + camera.getLastHeartbeatAt()).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var payload = objectMapper.createObjectNode();
+            payload.put("event_id", sourceId.toString());
+            payload.put("event_type", "CameraOffline");
+            payload.put("tenant_id", tenantId.toString());
+            payload.put("site_id", camera.getSiteId().toString());
+            payload.put("camera_id", camera.getId().toString());
+            payload.put("last_heartbeat_at", String.valueOf(camera.getLastHeartbeatAt()));
+            outboxBus.publish(new OutboxBus.OutboxEvent(sourceId, tenantId,
+                    tenantId + "." + camera.getSiteId() + ".CameraOffline", payload));
+        });
     }
 
     private CameraWithKeyDto saveNewActiveKey(Camera camera, LocalDateTime previousExpiresAt) {

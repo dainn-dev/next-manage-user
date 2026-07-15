@@ -186,6 +186,26 @@ parking:
     relocation-millis: ${PARKING_OCCUPANCY_RELOCATION_MILLIS:1000}
     stale-seconds: ${PARKING_OCCUPANCY_STALE_SECONDS:5}
 
+# DAI-319 is activation-gated by DAI-312. Keep disabled until the release
+# readiness decision is GO; storage and APIs are only registered when enabled.
+notification:
+  enabled: ${NOTIFICATION_ENABLED:false}
+  max-attempts: ${NOTIFICATION_MAX_ATTEMPTS:5}
+  rate-limit-per-minute: ${NOTIFICATION_RATE_LIMIT_PER_MINUTE:20}
+  retry-poll-ms: ${NOTIFICATION_RETRY_POLL_MS:5000}
+
+# DAI-320 activation requires the notification exit gate and a stable DAI-312
+# pilot. The chatbot therefore remains absent from the API unless explicitly enabled.
+chatbot:
+  enabled: ${CHATBOT_ENABLED:false}
+  rate-limit-per-minute: ${CHATBOT_RATE_LIMIT_PER_MINUTE:10}
+  retention-days: ${CHATBOT_RETENTION_DAYS:30}
+  retention-cron: ${CHATBOT_RETENTION_CRON:0 30 2 * * *}
+  estimated-cost-per-thousand-tokens-micros: ${CHATBOT_COST_PER_1K_TOKENS_MICROS:0}
+  ollama:
+    endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
+    model: ${OLLAMA_MODEL:qwen2.5:7b}
+
 management:
   endpoints:
     web:

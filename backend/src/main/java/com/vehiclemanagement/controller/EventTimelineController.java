@@ -1,8 +1,7 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.EventTimelinePageDto;
-import com.vehiclemanagement.repository.EventTimelineReadRepository;
-import com.vehiclemanagement.security.SiteAccess;
+import com.vehiclemanagement.service.EventTimelineQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,12 +15,10 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/sites/{siteId}/events")
 public class EventTimelineController {
-    private final EventTimelineReadRepository repository;
-    private final SiteAccess siteAccess;
+    private final EventTimelineQueryService service;
 
-    public EventTimelineController(EventTimelineReadRepository repository, SiteAccess siteAccess) {
-        this.repository = repository;
-        this.siteAccess = siteAccess;
+    public EventTimelineController(EventTimelineQueryService service) {
+        this.service = service;
     }
 
     @GetMapping
@@ -32,10 +29,6 @@ public class EventTimelineController {
             @RequestParam(required = false) String type,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        siteAccess.assertSiteAllowed(siteId);
-        if (page < 0 || size < 1 || size > 100) {
-            throw new IllegalArgumentException("page must be >= 0 and size must be between 1 and 100");
-        }
-        return ResponseEntity.ok(repository.find(siteId, zoneId, type, page, size));
+        return ResponseEntity.ok(service.find(siteId, zoneId, type, page, size));
     }
 }
