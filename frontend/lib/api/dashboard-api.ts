@@ -17,6 +17,7 @@ export interface DashboardCamera {
   snapshotUrl: string | null
   streamKind: string | null
   streamExpiresAt: string | null
+  role: 'ANPR_GATE' | 'OVERVIEW'
 }
 
 export interface DashboardSlot {
@@ -132,6 +133,7 @@ export const dashboardApi = {
         ? String(row.stream.kind).toUpperCase()
         : (row.hlsUrl ? 'HLS' : row.webrtcUrl ? 'WEBRTC' : row.mjpegUrl ? 'MJPEG' : null),
       streamExpiresAt: row.stream?.expiresAt || null,
+      role: String(row.role || 'ANPR_GATE').toUpperCase() === 'OVERVIEW' ? 'OVERVIEW' : 'ANPR_GATE',
     }))
   },
 

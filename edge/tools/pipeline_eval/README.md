@@ -34,7 +34,10 @@ Every feed reports:
 
 The architecture promotion gates are 95% normalized exact-match read rate for day feeds (at least
 50 lux) and 90% for night feeds (below 50 lux, including IR-assisted captures). Only `models` mode
-with both condition targets met is promotion-eligible. Fixture performance numbers are deliberately
+with a declared dataset version and every `required_conditions` target met is promotion-eligible.
+The model example requires day, night, rain, glare, angle, motorcycle, and difficult Vietnamese
+plate cohorts; each is gated independently so averages cannot hide a weak cohort. Fixture numbers are
+deliberately
 not representative of real edge hardware.
 
 ## Real model evaluation
@@ -56,7 +59,7 @@ not representative of real edge hardware.
      rec/
    ```
 
-3. Copy `model-evaluation.example.json`, replace the day/night feed paths, list every
+3. Copy `model-evaluation.example.json`, set the dataset version, replace every cohort feed path, list every
    ground-truth-readable normalized plate once per feed, and point `pipeline_config` at a local
    profile. Keep evaluation data outside the runtime repository when it contains personal data.
 
@@ -69,7 +72,7 @@ not representative of real edge hardware.
    ```
 
 5. After the held-out set and thresholds are approved, use `--enforce-targets`. Exit code `3`
-   means the run is incomplete, is a fixture, or missed a day/night target.
+   means the run is incomplete, is a fixture, or missed a required cohort target.
 
 The evaluator always forces ingest dry-run. It captures payloads but never sends evaluation data to
 the backend.
@@ -168,7 +171,7 @@ and password may be supplied separately through `DAI_CAMERA_SOURCE_USERNAME` and
 - The repository does not contain a representative, human-labeled day/night video corpus or the
   production model bundles. Therefore no real day/night quality claim is made by the checked-in
   fixture report.
-- Current end-to-end read rate uses unique expected/recognized plate strings. Repeated visits by the
+- OCR exact-match precision, recall, and F1 use unique expected/recognized plate strings. Repeated visits by the
   same plate need occurrence-level annotations in the next manifest schema.
 - Vehicle/plate metrics are operational counts and confidence summaries, not mAP/recall. Add
   frame-level bounding-box ground truth and COCO-style scoring next.

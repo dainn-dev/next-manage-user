@@ -48,3 +48,10 @@ edge/temp_speech.mp3
 .opencode/*
 .claude/*
 .agents/*
+# Generated DAI-317 acceptance evidence
+artifacts/acceptance/
+# Generated staging credentials and release evidence
+deploy/staging/secrets/
+deploy/staging/evidence/
+# Controlled-pilot generated evidence (site profiles/templates remain tracked)
+pilot/evidence/

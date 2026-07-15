@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "pilotId": "site-a-2026-rc1",
+  "status": "approved",
+  "executedAt": "2026-08-01T10:00:00+07:00",
+  "signedAt": "2026-08-01T16:00:00+07:00",
+  "signedBy": "Replace with pilot owner",
+  "evidence": "pilot/evidence/uat-session-notes.md",
+  "training": {"completedAt": "2026-08-01T09:00:00+07:00", "materialVersion": "operator-v1", "attendees": ["Replace with trained operator"]},
+  "scenarios": [
+    {"id": "operator_login", "passed": true},
+    {"id": "camera_health", "passed": true},
+    {"id": "occupancy_map", "passed": true},
+    {"id": "plate_read", "passed": true},
+    {"id": "relocation", "passed": true},
+    {"id": "manual_correction", "passed": true},
+    {"id": "privacy_retention", "passed": true},
+    {"id": "incident_escalation", "passed": true},
+    {"id": "rollback", "passed": true}
+  ]
+}

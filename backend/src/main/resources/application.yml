@@ -114,6 +114,8 @@ multitenancy:
 # admin@vehiclemanagement.com as PLATFORM_ADMIN (tenant_id NULL).
 app:
   seed-demo-users: ${APP_SEED_DEMO_USERS:true}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   admin-datasource:
     url: ${APP_ADMIN_DATASOURCE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vehicle_management}}
     username: ${APP_ADMIN_DATASOURCE_USERNAME:app_admin_login}
@@ -140,6 +142,8 @@ billing:
 # (e.g. local dev) the gate filter runs open; set GATE_API_KEY in production.
 gate:
   api-key: ${GATE_API_KEY:}
+  # Local development remains convenient, while docker/deployed profiles override this to false.
+  allow-open: ${GATE_ALLOW_OPEN:true}
 
 # Per-camera credential rotation (ADR-0602). The previous camera key stays
 # valid only for this overlap window after a tenant admin rotates it.

@@ -41,6 +41,10 @@ public class GateApiKeyAuthFilter extends OncePerRequestFilter {
     @Value("${gate.api-key:}")
     private String gateApiKey;
 
+    /** Explicit local-development escape hatch. Deployed profiles must leave this false. */
+    @Value("${gate.allow-open:false}")
+    private boolean allowOpen;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -53,13 +57,14 @@ public class GateApiKeyAuthFilter extends OncePerRequestFilter {
             return;
         }
         if (isProtectedRequest(request)) {
-            if (gateApiKey == null || gateApiKey.isEmpty()) {
+            if ((gateApiKey == null || gateApiKey.isEmpty()) && allowOpen) {
                 logger.warn("gate.api-key is not configured (GATE_API_KEY env). Gate endpoints "
                         + CHECK_VEHICLE_PATH + " / " + VEHICLE_LOGS_PATH
-                        + " are running OPEN. Set GATE_API_KEY in production.");
+                        + " are running OPEN because gate.allow-open=true.");
             } else {
                 String provided = request.getHeader(GATE_KEY_HEADER);
-                if (provided == null || provided.isEmpty() || !gateApiKey.equals(provided)) {
+                if (gateApiKey == null || gateApiKey.isEmpty()
+                        || provided == null || provided.isEmpty() || !gateApiKey.equals(provided)) {
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     response.setCharacterEncoding("UTF-8");

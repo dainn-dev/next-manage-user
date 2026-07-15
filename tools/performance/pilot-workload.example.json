@@ -1,0 +1,17 @@
+{
+  "baseUrl": "http://localhost:8080",
+  "cameras": [{"id": "00000000-0000-0000-0000-000000000001", "keyEnv": "DAI_LOAD_CAMERA_KEY_1"}],
+  "dashboardUsers": 10,
+  "retentionDays": 30,
+  "workload": {
+    "durationSeconds": 300,
+    "eventsPerSecond": 5,
+    "burstMultiplier": 3,
+    "burstSeconds": 30,
+    "concurrency": 16,
+    "duplicateRate": 0.05,
+    "requestTimeoutSeconds": 10
+  },
+  "slos": {"p95LatencyMs": 500, "maxErrorRate": 0.01, "minThroughputPerSecond": 4.8},
+  "outputJson": "reports/dai-314-load.json"
+}

@@ -12,6 +12,8 @@ import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 
 /** At-least-once relay for durable camera-ingest outbox messages. */
 @Component
@@ -22,11 +24,18 @@ public class CameraIngestOutboxRelay {
     private final int batchSize;
 
     public CameraIngestOutboxRelay(JdbcTemplate jdbc, ObjectMapper objectMapper, OutboxBus bus,
+            MeterRegistry meterRegistry,
             @Value("${outbox.camera-ingest.batch-size:100}") int batchSize) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.bus = bus;
         this.batchSize = batchSize;
+        Gauge.builder("camera.ingest.outbox.pending", jdbc, template -> {
+                    Integer count = template.queryForObject("SELECT count(*) FROM outbox_message WHERE aggregate_type='camera_ingest' AND status IN ('pending','failed')", Integer.class);
+                    return count == null ? 0 : count;
+                })
+                .description("Camera ingest messages waiting for outbox dispatch")
+                .register(meterRegistry);
     }
 
     @Scheduled(fixedDelayString = "${outbox.camera-ingest.poll-delay-ms:1000}")

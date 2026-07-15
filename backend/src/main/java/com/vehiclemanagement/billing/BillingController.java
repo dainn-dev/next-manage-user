@@ -7,6 +7,7 @@ import com.vehiclemanagement.billing.dto.BillingPortalResponse;
 import com.vehiclemanagement.billing.dto.BillingStatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -23,9 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class BillingController {
 
     private final BillingService billingService;
+    private final MeterRegistry meterRegistry;
 
-    public BillingController(BillingService billingService) {
+    public BillingController(BillingService billingService, MeterRegistry meterRegistry) {
         this.billingService = billingService;
+        this.meterRegistry = meterRegistry;
     }
 
     @GetMapping({"/subscription", "/status"})
@@ -53,7 +56,13 @@ public class BillingController {
     public ResponseEntity<Void> handleWebhook(
             @RequestBody String payload,
             @RequestHeader("Stripe-Signature") String signature) {
-        billingService.handleWebhook(payload, signature);
-        return ResponseEntity.ok().build();
+        try {
+            billingService.handleWebhook(payload, signature);
+            meterRegistry.counter("billing.webhook.requests", "outcome", "accepted").increment();
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException ex) {
+            meterRegistry.counter("billing.webhook.requests", "outcome", "failed").increment();
+            throw ex;
+        }
     }
 }

@@ -39,7 +39,10 @@ from edge.ocr_engine import OcrEngineRead, normalize_vietnamese_plate
 from edge.vehicle_tracker import TrackedVehicle
 
 
-READ_RATE_TARGETS = {"day": 0.95, "night": 0.90}
+READ_RATE_TARGETS = {
+    "day": 0.95, "night": 0.90, "rain": 0.85, "glare": 0.85,
+    "angle": 0.85, "motorcycle": 0.85, "difficult_vietnamese_plate": 0.80,
+}
 
 
 class EvaluationError(RuntimeError):
@@ -156,13 +159,19 @@ def _load_manifest(path: Path) -> dict[str, object]:
         for key in ("id", "condition", "source", "expected_plates"):
             if key not in feed:
                 raise EvaluationError(f"feeds[{index}].{key} is required")
-        if feed["condition"] not in READ_RATE_TARGETS:
-            raise EvaluationError(f"feeds[{index}].condition must be day or night")
+        if not isinstance(feed["condition"], str) or not feed["condition"].strip():
+            raise EvaluationError(f"feeds[{index}].condition must be a non-empty string")
         if not isinstance(feed["expected_plates"], list):
             raise EvaluationError(f"feeds[{index}].expected_plates must be an array")
+    required = value.get("required_conditions", ["day", "night"])
+    if not isinstance(required, list) or not required or not all(isinstance(item, str) for item in required):
+        raise EvaluationError("required_conditions must be a non-empty string array")
     conditions = {str(feed.get("condition")) for feed in feeds if isinstance(feed, dict)}
-    if not {"day", "night"}.issubset(conditions):
-        raise EvaluationError("evaluation manifest must include day and night feeds")
+    missing = set(required) - conditions
+    if missing:
+        raise EvaluationError(f"evaluation manifest is missing required conditions: {', '.join(sorted(missing))}")
+    if value["mode"] == "models" and not value.get("dataset_version"):
+        raise EvaluationError("models mode requires dataset_version")
     return value
 
 
@@ -257,6 +266,13 @@ def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
             plate_track_ids.setdefault(plate, set()).add(track_id)
     id_switches = sum(max(0, len(track_ids) - 1) for track_ids in plate_track_ids.values())
     read_rate = len(matched) / len(expected) if expected else None
+    true_positive = len(matched)
+    false_positive = len(set(recognized) - set(expected))
+    false_negative = len(set(expected) - set(recognized))
+    precision = true_positive / (true_positive + false_positive) if true_positive + false_positive else None
+    recall = true_positive / (true_positive + false_negative) if true_positive + false_negative else None
+    f1 = (2 * precision * recall / (precision + recall)
+          if precision is not None and recall is not None and precision + recall else None)
     vehicle_confidences = [float(detection["confidence"])
                            for item in vehicle_records
                            for detection in item.get("detections", [])]
@@ -280,6 +296,11 @@ def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
         "expectedReadablePlates": expected,
         "matchedReadablePlates": matched,
         "readRate": read_rate,
+        "ocrQuality": {
+            "truePositive": true_positive, "falsePositive": false_positive,
+            "falseNegative": false_negative, "precision": precision,
+            "recall": recall, "f1": f1,
+        },
         "trackerIdentity": {
             "trackIdsByPlate": {plate: sorted(ids) for plate, ids in sorted(plate_track_ids.items())},
             "idSwitches": id_switches,
@@ -306,12 +327,11 @@ def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
     }
 
 
-def _condition_summary(feeds: list[dict[str, object]], condition: str) -> dict[str, object]:
+def _condition_summary(feeds: list[dict[str, object]], condition: str, target: float) -> dict[str, object]:
     selected = [item for item in feeds if item["condition"] == condition]
     expected = sum(len(item["expectedReadablePlates"]) for item in selected)
     matched = sum(len(item["matchedReadablePlates"]) for item in selected)
     rate = matched / expected if expected else None
-    target = READ_RATE_TARGETS[condition]
     return {
         "expectedReadablePlates": expected,
         "matchedReadablePlates": matched,
@@ -356,21 +376,28 @@ def run_evaluation(manifest_path: str | Path,
         feed["source"] = source.as_posix()
         feed_reports.append(_feed_metrics(feed, capture.records, latencies, elapsed))
 
-    conditions = {condition: _condition_summary(feed_reports, condition)
-                  for condition in ("day", "night")}
-    target_results = [item["targetMet"] for item in conditions.values()]
+    configured_targets = {**READ_RATE_TARGETS,
+                          **{str(k): float(v) for k, v in dict(manifest.get("condition_targets", {})).items()}}
+    required_conditions = [str(item) for item in manifest.get("required_conditions", ["day", "night"])]
+    evaluated_conditions = sorted({str(item["condition"]) for item in feed_reports})
+    conditions = {condition: _condition_summary(
+        feed_reports, condition, configured_targets.get(condition, 0.85))
+        for condition in evaluated_conditions}
     no_stage_failures = all(not item["stageFailures"] for item in feed_reports)
     report: dict[str, object] = {
         "schemaVersion": 1,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "evidenceMode": mode,
+        "datasetVersion": manifest.get("dataset_version", "fixture-sample-v1"),
         "configurationHash": config.configuration_hash,
         "promotionEligible": (mode == "models" and no_stage_failures
-                              and all(value is True for value in target_results)),
+                              and all(conditions[name]["targetMet"] is True
+                                      for name in required_conditions)),
         "note": ("Synthetic fixture run validates harness/orchestration only; it is not model-quality evidence."
                  if mode == "fixture" else
                  "Model run uses configured local artifacts and supplied feeds."),
-        "readRateTargets": READ_RATE_TARGETS,
+        "requiredConditions": required_conditions,
+        "readRateTargets": configured_targets,
         "conditions": conditions,
         "feeds": feed_reports,
         "sampleEmittedPayloads": [payload for feed in feed_reports
@@ -396,16 +423,17 @@ def render_markdown(report: dict[str, object]) -> str:
         "# LPR full-pipeline evaluation",
         "",
         f"- Evidence mode: `{report['evidenceMode']}`",
+        f"- Dataset version: `{report['datasetVersion']}`",
         f"- Configuration: `{report['configurationHash']}`",
         f"- Promotion eligible: **{str(report['promotionEligible']).lower()}**",
         f"- Note: {report['note']}",
         "",
-        "## Day/night read-rate targets",
+        "## Condition read-rate targets",
         "",
         "| Condition | Read rate | Target | Result |",
         "|---|---:|---:|---|",
     ]
-    for condition in ("day", "night"):
+    for condition in report["conditions"]:
         item = report["conditions"][condition]
         rate = "n/a" if item["readRate"] is None else f"{item['readRate']:.3f}"
         result = "not demonstrated" if item["targetMet"] is None else (
@@ -423,6 +451,9 @@ def render_markdown(report: dict[str, object]) -> str:
             f"- Plate detections: {feed['plateDetections']}",
             f"- OCR attempts: {feed['ocrAttempts']}",
             f"- Recognized plates: {', '.join(feed['recognizedPlates']) or 'none'}",
+            f"- OCR precision/recall/F1: {_format_metric(feed['ocrQuality']['precision'], 3)} / "
+            f"{_format_metric(feed['ocrQuality']['recall'], 3)} / "
+            f"{_format_metric(feed['ocrQuality']['f1'], 3)}",
             f"- Event counts: `{json.dumps(feed['eventCounts'], sort_keys=True)}`",
             f"- Confidence means (vehicle/plate/OCR): "
             f"{_format_metric(confidences['vehicle']['mean'], 3)} / "
@@ -445,7 +476,7 @@ def render_markdown(report: dict[str, object]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Evaluate the full LPR pipeline on day/night feeds")
+    parser = argparse.ArgumentParser(description="Evaluate the full LPR pipeline by labelled condition")
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output-json")
     parser.add_argument("--enforce-targets", action="store_true")

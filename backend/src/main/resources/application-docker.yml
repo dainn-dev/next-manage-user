@@ -38,6 +38,10 @@ spring:
     baseline-on-migrate: true
 
 management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        camera.ingest.latency: true
   endpoints:
     web:
       exposure:
@@ -54,6 +58,8 @@ management:
         enabled: true
 
 logging:
+  pattern:
+    console: "timestamp=%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%level service=vehicle-management-api correlation_id=%X{correlationId:-none} logger=%logger{36} message=%replace(%msg){'[\\r\\n]+',' '}%n"
   level:
     com.vehiclemanagement: INFO
     org.springframework.web: INFO

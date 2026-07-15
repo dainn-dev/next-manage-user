@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -31,17 +33,20 @@ public class CameraIngestService {
     private final SnapshotStorageService snapshotStorageService;
     private final TrackingOccupancyIntegrationService trackingOccupancyIntegrationService;
     private final long maxSnapshotBytes;
+    private final MeterRegistry meterRegistry;
 
     public CameraIngestService(
             CameraIngestEventRepository repository,
             ObjectMapper objectMapper,
             SnapshotStorageService snapshotStorageService,
             TrackingOccupancyIntegrationService trackingOccupancyIntegrationService,
+            MeterRegistry meterRegistry,
             @Value("${camera-ingest.max-snapshot-bytes:5242880}") long maxSnapshotBytes) {
         this.repository = repository;
         this.objectMapper = objectMapper;
         this.snapshotStorageService = snapshotStorageService;
         this.trackingOccupancyIntegrationService = trackingOccupancyIntegrationService;
+        this.meterRegistry = meterRegistry;
         this.maxSnapshotBytes = maxSnapshotBytes;
     }
 
@@ -57,6 +62,7 @@ public class CameraIngestService {
     public CameraIngestResponse ingest(UUID authenticatedCameraId,
                                        CameraIngestRequest request,
                                        Map<String, MultipartFile> snapshots) {
+        Timer.Sample timer = Timer.start(meterRegistry);
         if (request.getCameraId() != null && !authenticatedCameraId.equals(request.getCameraId())) {
             throw new CameraOwnershipException();
         }
@@ -74,6 +80,8 @@ public class CameraIngestService {
                 request.getOccurredAt(),
                 payload);
         if (inserted == 0) {
+            meterRegistry.counter("camera.ingest.requests", "outcome", "duplicate").increment();
+            timer.stop(meterRegistry.timer("camera.ingest.latency", "outcome", "duplicate"));
             return CameraIngestResponse.accepted(request.getEventId());
         }
         String snapshotPath = null;
@@ -94,6 +102,8 @@ public class CameraIngestService {
                 request.getEventType().trim(), request.getOccurredAt(), request.getPayload(), snapshotPath);
         repository.insertOutboxMessage(authenticatedCameraId, request.getEventId().toString(),
                 "camera.ingest." + request.getEventType().trim(), outboxPayload(authenticatedCameraId, request));
+        meterRegistry.counter("camera.ingest.requests", "outcome", "accepted").increment();
+        timer.stop(meterRegistry.timer("camera.ingest.latency", "outcome", "accepted"));
         return CameraIngestResponse.accepted(request.getEventId());
     }
 

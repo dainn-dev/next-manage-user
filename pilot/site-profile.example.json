@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "pilotId": "site-a-2026-rc1",
+  "tenantId": "00000000-0000-0000-0000-000000000001",
+  "siteId": "00000000-0000-0000-0000-000000000002",
+  "siteName": "Controlled pilot site A",
+  "window": {"start": "2026-08-03", "end": "2026-08-16"},
+  "cameras": ["00000000-0000-0000-0000-000000000101"],
+  "zones": ["entry", "zone-a"],
+  "retentionDays": 30,
+  "privacyNotice": {"version": "v1", "location": "site entrance and operator desk", "postedAt": "2026-08-01T09:00:00+07:00"},
+  "roles": {
+    "pilotOwner": "Replace with accountable owner",
+    "siteOperator": "Replace with trained operator",
+    "securityContact": "Replace with security contact",
+    "privacyContact": "Replace with privacy contact",
+    "technicalOnCall": "Replace with technical on-call"
+  },
+  "supportHours": {"timezone": "Asia/Ho_Chi_Minh", "schedule": "Mon-Sun 07:00-22:00", "afterHoursEscalation": "Phone pilot owner"},
+  "rollbackPlan": "docs/testing/dai-315-staging-observability-runbook.md",
+  "calibrationEvidence": {
+    "commissioning": "docs/testing/dai-324-commissioning-runbook.md",
+    "aiEvaluation": "pilot/evidence/ai-evaluation.json",
+    "capacity": "pilot/evidence/load.json",
+    "stagingRehearsal": "pilot/evidence/staging-rehearsal.json"
+  },
+  "calibrationSettings": {
+    "geometryVersion": "site-a-geometry-v1",
+    "slotMapVersion": "site-a-slot-map-v1",
+    "plateThresholdProfile": "site-a-ai-thresholds-v1",
+    "networkProfile": "site-a-network-v1",
+    "retentionPolicyVersion": "pilot-retention-v1"
+  },
+  "targets": {
+    "falsePlateReadRateMax": 0.02,
+    "missedPlateReadRateMax": 0.05,
+    "occupancyMismatchRateMax": 0.02,
+    "relocationAccuracyMin": 0.95,
+    "eventP95LatencyMsMax": 500,
+    "uptimeMin": 0.995,
+    "manualCorrectionRateMax": 0.03,
+    "estimatedCostMax": 500
+  },
+  "conditionActions": {
+    "falsePlateReadRate": {"owner": "AI owner", "dueDate": "2026-08-23"},
+    "missedPlateReadRate": {"owner": "AI owner", "dueDate": "2026-08-23"},
+    "occupancyMismatchRate": {"owner": "Pilot operations", "dueDate": "2026-08-23"},
+    "relocationAccuracy": {"owner": "Pilot operations", "dueDate": "2026-08-23"},
+    "eventP95LatencyMs": {"owner": "Platform owner", "dueDate": "2026-08-23"},
+    "uptime": {"owner": "Platform owner", "dueDate": "2026-08-23"},
+    "manualCorrectionRate": {"owner": "Product owner", "dueDate": "2026-08-23"},
+    "estimatedCost": {"owner": "Pilot owner", "dueDate": "2026-08-23"}
+  }
+}

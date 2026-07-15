@@ -60,6 +60,8 @@ services:
       # Required X-Gate-Key header secret for public gate endpoints
       # (/api/vehicles/check-vehicle, POST /api/vehicle-logs). Empty = open (dev).
       GATE_API_KEY: ${GATE_API_KEY:-}
+      GATE_ALLOW_OPEN: "false"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       # Camera-ingest snapshots use server-side S3 PUTs to this local MinIO service.
       OBJECT_STORAGE_ENDPOINT: http://minio:9000
       OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-vehicle-management-snapshots}

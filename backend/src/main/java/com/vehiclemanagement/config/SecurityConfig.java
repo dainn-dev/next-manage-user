@@ -59,10 +59,15 @@ public class SecurityConfig {
                 // requires X-Camera-Id/X-Camera-Key and binds the camera tenant context.
                 .requestMatchers(HttpMethod.POST, "/api/cameras/*/heartbeat").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/parking-events").permitAll()
-                .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                .requestMatchers("/actuator/**").hasRole("PLATFORM_ADMIN")
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                .requestMatchers("/images/**").permitAll()
-                .requestMatchers("/uploads/**").permitAll()
+                // Legacy gate snapshots have no tenant-bearing path metadata and cannot be
+                // authorized safely. Keep them dark; new ingest evidence uses tenant-scoped,
+                // short-lived object-storage URLs.
+                .requestMatchers("/uploads/snapshots/**").denyAll()
+                .requestMatchers("/images/**").authenticated()
+                .requestMatchers("/uploads/**").authenticated()
                 .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/billing/webhooks").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/parking/webhooks/**").permitAll()

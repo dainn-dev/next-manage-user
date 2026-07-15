@@ -1,5 +1,7 @@
 {
   "mode": "models",
+  "dataset_version": "site-a-labelled-v1",
+  "required_conditions": ["day", "night", "rain", "glare", "angle", "motorcycle", "difficult_vietnamese_plate"],
   "pipeline_config": "../../camera-pipeline.dry-run.example.json",
   "max_frames": 300,
   "output_json": "reports/model-evaluation.json",
@@ -15,6 +17,26 @@
       "condition": "night",
       "source": "D:/lpr-eval/site-a-night.mp4",
       "expected_plates": ["30A99999"]
+    },
+    {
+      "id": "site-a-rain", "condition": "rain",
+      "source": "D:/lpr-eval/site-a-rain.mp4", "expected_plates": ["51A12345"]
+    },
+    {
+      "id": "site-a-glare", "condition": "glare",
+      "source": "D:/lpr-eval/site-a-glare.mp4", "expected_plates": ["51A12345"]
+    },
+    {
+      "id": "site-a-angle", "condition": "angle",
+      "source": "D:/lpr-eval/site-a-angle.mp4", "expected_plates": ["51A12345"]
+    },
+    {
+      "id": "site-a-motorcycle", "condition": "motorcycle",
+      "source": "D:/lpr-eval/site-a-motorcycle.mp4", "expected_plates": ["59A112345"]
+    },
+    {
+      "id": "site-a-difficult-plate", "condition": "difficult_vietnamese_plate",
+      "source": "D:/lpr-eval/site-a-difficult-plate.mp4", "expected_plates": ["51LD12345"]
     }
   ]
 }

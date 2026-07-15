@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "pilotId": "site-a-2026-rc1",
+  "date": "2026-08-03",
+  "observationHours": 15,
+  "plateReads": 200,
+  "falsePlateReads": 2,
+  "missedPlateReads": 5,
+  "occupancyChecks": 300,
+  "occupancyMismatches": 3,
+  "relocations": 20,
+  "correctRelocations": 19,
+  "events": 450,
+  "eventP95LatencyMs": 220,
+  "uptime": 0.999,
+  "manualCorrections": 4,
+  "supportIncidents": 1,
+  "estimatedCost": 25,
+  "operatorFeedback": ["Replace with observed feedback"],
+  "incidents": [
+    {"id": "PILOT-1", "category": "operations", "severity": "minor", "status": "resolved", "owner": "Pilot operations", "dueDate": "2026-08-04"}
+  ]
+}

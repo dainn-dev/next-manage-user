@@ -39,6 +39,8 @@ def test_sample_day_night_report_contains_required_metrics_and_payloads() -> Non
             assert feed["processing"]["fps"] > 0
             assert feed["processing"]["latencyMs"]["p95"] >= 0
             assert feed["confidenceDistributions"]["ocr"]["count"] == 3
+            assert feed["ocrQuality"]["precision"] == 1.0
+            assert feed["ocrQuality"]["recall"] == 1.0
 
         event_types = {item["eventType"] for item in report["sampleEmittedPayloads"]}
         assert event_types == {"VehicleDetected", "PlateRecognized"}
@@ -53,7 +55,7 @@ def test_manifest_requires_both_conditions() -> None:
         try:
             run_evaluation(manifest, Path(raw) / "report.json")
         except EvaluationError as exc:
-            assert "day and night" in str(exc)
+            assert "missing required conditions" in str(exc)
         else:
             raise AssertionError("expected missing-night validation failure")
 

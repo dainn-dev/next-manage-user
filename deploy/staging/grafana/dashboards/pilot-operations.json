@@ -1,0 +1,23 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {"type":"stat","title":"Backend up","id":1,"gridPos":{"h":4,"w":4,"x":0,"y":0},"targets":[{"expr":"up{job=\"backend\"}","refId":"A"}]},
+    {"type":"stat","title":"Healthy gates","id":2,"gridPos":{"h":4,"w":4,"x":4,"y":0},"targets":[{"expr":"gate_up","refId":"A"}]},
+    {"type":"stat","title":"Outbox pending","id":3,"gridPos":{"h":4,"w":4,"x":8,"y":0},"targets":[{"expr":"camera_ingest_outbox_pending","refId":"A"}]},
+    {"type":"timeseries","title":"Ingest rate and errors","id":4,"gridPos":{"h":8,"w":12,"x":0,"y":4},"targets":[{"expr":"sum(rate(camera_ingest_requests_total[5m]))","legendFormat":"accepted/duplicate"},{"expr":"sum(rate(http_server_requests_seconds_count{uri=\"/api/v1/parking-events\",status=~\"4..|5..\"}[5m]))","legendFormat":"HTTP errors"}]},
+    {"type":"timeseries","title":"Ingest p95 latency","id":5,"gridPos":{"h":8,"w":12,"x":12,"y":4},"targets":[{"expr":"histogram_quantile(0.95, sum by (le) (rate(camera_ingest_latency_seconds_bucket[5m])))","legendFormat":"p95 seconds"}]},
+    {"type":"timeseries","title":"OCR failures by edge","id":6,"gridPos":{"h":8,"w":8,"x":0,"y":12},"targets":[{"expr":"sum by (camera) (rate(edge_ocr_attempts_total{outcome=\"failed\"}[10m]))","refId":"A"}]},
+    {"type":"timeseries","title":"Occupancy mismatch indicators","id":7,"gridPos":{"h":8,"w":8,"x":8,"y":12},"targets":[{"expr":"sum by (outcome) (rate(parking_slot_observations_total{outcome=~\"ambiguous|no_slot\"}[10m]))","refId":"A"}]},
+    {"type":"timeseries","title":"Billing webhook failures","id":8,"gridPos":{"h":8,"w":8,"x":16,"y":12},"targets":[{"expr":"increase(billing_webhook_requests_total{outcome=\"failed\"}[10m])","refId":"A"}]},
+    {"type":"timeseries","title":"Database connections","id":9,"gridPos":{"h":8,"w":12,"x":0,"y":20},"targets":[{"expr":"pg_stat_activity_count","refId":"A"},{"expr":"pg_settings_max_connections","refId":"B"}]},
+    {"type":"timeseries","title":"WebSocket HTTP failures","id":10,"gridPos":{"h":8,"w":12,"x":12,"y":20},"targets":[{"expr":"increase(http_server_requests_seconds_count{uri=~\"/ws.*\",status=~\"4..|5..\"}[5m])","refId":"A"}]}
+  ],
+  "schemaVersion": 39,
+  "tags": ["pilot", "dai-315"],
+  "templating": {"list": []},
+  "time": {"from":"now-6h","to":"now"},
+  "title": "Pilot Operations",
+  "uid": "pilot-operations",
+  "version": 1
+}
