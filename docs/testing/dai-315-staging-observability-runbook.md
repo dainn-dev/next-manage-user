@@ -4,8 +4,8 @@
 
 Owner: Platform on-call. Backup owner: Delivery lead. Pilot escalation: Site operations, then the
 principal architect. Billing incidents additionally page the billing owner; OCR incidents page the
-AI owner. Replace the in-stack staging webhook receiver with the approved paging connector before
-pilot traffic.
+AI owner. `ALERT_WEBHOOK_URL` must reference the approved HTTPS paging connector; preflight rejects
+local, insecure, malformed, and placeholder receivers.
 
 1. Copy `deploy/staging/.env.example` to `.env`, replace every placeholder, and create
    `deploy/staging/secrets/prometheus-bearer-token` containing a short-lived PLATFORM_ADMIN token.

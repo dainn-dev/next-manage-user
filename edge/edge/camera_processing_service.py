@@ -57,6 +57,7 @@ from edge.vehicle_tracker import (
     VehicleTrackerError,
 )
 from edge.tracker_state_store import TrackerStateStore
+from edge.prometheus_metrics import EdgeMetrics
 
 
 STAGES = (
@@ -94,7 +95,8 @@ class CameraProcessingService:
                  vehicle_tracker: VehicleTracker | None = None,
                  track_state_manager: TrackStateManager | None = None,
                  ingest_client: CameraIngestTransport | None = None,
-                 tracker_state_store: TrackerStateStore | None = None):
+                 tracker_state_store: TrackerStateStore | None = None,
+                 metrics: EdgeMetrics | None = None):
         self.config = config
         self.logger = logger or configure_json_logging(config.logging.level)
         self.run_id = str(uuid4())
@@ -131,6 +133,7 @@ class CameraProcessingService:
         self._vehicle_event_ids: dict[str, UUID] = {}
         self._last_track_frames: dict[str, RetainedFrame] = {}
         self._latest_track_artifacts: dict[str, PlateCandidateArtifacts] = {}
+        self.metrics = metrics or EdgeMetrics(str(config.camera.camera_id))
 
     def validate_runtime(self) -> None:
         self._log("configuration", "started", "validating runtime readiness")
@@ -577,6 +580,7 @@ class CameraProcessingService:
                     self.config.ocr.low_confidence_policy,
                 )
                 observations.append(observation)
+                self.metrics.ocr_attempt("complete")
                 self._log(
                     "ocr",
                     "complete",
@@ -593,6 +597,7 @@ class CameraProcessingService:
                     **observation.to_log_dict(include_debug=True),
                 )
             except Exception as exc:
+                self.metrics.ocr_attempt("failed")
                 self._log(
                     "ocr",
                     "failed",

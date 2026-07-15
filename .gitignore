@@ -53,5 +53,6 @@ artifacts/acceptance/
 # Generated staging credentials and release evidence
 deploy/staging/secrets/
 deploy/staging/evidence/
+deploy/staging/alertmanager/alertmanager.generated.yml
 # Controlled-pilot generated evidence (site profiles/templates remain tracked)
 pilot/evidence/

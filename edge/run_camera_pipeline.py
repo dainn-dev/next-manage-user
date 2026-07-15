@@ -8,6 +8,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import json
 import logging
+import os
 from pathlib import Path
 import signal
 import threading
@@ -23,6 +24,7 @@ if str(ROOT) not in sys.path:
 from edge.camera_config import ConfigValidationError, load_camera_pipeline_config
 from edge.camera_processing_service import CameraProcessingService, configure_json_logging
 from edge.camera_runtime import run_camera_source
+from edge.prometheus_metrics import EdgeMetrics, MetricsServer
 
 CONFIG_ERROR = 2
 RUNTIME_READINESS_ERROR = 3
@@ -146,7 +148,17 @@ def main(argv: list[str] | None = None) -> int:
         _bootstrap_log("ERROR", "configuration", "failed", str(exc))
         return CONFIG_ERROR
 
-    service = CameraProcessingService(config, configure_json_logging(config.logging.level))
+    metrics = EdgeMetrics(str(config.camera.camera_id))
+    try:
+        metrics_port = int(os.environ.get("DAI_EDGE_METRICS_PORT", "0"))
+    except ValueError:
+        _bootstrap_log("ERROR", "configuration", "failed", "DAI_EDGE_METRICS_PORT must be an integer")
+        return CONFIG_ERROR
+    if metrics_port < 0 or metrics_port > 65535:
+        _bootstrap_log("ERROR", "configuration", "failed", "DAI_EDGE_METRICS_PORT must be between 0 and 65535")
+        return CONFIG_ERROR
+    metrics_server = MetricsServer(metrics, metrics_port) if metrics_port > 0 else None
+    service = CameraProcessingService(config, configure_json_logging(config.logging.level), metrics=metrics)
     try:
         if args.dry_run:
             service.dry_run()
@@ -209,6 +221,8 @@ def main(argv: list[str] | None = None) -> int:
         return RUNTIME_READINESS_ERROR
     finally:
         service.close()
+        if metrics_server is not None:
+            metrics_server.close()
 
     _bootstrap_log("ERROR", "configuration", "failed", "unsupported execution mode")
     return UNSUPPORTED_MODE_ERROR

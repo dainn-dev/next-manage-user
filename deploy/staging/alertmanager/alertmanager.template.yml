@@ -1,11 +1,11 @@
 route:
-  receiver: staging-incident-receiver
+  receiver: approved-incident-receiver
   group_by: [alertname, severity, owner]
   group_wait: 5s
   group_interval: 30s
   repeat_interval: 4h
 receivers:
-  - name: staging-incident-receiver
+  - name: approved-incident-receiver
     webhook_configs:
-      - url: http://alert-receiver:8080/alerts
+      - url: "__ALERT_WEBHOOK_URL__"
         send_resolved: true

@@ -22,9 +22,17 @@ function Invoke-Preflight {
     $raw = Get-Content $envFile -Raw
     if ($raw -match "replace-with|example\.invalid|:latest") { throw "Environment contains placeholders or a mutable latest tag." }
     foreach ($name in @("RELEASE_VERSION", "PREVIOUS_RELEASE_VERSION", "JWT_SECRET", "POSTGRES_PASSWORD",
-            "PASSWORD_RESET_FINGERPRINT_SECRET", "OBJECT_STORAGE_SECRET_KEY", "GRAFANA_ADMIN_PASSWORD")) {
+            "PASSWORD_RESET_FINGERPRINT_SECRET", "OBJECT_STORAGE_SECRET_KEY", "GRAFANA_ADMIN_PASSWORD", "ALERT_WEBHOOK_URL")) {
         if ([string]::IsNullOrWhiteSpace((Read-ReleaseValue $name))) { throw "$name cannot be blank" }
     }
+    $webhook = Read-ReleaseValue "ALERT_WEBHOOK_URL"
+    $uri = $null
+    if (-not [Uri]::TryCreate($webhook, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne "https" -or $webhook -match '["\s]') {
+        throw "ALERT_WEBHOOK_URL must be an approved absolute HTTPS URL without whitespace."
+    }
+    $template = Join-Path $root "deploy/staging/alertmanager/alertmanager.template.yml"
+    $generated = Join-Path $root "deploy/staging/alertmanager/alertmanager.generated.yml"
+    (Get-Content $template -Raw).Replace("__ALERT_WEBHOOK_URL__", $webhook) | Set-Content -Encoding utf8 $generated
     $token = Join-Path $root "deploy/staging/secrets/prometheus-bearer-token"
     if (-not (Test-Path $token) -or (Get-Item $token).Length -eq 0) {
         throw "Create deploy/staging/secrets/prometheus-bearer-token with a PLATFORM_ADMIN JWT."

@@ -27,15 +27,18 @@ errors is a failure.
 
 Use a human-labelled, versioned, held-out dataset. It must include day, night, rain, glare, angle,
 motorcycle, and difficult Vietnamese plate cohorts. The evaluator records exact-match OCR
-precision/recall/F1, confidence distributions, tracker ID switches, event counts, failures, latency,
-and FPS per cohort. Default minimum read rates are 95% day, 90% night, 85% rain/glare/angle/
+precision/recall/F1, labelled vehicle/plate detection precision/recall, slot-mapping and relocation
+accuracy, confidence distributions, tracker ID switches, event counts, failures, latency, and FPS
+per cohort. Model manifests require TP/FP/FN and correct/total counts from the versioned annotation
+scorer; missing or zero-population evidence is not promotion eligible. Default minimum read rates
+are 95% day, 90% night, 85% rain/glare/angle/
 motorcycle, and 80% difficult plates. Overrides require review in the versioned manifest; every
 required cohort passes independently.
 
 Low-confidence OCR is manual-review evidence, not an occupancy fact. Any threshold change must be
 evaluated on the same held-out version, with false positives and false negatives reviewed. Known
-limitations: unique-plate scoring is not occurrence-level mAP/IDF1, slot mapping and relocation need
-separately labelled lifecycle evidence, and fixture FPS is not edge-hardware FPS.
+limitations: unique-plate scoring is not occurrence-level mAP/IDF1 and fixture FPS is not
+edge-hardware FPS. Preserve the scorer version and labelled lifecycle evidence with the manifest.
 
 ## Reproducible gate
 

@@ -70,6 +70,21 @@ def test_fixture_cannot_pass_promotion_enforcement() -> None:
         assert code == 3
 
 
+def test_models_mode_requires_labelled_detection_and_lifecycle_counts() -> None:
+    value = json.loads(SAMPLE.read_text(encoding="utf-8"))
+    value["mode"] = "models"
+    value["dataset_version"] = "labelled-v1"
+    with tempfile.TemporaryDirectory() as raw:
+        manifest = Path(raw) / "invalid-model.json"
+        manifest.write_text(json.dumps(value), encoding="utf-8")
+        try:
+            run_evaluation(manifest, Path(raw) / "report.json")
+        except EvaluationError as exc:
+            assert "quality_counts is required" in str(exc)
+        else:
+            raise AssertionError("expected missing labelled quality-count validation failure")
+
+
 def test_bounded_image_feed_repeats_only_requested_frames() -> None:
     class RecordingService:
         config = SimpleNamespace(
@@ -93,6 +108,7 @@ def run() -> None:
         test_sample_day_night_report_contains_required_metrics_and_payloads,
         test_manifest_requires_both_conditions,
         test_fixture_cannot_pass_promotion_enforcement,
+        test_models_mode_requires_labelled_detection_and_lifecycle_counts,
         test_bounded_image_feed_repeats_only_requested_frames,
     )
     for test in tests:

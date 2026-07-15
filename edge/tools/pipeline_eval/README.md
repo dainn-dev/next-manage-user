@@ -31,6 +31,8 @@ Every feed reports:
   TrackId in one feed counts as a switch);
 - wall-clock FPS plus mean, p50, p95, and maximum frame latency;
 - sample dry-run ingest payloads, including TrackId, boxes, model provenance, and snapshots.
+- in `models` mode, labelled vehicle/plate TP/FP/FN plus slot-mapping and relocation correct/total
+  counts; every derived precision/recall/accuracy gate passes independently per required cohort.
 
 The architecture promotion gates are 95% normalized exact-match read rate for day feeds (at least
 50 lux) and 90% for night feeds (below 50 lux, including IR-assisted captures). Only `models` mode

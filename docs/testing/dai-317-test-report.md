@@ -8,6 +8,18 @@ The harness writes per-run results to `artifacts/acceptance/`. CI should retain 
 
 ## Approval checklist
 
+Run the exact committed release revision from a clean worktree:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run-release-acceptance.ps1 -Mode full `
+  -WorkloadManifest D:/pilot/pilot-workload.json `
+  -AiManifest D:/pilot/model-evaluation.json
+```
+
+Full mode now runs security/scans, backup/restore and real performance/AI gates, then validates the
+staging rehearsal and pilot evidence bundle. `-AllowDirtyWorktree` is diagnostic only and must not
+be used for release evidence.
+
 - [ ] The full acceptance command passes on the release revision.
 - [ ] TEN-01 through WEB-01 have evidence pointers.
 - [ ] Governed LPR data meets approved day/night targets; fixture mode is not promotion evidence.
@@ -21,4 +33,3 @@ The harness writes per-run results to `artifacts/acceptance/`. CI should retain 
 | QA |  |  |  |  |
 | Architecture |  |  |  |  |
 | Release owner |  |  |  |  |
-

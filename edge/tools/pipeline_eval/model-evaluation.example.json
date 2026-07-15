@@ -10,33 +10,40 @@
       "id": "site-a-day",
       "condition": "day",
       "source": "D:/lpr-eval/site-a-day.mp4",
-      "expected_plates": ["51A12345"]
+      "expected_plates": ["51A12345"],
+      "quality_counts": {"vehicle_detection":{"tp":0,"fp":0,"fn":0},"plate_detection":{"tp":0,"fp":0,"fn":0},"slot_mapping":{"correct":0,"total":0},"relocation":{"correct":0,"total":0}}
     },
     {
       "id": "site-a-night",
       "condition": "night",
       "source": "D:/lpr-eval/site-a-night.mp4",
-      "expected_plates": ["30A99999"]
+      "expected_plates": ["30A99999"],
+      "quality_counts": {"vehicle_detection":{"tp":0,"fp":0,"fn":0},"plate_detection":{"tp":0,"fp":0,"fn":0},"slot_mapping":{"correct":0,"total":0},"relocation":{"correct":0,"total":0}}
     },
     {
       "id": "site-a-rain", "condition": "rain",
-      "source": "D:/lpr-eval/site-a-rain.mp4", "expected_plates": ["51A12345"]
+      "source": "D:/lpr-eval/site-a-rain.mp4", "expected_plates": ["51A12345"],
+      "quality_counts": {"vehicle_detection":{"tp":0,"fp":0,"fn":0},"plate_detection":{"tp":0,"fp":0,"fn":0},"slot_mapping":{"correct":0,"total":0},"relocation":{"correct":0,"total":0}}
     },
     {
       "id": "site-a-glare", "condition": "glare",
-      "source": "D:/lpr-eval/site-a-glare.mp4", "expected_plates": ["51A12345"]
+      "source": "D:/lpr-eval/site-a-glare.mp4", "expected_plates": ["51A12345"],
+      "quality_counts": {"vehicle_detection":{"tp":0,"fp":0,"fn":0},"plate_detection":{"tp":0,"fp":0,"fn":0},"slot_mapping":{"correct":0,"total":0},"relocation":{"correct":0,"total":0}}
     },
     {
       "id": "site-a-angle", "condition": "angle",
-      "source": "D:/lpr-eval/site-a-angle.mp4", "expected_plates": ["51A12345"]
+      "source": "D:/lpr-eval/site-a-angle.mp4", "expected_plates": ["51A12345"],
+      "quality_counts": {"vehicle_detection":{"tp":0,"fp":0,"fn":0},"plate_detection":{"tp":0,"fp":0,"fn":0},"slot_mapping":{"correct":0,"total":0},"relocation":{"correct":0,"total":0}}
     },
     {
       "id": "site-a-motorcycle", "condition": "motorcycle",
-      "source": "D:/lpr-eval/site-a-motorcycle.mp4", "expected_plates": ["59A112345"]
+      "source": "D:/lpr-eval/site-a-motorcycle.mp4", "expected_plates": ["59A112345"],
+      "quality_counts": {"vehicle_detection":{"tp":0,"fp":0,"fn":0},"plate_detection":{"tp":0,"fp":0,"fn":0},"slot_mapping":{"correct":0,"total":0},"relocation":{"correct":0,"total":0}}
     },
     {
       "id": "site-a-difficult-plate", "condition": "difficult_vietnamese_plate",
-      "source": "D:/lpr-eval/site-a-difficult-plate.mp4", "expected_plates": ["51LD12345"]
+      "source": "D:/lpr-eval/site-a-difficult-plate.mp4", "expected_plates": ["51LD12345"],
+      "quality_counts": {"vehicle_detection":{"tp":0,"fp":0,"fn":0},"plate_detection":{"tp":0,"fp":0,"fn":0},"slot_mapping":{"correct":0,"total":0},"relocation":{"correct":0,"total":0}}
     }
   ]
 }

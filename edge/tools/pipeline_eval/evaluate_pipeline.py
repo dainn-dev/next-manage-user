@@ -43,6 +43,11 @@ READ_RATE_TARGETS = {
     "day": 0.95, "night": 0.90, "rain": 0.85, "glare": 0.85,
     "angle": 0.85, "motorcycle": 0.85, "difficult_vietnamese_plate": 0.80,
 }
+QUALITY_TARGETS = {
+    "vehicleDetectionPrecision": 0.90, "vehicleDetectionRecall": 0.90,
+    "plateDetectionPrecision": 0.90, "plateDetectionRecall": 0.90,
+    "slotMappingAccuracy": 0.95, "relocationAccuracy": 0.95,
+}
 
 
 class EvaluationError(RuntimeError):
@@ -163,6 +168,17 @@ def _load_manifest(path: Path) -> dict[str, object]:
             raise EvaluationError(f"feeds[{index}].condition must be a non-empty string")
         if not isinstance(feed["expected_plates"], list):
             raise EvaluationError(f"feeds[{index}].expected_plates must be an array")
+        if value["mode"] == "models":
+            quality = feed.get("quality_counts")
+            if not isinstance(quality, dict):
+                raise EvaluationError(f"feeds[{index}].quality_counts is required in models mode")
+            for name, keys in (("vehicle_detection", ("tp", "fp", "fn")),
+                               ("plate_detection", ("tp", "fp", "fn")),
+                               ("slot_mapping", ("correct", "total")),
+                               ("relocation", ("correct", "total"))):
+                counts = quality.get(name)
+                if not isinstance(counts, dict) or any(not isinstance(counts.get(key), int) or counts[key] < 0 for key in keys):
+                    raise EvaluationError(f"feeds[{index}].quality_counts.{name} requires non-negative integer counts")
     required = value.get("required_conditions", ["day", "night"])
     if not isinstance(required, list) or not required or not all(isinstance(item, str) for item in required):
         raise EvaluationError("required_conditions must be a non-empty string array")
@@ -229,6 +245,23 @@ def _distribution(values: list[float]) -> dict[str, object]:
         "p95": _percentile(values, 0.95),
         "max": max(values) if values else None,
     }
+
+
+def _quality_metrics(counts: dict[str, object] | None) -> dict[str, object]:
+    if not counts:
+        return {"status": "not demonstrated"}
+    vehicle, plate = counts["vehicle_detection"], counts["plate_detection"]
+    slot, relocation = counts["slot_mapping"], counts["relocation"]
+    ratio = lambda top, bottom: top / bottom if bottom else None
+    values = {
+        "vehicleDetectionPrecision": ratio(vehicle["tp"], vehicle["tp"] + vehicle["fp"]),
+        "vehicleDetectionRecall": ratio(vehicle["tp"], vehicle["tp"] + vehicle["fn"]),
+        "plateDetectionPrecision": ratio(plate["tp"], plate["tp"] + plate["fp"]),
+        "plateDetectionRecall": ratio(plate["tp"], plate["tp"] + plate["fn"]),
+        "slotMappingAccuracy": ratio(slot["correct"], slot["total"]),
+        "relocationAccuracy": ratio(relocation["correct"], relocation["total"]),
+    }
+    return {"status": "measured", "counts": counts, "metrics": values}
 
 
 def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
@@ -301,6 +334,7 @@ def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
             "falseNegative": false_negative, "precision": precision,
             "recall": recall, "f1": f1,
         },
+        "labelledQuality": _quality_metrics(feed.get("quality_counts")),
         "trackerIdentity": {
             "trackIdsByPlate": {plate: sorted(ids) for plate, ids in sorted(plate_track_ids.items())},
             "idSwitches": id_switches,
@@ -327,11 +361,27 @@ def _feed_metrics(feed: dict[str, object], records: list[dict[str, object]],
     }
 
 
-def _condition_summary(feeds: list[dict[str, object]], condition: str, target: float) -> dict[str, object]:
+def _condition_summary(feeds: list[dict[str, object]], condition: str, target: float,
+                       quality_targets: dict[str, float]) -> dict[str, object]:
     selected = [item for item in feeds if item["condition"] == condition]
     expected = sum(len(item["expectedReadablePlates"]) for item in selected)
     matched = sum(len(item["matchedReadablePlates"]) for item in selected)
     rate = matched / expected if expected else None
+    quality_feeds = [item["labelledQuality"] for item in selected
+                     if item["labelledQuality"].get("status") == "measured"]
+    quality = {"status": "not demonstrated", "targetMet": False}
+    if quality_feeds:
+        aggregate = {
+            "vehicle_detection": {key: sum(item["counts"]["vehicle_detection"][key] for item in quality_feeds) for key in ("tp", "fp", "fn")},
+            "plate_detection": {key: sum(item["counts"]["plate_detection"][key] for item in quality_feeds) for key in ("tp", "fp", "fn")},
+            "slot_mapping": {key: sum(item["counts"]["slot_mapping"][key] for item in quality_feeds) for key in ("correct", "total")},
+            "relocation": {key: sum(item["counts"]["relocation"][key] for item in quality_feeds) for key in ("correct", "total")},
+        }
+        quality = _quality_metrics(aggregate)
+        quality["targets"] = quality_targets
+        quality["targetMet"] = all(quality["metrics"].get(name) is not None
+                                   and quality["metrics"][name] >= threshold
+                                   for name, threshold in quality_targets.items())
     return {
         "expectedReadablePlates": expected,
         "matchedReadablePlates": matched,
@@ -339,6 +389,7 @@ def _condition_summary(feeds: list[dict[str, object]], condition: str, target: f
         "target": target,
         "targetMet": None if rate is None else rate >= target,
         "status": "not demonstrated" if rate is None else "measured",
+        "labelledQuality": quality,
     }
 
 
@@ -378,10 +429,12 @@ def run_evaluation(manifest_path: str | Path,
 
     configured_targets = {**READ_RATE_TARGETS,
                           **{str(k): float(v) for k, v in dict(manifest.get("condition_targets", {})).items()}}
+    quality_targets = {**QUALITY_TARGETS,
+                       **{str(k): float(v) for k, v in dict(manifest.get("quality_targets", {})).items()}}
     required_conditions = [str(item) for item in manifest.get("required_conditions", ["day", "night"])]
     evaluated_conditions = sorted({str(item["condition"]) for item in feed_reports})
     conditions = {condition: _condition_summary(
-        feed_reports, condition, configured_targets.get(condition, 0.85))
+        feed_reports, condition, configured_targets.get(condition, 0.85), quality_targets)
         for condition in evaluated_conditions}
     no_stage_failures = all(not item["stageFailures"] for item in feed_reports)
     report: dict[str, object] = {
@@ -392,12 +445,14 @@ def run_evaluation(manifest_path: str | Path,
         "configurationHash": config.configuration_hash,
         "promotionEligible": (mode == "models" and no_stage_failures
                               and all(conditions[name]["targetMet"] is True
+                                      and conditions[name]["labelledQuality"]["targetMet"] is True
                                       for name in required_conditions)),
         "note": ("Synthetic fixture run validates harness/orchestration only; it is not model-quality evidence."
                  if mode == "fixture" else
                  "Model run uses configured local artifacts and supplied feeds."),
         "requiredConditions": required_conditions,
         "readRateTargets": configured_targets,
+        "qualityTargets": quality_targets,
         "conditions": conditions,
         "feeds": feed_reports,
         "sampleEmittedPayloads": [payload for feed in feed_reports
@@ -498,3 +553,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+    quality_targets = {**QUALITY_TARGETS,
+                       **{str(k): float(v) for k, v in dict(manifest.get("quality_targets", {})).items()}}
