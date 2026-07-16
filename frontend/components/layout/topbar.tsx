@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { AlertCircle, Bell, Loader2, MapPin, RefreshCw, Shield } from "lucide-react"
+import { AlertCircle, Bell, Loader2, MapPin, Menu, RefreshCw, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "./mode-toggle"
 import { useAuth } from "@/lib/auth-context"
@@ -20,7 +20,12 @@ import {
  * Operations topbar. Tenant admins can switch across tenant sites and site
  * managers across their assigned sites. Other operators get a fixed scope.
  */
-export function Topbar() {
+interface TopbarProps {
+  onMobileMenuClick?: () => void
+  mobileMenuOpen?: boolean
+}
+
+export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProps) {
   const { user } = useAuth()
   const platform = isPlatformAdmin(user?.role)
   const operator = isDashboardOperator(user?.role)
@@ -29,7 +34,21 @@ export function Topbar() {
   const selectedSite = scope.sites.find((site) => site.id === scope.selectedSiteId)
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border bg-sidebar/60 px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/40">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border bg-sidebar/60 px-3 sm:px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/40">
+      {onMobileMenuClick && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={onMobileMenuClick}
+          aria-controls="tenant-navigation"
+          aria-expanded={mobileMenuOpen}
+          aria-label="Mở điều hướng"
+        >
+          <Menu />
+        </Button>
+      )}
       <div className="flex min-w-0 items-center gap-2 text-sm">
         {platform ? (
           <>

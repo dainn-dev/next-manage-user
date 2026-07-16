@@ -11,7 +11,7 @@ export default function LiveCamerasPage() {
   const { selectedSiteId, selectedZoneId } = useDashboardScope()
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="admin-mobile-page space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Camera trực tiếp</h1>

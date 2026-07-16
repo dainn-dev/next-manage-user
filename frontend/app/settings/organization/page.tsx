@@ -1,9 +1,5 @@
 "use client"
 
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * page: tenant organization settings · data-form: read-only state + focused editing surface
- */
-
 import { useCallback, useEffect, useState } from "react"
 import {
   tenantSettingsApi,

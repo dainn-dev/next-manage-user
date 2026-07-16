@@ -27,6 +27,7 @@ import {
   Shield,
   UserCog,
   Wrench,
+  X,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -212,10 +213,18 @@ function roleLabel(role?: UserRole): string {
   }
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+  // A mobile drawer must always expose labels, even when this user previously
+  // chose the compact desktop rail.
+  const compact = collapsed && !mobileOpen
   const { user, logout } = useAuth()
   const { toast } = useToast()
 
@@ -242,6 +251,7 @@ export function Sidebar() {
     .filter((group) => group.items.length > 0)
 
   const handleMenuClick = (key: string) => {
+    onMobileClose?.()
     router.push(key)
   }
 
@@ -278,7 +288,7 @@ export function Sidebar() {
   const navButtonClass = (isActive: boolean) =>
     cn(
       "flex min-h-11 w-full items-center rounded-lg text-sm font-medium transition-colors duration-200",
-      collapsed ? "justify-center px-0" : "gap-3 px-3 text-left",
+      compact ? "justify-center px-0" : "gap-3 px-3 text-left",
       isActive
         ? "bg-sidebar-accent text-sidebar-accent-foreground"
         : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
@@ -295,16 +305,16 @@ export function Sidebar() {
           key={item.key}
           type="button"
           disabled
-          title={collapsed ? `${item.label} — sắp ra mắt` : undefined}
+          title={compact ? `${item.label} — sắp ra mắt` : undefined}
           aria-label={`${item.label} (sắp ra mắt)`}
           className={cn(
             "flex min-h-11 w-full cursor-not-allowed items-center rounded-lg text-sm font-medium text-muted-foreground/70 opacity-70",
-            collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
+            compact ? "justify-center px-0" : "gap-3 px-3 text-left"
           )}
         >
           {Icon && <Icon className="h-4 w-4 shrink-0" />}
-          {!collapsed && <span className="flex-1">{item.label}</span>}
-          {!collapsed && (
+          {!compact && <span className="flex-1">{item.label}</span>}
+          {!compact && (
             <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
               Sắp ra mắt
             </span>
@@ -318,40 +328,43 @@ export function Sidebar() {
         key={item.key}
         type="button"
         onClick={() => handleMenuClick(item.key)}
-        title={collapsed ? item.label : undefined}
+        title={compact ? item.label : undefined}
         aria-label={item.label}
         aria-current={isActive ? "page" : undefined}
         className={navButtonClass(!!isActive)}
       >
         {Icon && <Icon className="h-4 w-4 shrink-0" />}
-        {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+        {!compact && <span className="flex-1 text-left">{item.label}</span>}
       </button>
     )
   }
 
   return (
     <aside
+      id="tenant-navigation"
       className={cn(
-        "flex h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar shadow-sm transition-[width] duration-[var(--dur-long)] ease-[var(--ease-out)]",
-        collapsed ? "w-[var(--shell-sidebar-collapsed)]" : "w-[var(--shell-sidebar-width)]"
+        "fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,calc(100%-2rem))] flex-col border-r border-sidebar-border bg-sidebar shadow-[var(--shadow-overlay)] transition-[transform,width] duration-[var(--dur-long)] ease-[var(--ease-out)] md:relative md:z-auto md:translate-x-0 md:shadow-sm",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
+        collapsed ? "md:w-[var(--shell-sidebar-collapsed)]" : "md:w-[var(--shell-sidebar-width)]"
       )}
       aria-label="Điều hướng chính"
     >
-      <div className={cn("border-b border-sidebar-border", collapsed ? "p-2" : "p-4")}>
-        <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "gap-2")}>
+      <div className={cn("border-b border-sidebar-border", compact ? "p-2" : "p-4")}>
+        <div className={cn("flex items-center", compact ? "flex-col gap-2" : "gap-2")}>
           <Link
             href={brandHref}
-            title={collapsed ? "ParkVision" : undefined}
+            onClick={onMobileClose}
+            title={compact ? "ParkVision" : undefined}
             aria-label={brandAriaLabel}
             className={cn(
               "group flex min-h-11 items-center rounded-xl outline-none transition-colors duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
-              collapsed ? "size-11 justify-center" : "min-w-0 flex-1 gap-3 px-1.5"
+              compact ? "size-11 justify-center" : "min-w-0 flex-1 gap-3 px-1.5"
             )}
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-accent text-sidebar-accent-foreground shadow-sm transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
               <CircleParking className="size-5" aria-hidden="true" />
             </span>
-            {!collapsed && (
+            {!compact && (
               <span className="min-w-0">
                 <span className="block truncate text-lg leading-tight font-bold tracking-tight text-sidebar-foreground">
                   ParkVision
@@ -365,19 +378,27 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setCollapsed((value) => !value)}
-            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+            className="hidden size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar md:flex"
             title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
             aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
           >
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </button>
+          <button
+            type="button"
+            onClick={onMobileClose}
+            className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar md:hidden"
+            aria-label="Đóng điều hướng"
+          >
+            <X className="size-4" />
+          </button>
         </div>
       </div>
 
-      <nav className={cn("flex-1 space-y-4 overflow-y-auto", collapsed ? "px-2 py-3" : "p-4")}>
+      <nav className={cn("flex-1 space-y-4 overflow-y-auto", compact ? "px-2 py-3" : "p-4")}>
         {filteredGroups.map((group) => (
           <div key={group.label || "main"} className="space-y-1">
-            {!collapsed && group.label && (
+            {!compact && group.label && (
               <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {group.label}
               </p>
@@ -387,12 +408,12 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className={cn("border-t border-sidebar-border", collapsed ? "flex flex-col items-center gap-2 p-2" : "p-4")}>
-        <div className={cn("flex w-full items-center", collapsed ? "justify-center" : "mb-3 gap-3")}>
+      <div className={cn("border-t border-sidebar-border", compact ? "flex flex-col items-center gap-2 p-2" : "p-4")}>
+        <div className={cn("flex w-full items-center", compact ? "justify-center" : "mb-3 gap-3")}>
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium text-sidebar-accent-foreground">
             {getUserInitials()}
           </div>
-          {!collapsed && (
+          {!compact && (
             <div className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-sidebar-foreground">
                 {user?.fullName
@@ -405,7 +426,7 @@ export function Sidebar() {
             </div>
           )}
         </div>
-        {collapsed ? (
+        {compact ? (
           <Button
             variant="ghost"
             size="icon"

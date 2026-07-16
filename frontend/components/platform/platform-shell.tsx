@@ -1,6 +1,3 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * nav: responsive control rail · footer: none (authenticated workspace) · enrichment: none
- */
 "use client"
 
 import Image from "next/image"

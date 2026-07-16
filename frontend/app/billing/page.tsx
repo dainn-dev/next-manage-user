@@ -1,9 +1,5 @@
 "use client"
 
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * page: tenant billing · data-form: subscription state + focused actions
- */
-
 import { useCallback, useEffect, useState } from "react"
 import { billingApi, type BillingStatusResponse } from "@/lib/api/billing-api"
 import { Button } from "@/components/ui/button"

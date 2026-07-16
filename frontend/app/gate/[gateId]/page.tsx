@@ -162,8 +162,8 @@ function GateKiosk({ gateId }: { gateId: string }) {
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white flex flex-col">
       {/* Top bar */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-        <div className="flex items-center gap-4">
+      <header className="flex flex-col gap-3 border-b border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <Link
             href="/gate"
             className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
@@ -171,17 +171,17 @@ function GateKiosk({ gateId }: { gateId: string }) {
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{gateLabel}</h1>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold tracking-tight sm:text-2xl">{gateLabel}</h1>
             {gate?.location && (
               <p className="text-sm text-slate-400">{gate.location}</p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="text-right font-mono">
-            <div className="text-2xl font-bold">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <div className="min-w-0 font-mono sm:text-right">
+            <div className="text-xl font-bold sm:text-2xl">
               {clock.toLocaleTimeString("vi-VN")}
             </div>
             <div className="text-xs text-slate-400">
@@ -216,13 +216,16 @@ function GateKiosk({ gateId }: { gateId: string }) {
             {soundEnabled ? "Âm thanh" : "Bật âm thanh"}
           </button>
 
-          <div
+          <button
+            type="button"
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer ${
               isConnected
                 ? "bg-emerald-600/20 text-emerald-400"
                 : "bg-red-600/20 text-red-400 hover:bg-red-600/30"
             }`}
             onClick={!isConnected ? reconnect : undefined}
+            disabled={isConnected}
+            aria-label={isConnected ? "Kết nối máy chủ đang hoạt động" : "Kết nối lại máy chủ"}
             title={connectionError || (isConnected ? "Đang kết nối" : "Kết nối lại")}
           >
             {isConnected ? (
@@ -231,7 +234,7 @@ function GateKiosk({ gateId }: { gateId: string }) {
               <WifiOff className="h-4 w-4" />
             )}
             {isConnected ? "Trực tuyến" : "Mất kết nối"}
-          </div>
+          </button>
         </div>
       </header>
 
@@ -249,11 +252,11 @@ function GateKiosk({ gateId }: { gateId: string }) {
       )}
 
       {/* Main event display */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-8">
         {latest ? (
           <div
             key={latest.key}
-            className={`w-full max-w-4xl rounded-3xl border-4 p-10 text-center transition-all ${
+            className={`w-full max-w-4xl rounded-3xl border-4 p-5 text-center transition-all sm:p-10 ${
               latest.pending
                 ? "border-amber-500 bg-amber-500/10"
                 : latest.approved
@@ -261,7 +264,7 @@ function GateKiosk({ gateId }: { gateId: string }) {
                 : "border-red-500 bg-red-500/10"
             }`}
           >
-            <div className="flex items-center justify-center gap-4 mb-6">
+            <div className="flex flex-col items-center justify-center gap-3 mb-6 sm:flex-row sm:gap-4">
               {latest.pending ? (
                 <Clock className="h-20 w-20 text-amber-400" />
               ) : latest.approved ? (
@@ -270,7 +273,7 @@ function GateKiosk({ gateId }: { gateId: string }) {
                 <XCircle className="h-20 w-20 text-red-400" />
               )}
               <span
-                className={`text-5xl font-black ${
+                className={`text-3xl font-black sm:text-5xl ${
                   latest.pending
                     ? "text-amber-400"
                     : latest.approved
@@ -282,31 +285,31 @@ function GateKiosk({ gateId }: { gateId: string }) {
               </span>
             </div>
 
-            <div className="text-8xl font-black tracking-widest mb-6 break-all">
+            <div className="mb-6 break-all text-4xl font-black tracking-[0.12em] sm:text-8xl sm:tracking-widest">
               {latest.licensePlate}
             </div>
 
-            <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-6">
               {latest.type === "entry" ? (
-                <span className="inline-flex items-center gap-2 text-2xl font-bold text-emerald-300">
+                <span className="inline-flex items-center gap-2 text-lg font-bold text-emerald-300 sm:text-2xl">
                   <ArrowDownToLine className="h-7 w-7" /> VÀO CỔNG
                 </span>
               ) : latest.type === "exit" ? (
-                <span className="inline-flex items-center gap-2 text-2xl font-bold text-sky-300">
+                <span className="inline-flex items-center gap-2 text-lg font-bold text-sky-300 sm:text-2xl">
                   <ArrowUpFromLine className="h-7 w-7" /> RA CỔNG
                 </span>
               ) : (
-                <span className="text-2xl font-bold text-slate-300">KIỂM TRA</span>
+                <span className="text-lg font-bold text-slate-300 sm:text-2xl">KIỂM TRA</span>
               )}
             </div>
 
             {(latest.driverName || latest.unit) && (
-              <div className="text-3xl text-white/90 space-y-1">
+              <div className="space-y-1 text-xl text-white/90 sm:text-3xl">
                 {latest.driverName && (
                   <div className="font-semibold">{latest.driverName}</div>
                 )}
                 {latest.unit && (
-                  <div className="text-xl text-slate-300">{latest.unit}</div>
+                  <div className="text-base text-slate-300 sm:text-xl">{latest.unit}</div>
                 )}
               </div>
             )}
@@ -333,12 +336,12 @@ function GateKiosk({ gateId }: { gateId: string }) {
 
       {/* Recent events strip */}
       {events.length > 1 && (
-        <footer className="border-t border-slate-800 px-6 py-4">
-          <div className="flex gap-3 overflow-x-auto">
+      <footer className="border-t border-slate-800 px-4 py-4 sm:px-6">
+        <div className="grid gap-3 sm:flex sm:overflow-x-auto">
             {events.slice(1, 12).map((e) => (
               <div
                 key={e.key}
-                className={`flex-shrink-0 w-44 rounded-xl border p-3 ${
+                className={`min-w-0 rounded-xl border p-3 sm:w-44 sm:shrink-0 ${
                   e.pending
                     ? "border-amber-700 bg-amber-900/20"
                     : e.approved

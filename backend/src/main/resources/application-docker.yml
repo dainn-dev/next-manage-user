@@ -75,8 +75,10 @@ springdoc:
 app:
   admin-datasource:
     url: ${APP_ADMIN_DATASOURCE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/vehicle_management}}
-    username: ${APP_ADMIN_DATASOURCE_USERNAME:app_admin_login}
-    password: ${APP_ADMIN_DATASOURCE_PASSWORD:}
+    # Compose local development shares the primary PostgreSQL login. Production
+    # deployments must override both values with the dedicated admin login.
+    username: ${APP_ADMIN_DATASOURCE_USERNAME:${SPRING_DATASOURCE_USERNAME:postgres}}
+    password: ${APP_ADMIN_DATASOURCE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:password}}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: platform-admin-pool

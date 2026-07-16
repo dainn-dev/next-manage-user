@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Sidebar } from "./sidebar"
 import { Topbar } from "./topbar"
@@ -55,6 +55,11 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     || memberUser
     || (!canAccessOperatorRoute(user.role, pathname))
   )
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [pathname])
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !publicRoute) {
@@ -133,11 +138,22 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
   // Tenant and member areas keep their existing role-aware shell.
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar />
-        <main className="flex-1 overflow-auto bg-background">
+    <div className="relative flex h-dvh min-w-0 overflow-hidden">
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-[var(--color-overlay)] md:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-label="Đóng điều hướng"
+        />
+      )}
+      <Sidebar mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Topbar
+          onMobileMenuClick={() => setMobileSidebarOpen(true)}
+          mobileMenuOpen={mobileSidebarOpen}
+        />
+        <main className="min-w-0 flex-1 overflow-auto bg-background">
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>

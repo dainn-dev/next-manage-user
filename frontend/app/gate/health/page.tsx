@@ -85,10 +85,10 @@ function GateHealthDashboard() {
   const onlineCount = gates.filter((g) => g.online).length
 
   return (
-    <div className="p-6 md:p-8 bg-background min-h-screen">
+    <div className="admin-mobile-page min-h-screen bg-background sm:p-6 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
+        <div className="admin-mobile-header mb-6">
+          <div className="min-w-0">
             <Link
               href="/gate"
               className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2"
@@ -96,7 +96,7 @@ function GateHealthDashboard() {
               <ArrowLeft className="h-3.5 w-3.5" />
               Danh sách cổng
             </Link>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold text-foreground">
               <Activity className="h-6 w-6 text-blue-600" />
               Sức khỏe cổng
             </h1>
@@ -114,7 +114,7 @@ function GateHealthDashboard() {
               )}
             </p>
           </div>
-          <Button variant="outline" onClick={load} disabled={loading}>
+          <Button variant="outline" onClick={load} disabled={loading} className="w-full sm:w-auto">
             <RefreshCw
               className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
             />
@@ -129,14 +129,14 @@ function GateHealthDashboard() {
         )}
 
         {loading && gates.length === 0 && !error && (
-          <div className="flex items-center justify-center h-48 text-muted-foreground">
+          <div className="flex h-48 items-center justify-center text-muted-foreground">
             <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
             Đang tải trạng thái cổng…
           </div>
         )}
 
         {!loading && gates.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+          <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
             <Radio className="h-10 w-10 mb-2 opacity-50" />
             <p>Chưa có cổng nào được đăng ký.</p>
           </div>
@@ -144,10 +144,10 @@ function GateHealthDashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {gates.map((gate) => (
-            <Card key={gate.id} className="hover:shadow-md transition-shadow">
+            <Card key={gate.id} className="transition-shadow hover:shadow-md">
               <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-start justify-between gap-3 mb-3">
+                  <div className="flex min-w-0 items-center gap-2">
                     <div
                       className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                         gate.online ? "bg-emerald-100" : "bg-slate-100"
@@ -159,12 +159,12 @@ function GateHealthDashboard() {
                         }`}
                       />
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-foreground">
                         {gate.name}
                       </h3>
                       {gate.location && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
                           <MapPin className="h-3 w-3" />
                           {gate.location}
                         </p>

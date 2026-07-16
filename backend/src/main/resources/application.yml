@@ -118,8 +118,10 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   admin-datasource:
     url: ${APP_ADMIN_DATASOURCE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vehicle_management}}
-    username: ${APP_ADMIN_DATASOURCE_USERNAME:app_admin_login}
-    password: ${APP_ADMIN_DATASOURCE_PASSWORD:}
+    # Reuse the primary local-development login unless a dedicated, BYPASSRLS
+    # admin login is configured explicitly for the deployment.
+    username: ${APP_ADMIN_DATASOURCE_USERNAME:${SPRING_DATASOURCE_USERNAME:postgres}}
+    password: ${APP_ADMIN_DATASOURCE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:password}}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: platform-admin-pool

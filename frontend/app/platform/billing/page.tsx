@@ -1,6 +1,3 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * page: billing · data-form: KPI strip + responsive subscription ledger · enrichment: none
- */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"

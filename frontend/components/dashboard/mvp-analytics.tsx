@@ -17,5 +17,50 @@ export function MvpAnalytics() {
     { label: 'Thời gian đỗ trung bình', value: analytics?.completedDwellSessions ? formatDuration(analytics.averageDwellSeconds) : 'Chưa đủ dữ liệu', icon: Clock3 },
   ]
 
-  return <section aria-labelledby="mvp-analytics-title" className="space-y-3"><div className="flex items-end justify-between gap-3"><div><h2 id="mvp-analytics-title" className="text-lg font-semibold">Occupancy hiện tại</h2><p className="text-xs text-muted-foreground">{selectedZoneId ? 'Occupancy theo zone đang chọn' : selectedSiteId ? 'Site đang chọn' : 'Chưa chọn site'} · dwell từ {analytics?.completedDwellSessions || 0} lượt đỗ hoàn tất trong 7 ngày</p></div>{lastUpdatedAt && <time className="text-xs text-muted-foreground" dateTime={lastUpdatedAt}>As of {new Date(lastUpdatedAt).toLocaleTimeString('vi-VN')}</time>}</div><div className="grid gap-3 sm:grid-cols-3">{cards.map(({ label, value, icon: Icon }) => <Card key={label}><CardContent className="flex items-center justify-between p-4"><div><p className="text-sm text-muted-foreground">{label}</p>{loading ? <div className="mt-2 h-7 w-20 animate-pulse rounded bg-muted" /> : <p className="text-2xl font-semibold">{value}</p>}</div><Icon className="h-7 w-7 text-primary" /></CardContent></Card>)}</div></section>
+  return (
+    <section aria-labelledby="mvp-analytics-title" className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Sức chứa hiện tại
+          </p>
+          <h2 id="mvp-analytics-title" className="mt-1 text-lg font-semibold tracking-tight">
+            Tình hình bãi đỗ
+          </h2>
+          <p className="mt-1 max-w-[60ch] text-xs leading-5 text-muted-foreground">
+            {selectedZoneId
+              ? 'Theo khu vực đang chọn'
+              : selectedSiteId
+                ? 'Theo bãi đỗ đang chọn'
+                : 'Chưa chọn bãi đỗ'}
+            {' · '}dwell từ {analytics?.completedDwellSessions || 0} lượt hoàn tất trong 7 ngày
+          </p>
+        </div>
+        {lastUpdatedAt && (
+          <time className="shrink-0 pt-1 font-mono text-xs text-muted-foreground" dateTime={lastUpdatedAt}>
+            {new Date(lastUpdatedAt).toLocaleTimeString('vi-VN')}
+          </time>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {cards.map(({ label, value, icon: Icon }) => (
+          <Card key={label} className="gap-0 py-0 last:col-span-2 sm:last:col-span-1">
+            <CardContent className="flex min-w-0 items-start justify-between gap-2 p-4">
+              <div className="min-w-0">
+                <p className="text-xs leading-4 text-muted-foreground">{label}</p>
+                {loading ? (
+                  <div className="mt-2 h-7 w-20 animate-pulse rounded bg-muted" />
+                ) : (
+                  <p className="mt-2 break-words font-mono text-lg font-semibold leading-tight tabular-nums">
+                    {value}
+                  </p>
+                )}
+              </div>
+              <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  )
 }

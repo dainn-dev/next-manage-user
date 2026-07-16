@@ -1,6 +1,3 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * page: audit · data-form: filter command row + responsive event ledger · enrichment: none
- */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"

@@ -117,7 +117,7 @@ export default function DashboardPage() {
     []
   )
 
-  const { isConnected, connectionError, reconnect } = useWebSocket(handleVehicleCheck)
+  const { isConnected, reconnect } = useWebSocket(handleVehicleCheck)
 
   useEffect(() => {
     if (canViewDashboard(user?.role)) {
@@ -129,7 +129,7 @@ export default function DashboardPage() {
   // is being redirected away.
   if (authLoading || (user && !canViewDashboard(user.role))) {
     return (
-      <div className="p-6">
+      <div className="admin-mobile-page">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -144,7 +144,7 @@ export default function DashboardPage() {
 
   if (loading && !todayStats) {
     return (
-      <div className="p-6">
+      <div className="admin-mobile-page">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -170,21 +170,21 @@ export default function DashboardPage() {
       value: vehicleStats?.activeVehicles ?? 0,
       sub: "Phương tiện đã được duyệt",
       icon: Activity,
-      tone: "text-green-600",
+      tone: "text-[var(--color-success)]",
     },
     {
       label: "Lượt vào hôm nay",
       value: todayStats?.entryCount ?? 0,
       sub: "Số lượt xe vào cổng",
       icon: ArrowDownToLine,
-      tone: "text-green-600",
+      tone: "text-[var(--color-success)]",
     },
     {
       label: "Lượt ra hôm nay",
       value: todayStats?.exitCount ?? 0,
       sub: "Số lượt xe ra cổng",
       icon: ArrowUpFromLine,
-      tone: "text-red-600",
+      tone: "text-[var(--color-critical)]",
     },
   ]
 
@@ -196,27 +196,30 @@ export default function DashboardPage() {
   }))
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Tổng quan vận hành</h1>
-          <p className="text-muted-foreground">
+    <main className="admin-mobile-page space-y-6 pb-[calc(var(--space-xl)+env(safe-area-inset-bottom))]">
+      <header className="admin-mobile-header border-b border-border pb-4">
+        <div className="min-w-0">
+          <p className="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Bãi đỗ xe · hôm nay
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-foreground">
+            Tổng quan vận hành
+          </h1>
+          <p className="mt-2 max-w-[60ch] text-sm leading-6 text-muted-foreground">
             Hoạt động bãi đỗ xe và cổng ra/vào theo thời gian thực
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
           <ConnectionPill
             connected={isConnected}
-            hasError={!!connectionError}
             onReconnect={reconnect}
           />
-          <Button variant="outline" onClick={() => loadData()} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <Button variant="outline" className="min-h-11 touch-manipulation" onClick={() => loadData()} disabled={loading}>
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
             Làm mới
           </Button>
         </div>
-      </div>
+      </header>
 
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
@@ -226,61 +229,75 @@ export default function DashboardPage() {
 
       <MvpAnalytics />
 
-      {/* KPI row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <section aria-labelledby="dashboard-metrics-title" className="space-y-3">
+        <div>
+          <p className="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Chỉ số cốt lõi
+          </p>
+          <h2 id="dashboard-metrics-title" className="mt-1 text-lg font-semibold tracking-tight">
+            Nhịp vận hành trong ngày
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {kpis.map((kpi) => {
           const Icon = kpi.icon
           return (
-            <Card key={kpi.label}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Card key={kpi.label} className="gap-0 py-0">
+              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {kpi.label}
                 </CardTitle>
-                <Icon className={`h-4 w-4 ${kpi.tone}`} />
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted" aria-hidden="true">
+                  <Icon className={`size-4 ${kpi.tone}`} />
+                </span>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{kpi.value.toLocaleString("vi-VN")}</div>
-                <p className="text-xs text-muted-foreground">{kpi.sub}</p>
+              <CardContent className="px-4 pb-4 pt-3">
+                <div className="font-mono text-xl font-bold leading-none tabular-nums">
+                  {kpi.value.toLocaleString("vi-VN")}
+                </div>
+                <p className="mt-2 text-xs leading-4 text-muted-foreground">{kpi.sub}</p>
               </CardContent>
             </Card>
           )
         })}
-      </div>
+        </div>
+      </section>
 
-      {/* Realtime occupancy + trend chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section aria-label="Theo dõi cổng realtime">
         <RealtimeGateDashboard
           pulse={realtimePulse}
           onError={(message) =>
             toast({ title: "Lỗi dữ liệu realtime", description: message, variant: "destructive" })
           }
         />
+      </section>
 
-        <Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="gap-0 py-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-base">Xu hướng ra/vào (theo ngày)</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
             {chartData.length === 0 ? (
               <div className="flex items-center justify-center h-[320px] text-sm text-muted-foreground">
                 Chưa có dữ liệu xu hướng
               </div>
             ) : (
-              <div style={{ width: "100%", height: 320 }}>
+              <div className="h-56 w-full sm:h-80">
                 <ResponsiveContainer>
                   <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" allowDecimals={false} />
                     <Tooltip />
-                    <Bar dataKey="entry" name="Lượt vào" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="exit" name="Lượt ra" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="entry" name="Lượt vào" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="exit" name="Lượt ra" fill="var(--color-critical)" radius={[4, 4, 0, 0]} />
                     <Line
                       type="monotone"
                       dataKey="unique"
                       name="Xe duy nhất"
-                      stroke="#0F766E"
+                      stroke="var(--color-accent)"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -292,51 +309,46 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Event timeline + parking-map placeholder */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <section aria-label="Sự kiện và sơ đồ bãi đỗ" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="gap-0 py-0">
+          <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-6 sm:pt-6">
             <CardTitle className="flex items-center gap-2 text-base">
               <ListTree className="h-4 w-4 text-primary" />
               Dòng sự kiện gần đây
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
             {recentLogs.length === 0 ? (
-              <div className="flex items-center justify-center h-[260px] text-sm text-muted-foreground">
+              <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">
                 Chưa có sự kiện nào hôm nay
               </div>
             ) : (
-              <ol className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+              <ol className="max-h-72 space-y-2 overflow-y-auto pr-1 overscroll-contain">
                 {recentLogs.map((log) => (
                   <li
                     key={log.id}
-                    className="flex items-center gap-3 rounded-md border border-border bg-card/50 px-3 py-2"
+                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border bg-background px-3 py-2"
                   >
                     <Badge
                       variant={log.type === "entry" ? "default" : "secondary"}
                       className={
                         log.type === "entry"
-                          ? "bg-green-600 hover:bg-green-600 text-white"
-                          : "bg-red-600 hover:bg-red-600 text-white"
+                          ? "bg-[var(--color-success)] text-[var(--color-accent-ink)] hover:bg-[var(--color-success)]"
+                          : "bg-[var(--color-critical)] text-[var(--color-accent-ink)] hover:bg-[var(--color-critical)]"
                       }
                     >
                       {log.type === "entry" ? "Vào" : "Ra"}
                     </Badge>
-                    <span className="font-mono text-sm font-medium">
-                      {log.licensePlateNumber}
-                    </span>
-                    {log.employeeName && (
-                      <span className="text-sm text-muted-foreground truncate">
-                        {log.employeeName}
-                      </span>
-                    )}
-                    <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="min-w-0">
+                      <p className="truncate font-mono text-sm font-medium">{log.licensePlateNumber}</p>
+                      {log.employeeName && <p className="truncate text-xs text-muted-foreground">{log.employeeName}</p>}
+                    </div>
+                    <time className="flex items-center gap-1 whitespace-nowrap font-mono text-xs text-muted-foreground" dateTime={log.entryExitTime}>
                       <Clock className="h-3 w-3" />
                       {log.entryExitTime
                         ? new Date(log.entryExitTime).toLocaleTimeString("vi-VN")
                         : "—"}
-                    </span>
+                    </time>
                   </li>
                 ))}
               </ol>
@@ -344,47 +356,44 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <Card className="gap-0 py-0">
+          <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-6 sm:pt-6">
             <CardTitle className="flex items-center gap-2 text-base">
               <MapIcon className="h-4 w-4 text-primary" />
               Sơ đồ bãi đỗ xe
             </CardTitle>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="rounded-full bg-muted px-2 py-1 font-mono text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Sắp ra mắt
             </span>
           </CardHeader>
-          <CardContent>
-            <div className="flex h-[260px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/30 text-center">
+          <CardContent className="px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
+            <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/30 p-4 text-center">
               <MapIcon className="h-10 w-10 text-muted-foreground/50" />
               <div>
                 <p className="text-sm font-medium text-foreground">Sơ đồ ô đỗ xe theo thời gian thực</p>
-                <p className="mt-1 max-w-xs text-xs text-muted-foreground">
-                  Trình thiết kế sơ đồ bãi (Parking Map Designer) và phát hiện ô đỗ đang được xây
-                  dựng theo lộ trình (docs/08, docs/11).
+                <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
+                  Mở bản đồ bãi để theo dõi trạng thái từng ô đỗ.
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }
 
 function ConnectionPill({
   connected,
-  hasError,
   onReconnect,
 }: {
   connected: boolean
-  hasError: boolean
   onReconnect: () => void
 }) {
   if (connected) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-700 dark:text-green-400">
-        <Wifi className="h-3.5 w-3.5" />
+      <span role="status" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-[var(--color-success)] bg-[var(--color-success-surface)] px-3 text-sm font-medium text-[var(--color-success)]">
+        <Wifi className="size-4" />
         Realtime
       </span>
     )
@@ -392,10 +401,10 @@ function ConnectionPill({
   return (
     <button
       onClick={onReconnect}
-      className="inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive hover:opacity-80"
-      title="Mất kết nối realtime — nhấn để kết nối lại"
+      className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-1.5 rounded-md border border-[var(--color-critical)] bg-[var(--color-critical-surface)] px-3 text-sm font-medium text-[var(--color-critical)] transition-opacity duration-[var(--dur-short)] ease-[var(--ease-out)] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      aria-label="Mất kết nối realtime — nhấn để kết nối lại"
     >
-      <WifiOff className="h-3.5 w-3.5" />
+      <WifiOff className="size-4" />
       Mất kết nối
     </button>
   )

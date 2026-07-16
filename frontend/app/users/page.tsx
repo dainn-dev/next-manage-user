@@ -1,9 +1,5 @@
 "use client"
 
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * page: tenant user registry · data-form: KPI strip + filter command row + responsive data surface
- */
-
 import { useState, useEffect } from "react"
 import type { User, CreateUserRequest, UpdateUserRequest } from "@/lib/types"
 import { UserRole, UserStatus } from "@/lib/types"

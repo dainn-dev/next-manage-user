@@ -619,13 +619,13 @@ export default function ParkingCommissioningPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+    <div className="admin-mobile-page space-y-6">
+      <div className="admin-mobile-header">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Thiết lập bãi đỗ</h1>
           <p className="text-sm text-muted-foreground">Commissioning theo từng bước; bản đồ vận hành tại “Sơ đồ bãi” không bị thay đổi.</p>
         </div>
-        <Badge variant="outline" className="gap-2 py-1.5"><ShieldCheck className="h-3.5 w-3.5" />{user?.role === UserRole.ADMIN ? "Tenant Admin" : "Site Manager"}</Badge>
+        <Badge variant="outline" className="w-fit gap-2 py-1.5"><ShieldCheck className="h-3.5 w-3.5" />{user?.role === UserRole.ADMIN ? "Tenant Admin" : "Site Manager"}</Badge>
       </div>
 
       <div className="grid gap-2 md:grid-cols-6">

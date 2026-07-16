@@ -156,7 +156,7 @@ export default function DepartmentsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 bg-background min-h-screen">
+      <div className="admin-mobile-page min-h-screen bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -171,7 +171,7 @@ export default function DepartmentsPage() {
 
   if (error) {
     return (
-      <div className="p-8 bg-background min-h-screen">
+      <div className="admin-mobile-page min-h-screen bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
@@ -193,14 +193,14 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div className="p-8 bg-background min-h-screen">
+    <div className="admin-mobile-page min-h-screen bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Quản lý Cơ quan, Đơn vị</h1>
-          <p className="text-muted-foreground text-lg">Quản lý cơ cấu tổ chức và nhân sự các đơn vị</p>
+      <div className="admin-mobile-header mb-6 sm:mb-8">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Quản lý Cơ quan, Đơn vị</h1>
+          <p className="text-base text-muted-foreground sm:text-lg">Quản lý cơ cấu tổ chức và nhân sự các đơn vị</p>
         </div>
-        <Button onClick={handleAddNew}>
+        <Button onClick={handleAddNew} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Thêm đơn vị
         </Button>

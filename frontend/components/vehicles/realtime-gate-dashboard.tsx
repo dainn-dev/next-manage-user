@@ -104,56 +104,56 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
   const totalInside = insideVehicles.length
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Car className="h-5 w-5 text-blue-600" />
+    <Card className="gap-0 py-0">
+      <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-6 sm:pt-6">
+        <CardTitle className="flex min-w-0 items-center gap-2 text-base">
+          <Car className="size-5 shrink-0 text-primary" />
           Cổng realtime hôm nay
           <span
-            className={`ml-2 inline-flex h-2.5 w-2.5 rounded-full ${
-              error ? "bg-red-500" : "bg-green-500 animate-pulse"
+            className={`inline-flex size-2.5 shrink-0 rounded-full ${
+              error ? "bg-[var(--color-critical)]" : "bg-[var(--color-success)] animate-pulse"
             }`}
-            title={error ? "Mất kết nối dữ liệu" : "Cập nhật realtime"}
+            aria-label={error ? "Mất kết nối dữ liệu" : "Cập nhật realtime"}
           />
         </CardTitle>
-        <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+        <Button variant="outline" className="min-h-11 shrink-0 touch-manipulation" onClick={refresh} disabled={loading}>
+          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           Làm mới
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
         {error && (
-          <div className="text-sm text-red-600">{error}</div>
+          <div className="text-sm text-[var(--color-critical)]">{error}</div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="text-center p-3 border rounded-lg">
-            <div className="flex items-center justify-center gap-1 mb-1 text-green-600">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-md border bg-background p-3 text-left">
+            <div className="mb-2 flex items-center gap-1 text-[var(--color-success)]">
               <ArrowDownToLine className="h-4 w-4" />
               <span className="text-xs font-medium">Lượt vào</span>
             </div>
-            <div className="text-2xl font-bold text-green-600">{entryCount}</div>
+            <div className="text-2xl font-bold text-[var(--color-success)]">{entryCount}</div>
           </div>
-          <div className="text-center p-3 border rounded-lg">
-            <div className="flex items-center justify-center gap-1 mb-1 text-red-600">
+          <div className="rounded-md border bg-background p-3 text-left">
+            <div className="mb-2 flex items-center gap-1 text-[var(--color-critical)]">
               <ArrowUpFromLine className="h-4 w-4" />
               <span className="text-xs font-medium">Lượt ra</span>
             </div>
-            <div className="text-2xl font-bold text-red-600">{exitCount}</div>
+            <div className="text-2xl font-bold text-[var(--color-critical)]">{exitCount}</div>
           </div>
-          <div className="text-center p-3 border rounded-lg">
-            <div className="flex items-center justify-center gap-1 mb-1 text-blue-600">
+          <div className="rounded-md border bg-background p-3 text-left">
+            <div className="mb-2 flex items-center gap-1 text-[var(--color-signal)]">
               <Users className="h-4 w-4" />
               <span className="text-xs font-medium">Xe duy nhất</span>
             </div>
-            <div className="text-2xl font-bold text-blue-600">{uniqueVehicles}</div>
+            <div className="text-2xl font-bold text-[var(--color-signal)]">{uniqueVehicles}</div>
           </div>
-          <div className="text-center p-3 border rounded-lg">
-            <div className="flex items-center justify-center gap-1 mb-1 text-purple-600">
+          <div className="rounded-md border bg-background p-3 text-left">
+            <div className="mb-2 flex items-center gap-1 text-[var(--color-accent)]">
               <Car className="h-4 w-4" />
               <span className="text-xs font-medium">Đang trong cổng</span>
             </div>
-            <div className="text-2xl font-bold text-purple-600">{totalInside}</div>
+            <div className="text-2xl font-bold text-[var(--color-accent)]">{totalInside}</div>
           </div>
         </div>
 

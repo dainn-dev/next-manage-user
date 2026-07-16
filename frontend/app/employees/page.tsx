@@ -338,7 +338,7 @@ export default function EmployeesPage() {
 
   if (loading) {
     return (
-      <div className="p-8 bg-background min-h-screen">
+      <div className="admin-mobile-page min-h-screen bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -353,7 +353,7 @@ export default function EmployeesPage() {
 
   if (error) {
     return (
-      <div className="p-8 bg-background min-h-screen">
+      <div className="admin-mobile-page min-h-screen bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
@@ -377,12 +377,12 @@ export default function EmployeesPage() {
   const stats = getStatistics()
 
   return (
-    <div className="p-8 bg-background min-h-screen">
+    <div className="admin-mobile-page min-h-screen bg-background">
       {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="admin-mobile-header mb-6 sm:mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">Quản lý Quân nhân</h1>
-            <p className="text-muted-foreground text-lg">Quản lý thông tin và hoạt động của quân nhân trong đơn vị</p>
+            <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-4xl">Quản lý Quân nhân</h1>
+            <p className="text-base text-muted-foreground sm:text-lg">Quản lý thông tin và hoạt động của quân nhân trong đơn vị</p>
           {/* Show filter indicator */}
           {(searchParams.get('position') || searchParams.get('department')) && (
             <div className="mt-2 flex items-center gap-2">
@@ -407,7 +407,7 @@ export default function EmployeesPage() {
             </div>
           )}
         </div>
-        <Button onClick={handleAddNew}>
+        <Button onClick={handleAddNew} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Thêm quân nhân
         </Button>
@@ -458,7 +458,7 @@ export default function EmployeesPage() {
        {/* Search and Filter Bar */}
        <div className="bg-white border rounded-lg mb-6 shadow-sm">
          {/* Action Buttons - Inline */}
-         <div className="flex flex-wrap gap-4 p-6 border-b border-gray-100 bg-gray-50/50">
+         <div className="admin-mobile-actions border-b border-gray-100 bg-gray-50/50 p-4 sm:flex sm:flex-wrap sm:p-6">
            <Button
              variant={isFilterBarOpen ? "default" : "outline"}
              size="sm"
@@ -495,7 +495,7 @@ export default function EmployeesPage() {
 
          {/* Collapsible Filter Content */}
          {isFilterBarOpen && (
-           <div className="p-6 bg-white">
+           <div className="bg-white p-4 sm:p-6">
              <div className="mb-4">
                <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
                <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm quân nhân theo tiêu chí cụ thể</p>
@@ -625,7 +625,7 @@ export default function EmployeesPage() {
 
       {/* Action Bar */}
       {selectedEmployees.length > 0 && (
-        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
+        <div className="flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-sm sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
             <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">

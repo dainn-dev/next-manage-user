@@ -13,7 +13,7 @@ export default function ParkingMapPage() {
   const occupied = slots.filter((slot) => slot.status === 'OCCUPIED').length
   const available = slots.filter((slot) => slot.status === 'AVAILABLE').length
 
-  return <div className="space-y-6 p-6">
+  return <div className="admin-mobile-page space-y-6">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-semibold">Sơ đồ bãi đỗ xe</h1><p className="text-sm text-muted-foreground">Occupancy theo {selectedZoneId ? 'zone' : 'site'} đang chọn · {realtime === 'live' ? 'realtime' : 'polling fallback'}</p></div><Button variant="outline" size="sm" onClick={() => void refresh()} disabled={status === 'loading'}><RefreshCw className="mr-2 h-4 w-4" />Làm mới</Button></div>
     {error && <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"><AlertCircle className="h-4 w-4" />{error}</div>}
     <div className="grid gap-3 sm:grid-cols-3"><CountCard label="Tổng số ô" value={slots.length} icon={SquareParking} /><CountCard label="Còn trống" value={available} icon={CircleParking} tone="text-green-600" /><CountCard label="Đang có xe" value={occupied} icon={Car} tone="text-red-600" /></div>

@@ -1,9 +1,5 @@
 "use client"
 
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * theme: ParkVision Control · enrichment: none · pre-emit critique: P5 H5 E5 S5 R5 V4
- */
-
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   Activity,
@@ -176,11 +172,11 @@ export default function VehicleMonitoringPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-background p-4 sm:p-6" aria-busy="true">
+      <main className="admin-mobile-page min-h-dvh bg-background pb-[calc(var(--space-xl)+env(safe-area-inset-bottom))]" aria-busy="true">
         <div className="mx-auto max-w-[104rem] animate-pulse space-y-5">
           <div className="h-20 rounded-lg bg-[var(--color-paper-3)]" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {[0, 1, 2].map((item) => <div key={item} className="h-28 rounded-lg bg-[var(--color-paper-3)]" />)}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[0, 1, 2].map((item) => <div key={item} className="h-28 rounded-lg bg-[var(--color-paper-3)] last:col-span-2 sm:last:col-span-1" />)}
           </div>
           <div className="h-96 rounded-lg bg-[var(--color-paper-3)]" />
         </div>
@@ -189,23 +185,23 @@ export default function VehicleMonitoringPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-6">
-      <div className="mx-auto flex max-w-[104rem] min-w-0 flex-col gap-5">
+    <main className="admin-mobile-page min-h-dvh bg-background pb-[calc(var(--space-xl)+env(safe-area-inset-bottom))]">
+      <div className="mx-auto flex max-w-[104rem] min-w-0 flex-col gap-6">
         <header className="flex min-w-0 flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <div className="mb-2 flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               <Activity className="h-4 w-4 text-[var(--color-accent)]" aria-hidden="true" />
               Vận hành cổng
             </div>
-            <h1 className="font-[family:var(--font-display)] text-3xl font-bold tracking-[-0.025em] text-foreground sm:text-4xl">
+            <h1 className="font-[family:var(--font-display)] text-3xl font-bold leading-tight tracking-[-0.025em] text-foreground sm:text-4xl">
               Giám sát ra / vào
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
               Theo dõi lượt xe trong ngày, chọn một sự kiện để xem phương tiện và người liên quan.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={() => void loadData(true)} disabled={refreshing} className="min-h-10 whitespace-nowrap">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Button variant="outline" onClick={() => void loadData(true)} disabled={refreshing} className="min-h-11 touch-manipulation whitespace-nowrap">
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
               Làm mới
             </Button>
@@ -214,7 +210,7 @@ export default function VehicleMonitoringPage() {
               onClick={!isConnected ? reconnect : undefined}
               disabled={isConnected}
               title={connectionError || undefined}
-              className="min-h-10 whitespace-nowrap"
+              className="min-h-11 touch-manipulation whitespace-nowrap"
             >
               <Radio className={`mr-2 h-4 w-4 ${isConnected ? "text-[var(--color-success)]" : "text-[var(--color-critical)]"}`} aria-hidden="true" />
               {isConnected ? "Đang nhận realtime" : "Kết nối lại"}
@@ -222,13 +218,13 @@ export default function VehicleMonitoringPage() {
           </div>
         </header>
 
-        <section className="grid min-w-0 grid-cols-1 border-y border-border sm:grid-cols-3" aria-label="Tổng quan hôm nay">
+        <section className="grid min-w-0 grid-cols-2 border-y border-border sm:grid-cols-3" aria-label="Tổng quan hôm nay">
           {[
             { label: "Lượt vào", value: statistics?.entryCount ?? 0, icon: ArrowDownToLine, tone: "var(--color-success)" },
             { label: "Lượt ra", value: statistics?.exitCount ?? 0, icon: ArrowUpFromLine, tone: "var(--color-critical)" },
             { label: "Xe duy nhất", value: statistics?.uniqueVehicles ?? 0, icon: CarFront, tone: "var(--color-signal)" },
           ].map(({ label, value, icon: Icon, tone }, index) => (
-            <div key={label} className={`min-w-0 px-4 py-4 sm:px-5 ${index > 0 ? "border-t border-border sm:border-l sm:border-t-0" : ""}`}>
+            <div key={label} className={`min-w-0 px-4 py-4 sm:px-5 ${index === 1 ? "border-l border-border sm:border-l" : index === 2 ? "col-span-2 border-t border-border sm:col-span-1 sm:border-l sm:border-t-0" : ""}`}>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Icon className="h-4 w-4" style={{ color: tone }} aria-hidden="true" />
                 {label}
@@ -238,7 +234,7 @@ export default function VehicleMonitoringPage() {
           ))}
         </section>
 
-        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)]">
+        <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)]">
           <div className="min-w-0 rounded-lg border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="border-b border-border p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -254,10 +250,16 @@ export default function VehicleMonitoringPage() {
               <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
                 <div className="relative min-w-0">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                  <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm biển số hoặc người lái" className="min-h-10 pl-9" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Tìm biển số hoặc người lái"
+                    aria-label="Tìm biển số hoặc người lái"
+                    className="min-h-11 touch-manipulation pl-9"
+                  />
                 </div>
                 <Select value={movementFilter} onValueChange={(value) => setMovementFilter(value as MovementFilter)}>
-                  <SelectTrigger className="min-h-10"><SelectValue placeholder="Chiều di chuyển" /></SelectTrigger>
+                  <SelectTrigger aria-label="Lọc theo chiều di chuyển" className="min-h-11 w-full touch-manipulation"><SelectValue placeholder="Chiều di chuyển" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả lượt</SelectItem>
                     <SelectItem value="entry">Vào cổng</SelectItem>
@@ -265,7 +267,7 @@ export default function VehicleMonitoringPage() {
                   </SelectContent>
                 </Select>
                 <Select value={vehicleFilter} onValueChange={(value) => setVehicleFilter(value as VehicleFilter)}>
-                  <SelectTrigger className="min-h-10"><SelectValue placeholder="Loại xe" /></SelectTrigger>
+                  <SelectTrigger aria-label="Lọc theo loại xe" className="min-h-11 w-full touch-manipulation"><SelectValue placeholder="Loại xe" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Mọi loại xe</SelectItem>
                     <SelectItem value="internal">Xe nội bộ</SelectItem>
@@ -285,7 +287,7 @@ export default function VehicleMonitoringPage() {
                     type="button"
                     onClick={() => void loadVehicleDetail(log)}
                     aria-pressed={selected}
-                    className={`min-w-0 bg-card p-4 text-left transition-[background-color,transform] duration-[var(--dur-short)] ease-[var(--ease-out)] focus-visible:z-10 focus-visible:outline-none active:translate-y-px ${selected ? "bg-[var(--color-paper-3)]" : "hover:bg-[var(--color-paper-2)]"}`}
+                    className={`min-h-28 min-w-0 touch-manipulation bg-card p-4 text-left transition-[background-color,transform] duration-[var(--dur-short)] ease-[var(--ease-out)] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-inset active:translate-y-px ${selected ? "bg-[var(--color-paper-3)]" : "hover:bg-[var(--color-paper-2)]"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <span className="font-[family:var(--font-outlier)] text-base font-semibold tracking-wide text-foreground">{log.licensePlateNumber}</span>
@@ -294,12 +296,12 @@ export default function VehicleMonitoringPage() {
                         {isEntry ? "Vào" : "Ra"}
                       </Badge>
                     </div>
-                    <p className="mt-4 truncate text-sm font-medium text-foreground">{log.driverName || log.employeeName || "Chưa xác định người lái"}</p>
+                    <p className="mt-3 truncate text-sm font-medium text-foreground">{log.driverName || log.employeeName || "Chưa xác định người lái"}</p>
                     <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                       <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       <span className="truncate">{log.gateLocation || "Chưa có vị trí cổng"}</span>
                     </div>
-                    <p className="mt-4 font-[family:var(--font-outlier)] text-xs text-muted-foreground">{formatTimestamp(log.entryExitTime)}</p>
+                    <p className="mt-3 font-[family:var(--font-outlier)] text-xs text-muted-foreground">{formatTimestamp(log.entryExitTime)}</p>
                   </button>
                 )
               })}
@@ -315,8 +317,8 @@ export default function VehicleMonitoringPage() {
 
           <aside className="min-w-0 space-y-5" aria-label="Chi tiết phương tiện đã chọn">
             <section className="overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-card)]">
-              <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
-                <div>
+              <div className="flex min-w-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+                <div className="min-w-0">
                   <h2 className="font-[family:var(--font-display)] text-xl font-bold tracking-[-0.02em] text-foreground">Chi tiết phương tiện</h2>
                   <p className="mt-0.5 text-sm text-muted-foreground">Sự kiện đang chọn</p>
                 </div>
@@ -354,7 +356,7 @@ export default function VehicleMonitoringPage() {
                         { label: "Đơn vị", value: vehicleDetail?.department || selectedLog.employeeDepartment || "Chưa có thông tin", icon: Activity },
                         { label: "Mã phương tiện", value: vehicleDetail?.vehicleId || selectedLog.vehicleId || "Chưa có mã", icon: CarFront },
                       ].map(({ label, value, icon: Icon }) => (
-                        <div key={label} className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-3 py-3">
+                        <div key={label} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-3">
                           <dt className="flex items-center gap-2 text-muted-foreground"><Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{label}</dt>
                           <dd className="min-w-0 break-words font-medium text-foreground">{value}</dd>
                         </div>

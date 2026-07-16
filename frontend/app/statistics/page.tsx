@@ -78,7 +78,7 @@ export default function StatisticsPage() {
 
   if (!scopeLoading && !selectedSiteId) {
     return (
-      <div className="p-6">
+      <div className="admin-mobile-page">
         <Card className="mx-auto max-w-xl">
           <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
             <ParkingSquare className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
@@ -104,7 +104,7 @@ export default function StatisticsPage() {
     analyticsAvailable && value !== undefined ? value.toLocaleString("vi-VN") : "—"
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="admin-mobile-page space-y-6">
       <header className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
           <div className="flex flex-wrap items-center gap-2">

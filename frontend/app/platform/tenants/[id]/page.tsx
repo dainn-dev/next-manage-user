@@ -1,6 +1,3 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * page: tenant detail · archetype: five-tab task workbench · enrichment: none
- */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
@@ -187,8 +184,8 @@ export default function PlatformTenantDetailPage() {
       </p>
 
       <Tabs defaultValue="overview" className="min-w-0 gap-5">
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="h-auto min-w-max justify-start rounded-[var(--radius-card)] border border-border bg-card p-1">
+        <div className="pb-1">
+          <TabsList className="grid h-auto w-full min-w-0 grid-cols-2 justify-start rounded-[var(--radius-card)] border border-border bg-card p-1 [&_[data-slot=tabs-trigger]]:min-w-0 [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:text-xs [&_[data-slot=tabs-trigger]:last-child]:col-span-2 sm:grid-cols-5 sm:[&_[data-slot=tabs-trigger]]:px-2 sm:[&_[data-slot=tabs-trigger]]:text-sm sm:[&_[data-slot=tabs-trigger]:last-child]:col-span-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="sites">Sites / usage</TabsTrigger>
             <TabsTrigger value="subscription">Subscription</TabsTrigger>

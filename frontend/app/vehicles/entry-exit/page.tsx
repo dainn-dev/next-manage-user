@@ -263,7 +263,7 @@ export default function VehicleEntryExitPage() {
 
   if (loading && logs.length === 0) {
     return (
-      <div className="p-8 bg-background min-h-screen">
+      <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -277,21 +277,21 @@ export default function VehicleEntryExitPage() {
   }
 
   return (
-    <div className="p-8 bg-background min-h-screen">
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Thông tin ra vào</h1>
-          <p className="text-muted-foreground text-lg">Quản lý và theo dõi lịch sử ra vào của xe</p>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-4xl">Thông tin ra vào</h1>
+          <p className="text-sm text-muted-foreground sm:text-lg">Quản lý và theo dõi lịch sử ra vào của xe</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           {viewAllLogs && (
-            <Button onClick={handleExport} variant="outline" className="shadow-sm hover:shadow-md transition-all duration-200">
+            <Button onClick={handleExport} variant="outline" className="w-full shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto">
               <Download className="h-4 w-4 mr-2" />
               Xuất báo cáo
             </Button>
           )}
-          <Button onClick={loadData} variant="outline" className="shadow-sm hover:shadow-md transition-all duration-200">
+          <Button onClick={loadData} variant="outline" className="w-full shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto">
             <RefreshCw className="h-4 w-4 mr-2" />
             Làm mới
           </Button>
@@ -300,18 +300,18 @@ export default function VehicleEntryExitPage() {
 
       {/* Period Tabs */}
       <Tabs value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)} className="mb-6">
-        <TabsList className="grid w-full max-w-lg grid-cols-3 shadow-sm">
-          <TabsTrigger value="daily" className="flex items-center gap-2 hover:bg-blue-50 transition-colors duration-200">
-            <Calendar className="h-4 w-4" />
-            📅 Hôm nay
+        <TabsList className="grid h-10 w-full max-w-lg grid-cols-3 shadow-sm">
+          <TabsTrigger value="daily" className="gap-1 px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
+            <Calendar className="hidden h-4 w-4 sm:block" />
+            Hôm nay
           </TabsTrigger>
-          <TabsTrigger value="weekly" className="flex items-center gap-2 hover:bg-blue-50 transition-colors duration-200">
-            <Calendar className="h-4 w-4" />
-            📊 Tuần này
+          <TabsTrigger value="weekly" className="gap-1 px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
+            <Calendar className="hidden h-4 w-4 sm:block" />
+            Tuần này
           </TabsTrigger>
-          <TabsTrigger value="monthly" className="flex items-center gap-2 hover:bg-blue-50 transition-colors duration-200">
-            <Calendar className="h-4 w-4" />
-            📈 Tháng này
+          <TabsTrigger value="monthly" className="gap-1 px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
+            <Calendar className="hidden h-4 w-4 sm:block" />
+            Tháng này
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -319,12 +319,12 @@ export default function VehicleEntryExitPage() {
       {/* Search and Filter Bar */}
       <div className="bg-white border rounded-lg mb-6 shadow-sm">
         {/* Action Buttons - Inline */}
-        <div className="flex flex-wrap gap-4 p-6 border-b border-gray-100 bg-gray-50/50">
+        <div className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50/50 p-3 sm:flex-row sm:flex-wrap sm:gap-4 sm:p-6">
           <Button
             variant={isFilterBarOpen ? "default" : "outline"}
             size="sm"
             onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
+            className="flex w-full items-center gap-2 shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto"
           >
             <Filter className="h-4 w-4" />
             {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
@@ -338,7 +338,7 @@ export default function VehicleEntryExitPage() {
             variant="outline" 
             size="sm" 
             onClick={loadData} 
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
+            className="flex w-full items-center gap-2 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md sm:w-auto"
           >
             <RefreshCw className="h-4 w-4" />
             Làm mới dữ liệu
@@ -348,7 +348,7 @@ export default function VehicleEntryExitPage() {
               variant="outline"
               size="sm"
               onClick={handleExport}
-              className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
+              className="flex w-full items-center gap-2 shadow-sm transition-all duration-200 hover:border-green-300 hover:bg-green-50 hover:shadow-md sm:w-auto"
             >
               <Download className="h-4 w-4" />
               Xuất báo cáo
@@ -358,12 +358,12 @@ export default function VehicleEntryExitPage() {
 
         {/* Collapsible Filter Content */}
         {isFilterBarOpen && (
-          <div className="p-6 bg-white">
+          <div className="bg-white p-4 sm:p-6">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
               <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm lịch sử ra vào theo tiêu chí cụ thể</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6 xl:grid-cols-5">
               <div className="space-y-3">
                 <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                   <Search className="h-4 w-4 text-blue-600" />
@@ -446,11 +446,11 @@ export default function VehicleEntryExitPage() {
 
       {/* Data Table */}
       <div className="bg-white border rounded-lg shadow-sm">
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800 mb-1">Lịch sử ra vào - {getPeriodLabel()}</h2>
-              <p className="text-sm text-gray-600 flex items-center gap-2">
+        <div className="border-b border-gray-100 p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <h2 className="mb-1 text-lg font-semibold text-gray-800 sm:text-xl">Lịch sử ra vào - {getPeriodLabel()}</h2>
+              <p className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                 <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                 Tổng số: <span className="font-medium text-blue-600">{visibleLogs.length}</span> bản ghi
                 {!viewAllLogs && (
@@ -476,9 +476,62 @@ export default function VehicleEntryExitPage() {
             </div>
           </div>
         </div>
-        
-        <div className="overflow-x-auto">
-          <Table>
+
+        <div className="space-y-3 p-4 md:hidden">
+          {visibleLogs.map((log) => (
+            <article key={log.id} className="rounded-lg border border-gray-200 p-3 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-base font-semibold text-gray-900">{log.licensePlateNumber}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(log.entryExitTime)}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {getTypeIcon(log.type)}
+                  {getTypeBadge(log.type)}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Loại xe</p>
+                  <div className="mt-1">{getVehicleTypeBadge(log.vehicleType)}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Cổng</p>
+                  <p className="mt-1 truncate font-medium text-gray-800">{log.gateLocation || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tài xế</p>
+                  <p className="mt-1 truncate text-gray-800">{log.driverName || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Chủ xe</p>
+                  <p className="mt-1 truncate text-gray-800">{log.employeeName || 'N/A'}</p>
+                </div>
+              </div>
+              {log.imagePath && (
+                <a
+                  href={getImageUrl(log.imagePath) || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:underline"
+                >
+                  <img
+                    src={getImageUrl(log.imagePath) || '/placeholder.jpg'}
+                    alt={`Ảnh biển số ${log.licensePlateNumber}`}
+                    className="h-10 w-16 rounded border object-cover"
+                  />
+                  Xem ảnh biển số
+                </a>
+              )}
+            </article>
+          ))}
+          {visibleLogs.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">Không có dữ liệu thông tin ra vào</p>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
+          <Table className="min-w-[54rem]">
             <TableHeader>
               <TableRow>
                 <TableHead>Thời gian</TableHead>
@@ -555,12 +608,12 @@ export default function VehicleEntryExitPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
-            <div className="text-sm text-gray-600 flex items-center gap-2">
+          <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="flex w-full items-center justify-center gap-2 text-center text-sm text-gray-600 sm:w-auto sm:justify-start sm:text-left">
               <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
               Hiển thị <span className="font-medium text-gray-800">{currentPage * pageSize + 1}</span> đến <span className="font-medium text-gray-800">{Math.min((currentPage + 1) * pageSize, totalElements)}</span> của <span className="font-medium text-gray-800">{totalElements}</span> bản ghi
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
               <Button
                 variant="outline"
                 size="sm"
@@ -568,7 +621,8 @@ export default function VehicleEntryExitPage() {
                 disabled={currentPage === 0}
                 className="shadow-sm hover:shadow-md transition-all duration-200"
               >
-                ← Trước
+                <span className="sm:hidden">←</span>
+                <span className="hidden sm:inline">← Trước</span>
               </Button>
               <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -594,7 +648,8 @@ export default function VehicleEntryExitPage() {
                 disabled={currentPage >= totalPages - 1}
                 className="shadow-sm hover:shadow-md transition-all duration-200"
               >
-                Sau →
+                <span className="sm:hidden">→</span>
+                <span className="hidden sm:inline">Sau →</span>
               </Button>
             </div>
           </div>

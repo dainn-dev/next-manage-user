@@ -41,7 +41,7 @@ export default function EventsPage() {
     return true
   }), [events, selectedSiteId, selectedZoneId, cameras, slots])
 
-  return <div className="mx-auto max-w-5xl space-y-6 p-6">
+  return <div className="admin-mobile-page mx-auto max-w-5xl space-y-6">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-semibold">Dòng sự kiện vận hành</h1><p className="text-sm text-muted-foreground">Sự kiện mới nhất trong site và zone đang chọn.</p></div><div className="flex gap-2"><Select value={filter} onValueChange={(value) => setFilter(value as typeof filter)}><SelectTrigger className="w-52"><SelectValue /></SelectTrigger><SelectContent>{FILTERS.map((type) => <SelectItem key={type} value={type}>{type === 'ALL' ? 'Tất cả sự kiện' : EVENT_META[type]?.label || type}</SelectItem>)}</SelectContent></Select><Button variant="outline" size="icon" onClick={() => void refresh()} aria-label="Làm mới"><RefreshCw className="h-4 w-4" /></Button></div></div>
 
     {realtime !== 'live' && <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"><WifiOff className="h-4 w-4" /><span>{realtimeError || 'Realtime chưa kết nối; timeline đang dùng polling fallback.'}</span>{lastUpdatedAt && <span className="ml-auto text-xs text-muted-foreground">Cập nhật {new Date(lastUpdatedAt).toLocaleTimeString('vi-VN')}</span>}</div>}

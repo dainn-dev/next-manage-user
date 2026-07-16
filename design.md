@@ -1,4 +1,3 @@
-<!-- Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 -->
 # Design — ParkVision Control
 
 A locked design system for the ParkVision platform control plane. Every platform-admin page reads this file before visual changes. Extend this file when the system grows; do not invent route-local themes.

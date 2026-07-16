@@ -1,6 +1,3 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * theme: ParkVision Control · enrichment: none · Hallmark pre-emit critique: P5 H5 E4 S5 R5 V4
- */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../../tokens.css";
@@ -85,6 +82,29 @@
 }
 
 @layer base {
+  @media (max-width: 639px) {
+    :root {
+      --text-xs: 0.6875rem;
+      --text-sm: 0.8125rem;
+      --text-base: 1rem;
+      --text-md: 1rem;
+      --text-lg: 1.25rem;
+      --text-xl: 1.5rem;
+      --text-2xl: 1.875rem;
+      --text-3xl: 2rem;
+      --text-4xl: 2.25rem;
+      --text-5xl: 2.625rem;
+      --text-display: clamp(2rem, 8vw, 2.5rem);
+    }
+
+    /* Keep form controls at 16px to prevent iOS Safari from zooming on focus. */
+    input,
+    select,
+    textarea {
+      font-size: 1rem !important;
+    }
+  }
+
   html,
   body {
     overflow-x: clip;
@@ -97,6 +117,7 @@
   body {
     @apply min-h-screen bg-background text-foreground antialiased;
     font-family: var(--font-body);
+    line-height: 1.5;
   }
 
   h1,
@@ -116,6 +137,15 @@
     outline-offset: 2px;
   }
 
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
   ::selection {
     background: var(--color-accent);
     color: var(--color-accent-ink);
@@ -130,21 +160,21 @@
     max-width: var(--shell-content-max);
     min-width: 0;
     flex-direction: column;
-    gap: var(--space-lg);
-    padding: var(--space-md);
+    gap: var(--space-md);
+    padding: var(--space-sm);
   }
 
   .platform-page-header {
     display: grid;
     min-width: 0;
-    gap: var(--space-md);
+    gap: var(--space-sm);
     border-bottom: var(--rule-hair) solid var(--color-rule);
-    padding-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
   }
 
   .platform-page-title {
     font-family: var(--font-display);
-    font-size: clamp(1.75rem, 2vw + 1rem, 2.5rem);
+    font-size: clamp(1.5rem, 5vw + 0.5rem, 2.5rem);
     font-weight: var(--display-weight);
     line-height: 1.08;
     letter-spacing: var(--tracking-display);
@@ -158,16 +188,20 @@
   }
 
   .platform-page-actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
     gap: var(--space-xs);
+  }
+
+  .platform-page-actions [data-slot="button"] {
+    width: 100%;
   }
 
   .platform-stat-strip {
     display: grid;
     min-width: 0;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     border-block: var(--rule-hair) solid var(--color-rule);
   }
 
@@ -176,12 +210,8 @@
     padding: var(--space-md) var(--space-sm);
   }
 
-  .platform-stat:nth-child(odd) {
-    border-inline-end: var(--rule-hair) solid var(--color-rule);
-  }
-
-  .platform-stat:nth-child(n + 3) {
-    border-top: var(--rule-hair) solid var(--color-rule);
+  .platform-stat:not(:last-child) {
+    border-block-end: var(--rule-hair) solid var(--color-rule);
   }
 
   .platform-stat-label {
@@ -208,7 +238,8 @@
   }
 
   .platform-toolbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     flex-wrap: wrap;
     align-items: center;
@@ -217,6 +248,14 @@
     border-radius: var(--radius-card);
     background: var(--color-paper-2);
     padding: var(--space-xs);
+  }
+
+  .platform-toolbar > * {
+    min-width: 0;
+  }
+
+  .platform-toolbar [data-slot="button"] {
+    width: 100%;
   }
 
   .platform-data-surface {
@@ -246,11 +285,11 @@
   }
 
   .platform-pagination {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-sm);
     color: var(--color-muted);
     font-size: var(--text-sm);
@@ -274,13 +313,41 @@
   .platform-mobile-card {
     display: grid;
     min-width: 0;
-    gap: var(--space-sm);
+    gap: var(--space-xs);
     border-bottom: var(--rule-hair) solid var(--color-rule);
-    padding: var(--space-md);
+    padding: var(--space-sm);
+  }
+
+  .platform-mobile-card [data-slot="button"] {
+    width: 100%;
   }
 
   .platform-mobile-card:last-child {
     border-bottom: 0;
+  }
+
+  /* Shared mobile guardrails for tenant-admin operational screens. */
+  .admin-mobile-page {
+    margin-inline: auto;
+    width: 100%;
+    min-width: 0;
+    padding: var(--space-sm);
+  }
+
+  .admin-mobile-header {
+    display: grid;
+    min-width: 0;
+    gap: var(--space-sm);
+  }
+
+  .admin-mobile-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xs);
+  }
+
+  .admin-mobile-actions [data-slot="button"] {
+    width: 100%;
   }
 
   .platform-status {
@@ -347,6 +414,23 @@
 }
 
 @media (min-width: 40rem) {
+  .admin-mobile-page {
+    padding: var(--space-lg);
+  }
+
+  .admin-mobile-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .admin-mobile-actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .admin-mobile-actions [data-slot="button"] {
+    width: auto;
+  }
   .platform-page {
     padding: var(--space-lg);
   }
@@ -354,6 +438,39 @@
   .platform-page-header {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
+  }
+
+  .platform-page-actions,
+  .platform-toolbar,
+  .platform-pagination {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .platform-page-actions [data-slot="button"],
+  .platform-toolbar [data-slot="button"],
+  .platform-mobile-card [data-slot="button"] {
+    width: auto;
+  }
+
+  .platform-stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .platform-stat:not(:last-child) {
+    border-block-end: 0;
+  }
+
+  .platform-stat:nth-child(odd) {
+    border-inline-end: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .platform-stat:nth-child(n + 3) {
+    border-top: var(--rule-hair) solid var(--color-rule);
+  }
+
+  .platform-pagination {
+    justify-content: space-between;
   }
 }
 
@@ -373,6 +490,7 @@
 
   .platform-stat:nth-child(n) {
     border-top: 0;
+    border-block-end: 0;
   }
 
   .platform-stat:not(:last-child) {

@@ -455,7 +455,7 @@ export default function VehiclesPage() {
 
   if (loading) {
     return (
-      <div className="p-8 bg-background min-h-screen">
+      <div className="admin-mobile-page min-h-screen bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -470,7 +470,7 @@ export default function VehiclesPage() {
 
   if (error) {
     return (
-      <div className="p-8 bg-background min-h-screen">
+      <div className="admin-mobile-page min-h-screen bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
@@ -494,16 +494,16 @@ export default function VehiclesPage() {
   const stats = getStatistics()
 
   return (
-    <div className="p-8 bg-background min-h-screen">
+    <div className="admin-mobile-page min-h-screen bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Quản lý xe</h1>
-          <p className="text-muted-foreground text-lg">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
+      <div className="admin-mobile-header mb-6 sm:mb-8">
+        <div className="min-w-0">
+          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-4xl">Quản lý xe</h1>
+          <p className="text-base text-muted-foreground sm:text-lg">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
         </div>
         <Button
           onClick={handleAddNew}
-          className="shadow-sm hover:shadow-md transition-all duration-200"
+          className="w-full shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto"
           disabled={!userCanManage}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -568,7 +568,7 @@ export default function VehiclesPage() {
       {/* Search and Filter Bar */}
       <div className="bg-white border rounded-lg mb-6 shadow-sm">
         {/* Action Buttons - Inline */}
-        <div className="flex flex-wrap gap-4 p-6 border-b border-gray-100 bg-gray-50/50">
+        <div className="admin-mobile-actions border-b border-gray-100 bg-gray-50/50 p-4 sm:flex sm:flex-wrap sm:p-6">
           <Button
             variant={isFilterBarOpen ? "default" : "outline"}
             size="sm"
@@ -606,7 +606,7 @@ export default function VehiclesPage() {
 
         {/* Collapsible Filter Content */}
         {isFilterBarOpen && (
-          <div className="p-6 bg-white">
+          <div className="bg-white p-4 sm:p-6">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
               <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm xe theo tiêu chí cụ thể</p>

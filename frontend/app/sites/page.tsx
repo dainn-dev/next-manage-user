@@ -1,9 +1,5 @@
 "use client"
 
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
- * page: tenant site registry · data-form: action header + responsive location ledger
- */
-
 import { useCallback, useEffect, useState } from "react"
 import { siteApi, type Site } from "@/lib/api/site-api"
 import { Button } from "@/components/ui/button"
