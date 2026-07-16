@@ -1,5 +1,5 @@
 import type React from "react"
-import { Fira_Sans, Fira_Code } from "next/font/google"
+import { Noto_Sans } from "next/font/google"
 import "./globals.css"
 import { ToasterWrapper } from "@/components/ui/toaster-wrapper"
 import { AuthProvider } from "@/lib/auth-context"
@@ -8,16 +8,11 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { DashboardScopeProvider } from "@/lib/dashboard-scope-context"
 import { DashboardDataProvider } from "@/lib/dashboard-data-context"
 
-const firaSans = Fira_Sans({
-  variable: "--font-fira-sans",
-  subsets: ["latin"],
+const notoSans = Noto_Sans({
+  variable: "--font-ui",
+  subsets: ["latin", "vietnamese"],
   weight: ["300", "400", "500", "600", "700"],
-})
-
-const firaCode = Fira_Code({
-  variable: "--font-fira-code",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  display: "swap",
 })
 
 export default function RootLayout({
@@ -26,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning className={`${firaSans.variable} ${firaCode.variable}`}>
+    <html lang="vi" suppressHydrationWarning className={notoSans.variable}>
       <body className="antialiased">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <AuthProvider>

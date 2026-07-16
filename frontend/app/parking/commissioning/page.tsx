@@ -36,12 +36,13 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { useToast } from "@/hooks/use-toast"
 import { cameraApi, type Camera, type CameraPanelType, type CameraRole, type CameraStatus, type CameraWriteRequest } from "@/lib/api/camera-api"
 import {
@@ -619,28 +620,56 @@ export default function ParkingCommissioningPage() {
   }
 
   return (
-    <div className="admin-mobile-page space-y-6">
-      <div className="admin-mobile-header">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">Thiết lập bãi đỗ</h1>
-          <p className="text-sm text-muted-foreground">Commissioning theo từng bước; bản đồ vận hành tại “Sơ đồ bãi” không bị thay đổi.</p>
-        </div>
-        <Badge variant="outline" className="w-fit gap-2 py-1.5"><ShieldCheck className="h-3.5 w-3.5" />{user?.role === UserRole.ADMIN ? "Tenant Admin" : "Site Manager"}</Badge>
-      </div>
+    <AdminPage className="min-h-dvh">
+      <AdminPageHeader
+        eyebrow="Bãi đỗ xe"
+        title="Thiết lập bãi đỗ"
+        description={
+          <>
+            <span className="sm:hidden">Thiết lập site, zone, camera và bản đồ bãi đỗ.</span>
+            <span className="hidden sm:inline">Thiết lập site, zone, camera, calibration và bản đồ bãi đỗ theo từng bước.</span>
+          </>
+        }
+        className="grid-cols-[minmax(0,1fr)_auto] items-start"
+        actions={<Badge variant="outline" className="h-7 w-fit justify-center gap-1.5 px-2 py-0 text-[0.6875rem] sm:h-8 sm:gap-2 sm:px-3 sm:text-xs"><ShieldCheck className="h-3.5 w-3.5" />{user?.role === UserRole.ADMIN ? "Tenant Admin" : "Site Manager"}</Badge>}
+      />
 
-      <div className="grid gap-2 md:grid-cols-6">
-        {STEPS.map((item, index) => {
-          const Icon = item.icon
-          const active = item.key === step
-          return <button key={item.key} onClick={() => setStep(item.key)} className={cn(
-            "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-            active ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted",
-          )}>
-            <span className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs", active ? "bg-primary-foreground/20" : "bg-muted")}>{index + 1}</span>
-            <Icon className="h-4 w-4" /><span className="truncate">{item.label}</span>
-          </button>
-        })}
-      </div>
+      <nav
+        aria-label="Các bước thiết lập bãi đỗ"
+        className="-mx-1 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden"
+      >
+        <div className="flex min-w-max gap-2 md:grid md:min-w-0 md:grid-cols-6">
+          {STEPS.map((item, index) => {
+            const Icon = item.icon
+            const active = item.key === step
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setStep(item.key)}
+                aria-current={active ? "step" : undefined}
+                className={cn(
+                  "flex h-9 shrink-0 items-center rounded-full border text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus)] focus-visible:ring-offset-2 md:h-auto md:min-w-0 md:rounded-lg md:px-3 md:py-2 md:text-sm",
+                  active
+                    ? "min-w-[7.75rem] gap-2 border-primary bg-primary/10 px-2.5 text-primary md:min-w-0"
+                    : "w-10 justify-center border-border/80 bg-card text-muted-foreground hover:bg-muted hover:text-foreground md:w-auto md:justify-start md:gap-2 md:text-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.6875rem] font-semibold md:text-xs",
+                    active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground md:text-foreground",
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <Icon className={cn("hidden h-4 w-4 shrink-0 md:block", active && "block")} />
+                <span className={cn("truncate", active ? "block" : "sr-only md:not-sr-only md:block")}>{item.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
 
       {step === "site" && <Card>
         <CardHeader><CardTitle>1. Chọn site</CardTitle><CardDescription>Mọi zone, camera, calibration và bản đồ bên dưới đều bị giới hạn trong site này.</CardDescription></CardHeader>
@@ -661,7 +690,108 @@ export default function ParkingCommissioningPage() {
 
       {step === "cameras" && <div className="space-y-4">
         <Card><CardHeader className="flex-row items-start justify-between"><div><CardTitle>3. Cameras</CardTitle><CardDescription>Đăng ký camera, vai trò xử lý, RTSP, tình trạng kết nối và thông tin edge.</CardDescription></div><Button size="sm" onClick={() => openCamera()} disabled={!selectedSiteId}><Plus className="mr-2 h-4 w-4" />Thêm camera</Button></CardHeader>
-          <CardContent>{loadingScope ? <Loading /> : cameras.length === 0 ? <Empty text="Site chưa có camera." /> : <div className="space-y-3">{cameras.map((camera) => <div key={camera.id} className="rounded-lg border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><div className="rounded-lg bg-muted p-2"><CameraIcon className="h-5 w-5" /></div><div><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{camera.name}</p><Badge variant={statusTone(camera.status)}>{camera.status}</Badge><Badge variant="outline">{camera.role}</Badge>{camera.panelType && <Badge variant="secondary">{camera.panelType}</Badge>}</div><p className="mt-1 text-xs text-muted-foreground">{zones.find((zone) => zone.id === camera.zoneId)?.name || "Toàn site"} · Heartbeat: {camera.lastHeartbeatAt ? new Date(camera.lastHeartbeatAt).toLocaleString("vi-VN") : "chưa có"}</p></div></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => openCamera(camera)}><Pencil className="mr-1 h-3.5 w-3.5" />Sửa</Button>{canIssueCredentials && <><Button variant="outline" size="sm" onClick={() => void revealCredential(camera, false)} disabled={busy}><KeyRound className="mr-1 h-3.5 w-3.5" />Cấp khóa</Button><Button variant="outline" size="sm" onClick={() => void revealCredential(camera, true)} disabled={busy}><RotateCw className="mr-1 h-3.5 w-3.5" />Xoay khóa</Button></>}<Button variant="outline" size="sm" className="text-destructive" onClick={() => void removeCamera(camera)}><Trash2 className="h-3.5 w-3.5" /></Button></div></div></div>)}</div>}</CardContent>
+          <CardContent className="px-3 pb-3 md:px-5 md:pb-0">{loadingScope ? <Loading /> : cameras.length === 0 ? <Empty text="Site chưa có camera." /> : <>
+            <div className="grid gap-3 md:hidden">{cameras.map((camera) => {
+            const zoneName = zones.find((zone) => zone.id === camera.zoneId)?.name || "Toàn site"
+            const heartbeat = camera.lastHeartbeatAt ? new Date(camera.lastHeartbeatAt).toLocaleString("vi-VN") : "chưa có"
+            return (
+              <article key={camera.id} className="rounded-xl border border-border/75 bg-card/80 p-3 shadow-sm">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground">
+                    <CameraIcon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <p className="min-w-0 truncate text-sm font-semibold text-foreground sm:text-base">{camera.name}</p>
+                      <Badge variant={statusTone(camera.status)} className="h-6 px-2 text-[0.68rem] sm:text-xs">{camera.status}</Badge>
+                      <Badge variant="outline" className="h-6 px-2 text-[0.68rem] sm:text-xs">{camera.role}</Badge>
+                      {camera.panelType && <Badge variant="secondary" className="h-6 px-2 text-[0.68rem] sm:text-xs">{camera.panelType}</Badge>}
+                    </div>
+                    <p className="mt-1 truncate text-xs leading-5 text-muted-foreground">
+                      {zoneName} · Heartbeat: {heartbeat}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => openCamera(camera)} className="h-9 flex-1 justify-center rounded-lg px-3 shadow-none sm:flex-none">
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                    Sửa
+                  </Button>
+                  {canIssueCredentials && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void revealCredential(camera, false)}
+                        disabled={busy}
+                        className="!h-9 !w-9 rounded-lg !p-0 shadow-none sm:!w-auto sm:px-3"
+                        aria-label={`Cấp khóa cho ${camera.name}`}
+                        title="Cấp khóa"
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                        <span className="sr-only sm:not-sr-only sm:ml-1.5">Cấp khóa</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void revealCredential(camera, true)}
+                        disabled={busy}
+                        className="!h-9 !w-9 rounded-lg !p-0 shadow-none sm:!w-auto sm:px-3"
+                        aria-label={`Xoay khóa cho ${camera.name}`}
+                        title="Xoay khóa"
+                      >
+                        <RotateCw className="h-3.5 w-3.5" />
+                        <span className="sr-only sm:not-sr-only sm:ml-1.5">Xoay khóa</span>
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="!h-9 !w-9 rounded-lg !p-0 text-destructive shadow-none hover:border-destructive/40 hover:bg-destructive/5"
+                    onClick={() => void removeCamera(camera)}
+                    aria-label={`Xóa camera ${camera.name}`}
+                    title="Xóa camera"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </article>
+            )
+          })}</div>
+            <div className="hidden space-y-3 md:block">
+              {cameras.map((camera) => (
+                <div key={camera.id} className="rounded-lg border p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex gap-3">
+                      <div className="rounded-lg bg-muted p-2"><CameraIcon className="h-5 w-5" /></div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{camera.name}</p>
+                          <Badge variant={statusTone(camera.status)}>{camera.status}</Badge>
+                          <Badge variant="outline">{camera.role}</Badge>
+                          {camera.panelType && <Badge variant="secondary">{camera.panelType}</Badge>}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {zones.find((zone) => zone.id === camera.zoneId)?.name || "Toàn site"} · Heartbeat: {camera.lastHeartbeatAt ? new Date(camera.lastHeartbeatAt).toLocaleString("vi-VN") : "chưa có"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openCamera(camera)}><Pencil className="mr-1 h-3.5 w-3.5" />Sửa</Button>
+                      {canIssueCredentials && (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => void revealCredential(camera, false)} disabled={busy}><KeyRound className="mr-1 h-3.5 w-3.5" />Cấp khóa</Button>
+                          <Button variant="outline" size="sm" onClick={() => void revealCredential(camera, true)} disabled={busy}><RotateCw className="mr-1 h-3.5 w-3.5" />Xoay khóa</Button>
+                        </>
+                      )}
+                      <Button variant="outline" size="sm" className="text-destructive" onClick={() => void removeCamera(camera)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>}</CardContent>
         </Card>
         <Card><CardHeader><CardTitle className="text-base">Hướng dẫn edge</CardTitle><CardDescription>Khóa ingest chỉ hiển thị một lần. Lưu khóa vào secret store trên edge agent, đặt site/camera ID tương ứng, rồi kiểm tra heartbeat chuyển sang online. Không ghi khóa vào log hoặc cấu hình nguồn.</CardDescription></CardHeader></Card>
       </div>}
@@ -697,7 +827,7 @@ export default function ParkingCommissioningPage() {
       <Dialog open={Boolean(credential)} onOpenChange={(open) => !open && setCredential(null)}><DialogContent><DialogHeader><DialogTitle>Khóa ingest của {credential?.cameraName}</DialogTitle><DialogDescription>Khóa này chỉ hiển thị một lần. Hãy sao chép vào secret store của edge agent ngay bây giờ.</DialogDescription></DialogHeader><div className="rounded-lg border bg-muted p-3 font-mono text-sm break-all">{credential?.key}</div>{credential?.expiresAt && <p className="text-xs text-muted-foreground">Khóa cũ còn hiệu lực đến {new Date(credential.expiresAt).toLocaleString("vi-VN")}.</p>}<DialogFooter><Button onClick={() => credential && void navigator.clipboard.writeText(credential.key).then(() => toast({ title: "Đã sao chép khóa" }))}><ClipboardCopy className="mr-2 h-4 w-4" />Sao chép</Button></DialogFooter></DialogContent></Dialog>
 
       <Dialog open={publishDialog} onOpenChange={setPublishDialog}><DialogContent><DialogHeader><DialogTitle>Publish parking map?</DialogTitle><DialogDescription>Phiên bản này sẽ trở thành cấu hình vận hành mới. Bản đã publish trước đó vẫn được giữ trong lịch sử để truy vết.</DialogDescription></DialogHeader><div className="rounded-lg border p-3 text-sm"><p><strong>Camera:</strong> {selectedCamera?.name}</p><p><strong>Số ô:</strong> {slots.length}</p><p><strong>Calibration:</strong> v{calibration?.versionNumber || "hiện có"}</p></div><DialogFooter><Button variant="outline" onClick={() => setPublishDialog(false)}>Hủy</Button><Button onClick={() => void confirmPublish()} disabled={busy || !validation?.valid}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Xác nhận publish</Button></DialogFooter></DialogContent></Dialog>
-    </div>
+    </AdminPage>
   )
 }
 
@@ -728,5 +858,60 @@ function UnifiedSiteMap({ preview }: { preview: UnifiedMapPreview }) {
 }
 
 function History({ history, onRefresh, onExport, onArchive, onRollback }: { history: ParkingMapDraft[]; onRefresh: () => void; onExport: (item: ParkingMapDraft) => Promise<void>; onArchive: (item: ParkingMapDraft) => Promise<void>; onRollback: (item: ParkingMapDraft) => Promise<void> }) {
-  return <Card><CardHeader className="flex-row items-start justify-between"><div><CardTitle className="text-base">Lịch sử phiên bản</CardTitle><CardDescription>Draft, published và archived được giữ tách biệt.</CardDescription></div><Button variant="outline" size="sm" onClick={onRefresh}><RefreshCw className="h-4 w-4" /></Button></CardHeader><CardContent>{history.length === 0 ? <Empty text="Camera chưa có phiên bản bản đồ." /> : <Table><TableHeader><TableRow><TableHead>Version</TableHead><TableHead>Trạng thái</TableHead><TableHead>Ô đỗ</TableHead><TableHead>Lock</TableHead><TableHead className="text-right">Thao tác</TableHead></TableRow></TableHeader><TableBody>{history.map((item) => <TableRow key={item.id}><TableCell><span className="inline-flex items-center gap-2"><FileClock className="h-4 w-4" />v{item.versionNumber}</span></TableCell><TableCell><Badge variant={statusTone(item.status)}>{item.status}</Badge></TableCell><TableCell>{item.slots.length}</TableCell><TableCell>{item.lockVersion}</TableCell><TableCell><div className="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={() => void onExport(item)}><Download className="mr-1 h-3.5 w-3.5" />GeoJSON</Button>{item.status === "PUBLISHED" && <Button variant="outline" size="sm" onClick={() => void onArchive(item)}><Archive className="mr-1 h-3.5 w-3.5" />Archive</Button>}{item.status === "ARCHIVED" && <Button variant="outline" size="sm" onClick={() => void onRollback(item)}><RotateCw className="mr-1 h-3.5 w-3.5" />Rollback</Button>}</div></TableCell></TableRow>)}</TableBody></Table>}</CardContent></Card>
+  return (
+    <Card>
+      <CardHeader className="grid-cols-[minmax(0,1fr)_auto] gap-x-3 pb-3">
+        <div className="min-w-0">
+          <CardTitle className="text-base">Lịch sử phiên bản</CardTitle>
+          <CardDescription>Draft, published và archived được giữ tách biệt.</CardDescription>
+        </div>
+        <CardAction>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onRefresh}
+            aria-label="Làm mới lịch sử phiên bản"
+            title="Làm mới"
+            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        {history.length === 0 ? (
+          <Empty text="Camera chưa có phiên bản bản đồ." />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Version</TableHead>
+                <TableHead>Trạng thái</TableHead>
+                <TableHead>Ô đỗ</TableHead>
+                <TableHead>Lock</TableHead>
+                <TableHead className="text-right">Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {history.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell><span className="inline-flex items-center gap-2"><FileClock className="h-4 w-4" />v{item.versionNumber}</span></TableCell>
+                  <TableCell><Badge variant={statusTone(item.status)}>{item.status}</Badge></TableCell>
+                  <TableCell>{item.slots.length}</TableCell>
+                  <TableCell>{item.lockVersion}</TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => void onExport(item)}><Download className="mr-1 h-3.5 w-3.5" />GeoJSON</Button>
+                      {item.status === "PUBLISHED" && <Button variant="outline" size="sm" onClick={() => void onArchive(item)}><Archive className="mr-1 h-3.5 w-3.5" />Archive</Button>}
+                      {item.status === "ARCHIVED" && <Button variant="outline" size="sm" onClick={() => void onRollback(item)}><RotateCw className="mr-1 h-3.5 w-3.5" />Rollback</Button>}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  )
 }

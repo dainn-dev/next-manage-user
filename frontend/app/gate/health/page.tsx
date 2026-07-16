@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { gateApi, type GateHealth } from "@/lib/api/gate-api"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { AdminEmptyState, AdminPage } from "@/components/layout/admin-page"
 
 // Poll a little faster than the gate list: this is a live health board and the
 // backend's own scheduler re-evaluates staleness every ~30s.
@@ -85,42 +86,56 @@ function GateHealthDashboard() {
   const onlineCount = gates.filter((g) => g.online).length
 
   return (
-    <div className="admin-mobile-page min-h-screen bg-background sm:p-6 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="admin-mobile-header mb-6">
+    <AdminPage size="default" className="min-h-dvh">
+      <header className="rounded-2xl border border-border/75 bg-card/90 p-3 shadow-[var(--shadow-card)] sm:p-5">
+        <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <Link
               href="/gate"
-              className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-2"
+              className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-sm"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Danh sách cổng
             </Link>
-            <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold text-foreground">
-              <Activity className="h-6 w-6 text-blue-600" />
-              Sức khỏe cổng
-            </h1>
-            <p className="text-muted-foreground mt-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600 sm:size-10">
+                <Activity className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+              </span>
+              <h1 className="truncate font-[family:var(--font-display)] text-[1.35rem] font-bold leading-[1.12] tracking-[-0.035em] text-foreground sm:text-[1.85rem]">
+                Sức khỏe cổng
+              </h1>
+            </div>
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5 text-muted-foreground sm:text-sm">
               {gates.length > 0 && (
-                <>
-                  <span className="font-medium text-foreground">
+                <span>
+                  <span className="font-semibold text-foreground">
                     {onlineCount}/{gates.length}
                   </span>{" "}
-                  cổng đang trực tuyến.
-                </>
+                  cổng trực tuyến
+                </span>
               )}
               {updatedAt && (
-                <span className="ml-1">Cập nhật lúc {updatedAt}.</span>
+                <span className="rounded-full bg-muted/70 px-2 py-0.5">
+                  Cập nhật lúc {updatedAt}
+                </span>
               )}
             </p>
           </div>
-          <Button variant="outline" onClick={load} disabled={loading} className="w-full sm:w-auto">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={load}
+            disabled={loading}
+            className="!h-9 !min-h-9 !w-9 shrink-0 rounded-xl border-border/70 bg-background/80 !p-0 shadow-none hover:border-blue-300 hover:bg-blue-50 sm:!h-10 sm:!min-h-10 sm:!w-10"
+            aria-label="Làm mới trạng thái cổng"
+            title="Làm mới"
+          >
             <RefreshCw
-              className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
             />
-            Làm mới
           </Button>
         </div>
+      </header>
 
         {error && (
           <div className="mb-6 p-4 rounded-lg border border-red-300 bg-red-50 text-red-700 text-sm">
@@ -129,17 +144,21 @@ function GateHealthDashboard() {
         )}
 
         {loading && gates.length === 0 && !error && (
-          <div className="flex h-48 items-center justify-center text-muted-foreground">
-            <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-            Đang tải trạng thái cổng…
-          </div>
+          <AdminEmptyState
+            className="min-h-[18rem] rounded-2xl bg-card/70"
+            icon={<RefreshCw className="h-5 w-5 animate-spin" />}
+            title="Đang tải trạng thái cổng"
+            description="Hệ thống đang lấy dữ liệu realtime từ các kiosk."
+          />
         )}
 
         {!loading && gates.length === 0 && !error && (
-          <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
-            <Radio className="h-10 w-10 mb-2 opacity-50" />
-            <p>Chưa có cổng nào được đăng ký.</p>
-          </div>
+          <AdminEmptyState
+            className="min-h-[18rem] rounded-2xl bg-card/70"
+            icon={<Radio className="h-6 w-6" />}
+            title="Chưa có cổng nào được đăng ký"
+            description="Khi có cổng kiosk, trạng thái online và nhịp tim realtime sẽ hiển thị tại đây."
+          />
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -187,8 +206,7 @@ function GateHealthDashboard() {
             </Card>
           ))}
         </div>
-      </div>
-    </div>
+    </AdminPage>
   )
 }
 

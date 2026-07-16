@@ -156,7 +156,7 @@ export default function DepartmentsPage() {
 
   if (loading) {
     return (
-      <div className="admin-mobile-page min-h-screen bg-background">
+      <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -171,7 +171,7 @@ export default function DepartmentsPage() {
 
   if (error) {
     return (
-      <div className="admin-mobile-page min-h-screen bg-background">
+      <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
@@ -193,7 +193,7 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div className="admin-mobile-page min-h-screen bg-background">
+    <div className="admin-mobile-page min-h-dvh bg-background">
       {/* Header */}
       <div className="admin-mobile-header mb-6 sm:mb-8">
         <div className="min-w-0">

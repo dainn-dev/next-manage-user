@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { useDashboardData } from "@/lib/dashboard-data-context"
 import { calculateOccupancyMetrics, formatDuration } from "@/lib/dashboard-metrics.mjs"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
@@ -78,7 +79,7 @@ export default function StatisticsPage() {
 
   if (!scopeLoading && !selectedSiteId) {
     return (
-      <div className="admin-mobile-page">
+      <AdminPage size="narrow" className="justify-center">
         <Card className="mx-auto max-w-xl">
           <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
             <ParkingSquare className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
@@ -96,7 +97,7 @@ export default function StatisticsPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </AdminPage>
     )
   }
 
@@ -104,28 +105,48 @@ export default function StatisticsPage() {
     analyticsAvailable && value !== undefined ? value.toLocaleString("vi-VN") : "—"
 
   return (
-    <div className="admin-mobile-page space-y-6">
-      <header className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold text-foreground">Thống kê vận hành</h1>
-            <Badge variant="outline">{realtime === "live" ? "Realtime" : "Đang đồng bộ"}</Badge>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <AdminPage className="min-h-dvh">
+      <AdminPageHeader
+        eyebrow="Phân tích"
+        title="Thống kê vận hành"
+        className="grid-cols-[minmax(0,1fr)_auto] items-start"
+        description={
+          <>
             {selectedSite?.name || "Khu vực đang chọn"}
             {selectedZone ? ` · ${selectedZone.name}` : " · Tất cả zone"}
-          </p>
-          {lastUpdatedAt && (
-            <time className="mt-1 block text-xs text-muted-foreground" dateTime={lastUpdatedAt}>
-              Cập nhật lúc {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
-            </time>
-          )}
-        </div>
-        <Button variant="outline" onClick={() => void refresh()} disabled={loading || !selectedSiteId}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
-          Làm mới
-        </Button>
-      </header>
+            {lastUpdatedAt && (
+              <time className="block text-xs" dateTime={lastUpdatedAt}>
+                Cập nhật lúc {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
+              </time>
+            )}
+          </>
+        }
+        actions={
+          <div className="flex shrink-0 items-start justify-end gap-2">
+            <Badge
+              variant="outline"
+              className="inline-flex !h-8 !min-h-8 !w-8 shrink-0 justify-center rounded-lg !p-0 sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+              aria-label={realtime === "live" ? "Realtime" : "Đang đồng bộ"}
+              title={realtime === "live" ? "Realtime" : "Đang đồng bộ"}
+            >
+              <Gauge className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only sm:not-sr-only sm:ml-2">{realtime === "live" ? "Realtime" : "Đang đồng bộ"}</span>
+            </Badge>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => void refresh()}
+              disabled={loading || !selectedSiteId}
+              className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+              aria-label="Làm mới"
+              title="Làm mới"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+              <span className="sr-only sm:not-sr-only sm:ml-2">Làm mới</span>
+            </Button>
+          </div>
+        }
+      />
 
       {partialError && (
         <div
@@ -245,6 +266,6 @@ export default function StatisticsPage() {
           />
         </div>
       </section>
-    </div>
+    </AdminPage>
   )
 }

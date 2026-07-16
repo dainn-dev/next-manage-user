@@ -343,9 +343,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     <aside
       id="tenant-navigation"
       className={cn(
-        "fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,calc(100%-2rem))] flex-col border-r border-sidebar-border bg-sidebar shadow-[var(--shadow-overlay)] transition-[transform,width] duration-[var(--dur-long)] ease-[var(--ease-out)] md:relative md:z-auto md:translate-x-0 md:shadow-sm",
+        "fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,calc(100%-2rem))] flex-col border-r border-sidebar-border bg-sidebar shadow-[var(--shadow-overlay)] transition-[transform,width] duration-[var(--dur-long)] ease-[var(--ease-out)] lg:relative lg:z-auto lg:translate-x-0 lg:shadow-sm",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "md:w-[var(--shell-sidebar-collapsed)]" : "md:w-[var(--shell-sidebar-width)]"
+        collapsed ? "lg:w-[var(--shell-sidebar-collapsed)]" : "lg:w-[var(--shell-sidebar-width)]"
       )}
       aria-label="Điều hướng chính"
     >
@@ -378,7 +378,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <button
             type="button"
             onClick={() => setCollapsed((value) => !value)}
-            className="hidden size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar md:flex"
+            className="hidden size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar lg:flex"
             title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
             aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
           >
@@ -387,7 +387,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <button
             type="button"
             onClick={onMobileClose}
-            className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar md:hidden"
+            className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar lg:hidden"
             aria-label="Đóng điều hướng"
           >
             <X className="size-4" />

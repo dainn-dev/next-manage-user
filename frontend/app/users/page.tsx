@@ -295,7 +295,7 @@ export default function UsersPage() {
 
   if (!isAdmin) {
     return (
-      <div className="container mx-auto py-8">
+      <div className="admin-mobile-page">
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -313,19 +313,33 @@ export default function UsersPage() {
 
   return (
     <div className="platform-page">
-      <header className="platform-page-header">
+      <header className="platform-page-header grid-cols-[minmax(0,1fr)_auto] items-start">
         <div className="min-w-0">
           <h1 className="platform-page-title">Quản lý người dùng</h1>
           <p className="platform-page-description">Quản lý tài khoản, vai trò và trạng thái truy cập trong tổ chức.</p>
         </div>
-        <div className="platform-page-actions">
-          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+        <div className="platform-page-actions !flex shrink-0 items-start justify-end gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+            aria-label={loading ? "Đang tải" : "Làm mới"}
+            title={loading ? "Đang tải" : "Làm mới"}
+          >
             <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
-            {loading ? "Đang tải" : "Làm mới"}
+            <span className="sr-only sm:not-sr-only sm:ml-2">{loading ? "Đang tải" : "Làm mới"}</span>
           </Button>
-          <Button onClick={() => setIsFormOpen(true)}>
+          <Button
+            size="icon"
+            onClick={() => setIsFormOpen(true)}
+            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+            aria-label="Thêm người dùng"
+            title="Thêm người dùng"
+          >
             <Plus aria-hidden="true" />
-            Thêm người dùng
+            <span className="sr-only sm:not-sr-only sm:ml-2">Thêm người dùng</span>
           </Button>
         </div>
       </header>

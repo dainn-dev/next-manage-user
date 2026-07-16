@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { billingApi, type BillingStatusResponse } from "@/lib/api/billing-api"
 import { Button } from "@/components/ui/button"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { useToast } from "@/hooks/use-toast"
 import { CreditCard, ExternalLink, RefreshCw } from "lucide-react"
 
@@ -86,19 +87,29 @@ export default function TenantBillingPage() {
   }
 
   return (
-    <div className="platform-page max-w-5xl">
-      <header className="platform-page-header">
-        <div className="min-w-0">
-          <h1 className="platform-page-title">Thanh toán</h1>
-          <p className="platform-page-description">
-            Gói và đăng ký của tổ chức bạn. Quản lý thẻ / hóa đơn qua cổng Stripe.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Làm mới
-        </Button>
-      </header>
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Quản trị"
+        title="Thanh toán"
+        description="Gói và đăng ký của tổ chức bạn. Quản lý thẻ và hóa đơn qua cổng Stripe."
+        className="grid-cols-[minmax(0,1fr)_auto] items-start"
+        actions={
+          <div className="flex shrink-0 items-start justify-end">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => void load()}
+              disabled={loading}
+              className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+              aria-label="Làm mới"
+              title="Làm mới"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="sr-only sm:not-sr-only sm:ml-2">Làm mới</span>
+            </Button>
+          </div>
+        }
+      />
 
       <section className="platform-data-surface" aria-label="Trạng thái gói">
         <div className="border-b border-border px-4 py-4 sm:px-6">
@@ -118,7 +129,7 @@ export default function TenantBillingPage() {
               ].map(([label, value]) => (
                 <div key={label} className="min-w-0 px-4 py-4">
                   <dt className="platform-stat-label">{label}</dt>
-                  <dd className="mt-2 font-medium">{value}</dd>
+                  <dd className="mt-2 break-words font-medium">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -128,17 +139,17 @@ export default function TenantBillingPage() {
 
       <section className="platform-data-surface" aria-label="Hành động thanh toán">
         <div className="border-b border-border px-4 py-4 sm:px-6"><h2 className="text-base font-semibold">Hành động</h2></div>
-        <div className="flex flex-wrap gap-3 p-4 sm:p-6">
-          <Button onClick={() => void openPortal()} disabled={opening}>
+        <div className="grid grid-cols-1 gap-3 p-4 sm:flex sm:flex-wrap sm:p-6">
+          <Button className="w-full sm:w-auto" onClick={() => void openPortal()} disabled={opening}>
             <ExternalLink className="mr-2 h-4 w-4" />
             {opening ? "Đang mở…" : "Mở cổng thanh toán"}
           </Button>
-          <Button variant="outline" onClick={() => void startCheckout()} disabled={opening || !status?.planId}>
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => void startCheckout()} disabled={opening || !status?.planId}>
             <CreditCard className="mr-2 h-4 w-4" />
             Checkout / nâng cấp
           </Button>
         </div>
       </section>
-    </div>
+    </AdminPage>
   )
 }

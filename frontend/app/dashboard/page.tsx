@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ArrowDownToLine,
   ArrowUpFromLine,
+  BarChart3,
   Car,
   Activity,
   ListTree,
@@ -44,6 +45,7 @@ import { RealtimeGateDashboard } from "@/components/vehicles/realtime-gate-dashb
 import { useAuth } from "@/lib/auth-context"
 import { canViewDashboard } from "@/lib/types"
 import { MvpAnalytics } from "@/components/dashboard/mvp-analytics"
+import { AdminEmptyState, AdminPage, AdminPageHeader, AdminSectionHeader } from "@/components/layout/admin-page"
 
 const TIMELINE_PAGE_SIZE = 8
 
@@ -129,7 +131,7 @@ export default function DashboardPage() {
   // is being redirected away.
   if (authLoading || (user && !canViewDashboard(user.role))) {
     return (
-      <div className="admin-mobile-page">
+      <AdminPage>
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -138,13 +140,13 @@ export default function DashboardPage() {
             <p className="text-muted-foreground font-medium">Đang tải tổng quan...</p>
           </div>
         </div>
-      </div>
+      </AdminPage>
     )
   }
 
   if (loading && !todayStats) {
     return (
-      <div className="admin-mobile-page">
+      <AdminPage>
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -153,7 +155,7 @@ export default function DashboardPage() {
             <p className="text-muted-foreground font-medium">Đang tải dữ liệu tổng quan...</p>
           </div>
         </div>
-      </div>
+      </AdminPage>
     )
   }
 
@@ -164,6 +166,8 @@ export default function DashboardPage() {
       sub: "Phương tiện được quản lý",
       icon: Car,
       tone: "text-primary",
+      surface: "bg-primary/10",
+      bar: "bg-primary",
     },
     {
       label: "Đang hoạt động",
@@ -171,6 +175,8 @@ export default function DashboardPage() {
       sub: "Phương tiện đã được duyệt",
       icon: Activity,
       tone: "text-[var(--color-success)]",
+      surface: "bg-[var(--color-success-surface)]",
+      bar: "bg-[var(--color-success)]",
     },
     {
       label: "Lượt vào hôm nay",
@@ -178,6 +184,8 @@ export default function DashboardPage() {
       sub: "Số lượt xe vào cổng",
       icon: ArrowDownToLine,
       tone: "text-[var(--color-success)]",
+      surface: "bg-[var(--color-success-surface)]",
+      bar: "bg-[var(--color-success)]",
     },
     {
       label: "Lượt ra hôm nay",
@@ -185,6 +193,8 @@ export default function DashboardPage() {
       sub: "Số lượt xe ra cổng",
       icon: ArrowUpFromLine,
       tone: "text-[var(--color-critical)]",
+      surface: "bg-[var(--color-critical-surface)]",
+      bar: "bg-[var(--color-critical)]",
     },
   ]
 
@@ -196,30 +206,33 @@ export default function DashboardPage() {
   }))
 
   return (
-    <main className="admin-mobile-page space-y-6 pb-[calc(var(--space-xl)+env(safe-area-inset-bottom))]">
-      <header className="admin-mobile-header border-b border-border pb-4">
-        <div className="min-w-0">
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Bãi đỗ xe · hôm nay
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-foreground">
-            Tổng quan vận hành
-          </h1>
-          <p className="mt-2 max-w-[60ch] text-sm leading-6 text-muted-foreground">
-            Hoạt động bãi đỗ xe và cổng ra/vào theo thời gian thực
-          </p>
-        </div>
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:flex sm:items-center">
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Bãi đỗ xe · hôm nay"
+        title="Tổng quan vận hành"
+        description="Hoạt động bãi đỗ xe và cổng ra/vào theo thời gian thực."
+        className="grid-cols-[minmax(0,1fr)_auto] items-start"
+        actions={
+          <div className="flex shrink-0 items-start justify-end gap-2">
           <ConnectionPill
             connected={isConnected}
             onReconnect={reconnect}
           />
-          <Button variant="outline" className="min-h-11 touch-manipulation" onClick={() => loadData()} disabled={loading}>
+          <Button
+            variant="outline"
+            size="icon"
+            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+            onClick={() => loadData()}
+            disabled={loading}
+            aria-label="Làm mới dữ liệu"
+            title="Làm mới dữ liệu"
+          >
             <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
+            <span className="sr-only sm:not-sr-only sm:ml-2">Làm mới dữ liệu</span>
           </Button>
-        </div>
-      </header>
+          </div>
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
@@ -230,32 +243,29 @@ export default function DashboardPage() {
       <MvpAnalytics />
 
       <section aria-labelledby="dashboard-metrics-title" className="space-y-3">
-        <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Chỉ số cốt lõi
-          </p>
-          <h2 id="dashboard-metrics-title" className="mt-1 text-lg font-semibold tracking-tight">
-            Nhịp vận hành trong ngày
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <AdminSectionHeader
+          eyebrow="Chỉ số cốt lõi"
+          title={<span id="dashboard-metrics-title">Nhịp vận hành trong ngày</span>}
+        />
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         {kpis.map((kpi) => {
           const Icon = kpi.icon
           return (
-            <Card key={kpi.label} className="gap-0 py-0">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+            <Card key={kpi.label} className="overflow-hidden gap-0 rounded-xl py-0 shadow-[var(--shadow-card)]">
+              <div className={`h-0.5 w-full opacity-80 ${kpi.bar}`} aria-hidden="true" />
+              <CardHeader className="flex flex-row items-start justify-between gap-2 px-3 pb-0 pt-3 sm:gap-3 sm:px-5 sm:pt-5">
+                <CardTitle className="min-w-0 text-[0.75rem] font-medium leading-4 text-muted-foreground sm:text-sm">
                   {kpi.label}
                 </CardTitle>
-                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted" aria-hidden="true">
-                  <Icon className={`size-4 ${kpi.tone}`} />
+                <span className={`grid size-8 shrink-0 place-items-center rounded-xl sm:size-9 ${kpi.surface}`} aria-hidden="true">
+                  <Icon className={`size-3.5 sm:size-4 ${kpi.tone}`} />
                 </span>
               </CardHeader>
-              <CardContent className="px-4 pb-4 pt-3">
-                <div className="font-mono text-xl font-bold leading-none tabular-nums">
+              <CardContent className="px-3 pb-3 pt-2 sm:px-5 sm:pb-5 sm:pt-3">
+                <div className="font-[family:var(--font-display)] text-xl font-bold leading-none tracking-[-0.025em] tabular-nums sm:text-3xl sm:tracking-[-0.03em]">
                   {kpi.value.toLocaleString("vi-VN")}
                 </div>
-                <p className="mt-2 text-xs leading-4 text-muted-foreground">{kpi.sub}</p>
+                <p className="mt-2 hidden text-sm leading-5 text-muted-foreground sm:block">{kpi.sub}</p>
               </CardContent>
             </Card>
           )
@@ -272,21 +282,31 @@ export default function DashboardPage() {
         />
       </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="gap-0 py-0">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base">Xu hướng ra/vào (theo ngày)</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+      <section aria-label="Xu hướng và trạng thái vận hành" className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
+        <Card className="gap-0 overflow-hidden rounded-xl py-0 shadow-[var(--shadow-card)]">
+          <CardHeader className="flex min-w-0 flex-row items-start justify-between gap-2 px-3 pb-0 pt-3 sm:gap-3 sm:px-5 sm:pt-5">
+            <div className="min-w-0">
+              <CardTitle className="text-sm font-semibold leading-5 sm:text-lg">Xu hướng ra/vào</CardTitle>
+              <p className="mt-1 hidden text-sm leading-5 text-muted-foreground sm:block">
+                Theo ngày, gồm lượt vào, lượt ra và số xe duy nhất.
+              </p>
+            </div>
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary sm:size-9" aria-hidden="true">
+              <BarChart3 className="size-3.5 sm:size-4" />
+            </span>
           </CardHeader>
-          <CardContent className="px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
+          <CardContent className="px-3 pb-3 pt-2 sm:px-6 sm:pb-6 sm:pt-3">
             {chartData.length === 0 ? (
-              <div className="flex items-center justify-center h-[320px] text-sm text-muted-foreground">
-                Chưa có dữ liệu xu hướng
-              </div>
+              <AdminEmptyState
+                className="min-h-44 bg-muted/25 sm:min-h-72"
+                icon={<BarChart3 className="size-6" />}
+                title="Chưa có dữ liệu xu hướng"
+                description="Khi có lượt xe ra/vào, biểu đồ sẽ hiển thị nhịp vận hành theo ngày để ca trực dễ phát hiện bất thường."
+              />
             ) : (
-              <div className="h-56 w-full sm:h-80">
+              <div className="h-44 w-full sm:h-80">
                 <ResponsiveContainer>
-                  <ComposedChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <ComposedChart data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: -8 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" />
                     <YAxis tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" allowDecimals={false} />
@@ -307,9 +327,16 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+        <OperationalSnapshotCard
+          connected={isConnected}
+          loading={loading}
+          recentLogs={recentLogs}
+          todayStats={todayStats}
+          vehicleStats={vehicleStats}
+        />
+      </section>
 
-      <section aria-label="Sự kiện và sơ đồ bãi đỗ" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <section aria-label="Sự kiện và sơ đồ bãi đỗ" className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card className="gap-0 py-0">
           <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-6 sm:pt-6">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -319,15 +346,18 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
             {recentLogs.length === 0 ? (
-              <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">
-                Chưa có sự kiện nào hôm nay
-              </div>
+              <AdminEmptyState
+                className="min-h-56 bg-muted/25"
+                icon={<ListTree className="size-6" />}
+                title="Chưa có sự kiện nào hôm nay"
+                description="Sự kiện vào/ra realtime sẽ xuất hiện ở đây kèm biển số, hướng di chuyển và thời điểm."
+              />
             ) : (
               <ol className="max-h-72 space-y-2 overflow-y-auto pr-1 overscroll-contain">
                 {recentLogs.map((log) => (
                   <li
                     key={log.id}
-                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border bg-background px-3 py-2"
+                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-border bg-background px-3 py-2 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
                   >
                     <Badge
                       variant={log.type === "entry" ? "default" : "secondary"}
@@ -343,7 +373,7 @@ export default function DashboardPage() {
                       <p className="truncate font-mono text-sm font-medium">{log.licensePlateNumber}</p>
                       {log.employeeName && <p className="truncate text-xs text-muted-foreground">{log.employeeName}</p>}
                     </div>
-                    <time className="flex items-center gap-1 whitespace-nowrap font-mono text-xs text-muted-foreground" dateTime={log.entryExitTime}>
+                    <time className="col-span-2 flex items-center gap-1 whitespace-nowrap font-mono text-xs text-muted-foreground sm:col-span-1" dateTime={log.entryExitTime}>
                       <Clock className="h-3 w-3" />
                       {log.entryExitTime
                         ? new Date(log.entryExitTime).toLocaleTimeString("vi-VN")
@@ -367,19 +397,102 @@ export default function DashboardPage() {
             </span>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
-            <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/30 p-4 text-center">
-              <MapIcon className="h-10 w-10 text-muted-foreground/50" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Sơ đồ ô đỗ xe theo thời gian thực</p>
-                <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
-                  Mở bản đồ bãi để theo dõi trạng thái từng ô đỗ.
-                </p>
-              </div>
-            </div>
+            <AdminEmptyState
+              className="min-h-56 bg-muted/25"
+              icon={<MapIcon className="size-6" />}
+              title="Sơ đồ ô đỗ xe theo thời gian thực"
+              description="Mở bản đồ bãi để theo dõi trạng thái từng ô đỗ, camera và cảnh báo theo zone."
+            />
           </CardContent>
         </Card>
       </section>
-    </main>
+    </AdminPage>
+  )
+}
+
+function OperationalSnapshotCard({
+  connected,
+  loading,
+  recentLogs,
+  todayStats,
+  vehicleStats,
+}: {
+  connected: boolean
+  loading: boolean
+  recentLogs: VehicleLog[]
+  todayStats: VehicleLogStatistics | null
+  vehicleStats: VehicleStatistics | null
+}) {
+  const lastLog = recentLogs[0]
+  const lastLogTime = lastLog?.entryExitTime
+    ? new Date(lastLog.entryExitTime).toLocaleTimeString("vi-VN")
+    : "Chưa có"
+
+  const items = [
+    {
+      label: "Nhịp hôm nay",
+      value: `${(todayStats?.entryCount ?? 0).toLocaleString("vi-VN")} vào · ${(todayStats?.exitCount ?? 0).toLocaleString("vi-VN")} ra`,
+      note: `${(todayStats?.uniqueVehicles ?? 0).toLocaleString("vi-VN")} xe duy nhất`,
+    },
+    {
+      label: "Đội xe hoạt động",
+      value: `${(vehicleStats?.activeVehicles ?? 0).toLocaleString("vi-VN")} / ${(vehicleStats?.totalVehicles ?? 0).toLocaleString("vi-VN")}`,
+      note: "Đã duyệt trên tổng phương tiện",
+    },
+    {
+      label: "Sự kiện mới nhất",
+      value: lastLogTime,
+      note: lastLog?.licensePlateNumber ? `Biển số ${lastLog.licensePlateNumber}` : "Chờ lượt ra/vào đầu tiên",
+    },
+  ]
+
+  return (
+    <Card className="overflow-hidden gap-0 rounded-xl py-0 shadow-[var(--shadow-card)]">
+      <div className="h-0.5 w-full bg-primary/80" aria-hidden="true" />
+      <CardHeader className="px-3 pb-0 pt-3 sm:px-5 sm:pt-5">
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="text-sm font-semibold leading-5 sm:text-lg">Trạng thái ca trực</CardTitle>
+            <p className="mt-1 hidden text-sm leading-5 text-muted-foreground sm:block">
+              Tóm tắt nhanh để người vận hành biết hệ thống đang ổn hay cần chú ý.
+            </p>
+          </div>
+          <Badge
+            variant="outline"
+            className={`h-7 shrink-0 rounded-lg px-2 text-xs ${
+              connected
+                ? "border-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-success)]"
+                : "border-[var(--color-critical)] bg-[var(--color-critical-surface)] text-[var(--color-critical)]"
+            }`}
+          >
+            {connected ? "Realtime ổn" : "Mất realtime"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="px-3 pb-3 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+        <div className="overflow-hidden rounded-xl border border-border/70 bg-background/60">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-border/60 px-3 py-2.5 last:border-b-0"
+          >
+            <div className="min-w-0">
+              <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {item.label}
+              </p>
+              <p className="mt-0.5 truncate text-xs leading-5 text-muted-foreground sm:text-sm">{item.note}</p>
+            </div>
+            <p className="max-w-[9.5rem] break-words text-right font-[family:var(--font-display)] text-sm font-semibold leading-5 tracking-[-0.01em] text-foreground sm:max-w-none sm:text-lg sm:tracking-[-0.02em]">
+              {loading ? "Đang cập nhật..." : item.value}
+            </p>
+          </div>
+        ))}
+        </div>
+        <div className="mt-3 rounded-xl border border-primary/15 bg-primary/5 px-3 py-2.5 text-xs leading-5 text-primary sm:text-sm">
+          Ưu tiên realtime và sự kiện gần đây; khi có cảnh báo, đưa lên đầu màn hình.
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -392,20 +505,26 @@ function ConnectionPill({
 }) {
   if (connected) {
     return (
-      <span role="status" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md border border-[var(--color-success)] bg-[var(--color-success-surface)] px-3 text-sm font-medium text-[var(--color-success)]">
+      <span
+        role="status"
+        aria-label="Realtime"
+        title="Realtime"
+        className="inline-flex !h-8 !min-h-8 !w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--color-success)] bg-[var(--color-success-surface)] p-0 text-sm font-medium text-[var(--color-success)] sm:!h-10 sm:!min-h-10 sm:!w-auto sm:gap-1.5 sm:px-3"
+      >
         <Wifi className="size-4" />
-        Realtime
+        <span className="sr-only sm:not-sr-only">Realtime</span>
       </span>
     )
   }
   return (
     <button
       onClick={onReconnect}
-      className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-1.5 rounded-md border border-[var(--color-critical)] bg-[var(--color-critical-surface)] px-3 text-sm font-medium text-[var(--color-critical)] transition-opacity duration-[var(--dur-short)] ease-[var(--ease-out)] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      className="inline-flex !h-8 !min-h-8 !w-8 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-[var(--color-critical)] bg-[var(--color-critical-surface)] p-0 text-sm font-medium text-[var(--color-critical)] transition-opacity duration-[var(--dur-short)] ease-[var(--ease-out)] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:!h-10 sm:!min-h-10 sm:!w-auto sm:gap-1.5 sm:px-3"
       aria-label="Mất kết nối realtime — nhấn để kết nối lại"
+      title="Mất kết nối realtime"
     >
       <WifiOff className="size-4" />
-      Mất kết nối
+      <span className="sr-only sm:not-sr-only">Mất kết nối</span>
     </button>
   )
 }

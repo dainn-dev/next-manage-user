@@ -1,11 +1,11 @@
 :root {
-  --color-paper: oklch(98.5% 0.008 190);
-  --color-paper-2: oklch(96.5% 0.01 190);
-  --color-paper-3: oklch(93.5% 0.012 190);
+  --color-paper: oklch(97.4% 0.012 190);
+  --color-paper-2: oklch(99.2% 0.006 190);
+  --color-paper-3: oklch(94.8% 0.014 190);
   --color-ink: oklch(20% 0.018 220);
   --color-ink-2: oklch(31% 0.018 220);
-  --color-rule: oklch(88% 0.012 200);
-  --color-rule-2: oklch(78% 0.018 200);
+  --color-rule: oklch(86.8% 0.014 200);
+  --color-rule-2: oklch(75% 0.022 200);
   --color-muted: oklch(52% 0.018 215);
   --color-neutral: oklch(40% 0.02 215);
   --color-accent: oklch(52% 0.11 183);
@@ -30,9 +30,9 @@
   --color-critical-surface: oklch(95% 0.035 28);
   --color-overlay: oklch(16% 0.018 220 / 0.58);
 
-  --font-display: var(--font-fira-sans), ui-sans-serif, sans-serif;
-  --font-body: var(--font-fira-sans), ui-sans-serif, sans-serif;
-  --font-outlier: var(--font-fira-code), ui-monospace, monospace;
+  --font-display: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+  --font-outlier: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
   --display-weight: 700;
   --display-style: normal;
   --tracking-display: -0.025em;
@@ -67,10 +67,10 @@
 
   --rule-hair: 1px;
   --rule-fine: 2px;
-  --radius-card: 0.5rem;
+  --radius-card: 0.75rem;
   --radius-pill: 999px;
   --radius-input: 0.375rem;
-  --shadow-card: 0 1px 2px oklch(20% 0.018 220 / 0.06);
+  --shadow-card: 0 1px 2px oklch(20% 0.018 220 / 0.06), 0 12px 30px oklch(20% 0.018 220 / 0.05);
   --shadow-overlay: 0 24px 64px oklch(20% 0.018 220 / 0.18);
 
   --z-base: 1;

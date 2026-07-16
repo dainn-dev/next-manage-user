@@ -38,6 +38,12 @@ function isPublicPath(pathname: string | null): boolean {
   return pathname != null && PUBLIC_PATHS.has(pathname)
 }
 
+function isGateKioskPath(pathname: string | null): boolean {
+  if (!pathname) return false
+  const parts = pathname.split("/").filter(Boolean)
+  return parts.length === 2 && parts[0] === "gate" && parts[1] !== "health"
+}
+
 interface ProtectedLayoutProps {
   children: React.ReactNode
 }
@@ -123,8 +129,8 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
   // Per-gate kiosk (/gate/<id>) runs full-screen without the admin sidebar so it
   // reads as a dedicated display. Auth is still enforced above. The gate list
-  // (/gate) keeps the normal chrome.
-  if (pathname?.startsWith('/gate/')) {
+  // (/gate) and admin pages such as /gate/health keep the normal chrome.
+  if (isGateKioskPath(pathname)) {
     return <ErrorBoundary>{children}</ErrorBoundary>
   }
 
@@ -138,11 +144,17 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
   // Tenant and member areas keep their existing role-aware shell.
   return (
-    <div className="relative flex h-dvh min-w-0 overflow-hidden">
+    <div className="relative flex h-dvh min-w-0 overflow-hidden bg-background">
+      <a
+        href="#main-content"
+        className="sr-only z-[var(--z-toast)] rounded-md bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
+      >
+        Bỏ qua điều hướng
+      </a>
       {mobileSidebarOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-40 bg-[var(--color-overlay)] md:hidden"
+          className="fixed inset-0 z-40 bg-[var(--color-overlay)] lg:hidden"
           onClick={() => setMobileSidebarOpen(false)}
           aria-label="Đóng điều hướng"
         />
@@ -153,7 +165,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
           onMobileMenuClick={() => setMobileSidebarOpen(true)}
           mobileMenuOpen={mobileSidebarOpen}
         />
-        <main className="min-w-0 flex-1 overflow-auto bg-background">
+        <main id="main-content" className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-background">
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>

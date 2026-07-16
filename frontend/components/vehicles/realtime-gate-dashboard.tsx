@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowDownToLine, ArrowUpFromLine, Car, AlertTriangle, RefreshCw, Users } from "lucide-react"
@@ -103,58 +103,98 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
 
   const totalInside = insideVehicles.length
 
+  const metrics = [
+    {
+      label: "Lượt vào",
+      value: entryCount,
+      icon: ArrowDownToLine,
+      tone: "text-emerald-700",
+      surface: "bg-emerald-50",
+      border: "border-emerald-200/80",
+    },
+    {
+      label: "Lượt ra",
+      value: exitCount,
+      icon: ArrowUpFromLine,
+      tone: "text-rose-700",
+      surface: "bg-rose-50",
+      border: "border-rose-200/80",
+    },
+    {
+      label: "Xe duy nhất",
+      value: uniqueVehicles,
+      icon: Users,
+      tone: "text-sky-700",
+      surface: "bg-sky-50",
+      border: "border-sky-200/80",
+    },
+    {
+      label: "Đang trong cổng",
+      value: totalInside,
+      icon: Car,
+      tone: "text-teal-700",
+      surface: "bg-teal-50",
+      border: "border-teal-200/80",
+    },
+  ]
+
   return (
-    <Card className="gap-0 py-0">
-      <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-6 sm:pt-6">
-        <CardTitle className="flex min-w-0 items-center gap-2 text-base">
-          <Car className="size-5 shrink-0 text-primary" />
-          Cổng realtime hôm nay
-          <span
-            className={`inline-flex size-2.5 shrink-0 rounded-full ${
-              error ? "bg-[var(--color-critical)]" : "bg-[var(--color-success)] animate-pulse"
-            }`}
-            aria-label={error ? "Mất kết nối dữ liệu" : "Cập nhật realtime"}
-          />
-        </CardTitle>
-        <Button variant="outline" className="min-h-11 shrink-0 touch-manipulation" onClick={refresh} disabled={loading}>
-          <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          Làm mới
-        </Button>
+    <Card className="overflow-hidden gap-0 py-0">
+      <div
+        className={`h-1 w-full ${error ? "bg-[var(--color-critical)]" : "bg-[var(--color-success)]"}`}
+        aria-hidden="true"
+      />
+      <CardHeader className="grid-cols-[minmax(0,1fr)_auto] gap-x-3 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
+        <div className="min-w-0">
+          <CardTitle className="flex min-w-0 items-center gap-2 text-sm sm:text-lg">
+            <Car className="size-5 shrink-0 text-primary" />
+            Cổng realtime hôm nay
+            <span
+              className={`inline-flex size-2.5 shrink-0 rounded-full ${
+                error ? "bg-[var(--color-critical)]" : "bg-[var(--color-success)] animate-pulse"
+              }`}
+              aria-label={error ? "Mất kết nối dữ liệu" : "Cập nhật realtime"}
+            />
+          </CardTitle>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
+            Theo dõi lượt vào/ra, xe duy nhất và xe còn trong cổng theo thời gian thực.
+          </p>
+        </div>
+        <CardAction>
+          <Button
+            variant="outline"
+            size="icon"
+            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+            onClick={refresh}
+            disabled={loading}
+            aria-label="Làm mới cổng realtime"
+            title="Làm mới"
+          >
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="sr-only sm:not-sr-only sm:ml-2">Làm mới</span>
+          </Button>
+        </CardAction>
       </CardHeader>
-      <CardContent className="space-y-4 px-4 pb-4 pt-4 sm:px-6 sm:pb-6">
+      <CardContent className="space-y-3 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
         {error && (
-          <div className="text-sm text-[var(--color-critical)]">{error}</div>
+          <div className="rounded-xl border border-[var(--color-critical)] bg-[var(--color-critical-surface)] p-3 text-sm text-[var(--color-critical)]">{error}</div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-md border bg-background p-3 text-left">
-            <div className="mb-2 flex items-center gap-1 text-[var(--color-success)]">
-              <ArrowDownToLine className="h-4 w-4" />
-              <span className="text-xs font-medium">Lượt vào</span>
-            </div>
-            <div className="text-2xl font-bold text-[var(--color-success)]">{entryCount}</div>
-          </div>
-          <div className="rounded-md border bg-background p-3 text-left">
-            <div className="mb-2 flex items-center gap-1 text-[var(--color-critical)]">
-              <ArrowUpFromLine className="h-4 w-4" />
-              <span className="text-xs font-medium">Lượt ra</span>
-            </div>
-            <div className="text-2xl font-bold text-[var(--color-critical)]">{exitCount}</div>
-          </div>
-          <div className="rounded-md border bg-background p-3 text-left">
-            <div className="mb-2 flex items-center gap-1 text-[var(--color-signal)]">
-              <Users className="h-4 w-4" />
-              <span className="text-xs font-medium">Xe duy nhất</span>
-            </div>
-            <div className="text-2xl font-bold text-[var(--color-signal)]">{uniqueVehicles}</div>
-          </div>
-          <div className="rounded-md border bg-background p-3 text-left">
-            <div className="mb-2 flex items-center gap-1 text-[var(--color-accent)]">
-              <Car className="h-4 w-4" />
-              <span className="text-xs font-medium">Đang trong cổng</span>
-            </div>
-            <div className="text-2xl font-bold text-[var(--color-accent)]">{totalInside}</div>
-          </div>
+        <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+          {metrics.map((metric) => {
+            const Icon = metric.icon
+            return (
+              <div key={metric.label} className={`min-w-0 rounded-xl border bg-background/80 p-2.5 text-left ${metric.border}`}>
+                <div className={`mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold ${metric.surface} ${metric.tone}`}>
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="truncate">{metric.label}</span>
+                </div>
+                <div className={`font-[family:var(--font-display)] text-xl font-bold leading-none tracking-[-0.025em] tabular-nums sm:text-3xl sm:tracking-[-0.03em] ${metric.tone}`}>
+                  {metric.value.toLocaleString("vi-VN")}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         {overnight.length > 0 && (
@@ -195,16 +235,11 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
           </div>
         )}
 
-        {totalInside === 0 && !error && (
-          <p className="text-xs text-muted-foreground">
-            Hiện không có xe nào đang trong cổng.
-          </p>
-        )}
-
-        {lastUpdated && (
-          <p className="text-xs text-muted-foreground">
-            Cập nhật lúc: {lastUpdated.toLocaleTimeString("vi-VN")}
-          </p>
+        {(totalInside === 0 || lastUpdated) && !error && (
+          <div className="flex flex-col gap-1 rounded-lg border border-border/70 bg-muted/25 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            {totalInside === 0 && <span>Hiện không có xe nào đang trong cổng.</span>}
+            {lastUpdated && <span className="shrink-0">Cập nhật {lastUpdated.toLocaleTimeString("vi-VN")}</span>}
+          </div>
         )}
       </CardContent>
     </Card>

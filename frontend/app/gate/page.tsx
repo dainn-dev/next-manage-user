@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Activity, DoorOpen, MapPin, RefreshCw, Radio, Monitor } from "lucide-react"
 import { gateApi, isGateOnline, type Gate } from "@/lib/api/gate-api"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 
 const REFRESH_INTERVAL_MS = 30000
 
@@ -50,15 +51,18 @@ function GateList() {
   const onlineCount = gates.filter((g) => isGateOnline(g, now)).length
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-xl font-bold text-foreground sm:text-2xl">
-              <DoorOpen className="h-6 w-6 text-blue-600" />
-              Cổng kiểm soát
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+    <AdminPage>
+        <AdminPageHeader
+          className="grid-cols-[minmax(0,1fr)_auto] items-start"
+          eyebrow={
+            <span className="inline-flex items-center gap-2">
+              <DoorOpen className="h-4 w-4" aria-hidden="true" />
+              Kiosk realtime
+            </span>
+          }
+          title="Cổng kiểm soát"
+          description={
+            <>
               Chọn một cổng để mở màn hình kiosk hiển thị realtime.
               {gates.length > 0 && (
                 <>
@@ -69,21 +73,37 @@ function GateList() {
                   cổng đang trực tuyến.
                 </>
               )}
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Link href="/gate/health" className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full">
-                <Activity className="h-4 w-4 mr-2" />
-                Sức khỏe cổng
+            </>
+          }
+          actions={
+            <div className="flex shrink-0 items-start justify-end gap-2">
+            <Link href="/gate/health" className="shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+                aria-label="Sức khỏe cổng"
+                title="Sức khỏe cổng"
+              >
+                <Activity className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only sm:ml-2">Sức khỏe cổng</span>
               </Button>
             </Link>
-            <Button variant="outline" onClick={load} disabled={loading} className="w-full sm:w-auto">
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-              Làm mới
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={load}
+              disabled={loading}
+              className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+              aria-label="Làm mới"
+              title="Làm mới"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="sr-only sm:not-sr-only sm:ml-2">Làm mới</span>
             </Button>
-          </div>
-        </div>
+            </div>
+          }
+        />
 
         {error && (
           <div className="mb-6 p-4 rounded-lg border border-red-300 bg-red-50 text-red-700 text-sm">
@@ -105,7 +125,7 @@ function GateList() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {gates.map((gate) => {
             const online = isGateOnline(gate, now)
             return (
@@ -183,8 +203,7 @@ function GateList() {
             )
           })}
         </div>
-      </div>
-    </div>
+    </AdminPage>
   )
 }
 

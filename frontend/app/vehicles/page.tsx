@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
 import { useAuth } from "@/lib/auth-context"
 import { resolvePreferredSiteId } from "@/lib/site-selection"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 
 export default function VehiclesPage() {
   const router = useRouter()
@@ -455,7 +456,7 @@ export default function VehiclesPage() {
 
   if (loading) {
     return (
-      <div className="admin-mobile-page min-h-screen bg-background">
+      <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -470,7 +471,7 @@ export default function VehiclesPage() {
 
   if (error) {
     return (
-      <div className="admin-mobile-page min-h-screen bg-background">
+      <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
@@ -492,15 +493,49 @@ export default function VehiclesPage() {
   }
 
   const stats = getStatistics()
+  const approvalRate = stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0
+  const mobileStats = [
+    {
+      label: "Tổng xe",
+      value: stats.total,
+      description: `${stats.approved} đã duyệt`,
+      icon: Car,
+      tone: "text-muted-foreground",
+      surface: "bg-muted/70",
+    },
+    {
+      label: "Đã duyệt",
+      value: stats.approved,
+      description: "Hoạt động",
+      icon: CheckCircle,
+      tone: "text-green-600",
+      surface: "bg-green-50",
+    },
+    {
+      label: "Đã ra",
+      value: stats.exited,
+      description: "Rời khu vực",
+      icon: TrendingUp,
+      tone: "text-blue-600",
+      surface: "bg-blue-50",
+    },
+    {
+      label: "Tỷ lệ duyệt",
+      value: `${approvalRate}%`,
+      description: "Được phép",
+      icon: Settings,
+      tone: "text-purple-600",
+      surface: "bg-purple-50",
+    },
+  ]
 
   return (
-    <div className="admin-mobile-page min-h-screen bg-background">
-      {/* Header */}
-      <div className="admin-mobile-header mb-6 sm:mb-8">
-        <div className="min-w-0">
-          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-4xl">Quản lý xe</h1>
-          <p className="text-base text-muted-foreground sm:text-lg">Quản lý thông tin xe và yêu cầu ra vào của nhân viên</p>
-        </div>
+    <AdminPage className="min-h-dvh">
+      <AdminPageHeader
+        eyebrow="Phương tiện"
+        title="Quản lý xe"
+        description="Quản lý thông tin xe và yêu cầu ra vào của nhân viên"
+        actions={
         <Button
           onClick={handleAddNew}
           className="w-full shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto"
@@ -509,10 +544,31 @@ export default function VehiclesPage() {
           <Plus className="h-4 w-4 mr-2" />
           Thêm xe mới
         </Button>
-      </div>
+        }
+      />
 
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
+      <div className="mb-5 grid grid-cols-2 gap-2 md:hidden">
+        {mobileStats.map((item) => {
+          const Icon = item.icon
+          return (
+            <Card key={item.label} className="overflow-hidden rounded-2xl border-border/75 bg-card/90 shadow-[var(--shadow-card)]">
+              <CardContent className="relative min-h-[6.25rem] p-3">
+                <span className={`absolute right-3 top-3 grid size-8 place-items-center rounded-xl ${item.surface}`}>
+                  <Icon className={`h-4 w-4 ${item.tone}`} />
+                </span>
+                <p className="pr-9 text-xs font-semibold leading-5 text-foreground">{item.label}</p>
+                <p className={`mt-4 font-[family:var(--font-display)] text-[1.85rem] font-bold leading-none tracking-[-0.045em] ${item.tone}`}>
+                  {item.value}
+                </p>
+                <p className="mt-1 truncate text-[0.7rem] leading-4 text-muted-foreground">{item.description}</p>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      <div className="mb-6 hidden gap-4 md:grid md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Tổng số xe</CardTitle>
@@ -556,7 +612,7 @@ export default function VehiclesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
-              {stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0}%
+              {approvalRate}%
             </div>
             <p className="text-xs text-muted-foreground">
               Xe được phép hoạt động
@@ -568,7 +624,7 @@ export default function VehiclesPage() {
       {/* Search and Filter Bar */}
       <div className="bg-white border rounded-lg mb-6 shadow-sm">
         {/* Action Buttons - Inline */}
-        <div className="admin-mobile-actions border-b border-gray-100 bg-gray-50/50 p-4 sm:flex sm:flex-wrap sm:p-6">
+        <div className="admin-mobile-actions border-b border-border bg-muted/40 p-4 sm:flex sm:flex-wrap sm:p-5">
           <Button
             variant={isFilterBarOpen ? "default" : "outline"}
             size="sm"
@@ -606,12 +662,12 @@ export default function VehiclesPage() {
 
         {/* Collapsible Filter Content */}
         {isFilterBarOpen && (
-          <div className="bg-white p-4 sm:p-6">
+          <div className="bg-card p-4 sm:p-5">
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
               <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm xe theo tiêu chí cụ thể</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {/* Search Section */}
               <div className="space-y-3">
                 <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -742,6 +798,6 @@ export default function VehiclesPage() {
           // Bulk operation selected
         }}
       />
-    </div>
+    </AdminPage>
   )
 }

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Giao diện quản lý bãi xe"
+  short_description: "Thiết kế admin UI bãi xe responsive, gọn và đọc tốt tiếng Việt"
+  default_prompt: "Use $vehicle-parking-management-ui to design or review a responsive vehicle parking management admin interface with consistent containers, typography, components, tables, filters, forms, and mobile states."

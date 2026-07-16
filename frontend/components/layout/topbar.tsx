@@ -34,13 +34,13 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
   const selectedSite = scope.sites.find((site) => site.id === scope.selectedSiteId)
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border bg-sidebar/60 px-3 sm:px-4 backdrop-blur supports-[backdrop-filter]:bg-sidebar/40">
+    <header className="relative z-[var(--z-sticky)] flex min-h-16 shrink-0 items-center gap-2 border-b border-sidebar-border bg-card/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur supports-[backdrop-filter]:bg-card/75 sm:gap-3 sm:px-4">
       {onMobileMenuClick && (
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="lg:hidden"
           onClick={onMobileMenuClick}
           aria-controls="tenant-navigation"
           aria-expanded={mobileMenuOpen}
@@ -49,7 +49,7 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
           <Menu />
         </Button>
       )}
-      <div className="flex min-w-0 items-center gap-2 text-sm">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm sm:gap-2">
         {platform ? (
           <>
             <Shield className="h-4 w-4 shrink-0 text-primary" />
@@ -60,7 +60,7 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
           </>
         ) : operator ? (
           <>
-            <MapPin className="h-4 w-4 shrink-0 text-primary" />
+            <MapPin className="hidden h-4 w-4 shrink-0 text-primary sm:block" />
             {scope.isLoading ? (
               <span className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Đang tải phạm vi...</span>
             ) : scope.error ? (
@@ -73,18 +73,18 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
               <>
                 {canSelectSite ? (
                   <Select value={scope.selectedSiteId || undefined} onValueChange={scope.selectSite}>
-                    <SelectTrigger aria-label="Chọn site vận hành" className="h-8 w-[min(220px,40vw)] border-none bg-transparent px-1 shadow-none focus:ring-0">
+                    <SelectTrigger aria-label="Chọn site vận hành" className="h-10 w-[min(12rem,42vw)] border-none bg-transparent px-1 text-sm shadow-none focus:ring-0 md:h-9 md:w-[min(220px,48vw)]">
                       <SelectValue placeholder="Chọn site" />
                     </SelectTrigger>
                     <SelectContent>{scope.sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent>
                   </Select>
                 ) : (
-                  <span className="max-w-[min(220px,40vw)] truncate font-medium text-sidebar-foreground">
+                  <span className="max-w-[min(12rem,42vw)] truncate font-medium text-sidebar-foreground md:max-w-[min(220px,40vw)]">
                     {selectedSite?.name || "Site được phân công"}
                   </span>
                 )}
                 <Select value={scope.selectedZoneId || "all"} onValueChange={(value) => scope.selectZone(value === "all" ? null : value)}>
-                  <SelectTrigger aria-label="Chọn zone vận hành" className="hidden h-8 w-[min(180px,30vw)] md:flex"><SelectValue placeholder="Tất cả zone" /></SelectTrigger>
+                  <SelectTrigger aria-label="Chọn zone vận hành" className="hidden h-9 w-[min(180px,30vw)] bg-background/80 md:flex"><SelectValue placeholder="Tất cả zone" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Tất cả zone</SelectItem>
                     {scope.zones.map((zone) => <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>)}
@@ -105,7 +105,7 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
         <Button
           variant="ghost"
           size="icon"
-          className="relative"
+          className="relative hidden sm:inline-flex"
           disabled
           title="Trung tâm thông báo — sắp ra mắt"
           aria-label="Thông báo"

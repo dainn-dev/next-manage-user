@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { useToast } from "@/hooks/use-toast"
 import { RefreshCw, Save } from "lucide-react"
 
@@ -87,26 +88,38 @@ export default function OrganizationSettingsPage() {
 
   if (loading && !settings) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+      <AdminPage>
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
         Đang tải…
-      </div>
+        </div>
+      </AdminPage>
     )
   }
 
   return (
-    <div className="platform-page max-w-5xl">
-      <header className="platform-page-header">
-        <div className="min-w-0">
-          <h1 className="platform-page-title">Tổ chức</h1>
-          <p className="platform-page-description">
-            Hồ sơ tổ chức và quy mô khai báo khi đăng ký. Số khu vực thật quản lý ở trang Khu vực.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Làm mới
-        </Button>
-      </header>
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Quản trị"
+        title="Tổ chức"
+        description="Hồ sơ tổ chức và quy mô khai báo khi đăng ký. Số khu vực thật quản lý ở trang Khu vực."
+        className="grid-cols-[minmax(0,1fr)_auto] items-start"
+        actions={
+          <div className="flex shrink-0 items-start justify-end">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => void load()}
+              disabled={loading}
+              className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
+              aria-label="Làm mới"
+              title="Làm mới"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="sr-only sm:not-sr-only sm:ml-2">Làm mới</span>
+            </Button>
+          </div>
+        }
+      />
 
       <section className="platform-data-surface" aria-label="Thông tin tổ chức">
         <div className="border-b border-border px-4 py-4 sm:px-6">
@@ -122,7 +135,7 @@ export default function OrganizationSettingsPage() {
           ].map(([label, value]) => (
             <div key={label} className="min-w-0 px-4 py-4 sm:px-6">
               <dt className="platform-stat-label">{label}</dt>
-              <dd className="mt-2 font-medium">{value}</dd>
+              <dd className="mt-2 break-words font-medium">{value}</dd>
             </div>
           ))}
         </dl>
@@ -136,7 +149,7 @@ export default function OrganizationSettingsPage() {
           </p>
         </div>
         <div className="p-4 sm:p-6">
-          <form className="max-w-2xl space-y-4" onSubmit={submit}>
+          <form className="w-full max-w-2xl space-y-4" onSubmit={submit}>
             <div className="space-y-2">
               <Label htmlFor="org-name">Tên tổ chức</Label>
               <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={150} required />
@@ -144,7 +157,7 @@ export default function OrganizationSettingsPage() {
             <div className="space-y-2">
               <Label>Mô hình quản lý</Label>
               <Select value={managementModel} onValueChange={setManagementModel}>
-                <SelectTrigger><SelectValue placeholder="Chọn mô hình" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Chọn mô hình" /></SelectTrigger>
                 <SelectContent>
                   {MANAGEMENT_MODELS.map((model) => <SelectItem key={model.value} value={model.value}>{model.label}</SelectItem>)}
                 </SelectContent>
@@ -155,10 +168,10 @@ export default function OrganizationSettingsPage() {
               <Input id="area-count" type="number" min={1} max={999} value={areaCount} onChange={(e) => setAreaCount(e.target.value)} required />
               <p className="text-xs text-muted-foreground">Hint quy mô — giới hạn site thật theo gói thanh toán (max_sites), không theo số này.</p>
             </div>
-            <Button type="submit" disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Đang lưu…" : "Lưu thay đổi"}</Button>
+            <Button className="w-full sm:w-auto" type="submit" disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Đang lưu…" : "Lưu thay đổi"}</Button>
           </form>
         </div>
       </section>
-    </div>
+    </AdminPage>
   )
 }

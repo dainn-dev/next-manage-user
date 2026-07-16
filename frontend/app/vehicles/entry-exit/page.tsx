@@ -17,6 +17,7 @@ import { downloadBlob } from "@/lib/utils/download-blob"
 import { ExportDialog } from "@/components/reports/export-dialog"
 import { useAuth } from "@/lib/auth-context"
 import { canViewAllLogs } from "@/lib/types"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 
 export default function VehicleEntryExitPage() {
   const { user } = useAuth()
@@ -191,6 +192,15 @@ export default function VehicleEntryExitPage() {
     setShowExportDialog(true)
   }
 
+  const handleClearFilters = () => {
+    setSearchTerm("")
+    setTypeFilter("all")
+    setVehicleTypeFilter("all")
+    setStartDate("")
+    setEndDate("")
+    setCurrentPage(0)
+  }
+
   const handleExportConfirmed = async (options: { format: string }) => {
     const format = (options.format || "EXCEL").toUpperCase()
     if (format !== "EXCEL" && format !== "CSV") {
@@ -256,6 +266,14 @@ export default function VehicleEntryExitPage() {
     }
   }
 
+  const activeFilterCount = [
+    searchTerm.trim(),
+    typeFilter !== "all",
+    vehicleTypeFilter !== "all",
+    startDate,
+    endDate,
+  ].filter(Boolean).length
+
   const viewAllLogs = canViewAllLogs(user?.role)
   const visibleLogs = viewAllLogs
     ? logs
@@ -263,7 +281,7 @@ export default function VehicleEntryExitPage() {
 
   if (loading && logs.length === 0) {
     return (
-      <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+      <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -277,192 +295,231 @@ export default function VehicleEntryExitPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-4xl">Thông tin ra vào</h1>
-          <p className="text-sm text-muted-foreground sm:text-lg">Quản lý và theo dõi lịch sử ra vào của xe</p>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-          {viewAllLogs && (
-            <Button onClick={handleExport} variant="outline" className="w-full shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto">
-              <Download className="h-4 w-4 mr-2" />
-              Xuất báo cáo
-            </Button>
-          )}
-          <Button onClick={loadData} variant="outline" className="w-full shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Làm mới
-          </Button>
-        </div>
-      </div>
+    <AdminPage className="min-h-dvh">
+      <AdminPageHeader
+        className="gap-3 p-3 sm:p-5 lg:px-5 lg:py-4"
+        eyebrow="Vận hành cổng"
+        title="Thông tin ra vào"
+        description={
+          <>
+            <span className="sm:hidden">Theo dõi lịch sử xe ra/vào.</span>
+            <span className="hidden sm:inline">Quản lý và theo dõi lịch sử ra vào của xe</span>
+          </>
+        }
+      />
 
-      {/* Period Tabs */}
-      <Tabs value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)} className="mb-6">
-        <TabsList className="grid h-10 w-full max-w-lg grid-cols-3 shadow-sm">
-          <TabsTrigger value="daily" className="gap-1 px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
-            <Calendar className="hidden h-4 w-4 sm:block" />
-            Hôm nay
-          </TabsTrigger>
-          <TabsTrigger value="weekly" className="gap-1 px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
-            <Calendar className="hidden h-4 w-4 sm:block" />
-            Tuần này
-          </TabsTrigger>
-          <TabsTrigger value="monthly" className="gap-1 px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
-            <Calendar className="hidden h-4 w-4 sm:block" />
-            Tháng này
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Period Tabs and Filter Actions */}
+      <Tabs value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)} className="mb-4 sm:mb-6">
+      <div className="overflow-hidden rounded-[1.15rem] border border-border/70 bg-card/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.07)] backdrop-blur">
+        <div className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 md:flex md:justify-between md:gap-3 md:p-1.5 ${isFilterBarOpen ? "border-b border-border/70 pb-1.5" : ""}`}>
+          <div className="relative h-10 min-w-0 md:hidden">
+            <Calendar className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-primary" aria-hidden="true" />
+            <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
+              <SelectTrigger aria-label="Chọn khoảng thời gian" className="h-10 min-h-10 w-full rounded-[0.95rem] border-border/70 bg-background/90 pl-9 pr-2 text-sm font-medium shadow-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/15">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Hôm nay</SelectItem>
+                <SelectItem value="weekly">Tuần này</SelectItem>
+                <SelectItem value="monthly">Tháng này</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <TabsList className="hidden h-10 w-full grid-cols-3 rounded-xl bg-muted/60 p-1 shadow-sm md:grid md:w-auto md:min-w-[24rem]">
+            <TabsTrigger value="daily" className="h-7 gap-1 rounded-lg px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
+              <Calendar className="hidden h-4 w-4 md:block" />
+              Hôm nay
+            </TabsTrigger>
+            <TabsTrigger value="weekly" className="h-7 gap-1 rounded-lg px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
+              <Calendar className="hidden h-4 w-4 md:block" />
+              Tuần này
+            </TabsTrigger>
+            <TabsTrigger value="monthly" className="h-7 gap-1 rounded-lg px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
+              <Calendar className="hidden h-4 w-4 md:block" />
+              Tháng này
+            </TabsTrigger>
+          </TabsList>
 
-      {/* Search and Filter Bar */}
-      <div className="bg-white border rounded-lg mb-6 shadow-sm">
         {/* Action Buttons - Inline */}
-        <div className="flex flex-col gap-2 border-b border-gray-100 bg-gray-50/50 p-3 sm:flex-row sm:flex-wrap sm:gap-4 sm:p-6">
+        <div className="flex shrink-0 items-center justify-end gap-1.5 md:w-auto md:flex-wrap md:gap-2">
           <Button
-            variant={isFilterBarOpen ? "default" : "outline"}
+            variant="outline"
             size="sm"
             onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
-            className="flex w-full items-center gap-2 shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto"
+            className={`!h-10 !min-h-10 !w-10 justify-center gap-1.5 rounded-[0.95rem] !px-0 text-[0.75rem] shadow-none transition-all duration-200 md:!w-auto md:!px-3 md:text-sm ${
+              isFilterBarOpen
+                ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15"
+                : "border-border/70 bg-background/90 hover:border-primary/40 hover:bg-primary/5"
+            }`}
+            aria-label={isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+            title={isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
           >
             <Filter className="h-4 w-4" />
-            {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
-            {isFilterBarOpen ? (
-              <span className="ml-1 text-sm">▼</span>
-            ) : (
-              <span className="ml-1 text-sm">▶</span>
-            )}
+            <span className="sr-only md:not-sr-only md:ml-1.5">{isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}</span>
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
             onClick={loadData} 
-            className="flex w-full items-center gap-2 shadow-sm transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md sm:w-auto"
+            className="!h-10 !min-h-10 !w-10 justify-center gap-1.5 rounded-[0.95rem] border-border/70 bg-background/90 !px-0 text-[0.75rem] shadow-none transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 md:!w-auto md:!px-3 md:text-sm"
+            aria-label="Làm mới dữ liệu"
+            title="Làm mới dữ liệu"
           >
             <RefreshCw className="h-4 w-4" />
-            Làm mới dữ liệu
+            <span className="sr-only md:not-sr-only md:ml-1.5">Làm mới dữ liệu</span>
           </Button>
           {viewAllLogs && (
             <Button
               variant="outline"
               size="sm"
               onClick={handleExport}
-              className="flex w-full items-center gap-2 shadow-sm transition-all duration-200 hover:border-green-300 hover:bg-green-50 hover:shadow-md sm:w-auto"
+              className="!h-10 !min-h-10 !w-10 justify-center gap-1.5 rounded-[0.95rem] border-border/70 bg-background/90 !px-0 text-[0.75rem] shadow-none transition-all duration-200 hover:border-green-300 hover:bg-green-50 md:!w-auto md:!px-3 md:text-sm"
+              aria-label="Xuất báo cáo"
+              title="Xuất báo cáo"
             >
               <Download className="h-4 w-4" />
-              Xuất báo cáo
+              <span className="sr-only md:not-sr-only md:ml-1.5">Xuất báo cáo</span>
             </Button>
           )}
+        </div>
         </div>
 
         {/* Collapsible Filter Content */}
         {isFilterBarOpen && (
-          <div className="bg-white p-4 sm:p-6">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
-              <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm lịch sử ra vào theo tiêu chí cụ thể</p>
+          <div className="bg-card px-1 pt-3 sm:p-5">
+            <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold leading-tight text-foreground sm:text-lg">Bộ lọc</h3>
+                <p className="mt-1 hidden text-sm leading-5 text-muted-foreground sm:block">
+                  Lọc lịch sử ra/vào theo biển số, hoạt động, loại xe và khoảng thời gian.
+                </p>
+                {activeFilterCount > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground sm:hidden">
+                    {activeFilterCount} điều kiện đang bật
+                  </p>
+                )}
+              </div>
+              {activeFilterCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  className="h-8 shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground sm:h-9 sm:px-3 sm:text-sm"
+                >
+                  Xóa lọc
+                </Button>
+              )}
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6 xl:grid-cols-5">
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Search className="h-4 w-4 text-blue-600" />
-                  Tìm kiếm
+
+            <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                  <Search className="h-3.5 w-3.5" />
+                  Biển số
                 </Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Nhập biển số xe..."
+                    placeholder="Nhập biển số xe"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
+                    className="h-10 rounded-lg border-border bg-background pl-9 text-sm shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11"
                   />
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-green-600" />
-                  Hoạt động
-                </Label>
-                <Select value={typeFilter} onValueChange={(value: any) => setTypeFilter(value)}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                    <SelectValue placeholder="Chọn hoạt động" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">🔄 Tất cả</SelectItem>
-                    <SelectItem value="entry">⬆️ Vào</SelectItem>
-                    <SelectItem value="exit">⬇️ Ra</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="min-w-0 space-y-1.5">
+                  <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                    <Filter className="h-3.5 w-3.5" />
+                    Hoạt động
+                  </Label>
+                  <Select value={typeFilter} onValueChange={(value: any) => setTypeFilter(value)}>
+                    <SelectTrigger className="h-10 w-full rounded-lg border-border bg-background text-sm shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11">
+                      <SelectValue placeholder="Hoạt động" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="entry">Vào</SelectItem>
+                      <SelectItem value="exit">Ra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="min-w-0 space-y-1.5">
+                  <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                    <Car className="h-3.5 w-3.5" />
+                    Loại xe
+                  </Label>
+                  <Select value={vehicleTypeFilter} onValueChange={(value: any) => setVehicleTypeFilter(value)}>
+                    <SelectTrigger className="h-10 w-full rounded-lg border-border bg-background text-sm shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11">
+                      <SelectValue placeholder="Loại xe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="internal">Nội bộ</SelectItem>
+                      <SelectItem value="external">Bên ngoài</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Car className="h-4 w-4 text-purple-600" />
-                  Loại xe
-                </Label>
-                <Select value={vehicleTypeFilter} onValueChange={(value: any) => setVehicleTypeFilter(value)}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                    <SelectValue placeholder="Chọn loại xe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">🚗 Tất cả</SelectItem>
-                    <SelectItem value="internal">🏢 Nội bộ</SelectItem>
-                    <SelectItem value="external">🌐 Bên ngoài</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-orange-600" />
-                  Từ ngày
-                </Label>
-                <Input
-                  type="datetime-local"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-red-600" />
-                  Đến ngày
-                </Label>
-                <Input
-                  type="datetime-local"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
-                />
+              <div className="rounded-xl border border-border bg-background/60 p-2.5 sm:p-3">
+                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Khoảng thời gian
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Từ</Label>
+                    <Input
+                      aria-label="Từ ngày"
+                      type="datetime-local"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="h-10 w-full min-w-0 rounded-lg border-border bg-card px-2 text-xs shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:px-3 sm:text-sm"
+                    />
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Đến</Label>
+                    <Input
+                      aria-label="Đến ngày"
+                      type="datetime-local"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="h-10 w-full min-w-0 rounded-lg border-border bg-card px-2 text-xs shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:px-3 sm:text-sm"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
+      </Tabs>
 
       {/* Data Table */}
-      <div className="bg-white border rounded-lg shadow-sm">
-        <div className="border-b border-gray-100 p-4 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
+        <div className="border-b border-border p-3 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="mb-1 text-lg font-semibold text-gray-800 sm:text-xl">Lịch sử ra vào - {getPeriodLabel()}</h2>
-              <p className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
-                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                Tổng số: <span className="font-medium text-blue-600">{visibleLogs.length}</span> bản ghi
+              <h2 className="text-base font-semibold tracking-[-0.01em] text-foreground sm:text-xl">Lịch sử ra vào</h2>
+              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
+                <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                <span>{getPeriodLabel()}</span>
+                <span>·</span>
+                <span>Tổng: <span className="font-medium text-blue-600">{visibleLogs.length}</span> bản ghi</span>
                 {!viewAllLogs && (
-                  <span className="ml-2 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Chỉ hiển thị xe của bạn</span>
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-600">Xe của bạn</span>
                 )}
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-medium text-gray-700">Hiển thị:</Label>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <Label className="hidden text-sm font-medium text-muted-foreground sm:inline">Hiển thị:</Label>
                 <Select value={pageSize.toString()} onValueChange={(value) => handlePageSizeChange(parseInt(value))}>
-                  <SelectTrigger className="w-24 h-9 border-gray-300 rounded-lg shadow-sm">
+                  <SelectTrigger aria-label="Số bản ghi hiển thị" className="h-9 w-20 rounded-xl border-border bg-background text-sm shadow-none sm:w-24">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -477,7 +534,7 @@ export default function VehicleEntryExitPage() {
           </div>
         </div>
 
-        <div className="space-y-3 p-4 md:hidden">
+        <div className="space-y-3 p-3 md:hidden">
           {visibleLogs.map((log) => (
             <article key={log.id} className="rounded-lg border border-gray-200 p-3 shadow-sm">
               <div className="flex items-start justify-between gap-3">
@@ -526,7 +583,13 @@ export default function VehicleEntryExitPage() {
             </article>
           ))}
           {visibleLogs.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">Không có dữ liệu thông tin ra vào</p>
+            <div className="px-4 py-10 text-center">
+              <span className="mx-auto grid size-10 place-items-center rounded-xl bg-muted/70 text-muted-foreground" aria-hidden="true">
+                <Car className="h-5 w-5" />
+              </span>
+              <p className="mt-2 text-sm font-medium text-foreground">Không có dữ liệu ra vào</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">Thử đổi bộ lọc hoặc làm mới dữ liệu.</p>
+            </div>
           )}
         </div>
 
@@ -597,8 +660,14 @@ export default function VehicleEntryExitPage() {
               ))}
               {visibleLogs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    Không có dữ liệu thông tin ra vào
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <span className="grid size-10 place-items-center rounded-xl bg-muted/70 text-muted-foreground" aria-hidden="true">
+                        <Car className="h-5 w-5" />
+                      </span>
+                      <span className="text-sm font-medium text-foreground">Không có dữ liệu ra vào</span>
+                      <span className="text-xs">Thử đổi bộ lọc hoặc làm mới dữ liệu.</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
@@ -608,7 +677,7 @@ export default function VehicleEntryExitPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-3 border-t border-border bg-muted/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex w-full items-center justify-center gap-2 text-center text-sm text-gray-600 sm:w-auto sm:justify-start sm:text-left">
               <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
               Hiển thị <span className="font-medium text-gray-800">{currentPage * pageSize + 1}</span> đến <span className="font-medium text-gray-800">{Math.min((currentPage + 1) * pageSize, totalElements)}</span> của <span className="font-medium text-gray-800">{totalElements}</span> bản ghi
@@ -663,6 +732,6 @@ export default function VehicleEntryExitPage() {
           onExport={handleExportConfirmed}
         />
       )}
-    </div>
+    </AdminPage>
   )
 }

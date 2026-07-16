@@ -338,7 +338,7 @@ export default function EmployeesPage() {
 
   if (loading) {
     return (
-      <div className="admin-mobile-page min-h-screen bg-background">
+      <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -353,7 +353,7 @@ export default function EmployeesPage() {
 
   if (error) {
     return (
-      <div className="admin-mobile-page min-h-screen bg-background">
+      <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
@@ -377,7 +377,7 @@ export default function EmployeesPage() {
   const stats = getStatistics()
 
   return (
-    <div className="admin-mobile-page min-h-screen bg-background">
+    <div className="admin-mobile-page min-h-dvh bg-background">
       {/* Header */}
         <div className="admin-mobile-header mb-6 sm:mb-8">
           <div>
@@ -458,7 +458,7 @@ export default function EmployeesPage() {
        {/* Search and Filter Bar */}
        <div className="bg-white border rounded-lg mb-6 shadow-sm">
          {/* Action Buttons - Inline */}
-         <div className="admin-mobile-actions border-b border-gray-100 bg-gray-50/50 p-4 sm:flex sm:flex-wrap sm:p-6">
+         <div className="admin-mobile-actions border-b border-border bg-muted/40 p-4 sm:flex sm:flex-wrap sm:p-5">
            <Button
              variant={isFilterBarOpen ? "default" : "outline"}
              size="sm"
@@ -495,12 +495,12 @@ export default function EmployeesPage() {
 
          {/* Collapsible Filter Content */}
          {isFilterBarOpen && (
-           <div className="bg-white p-4 sm:p-6">
+           <div className="bg-card p-4 sm:p-5">
              <div className="mb-4">
                <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
                <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm quân nhân theo tiêu chí cụ thể</p>
              </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {/* Search Section */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
