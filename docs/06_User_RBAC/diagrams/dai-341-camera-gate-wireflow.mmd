@@ -1,0 +1,51 @@
+flowchart TD
+    enter[Site → Thiết lập bãi đỗ → Camera & Gate] --> authorize{Allowed active site?}
+    authorize -->|No| deny[Safe shell + non-sensitive denial]
+    authorize -->|Yes| inventory{Any camera?}
+    inventory -->|No| empty[Empty state: explain ANPR vs Overview]
+    inventory -->|Yes| list[List + health summary + filters]
+    empty --> add[Add camera wizard]
+    list --> add
+    list --> detail[Health detail]
+
+    add --> identity[1. Name + ANPR_GATE or OVERVIEW]
+    identity --> connection[2. Connection + same-site zone]
+    connection --> role{Role?}
+    role -->|ANPR_GATE| gate[Direction + unique same-site logical gate]
+    role -->|OVERVIEW| coverage[Coverage context; no gate mapping]
+    gate --> review[3. Review selected-site config]
+    coverage --> review
+    review --> provision[Create provisioned camera]
+    provision --> credential[4. Reveal enrollment credential once]
+    credential --> connect[5. Connect edge appliance]
+    connect --> stream{Stream and snapshot valid?}
+    stream -->|No| streamRecovery[Sanitized diagnostic: edit + retry]
+    streamRecovery --> connect
+    stream -->|Yes| heartbeat{First heartbeat before expiry?}
+    heartbeat -->|No| enrollmentRecovery[Expired/timeout: diagnose or issue replacement]
+    enrollmentRecovery --> connect
+    heartbeat -->|Yes| test{Role test passes?}
+    test -->|ANPR failure| ocrRecovery[Adjust camera/connection and retry OCR]
+    test -->|Overview failure| coverageRecovery[Adjust coverage and retry]
+    ocrRecovery --> test
+    coverageRecovery --> test
+    test -->|Yes| online[Online]
+    online --> mapEligible{Server says eligible Overview?}
+    mapEligible -->|Yes| map[Selectable in Parking Map Designer]
+    mapEligible -->|No| reason[Show explicit ineligible reason]
+
+    detail --> action{Authorized action}
+    action --> rotate[Reasoned rotate: reveal replacement once]
+    action --> revoke[Reasoned revoke + audit]
+    action --> disable[Reasoned disable]
+    action --> replace[Validate replacement then atomic association transfer]
+    disable --> reenroll[Re-enable → verify fresh health]
+    reenroll --> connect
+
+    classDef error fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
+    classDef warning fill:#fef3c7,stroke:#b45309,color:#78350f
+    classDef success fill:#dcfce7,stroke:#15803d,color:#14532d
+    class deny,streamRecovery,enrollmentRecovery,ocrRecovery,coverageRecovery error
+    class empty,credential,reason,disable warning
+    class online,map success
+

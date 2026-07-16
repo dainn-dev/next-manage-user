@@ -6,6 +6,7 @@ import { Sidebar } from "./sidebar"
 import { Topbar } from "./topbar"
 import { useAuth } from "@/lib/auth-context"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { PlatformShell } from "@/components/platform/platform-shell"
 import { isPlatformAdmin, isMember } from "@/lib/types"
 import { canAccessOperatorRoute, operatorLandingPath } from "@/lib/dashboard-access"
 
@@ -122,7 +123,15 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     return <ErrorBoundary>{children}</ErrorBoundary>
   }
 
-  // Show main app layout with sidebar
+  if (platformUser) {
+    return (
+      <PlatformShell>
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </PlatformShell>
+    )
+  }
+
+  // Tenant and member areas keep their existing role-aware shell.
   return (
     <div className="flex h-screen">
       <Sidebar />

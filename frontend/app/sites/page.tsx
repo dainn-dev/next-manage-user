@@ -1,11 +1,14 @@
 "use client"
 
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * page: tenant site registry · data-form: action header + responsive location ledger
+ */
+
 import { useCallback, useEffect, useState } from "react"
 import { siteApi, type Site } from "@/lib/api/site-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -111,44 +114,43 @@ export default function SitesPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Khu vực (Sites)</h1>
-          <p className="text-sm text-muted-foreground">
+    <div className="platform-page">
+      <header className="platform-page-header">
+        <div className="min-w-0">
+          <h1 className="platform-page-title">Khu vực (Sites)</h1>
+          <p className="platform-page-description">
             Địa điểm / cơ sở thuộc tổ chức — không phải cổng ra/vào. Cổng (Gate) gắn với từng khu vực.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+        <div className="platform-page-actions">
+          <Button variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Làm mới
           </Button>
-          <Button size="sm" onClick={openCreate}>
+          <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Thêm khu vực
           </Button>
         </div>
-      </div>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Danh sách khu vực</CardTitle>
-          <CardDescription>
+      <section className="platform-data-surface" aria-label="Danh sách khu vực">
+        <div className="border-b border-border px-4 py-4 sm:px-6">
+          <h2 className="text-base font-semibold">Danh sách khu vực</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Số lượng bị giới hạn bởi gói thanh toán (max_sites), không bởi số khu vực khai báo khi đăng ký.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </p>
+        </div>
+        <div className="platform-mobile-list">
           {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Đang tải…</p>
+            <div className="platform-empty-state">Đang tải…</div>
           ) : sites.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Chưa có khu vực nào.</p>
+            <div className="platform-empty-state">Chưa có khu vực nào. Tạo khu vực đầu tiên để gắn cổng và camera.</div>
           ) : (
-            <div className="space-y-2">
-              {sites.map((site) => (
-                <div
+            sites.map((site) => (
+                <article
                   key={site.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3"
+                  className="platform-mobile-card sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                 >
                   <div className="flex items-start gap-3">
                     <MapPinned className="mt-0.5 h-4 w-4 text-muted-foreground" />
@@ -174,12 +176,11 @@ export default function SitesPage() {
                       Xóa
                     </Button>
                   </div>
-                </div>
-              ))}
-            </div>
+                </article>
+              ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

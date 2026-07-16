@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import type { Vehicle } from "@/lib/types"
 import { UserRole, canApprove, canManageVehicles } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -57,7 +56,6 @@ export function VehicleTable({
   userRole,
   isReadOnly = false
 }: VehicleTableProps) {
-  const router = useRouter()
   const userCanManage = canManageVehicles(userRole)
   const userCanApprove = canApprove(userRole)
   const isUserRole = userRole === UserRole.USER
@@ -249,13 +247,7 @@ export function VehicleTable({
                     <TableCell>
                       {isUserRole ? (
                         vehicle.status === "rejected" ? (
-                          <button
-                            className="text-xs text-blue-600 hover:underline"
-                            onClick={() => router.push(`/vehicles/requests`)}
-                            type="button"
-                          >
-                            Yêu cầu
-                          </button>
+                          <span className="text-xs text-muted-foreground">Từ chối</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">Chỉ xem</span>
                         )

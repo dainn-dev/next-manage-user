@@ -1,29 +1,31 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import Image from "next/image"
 import {
-  LayoutDashboard,
   Activity,
   ArrowLeftRight,
-  DoorOpen,
-  ListTree,
-  Map as MapIcon,
-  Camera,
-  LayoutGrid,
-  Car,
-  FileCheck,
   BarChart3,
-  UserCog,
-  LogOut,
   Building2,
+  Camera,
+  Car,
+  CircleParking,
   CreditCard,
-  Shield,
-  ScrollText,
+  DoorOpen,
+  LayoutDashboard,
+  LayoutGrid,
+  ListTree,
+  LogOut,
+  Map as MapIcon,
   MapPinned,
-  Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
   ScanLine,
+  ScrollText,
+  Settings,
+  Shield,
+  UserCog,
   Wrench,
   type LucideIcon,
 } from "lucide-react"
@@ -120,7 +122,6 @@ const tenantNavigationGroups: NavigationGroup[] = [
     items: [
       { key: "/vehicles/search", label: "Tìm biển số", icon: ScanLine, roles: OPS },
       { key: "/vehicles", label: "Danh sách xe", icon: Car, roles: MANAGERS },
-      { key: "/vehicles/requests", label: "Yêu cầu ra/vào", icon: FileCheck, roles: MANAGERS },
     ],
   },
   {
@@ -218,9 +219,15 @@ export function Sidebar() {
   const { user, logout } = useAuth()
   const { toast } = useToast()
 
+  const memberUser = isMember(user?.role)
+  const brandHref = memberUser ? "/me" : "/dashboard"
+  const brandSubtitle = memberUser ? "Thành viên" : "Smart Parking"
+  const brandAriaLabel = memberUser
+    ? "ParkVision, về khu vực thành viên"
+    : "ParkVision, về trang tổng quan"
   const navigationGroups = isPlatformAdmin(user?.role)
     ? platformNavigationGroups
-    : isMember(user?.role)
+    : memberUser
       ? memberNavigationGroups
       : tenantNavigationGroups
 
@@ -270,7 +277,8 @@ export function Sidebar() {
 
   const navButtonClass = (isActive: boolean) =>
     cn(
-      "w-full text-left px-3 py-2 rounded-md transition-colors duration-200 flex items-center gap-3 text-sm font-medium",
+      "flex min-h-11 w-full items-center rounded-lg text-sm font-medium transition-colors duration-200",
+      collapsed ? "justify-center px-0" : "gap-3 px-3 text-left",
       isActive
         ? "bg-sidebar-accent text-sidebar-accent-foreground"
         : "text-sidebar-foreground hover:bg-muted hover:text-sidebar-foreground"
@@ -285,10 +293,14 @@ export function Sidebar() {
       return (
         <button
           key={item.key}
+          type="button"
           disabled
-          title={`${item.label} — sắp ra mắt`}
+          title={collapsed ? `${item.label} — sắp ra mắt` : undefined}
           aria-label={`${item.label} (sắp ra mắt)`}
-          className="w-full cursor-not-allowed text-left px-3 py-2 rounded-md flex items-center gap-3 text-sm font-medium text-muted-foreground/70 opacity-70"
+          className={cn(
+            "flex min-h-11 w-full cursor-not-allowed items-center rounded-lg text-sm font-medium text-muted-foreground/70 opacity-70",
+            collapsed ? "justify-center px-0" : "gap-3 px-3 text-left"
+          )}
         >
           {Icon && <Icon className="h-4 w-4 shrink-0" />}
           {!collapsed && <span className="flex-1">{item.label}</span>}
@@ -301,12 +313,14 @@ export function Sidebar() {
       )
     }
 
-    // Regular nav item
     return (
       <button
         key={item.key}
+        type="button"
         onClick={() => handleMenuClick(item.key)}
-        title={item.label}
+        title={collapsed ? item.label : undefined}
+        aria-label={item.label}
+        aria-current={isActive ? "page" : undefined}
         className={navButtonClass(!!isActive)}
       >
         {Icon && <Icon className="h-4 w-4 shrink-0" />}
@@ -316,51 +330,51 @@ export function Sidebar() {
   }
 
   return (
-    <div
-      className={`bg-sidebar border-r border-sidebar-border h-screen transition-all duration-300 ${collapsed ? "w-16" : "w-64"} flex flex-col shadow-sm`}
+    <aside
+      className={cn(
+        "flex h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar shadow-sm transition-[width] duration-[var(--dur-long)] ease-[var(--ease-out)]",
+        collapsed ? "w-[var(--shell-sidebar-collapsed)]" : "w-[var(--shell-sidebar-width)]"
+      )}
+      aria-label="Điều hướng chính"
     >
-      <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className={`${collapsed ? "w-10 h-10" : "w-12 h-12"} rounded-xl overflow-hidden flex items-center justify-center bg-white/10 backdrop-blur-sm border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}>
-            <Image
-              src="/logo.jpg"
-              alt="ParkVision Smart Parking"
-              width={collapsed ? 40 : 48}
-              height={collapsed ? 40 : 48}
-              className="object-contain p-1"
-              priority
-            />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <h4 className="font-bold text-sidebar-foreground text-lg tracking-tight">ParkVision</h4>
-              <p className="text-xs text-muted-foreground font-medium">
-                {isPlatformAdmin(user?.role) ? "Platform console" : "Smart Parking"}
-              </p>
-            </div>
-          )}
-        </div>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="mt-4 p-2 hover:bg-muted rounded-lg transition-all duration-200 text-muted-foreground hover:text-sidebar-foreground hover:scale-105 active:scale-95"
-          title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-          aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-        >
-          <div className="flex items-center justify-center w-5 h-5">
-            {collapsed ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7 -7 7 -7" />
-              </svg>
+      <div className={cn("border-b border-sidebar-border", collapsed ? "p-2" : "p-4")}>
+        <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "gap-2")}>
+          <Link
+            href={brandHref}
+            title={collapsed ? "ParkVision" : undefined}
+            aria-label={brandAriaLabel}
+            className={cn(
+              "group flex min-h-11 items-center rounded-xl outline-none transition-colors duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
+              collapsed ? "size-11 justify-center" : "min-w-0 flex-1 gap-3 px-1.5"
             )}
-          </div>
-        </button>
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-accent text-sidebar-accent-foreground shadow-sm transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+              <CircleParking className="size-5" aria-hidden="true" />
+            </span>
+            {!collapsed && (
+              <span className="min-w-0">
+                <span className="block truncate text-lg leading-tight font-bold tracking-tight text-sidebar-foreground">
+                  ParkVision
+                </span>
+                <span className="block truncate text-xs font-medium text-muted-foreground">
+                  {brandSubtitle}
+                </span>
+              </span>
+            )}
+          </Link>
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+            title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+            aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+          >
+            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </button>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-4 space-y-4">
+      <nav className={cn("flex-1 space-y-4 overflow-y-auto", collapsed ? "px-2 py-3" : "p-4")}>
         {filteredGroups.map((group) => (
           <div key={group.label || "main"} className="space-y-1">
             {!collapsed && group.label && (
@@ -373,48 +387,47 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-6 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 bg-sidebar-accent rounded-full flex items-center justify-center text-sidebar-accent-foreground text-sm font-medium">
+      <div className={cn("border-t border-sidebar-border", collapsed ? "flex flex-col items-center gap-2 p-2" : "p-4")}>
+        <div className={cn("flex w-full items-center", collapsed ? "justify-center" : "mb-3 gap-3")}>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium text-sidebar-accent-foreground">
             {getUserInitials()}
           </div>
           {!collapsed && (
-            <div className="flex-1">
-              <span className="text-sm font-medium text-sidebar-foreground">
+            <div className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-sidebar-foreground">
                 {user?.fullName
                   ? user.fullName
                   : user?.username || "Người dùng"}
               </span>
-              <p className="text-xs text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground">
                 {roleLabel(user?.role)}
               </p>
             </div>
           )}
         </div>
-        {!collapsed && (
+        {collapsed ? (
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={handleLogout}
-            className="w-full justify-start text-muted-foreground hover:text-sidebar-foreground hover:bg-muted"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Đăng xuất
-          </Button>
-        )}
-        {collapsed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLogout}
-            className="w-full p-2 text-muted-foreground hover:text-sidebar-foreground hover:bg-muted"
+            className="size-11 text-muted-foreground hover:bg-muted hover:text-sidebar-foreground"
             title="Đăng xuất"
             aria-label="Đăng xuất"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="size-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="min-h-11 w-full justify-start text-muted-foreground hover:bg-muted hover:text-sidebar-foreground"
+          >
+            <LogOut className="mr-2 size-4" />
+            Đăng xuất
           </Button>
         )}
       </div>
-    </div>
+    </aside>
   )
 }

@@ -1,16 +1,14 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * page: billing · data-form: KPI strip + responsive subscription ledger · enrichment: none
+ */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import {
-  platformApi,
-  type PlatformBillingSummary,
-  type PlatformSubscription,
-} from "@/lib/api/platform-api"
+import { ExternalLink, RefreshCw, Search } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -19,13 +17,25 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { ExternalLink, RefreshCw, Search } from "lucide-react"
+import {
+  platformApi,
+  type PlatformBillingSummary,
+  type PlatformSubscription,
+} from "@/lib/api/platform-api"
+
+function billingTone(status: string): "good" | "warning" | "serious" | "critical" {
+  if (status === "active" || status === "trialing") return "good"
+  if (status === "past_due" || status === "paused") return "warning"
+  if (status === "unpaid" || status === "incomplete") return "serious"
+  return "critical"
+}
 
 export default function PlatformBillingPage() {
   const { toast } = useToast()
   const [summary, setSummary] = useState<PlatformBillingSummary | null>(null)
   const [rows, setRows] = useState<PlatformSubscription[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchInput, setSearchInput] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [page, setPage] = useState(0)
@@ -33,9 +43,18 @@ export default function PlatformBillingPage() {
   const [totalElements, setTotalElements] = useState(0)
 
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("search")
-    if (q) setSearchTerm(q)
+    const query = new URLSearchParams(window.location.search).get("search") || ""
+    setSearchInput(query)
+    setSearchTerm(query)
   }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(0)
+      setSearchTerm(searchInput.trim())
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -56,7 +75,7 @@ export default function PlatformBillingPage() {
     } catch (error) {
       toast({
         title: "Không tải được billing",
-        description: error instanceof Error ? error.message : "Lỗi không xác định",
+        description: error instanceof Error ? error.message : "Hãy thử lại.",
         variant: "destructive",
       })
     } finally {
@@ -69,69 +88,77 @@ export default function PlatformBillingPage() {
   }, [load])
 
   const statusEntries = Object.entries(summary?.byStatus ?? {})
+  const tenantCount = (summary?.withSubscription ?? 0) + (summary?.withoutSubscription ?? 0)
+  const pastDue = summary?.byStatus?.past_due ?? 0
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
-          <p className="text-sm text-muted-foreground">
-            Subscription cross-tenant. Stripe portal vẫn thuộc TENANT_ADMIN.
+    <div className="platform-page">
+      <header className="platform-page-header">
+        <div className="min-w-0">
+          <h1 className="platform-page-title">Cross-tenant billing</h1>
+          <p className="platform-page-description">
+            Theo dõi subscription trên toàn platform. Stripe portal và phương thức thanh toán vẫn thuộc tenant admin.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Làm mới
-        </Button>
-      </div>
+        <div className="platform-page-actions">
+          <Button
+            variant="outline"
+            onClick={() => void load()}
+            disabled={loading}
+            data-state={loading ? "loading" : "default"}
+          >
+            <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
+            {loading ? "Đang tải" : "Làm mới"}
+          </Button>
+        </div>
+      </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Có Stripe subscription
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {summary?.withSubscription ?? "—"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Chưa có subscription (free/default)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {summary?.withoutSubscription ?? "—"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Theo status</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2 text-sm">
-            {statusEntries.length === 0 && "—"}
-            {statusEntries.map(([status, count]) => (
-              <Badge key={status} variant="secondary">
-                {status}: {count}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      <p className="sr-only" aria-live="polite">
+        {loading ? "Đang tải billing" : `Đã tải ${totalElements} billing record`}
+      </p>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <section aria-label="Billing metrics" className={loading ? "platform-stat-strip opacity-70" : "platform-stat-strip"}>
+        <div className="platform-stat">
+          <p className="platform-stat-label">Tenant records</p>
+          <p className="platform-stat-value">{summary ? tenantCount : "—"}</p>
+          <p className="platform-stat-note">trong billing summary</p>
+        </div>
+        <div className="platform-stat">
+          <p className="platform-stat-label">Subscriptions linked</p>
+          <p className="platform-stat-value">{summary?.withSubscription ?? "—"}</p>
+          <p className="platform-stat-note">có Stripe subscription</p>
+        </div>
+        <div className="platform-stat">
+          <p className="platform-stat-label">Without subscription</p>
+          <p className="platform-stat-value">{summary?.withoutSubscription ?? "—"}</p>
+          <p className="platform-stat-note">free hoặc default plan</p>
+        </div>
+        <div className="platform-stat">
+          <p className="platform-stat-label">Past due</p>
+          <p className="platform-stat-value">{summary ? pastDue : "—"}</p>
+          <p className="platform-stat-note">cần kiểm tra billing state</p>
+        </div>
+      </section>
+
+      {statusEntries.length > 0 && (
+        <section aria-label="Subscription status summary" className="flex flex-wrap gap-2">
+          {statusEntries.map(([status, count]) => (
+            <span key={status} className="platform-status" data-tone={billingTone(status)}>
+              {status}: {count}
+            </span>
+          ))}
+        </section>
+      )}
+
+      <div className="platform-toolbar">
+        <div className="relative min-w-0 flex-1 basis-64">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             className="pl-9"
+            aria-label="Tìm tenant trong billing"
             placeholder="Tìm tenant…"
-            value={searchTerm}
-            onChange={(e) => {
-              setPage(0)
-              setSearchTerm(e.target.value)
-            }}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
           />
         </div>
         <Select
@@ -141,11 +168,11 @@ export default function PlatformBillingPage() {
             setStatusFilter(value)
           }}
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[220px]" aria-label="Lọc subscription status">
             <SelectValue placeholder="Subscription status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="all">Tất cả status</SelectItem>
             <SelectItem value="none">none</SelectItem>
             <SelectItem value="active">active</SelectItem>
             <SelectItem value="trialing">trialing</SelectItem>
@@ -158,89 +185,107 @@ export default function PlatformBillingPage() {
         </Select>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Tenant</th>
-              <th className="px-4 py-3 font-medium">Plan</th>
-              <th className="px-4 py-3 font-medium">Sub status</th>
-              <th className="px-4 py-3 font-medium">Period end</th>
-              <th className="px-4 py-3 font-medium text-right">Lifecycle</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
+      <section aria-label="Subscription records" className="platform-data-surface">
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[54rem] text-sm">
+            <caption className="sr-only">Cross-tenant subscription records</caption>
+            <thead className="text-left">
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  Đang tải…
-                </td>
+                <th scope="col" className="px-4 py-3 font-medium sm:px-6">Tenant</th>
+                <th scope="col" className="px-4 py-3 font-medium">Plan</th>
+                <th scope="col" className="px-4 py-3 font-medium">Sub status</th>
+                <th scope="col" className="px-4 py-3 font-medium">Period end</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium sm:pr-6">Lifecycle</th>
               </tr>
-            )}
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  Không có dữ liệu.
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              rows.map((row) => (
-                <tr key={row.tenantId} className="border-t">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{row.tenantName}</div>
-                    <div className="text-xs text-muted-foreground">{row.tenantSlug}</div>
+            </thead>
+            <tbody className={loading ? "opacity-70" : undefined}>
+              {!loading && rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                    Không có billing record khớp bộ lọc.
+                  </td>
+                </tr>
+              )}
+              {rows.map((row) => (
+                <tr key={row.tenantId}>
+                  <td className="px-4 py-3 sm:px-6">
+                    <div className="font-semibold">{row.tenantName}</div>
+                    <div className="platform-mono mt-1 text-xs text-muted-foreground">{row.tenantSlug}</div>
                   </td>
                   <td className="px-4 py-3">
                     {row.planName || "—"}
-                    <div className="text-xs text-muted-foreground">{row.planCode}</div>
+                    <div className="platform-mono mt-1 text-xs text-muted-foreground">{row.planCode || "—"}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={row.subscriptionStatus === "active" ? "default" : "secondary"}>
+                    <span className="platform-status" data-tone={billingTone(row.subscriptionStatus)}>
                       {row.subscriptionStatus}
-                    </Badge>
+                    </span>
                     {row.cancelAtPeriodEnd && (
-                      <div className="mt-1 text-xs text-muted-foreground">cancel at period end</div>
+                      <div className="mt-2 text-xs text-muted-foreground">cancel at period end</div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {row.currentPeriodEnd
-                      ? new Date(row.currentPeriodEnd).toLocaleString("vi-VN")
-                      : "—"}
+                    {row.currentPeriodEnd ? new Date(row.currentPeriodEnd).toLocaleString("vi-VN") : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button asChild variant="ghost" size="sm">
+                  <td className="px-4 py-3 text-right sm:pr-6">
+                    <Button asChild variant="ghost">
                       <Link href={`/platform/tenants/${row.tenantId}`}>
                         Tenant
-                        <ExternalLink className="ml-1 h-3.5 w-3.5" />
+                        <ExternalLink aria-hidden="true" />
                       </Link>
                     </Button>
                   </td>
                 </tr>
               ))}
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+        </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          {totalElements} · trang {page + 1}/{Math.max(totalPages, 1)}
-        </span>
+        <div className="platform-mobile-list md:hidden">
+          {!loading && rows.length === 0 && (
+            <div className="platform-empty-state">Không có billing record khớp bộ lọc.</div>
+          )}
+          {rows.map((row) => (
+            <article key={row.tenantId} className="platform-mobile-card">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-semibold">{row.tenantName}</h2>
+                  <p className="platform-mono mt-1 truncate text-xs text-muted-foreground">{row.tenantSlug}</p>
+                </div>
+                <span className="platform-status" data-tone={billingTone(row.subscriptionStatus)}>
+                  {row.subscriptionStatus}
+                </span>
+              </div>
+              <dl className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Plan</dt>
+                  <dd className="mt-1 font-medium">{row.planName || row.planCode || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Period end</dt>
+                  <dd className="mt-1 text-xs">
+                    {row.currentPeriodEnd ? new Date(row.currentPeriodEnd).toLocaleDateString("vi-VN") : "—"}
+                  </dd>
+                </div>
+              </dl>
+              <Button asChild variant="outline" className="w-fit">
+                <Link href={`/platform/tenants/${row.tenantId}`}>
+                  Mở tenant
+                  <ExternalLink aria-hidden="true" />
+                </Link>
+              </Button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <div className="platform-pagination">
+        <span>{totalElements} record · trang {page + 1}/{Math.max(totalPages, 1)}</span>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 0 || loading}
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-          >
+          <Button variant="outline" disabled={page <= 0 || loading} onClick={() => setPage((value) => Math.max(0, value - 1))}>
             Trước
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page + 1 >= totalPages || loading}
-            onClick={() => setPage((p) => p + 1)}
-          >
+          <Button variant="outline" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>
             Sau
           </Button>
         </div>

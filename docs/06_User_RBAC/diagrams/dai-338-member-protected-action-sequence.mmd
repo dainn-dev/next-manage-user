@@ -1,0 +1,123 @@
+sequenceDiagram
+    autonumber
+    actor M as Member
+    participant UI as Mobile Member UI
+    participant API as Member API
+    participant Scope as Identity, ownership, tenant and site checks
+    participant Req as Registration request service
+    participant Review as Tenant reviewer service
+    participant Persist as Affiliation and registration persistence
+    participant Audit as Lifecycle audit
+    participant Outbox as Notification outbox
+    participant QR as Visit-pass issuer and verifier
+
+    alt Save draft and attachments
+        M->>UI: Edit registration draft
+        UI->>API: PATCH owned draft with If-Match version
+        API->>Scope: Verify Member and request or vehicle ownership
+        Scope-->>API: Permit owned draft
+        API->>Req: Validate fields and requirements version
+        Req-->>API: Saved draft, version, last-saved time
+        API-->>UI: Durable draft state
+        M->>UI: Upload evidence file
+        UI->>API: Upload attachment
+        API->>Scope: Reverify owned editable draft
+        alt Size, MIME, scan, or storage failure
+            API-->>UI: 413, 415, 422, or 503 with FAILED attachment
+            UI-->>M: Preserve draft and other files; Retry or Remove this file
+        else Attachment accepted
+            API-->>UI: UPLOADING then SCANNING then READY metadata
+        end
+    else Submit or resubmit
+        M->>UI: Review organization, site, owned vehicle, requirements, and READY evidence
+        UI->>API: Submit request with version and Idempotency-Key
+        API->>Scope: Verify Member, vehicle ownership, eligible site, and request ownership
+        Scope-->>API: Permit submission
+        API->>Req: Validate DRAFT or REJECTED revision, requirements, files, and idempotency
+        alt Stale, changed requirements, or invalid evidence
+            Req-->>API: 409 or 422
+            API-->>UI: Preserve compatible draft and require review
+        else Valid submission
+            Req->>Audit: Append submission lifecycle audit
+            Audit->>Outbox: Persist required notification event
+            alt Audit or outbox enqueue fails
+                Outbox-->>Req: Fail transaction
+                Req-->>API: Submission not completed
+                API-->>UI: Keep draft or prior rejected state; no false PENDING
+            else Durable submission
+                Outbox-->>Req: Audit and correlation reference
+                Req-->>API: PENDING request, revision, version, audit result
+                API-->>UI: Confirmed PENDING state
+            end
+        end
+    else Reviewer decision
+        Review->>Scope: Verify Tenant Admin or Site Manager review scope and request site
+        Scope-->>Review: Permit scoped review
+        alt Approve
+            Review->>Req: Revalidate PENDING request, Member vehicle ownership, requirements, files, version
+            Req->>Persist: Create or reactivate affiliation and site registration
+            Persist->>Req: Registration identity and status
+            Req->>Audit: Mark APPROVED and write lifecycle audit in same transaction
+            Audit->>Outbox: Persist approval notification event
+            alt Affiliation, registration, audit, or outbox enqueue fails
+                Outbox-->>Review: Roll back entire approval
+                Review-->>UI: Prior PENDING state remains authoritative
+            else Approval durable
+                Outbox-->>Review: Registration, request version, audit and correlation reference
+                Review-->>UI: APPROVED result
+            end
+        else Reject
+            Review->>Req: Require public rejection reason and current PENDING version
+            Req->>Audit: Mark REJECTED and persist audit/outbox atomically
+            Audit-->>Review: REJECTED result with reason and reference
+            Review-->>UI: Member may edit next draft revision and resubmit
+        else Suspend or reactivate
+            Review->>Req: Require current APPROVED or SUSPENDED registration and reason policy
+            Req->>Persist: Change only the target site registration status
+            Persist->>Audit: Persist lifecycle audit and required outbox event
+            Audit-->>Review: SUSPENDED or APPROVED result with reference
+            Review-->>UI: Updated lifecycle; unrelated affiliations and registrations unchanged
+        end
+    else Create or receive Visit pass
+        M->>UI: Choose eligible site, owned vehicle, validity, or enter opaque claim code
+        UI->>API: Create or claim pass with Idempotency-Key
+        API->>Scope: Verify Member ownership, site eligibility, code, scope, and validity window
+        alt Invalid, expired, reused, or cross-owner code
+            Scope-->>API: Non-disclosing 404, 409, or 422
+            API-->>UI: Generic unavailable or invalid outcome
+        else Eligible
+            Scope-->>API: Permit pass operation
+            API->>QR: Persist scoped pass without exposing bearer token
+            QR-->>API: Pass ID, lifecycle, scope, and version
+            API-->>UI: ISSUED or ACTIVE pass
+        end
+    else Request QR presentation
+        M->>UI: Open active owned Visit pass
+        UI->>API: Request presentation token
+        API->>Scope: Verify owner, pass state, version, site, gate and direction scope
+        Scope->>QR: Issue opaque 90-second token
+        QR-->>API: Token and explicit expiresAt
+        API-->>UI: QR presentation and countdown
+        alt Device goes offline before token expiry
+            UI-->>M: Continue display only until expiresAt with Offline label
+        else Token expires offline
+            UI-->>M: Hide QR and show Expired reconnect to refresh
+        else Online refresh at 45 seconds
+            UI->>API: Request next token after revalidation
+        end
+    else Claim parking session
+        M->>UI: Enter opaque single-use claim code
+        UI->>API: Claim parking session
+        API->>Scope: Verify hashed code, open session, expiry, and unclaimed state
+        alt UUID, expired, reused, or unavailable code
+            Scope-->>API: Generic failure without enumeration
+            API-->>UI: Claim not completed
+        else Valid code
+            Scope-->>API: Permit one claim
+            API-->>UI: Owned session without raw JTI credential
+        end
+    end
+
+    Note over M,Outbox: Draft or Pending never creates an active tenant registration or affiliation.
+    Note over Audit,Outbox: Required outbox enqueue failure rolls back lifecycle transition; later delivery failure retries asynchronously.
+    Note over UI,QR: No protected mutation is queued offline or replayed automatically after session expiry or reconnect.

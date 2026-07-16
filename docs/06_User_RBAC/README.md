@@ -163,6 +163,11 @@ consumer federation is required.
 - [DAI-335 Tenant Admin wireflow](dai-335-tenant-admin-wireflow.md)
 - [DAI-336 Site Manager wireflow](dai-336-site-manager-wireflow.md)
 - [DAI-337 Security Guard wireflow](dai-337-security-guard-wireflow.md)
+- [DAI-338 Member wireflow](dai-338-member-wireflow.md)
+- [DAI-339 clickable prototype and implementation handoff](dai-339-clickable-prototype-handoff.md)
+- [DAI-340 UX validation, accessibility, and role-boundary report](../testing/dai-340-ux-accessibility-role-boundary-report.md)
+- [DAI-341 Camera & Gate setup wireflow](dai-341-camera-gate-setup-wireflow.md)
+- [DAI-342 Parking Map & Slot setup wireflow](dai-342-parking-map-slot-setup-wireflow.md)
 - Parking fees (bank transfer): [`../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md`](../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md)
 
 ## 12. Sample accounts (local testing)

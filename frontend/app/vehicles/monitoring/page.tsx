@@ -1,675 +1,382 @@
 "use client"
 
-import { useState, useEffect } from "react"
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * theme: ParkVision Control · enrichment: none · pre-emit critique: P5 H5 E5 S5 R5 V4
+ */
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  Activity,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  CarFront,
+  Clock3,
+  ImageIcon,
+  MapPin,
+  Radio,
+  RefreshCw,
+  Search,
+  UserRound,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, RefreshCw, Car, ArrowUp, ArrowDown } from "lucide-react"
+import { ErrorBoundary } from "@/components/error-boundary"
+import { RealtimeGateDashboard } from "@/components/vehicles/realtime-gate-dashboard"
 import { useToast } from "@/hooks/use-toast"
-import { vehicleLogApi, VehicleLogStatistics, VehicleLog, EmployeeVehicleInfo } from "@/lib/api/vehicle-log-api"
-import { useWebSocket, VehicleCheckMessage, EmployeeVehicleCheckMessage } from "@/hooks/use-websocket"
 import { dataService } from "@/lib/data-service"
 import { getImageUrl } from "@/lib/api/config"
-import { RealtimeGateDashboard } from "@/components/vehicles/realtime-gate-dashboard"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { type EmployeeVehicleInfo, type VehicleLog, type VehicleLogStatistics, vehicleLogApi } from "@/lib/api/vehicle-log-api"
+import { type EmployeeVehicleCheckMessage, type VehicleCheckMessage, useWebSocket } from "@/hooks/use-websocket"
+
+type MovementFilter = "all" | "entry" | "exit"
+type VehicleFilter = "all" | "internal" | "external"
+
+const movementLabel = (type?: string) => (type?.toLowerCase() === "entry" ? "Vào cổng" : "Ra cổng")
+
+const formatTimestamp = (value?: string) => {
+  if (!value) return "—"
+  return new Date(value).toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+  })
+}
+
+const vehicleDescription = (log?: VehicleLog | null, detail?: EmployeeVehicleInfo | null) => {
+  const brand = detail?.brand ?? log?.vehicleBrand
+  const model = detail?.model ?? log?.vehicleModel
+  const color = detail?.color ?? log?.vehicleColor
+  return [brand, model, color].filter(Boolean).join(" · ") || "Chưa có thông tin xe"
+}
 
 export default function VehicleMonitoringPage() {
+  const { toast } = useToast()
   const [logs, setLogs] = useState<VehicleLog[]>([])
-  const [filteredLogs, setFilteredLogs] = useState<VehicleLog[]>([])
   const [statistics, setStatistics] = useState<VehicleLogStatistics | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState<"all" | "entry" | "exit">("all")
-  const [vehicleTypeFilter, setVehicleTypeFilter] = useState<"all" | "internal" | "external">("all")
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [movementFilter, setMovementFilter] = useState<MovementFilter>("all")
+  const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>("all")
   const [selectedLog, setSelectedLog] = useState<VehicleLog | null>(null)
-  const [employeeInfo, setEmployeeInfo] = useState<EmployeeVehicleInfo | null>(null)
-  const [isLoadingEmployeeInfo, setIsLoadingEmployeeInfo] = useState(false)
+  const [vehicleDetail, setVehicleDetail] = useState<EmployeeVehicleInfo | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [realtimePulse, setRealtimePulse] = useState(0)
-  const { toast } = useToast()
 
-  // WebSocket handler for vehicle check events
-  const handleVehicleCheck = async (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
+  const loadVehicleDetail = useCallback(async (log: VehicleLog) => {
+    setSelectedLog(log)
+    setVehicleDetail(null)
+    setDetailLoading(true)
     try {
-      // Bump the realtime dashboard refresh pulse so its counters update as soon
-      // as a gate vehicle-check event arrives over WebSocket.
-      setRealtimePulse((p) => p + 1)
-      setIsLoadingEmployeeInfo(true)
-      // Process WebSocket message
-      const isEmployeeInfo = 'employeeId' in message && 'vehicleId' in message
-      
-      let info: EmployeeVehicleInfo
-      let licensePlateNumber: string
-      let type: string
-      let timestamp: string
-      
-      if (isEmployeeInfo) {
-        // New format: employee info is already included
-        // Using new format with embedded employee info
-        const empMsg = message as EmployeeVehicleCheckMessage
-        info = {
-          employeeId: empMsg.employeeId,
-          employeeName: empMsg.employeeName,
-          firstName: empMsg.firstName,
-          lastName: empMsg.lastName,
-          department: empMsg.department,
-          position: empMsg.position,
-          rank: empMsg.rank,
-          jobTitle: empMsg.jobTitle,
-          militaryCivilian: empMsg.militaryCivilian,
-          phone: empMsg.phone,
-          email: empMsg.email,
-          location: empMsg.location,
-          avatar: empMsg.avatar,
-          vehicleId: empMsg.vehicleId,
-          licensePlateNumber: empMsg.licensePlateNumber,
-          brand: empMsg.brand,
-          model: empMsg.model,
-          color: empMsg.color,
-          vehicleType: empMsg.vehicleType,
-          year: empMsg.year,
-          registrationDate: empMsg.registrationDate,
-          expiryDate: empMsg.expiryDate,
-          logId: empMsg.logId,
-          logType: empMsg.logType,
-          logTime: empMsg.logTime,
-          driverName: empMsg.driverName,
-          purpose: empMsg.purpose,
-          gateLocation: empMsg.gateLocation,
-          notes: empMsg.notes
-        }
-        licensePlateNumber = empMsg.licensePlateNumber
-        type = empMsg.logType.toLowerCase()
-        timestamp = empMsg.logTime || new Date().toISOString()
-      } else {
-        // Old format: need to fetch employee info via API
-        // Using old format, fetching employee info via API
-        const oldMsg = message as VehicleCheckMessage
-        info = await dataService.getEmployeeInfoByLicensePlate(
-          oldMsg.licensePlateNumber, 
-          oldMsg.type.toLowerCase() as 'entry' | 'exit'
-        )
-        licensePlateNumber = oldMsg.licensePlateNumber
-        type = oldMsg.type.toLowerCase()
-        timestamp = oldMsg.timestamp
-      }
-      
-      // Processed vehicle check info successfully
-      
-      setEmployeeInfo(info)
-      
-      // Create a synthetic log entry for immediate UI update
-      const newLogEntry: VehicleLog = {
-        id: `temp-${Date.now()}`, // Temporary ID
-        licensePlateNumber: licensePlateNumber,
-        vehicleId: info.vehicleId || undefined,
-        employeeId: info.employeeId || undefined,
-        employeeName: info.employeeName || undefined,
-        employeeAvatar: info.avatar || undefined,
-        employeeDepartment: info.department || undefined,
-        employeePosition: info.position || undefined,
-        entryExitTime: timestamp,
-        type: type as 'entry' | 'exit',
-        vehicleType: 'internal' as const,
-        driverName: info.employeeName || undefined,
-        purpose: 'Truy cập xe tự động',
-        gateLocation: 'Main Gate',
-        securityGuardId: undefined,
-        securityGuardName: undefined,
-        notes: 'Auto-generated log entry from vehicle access check',
-        imagePath: undefined,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        vehicleBrand: info.brand || undefined,
-        vehicleModel: info.model || undefined,
-        vehicleColor: info.color || undefined
-      }
-      
-      // Add new log entry to the beginning of the logs array for immediate update
-      setLogs(prevLogs => [newLogEntry, ...prevLogs])
-      
-      // Set the new log as selected to show its details
-      setSelectedLog(newLogEntry)
-      
-      // Refresh logs in the background to get the real data from server
-      setTimeout(async () => {
-        try {
-          const [logsData] = await Promise.all([
-            vehicleLogApi.getTodayLogs(0, 50)
-          ])
-          setLogs(logsData.content)
-          
-          // Try to find and select the real log entry that matches our synthetic one
-          const realLogEntry = logsData.content.find(log => 
-            log.licensePlateNumber === licensePlateNumber &&
-            log.type === type &&
-            Math.abs(new Date(log.entryExitTime).getTime() - new Date(timestamp).getTime()) < 60000 // Within 1 minute
-          )
-          
-          if (realLogEntry) {
-            setSelectedLog(realLogEntry)
-          }
-        } catch (error) {
-          console.error('Error refreshing logs:', error)
-        }
-      }, 2000) // Refresh after 2 seconds
-      
-      toast({
-        title: "Thông tin quân nhân",
-        description: `Đã tải thông tin cho xe ${licensePlateNumber}`,
-        variant: "default",
-      })
-      
-    } catch (error) {
-      console.error('Error processing vehicle check:', error)
-      toast({
-        title: "Lỗi",
-        description: "Không thể xử lý thông tin vehicle check",
-        variant: "destructive",
-      })
+      const detail = await dataService.getEmployeeInfoByLicensePlate(log.licensePlateNumber, log.type)
+      setVehicleDetail(detail)
+    } catch {
+      // A gate event may not have an associated person or managed vehicle yet.
+      setVehicleDetail(null)
     } finally {
-      setIsLoadingEmployeeInfo(false)
-    }
-  }
-
-  // Initialize WebSocket connection
-  const { isConnected, connectionError, reconnect } = useWebSocket(handleVehicleCheck)
-
-  useEffect(() => {
-    loadData()
-    
-    // Update clock every second
-    const clockInterval = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-    
-    return () => {
-      clearInterval(clockInterval)
+      setDetailLoading(false)
     }
   }, [])
 
-  useEffect(() => {
-    filterLogs()
-  }, [logs, searchTerm, typeFilter, vehicleTypeFilter])
-
-  useEffect(() => {
-    // Auto-select the latest log for display
-    if (filteredLogs.length > 0 && !selectedLog) {
-      setSelectedLog(filteredLogs[0])
-    }
-  }, [filteredLogs, selectedLog])
-
-  const loadData = async () => {
+  const loadData = useCallback(async (showRefreshState = false) => {
+    if (showRefreshState) setRefreshing(true)
     try {
-      setLoading(true)
-      // Debug:('Loading today\'s vehicle logs...')
-      
-      const [logsData, statsData] = await Promise.all([
-        vehicleLogApi.getTodayLogs(0, 100), // Increased size to get more today's logs
-        vehicleLogApi.getTodayStatistics()
+      const [logsData, statisticsData] = await Promise.all([
+        vehicleLogApi.getTodayLogs(0, 100),
+        vehicleLogApi.getTodayStatistics(),
       ])
-      
-      // Debug:('Received logs data:', logsData)
-      // Debug:('Total logs for today:', logsData.content.length)
-      
-      // Sort logs by entryExitTime (newest first)
-      const sortedLogs = logsData.content.sort((a, b) => 
-        new Date(b.entryExitTime).getTime() - new Date(a.entryExitTime).getTime()
+      const sortedLogs = [...logsData.content].sort(
+        (a, b) => new Date(b.entryExitTime).getTime() - new Date(a.entryExitTime).getTime(),
       )
-      
-      // Sorted logs loaded successfully
-      
       setLogs(sortedLogs)
-      setStatistics(statsData)
-      
-      // Auto-select the latest log and load its employee info
-      if (sortedLogs.length > 0) {
-        const latestLog = sortedLogs[0]
-        // Debug:('Auto-selecting latest log:', latestLog.licensePlateNumber, latestLog.type)
-        setSelectedLog(latestLog)
-        
-        // Load employee info for the latest log
-        if (latestLog.licensePlateNumber && latestLog.type) {
-          try {
-            setIsLoadingEmployeeInfo(true)
-            const info = await dataService.getEmployeeInfoByLicensePlate(
-              latestLog.licensePlateNumber, 
-              latestLog.type as 'entry' | 'exit'
-            )
-            // Debug:('Loaded employee info for latest log:', info)
-            setEmployeeInfo(info)
-          } catch (error) {
-            console.error('Error loading employee info for latest log:', error)
-          } finally {
-            setIsLoadingEmployeeInfo(false)
-          }
-        }
+      setStatistics(statisticsData)
+
+      const stillSelected = sortedLogs.find((log) => log.id === selectedLog?.id)
+      if (stillSelected) {
+        setSelectedLog(stillSelected)
+      } else if (sortedLogs[0]) {
+        void loadVehicleDetail(sortedLogs[0])
       } else {
-        // Debug:('No logs found for today')
-        setEmployeeInfo(null)
+        setSelectedLog(null)
+        setVehicleDetail(null)
       }
-    } catch (error) {
-      console.error('Error loading monitoring data:', error)
+    } catch {
       toast({
-        title: "Lỗi",
-        description: "Không thể tải dữ liệu giám sát",
+        title: "Không thể tải nhật ký cổng",
+        description: "Hãy thử làm mới dữ liệu.",
         variant: "destructive",
       })
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
+  }, [loadVehicleDetail, selectedLog?.id, toast])
 
-  const filterLogs = () => {
-    let filtered = [...logs]
+  const handleVehicleCheck = useCallback(async (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
+    setRealtimePulse((value) => value + 1)
+    const isDetailedMessage = "employeeId" in message && "vehicleId" in message
+    const timestamp = isDetailedMessage
+      ? (message as EmployeeVehicleCheckMessage).logTime || new Date().toISOString()
+      : (message as VehicleCheckMessage).timestamp
+    const movement = isDetailedMessage
+      ? (message as EmployeeVehicleCheckMessage).logType.toLowerCase() as "entry" | "exit"
+      : (message as VehicleCheckMessage).type.toLowerCase() as "entry" | "exit"
+    const plate = isDetailedMessage
+      ? (message as EmployeeVehicleCheckMessage).licensePlateNumber
+      : (message as VehicleCheckMessage).licensePlateNumber
 
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(log =>
-        log.licensePlateNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.driverName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.employeeName?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    const nextLog: VehicleLog = {
+      id: `live-${Date.now()}`,
+      licensePlateNumber: plate,
+      entryExitTime: timestamp,
+      type: movement,
+      vehicleType: "internal",
+      employeeId: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).employeeId : undefined,
+      employeeName: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).employeeName : undefined,
+      driverName: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).driverName : undefined,
+      gateLocation: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).gateLocation : undefined,
+      vehicleId: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).vehicleId : undefined,
+      vehicleBrand: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).brand : undefined,
+      vehicleModel: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).model : undefined,
+      vehicleColor: isDetailedMessage ? (message as EmployeeVehicleCheckMessage).color : undefined,
+      createdAt: timestamp,
+      updatedAt: timestamp,
     }
 
-    // Type filter
-    if (typeFilter !== "all") {
-      filtered = filtered.filter(log => log.type === typeFilter)
-    }
+    setLogs((current) => [nextLog, ...current.filter((log) => log.id !== nextLog.id)])
+    void loadVehicleDetail(nextLog)
+    window.setTimeout(() => void loadData(), 1800)
+  }, [loadData, loadVehicleDetail])
 
-    // Vehicle type filter
-    if (vehicleTypeFilter !== "all") {
-      filtered = filtered.filter(log => log.vehicleType === vehicleTypeFilter)
-    }
+  const { isConnected, connectionError, reconnect } = useWebSocket(handleVehicleCheck)
 
-    setFilteredLogs(filtered)
-  }
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+  const filteredLogs = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    return logs.filter((log) => {
+      const matchesQuery = !query || [log.licensePlateNumber, log.driverName, log.employeeName]
+        .filter(Boolean)
+        .some((value) => value?.toLowerCase().includes(query))
+      const matchesMovement = movementFilter === "all" || log.type === movementFilter
+      const matchesVehicle = vehicleFilter === "all" || log.vehicleType === vehicleFilter
+      return matchesQuery && matchesMovement && matchesVehicle
     })
-  }
+  }, [logs, movementFilter, searchTerm, vehicleFilter])
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN')
-  }
-
-  const formatClock = (date: Date) => {
-    return date.toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }).replace(/:/g, ' : ')
-  }
-
-  const formatCurrentDate = (date: Date) => {
-    return date.toLocaleDateString('vi-VN', {
-      weekday: 'long',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
-  }
-
-  const getTypeIcon = (type: string) => {
-    return type === 'entry' ? <ArrowUp className="h-4 w-4 text-green-600" /> : <ArrowDown className="h-4 w-4 text-red-600" />
-  }
-
-  const getTypeBadge = (type: string) => {
-    return type === 'entry' 
-      ? <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Vào</Badge>
-      : <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Ra</Badge>
-  }
+  const liveImage = (vehicleDetail as (EmployeeVehicleInfo & { vehicleImagePath?: string }) | null)?.vehicleImagePath
+    || selectedLog?.vehicleImagePath
+    || selectedLog?.imagePath
+  const currentPlate = vehicleDetail?.licensePlateNumber || selectedLog?.licensePlateNumber
 
   if (loading) {
     return (
-      <div className="p-8 bg-background min-h-screen">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <p className="text-blue-600 font-medium">Đang tải dữ liệu giám sát...</p>
+      <main className="min-h-screen bg-background p-4 sm:p-6" aria-busy="true">
+        <div className="mx-auto max-w-[104rem] animate-pulse space-y-5">
+          <div className="h-20 rounded-lg bg-[var(--color-paper-3)]" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[0, 1, 2].map((item) => <div key={item} className="h-28 rounded-lg bg-[var(--color-paper-3)]" />)}
           </div>
+          <div className="h-96 rounded-lg bg-[var(--color-paper-3)]" />
         </div>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="bg-gray-100 p-6 min-h-screen" style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
-      <div className="max-w-7xl mx-auto">
-      {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full mb-4 shadow-lg">
-            <Car className="w-8 h-8 text-white" />
-        </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Theo dõi ra / vào</h1>
-          <p className="text-gray-600 mb-4">Hệ thống giám sát an ninh thông minh</p>
-          <div className="flex items-center gap-4">
-            <Button onClick={loadData} variant="outline" className="hover:bg-blue-50 hover:border-blue-300 transition-all duration-200">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Làm mới dữ liệu
+    <main className="min-h-screen bg-background p-4 sm:p-6">
+      <div className="mx-auto flex max-w-[104rem] min-w-0 flex-col gap-5">
+        <header className="flex min-w-0 flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Activity className="h-4 w-4 text-[var(--color-accent)]" aria-hidden="true" />
+              Vận hành cổng
+            </div>
+            <h1 className="font-[family:var(--font-display)] text-3xl font-bold tracking-[-0.025em] text-foreground sm:text-4xl">
+              Giám sát ra / vào
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              Theo dõi lượt xe trong ngày, chọn một sự kiện để xem phương tiện và người liên quan.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void loadData(true)} disabled={refreshing} className="min-h-10 whitespace-nowrap">
+              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
+              Làm mới
             </Button>
-            
-            {/* WebSocket Status */}
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium cursor-pointer ${
-              isConnected 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-red-100 text-red-700 hover:bg-red-200'
-            }`} onClick={!isConnected ? reconnect : undefined} title={connectionError || ''}>
-              <div className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-              }`}></div>
-              {isConnected ? 'Hoạt động' : 'Kết nối lại'}
+            <Button
+              variant="outline"
+              onClick={!isConnected ? reconnect : undefined}
+              disabled={isConnected}
+              title={connectionError || undefined}
+              className="min-h-10 whitespace-nowrap"
+            >
+              <Radio className={`mr-2 h-4 w-4 ${isConnected ? "text-[var(--color-success)]" : "text-[var(--color-critical)]"}`} aria-hidden="true" />
+              {isConnected ? "Đang nhận realtime" : "Kết nối lại"}
+            </Button>
+          </div>
+        </header>
+
+        <section className="grid min-w-0 grid-cols-1 border-y border-border sm:grid-cols-3" aria-label="Tổng quan hôm nay">
+          {[
+            { label: "Lượt vào", value: statistics?.entryCount ?? 0, icon: ArrowDownToLine, tone: "var(--color-success)" },
+            { label: "Lượt ra", value: statistics?.exitCount ?? 0, icon: ArrowUpFromLine, tone: "var(--color-critical)" },
+            { label: "Xe duy nhất", value: statistics?.uniqueVehicles ?? 0, icon: CarFront, tone: "var(--color-signal)" },
+          ].map(({ label, value, icon: Icon, tone }, index) => (
+            <div key={label} className={`min-w-0 px-4 py-4 sm:px-5 ${index > 0 ? "border-t border-border sm:border-l sm:border-t-0" : ""}`}>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Icon className="h-4 w-4" style={{ color: tone }} aria-hidden="true" />
+                {label}
+              </div>
+              <p className="mt-2 font-[family:var(--font-display)] text-3xl font-bold tracking-[-0.03em] text-foreground">{value}</p>
+            </div>
+          ))}
+        </section>
+
+        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(20rem,0.85fr)]">
+          <div className="min-w-0 rounded-lg border border-border bg-card shadow-[var(--shadow-card)]">
+            <div className="border-b border-border p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="font-[family:var(--font-display)] text-xl font-bold tracking-[-0.02em] text-foreground">Sự kiện mới nhất</h2>
+                  <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">{filteredLogs.length} sự kiện phù hợp trong hôm nay</p>
+                </div>
+                <Badge variant="outline" className="w-fit border-[var(--color-rule-2)] text-muted-foreground">
+                  <Clock3 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  {new Date().toLocaleDateString("vi-VN")}
+                </Badge>
+              </div>
+              <div className="mt-4 grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+                <div className="relative min-w-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm biển số hoặc người lái" className="min-h-10 pl-9" />
+                </div>
+                <Select value={movementFilter} onValueChange={(value) => setMovementFilter(value as MovementFilter)}>
+                  <SelectTrigger className="min-h-10"><SelectValue placeholder="Chiều di chuyển" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tất cả lượt</SelectItem>
+                    <SelectItem value="entry">Vào cổng</SelectItem>
+                    <SelectItem value="exit">Ra cổng</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={vehicleFilter} onValueChange={(value) => setVehicleFilter(value as VehicleFilter)}>
+                  <SelectTrigger className="min-h-10"><SelectValue placeholder="Loại xe" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Mọi loại xe</SelectItem>
+                    <SelectItem value="internal">Xe nội bộ</SelectItem>
+                    <SelectItem value="external">Xe khách</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid min-w-0 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+              {filteredLogs.map((log) => {
+                const selected = log.id === selectedLog?.id
+                const isEntry = log.type === "entry"
+                return (
+                  <button
+                    key={log.id}
+                    type="button"
+                    onClick={() => void loadVehicleDetail(log)}
+                    aria-pressed={selected}
+                    className={`min-w-0 bg-card p-4 text-left transition-[background-color,transform] duration-[var(--dur-short)] ease-[var(--ease-out)] focus-visible:z-10 focus-visible:outline-none active:translate-y-px ${selected ? "bg-[var(--color-paper-3)]" : "hover:bg-[var(--color-paper-2)]"}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-[family:var(--font-outlier)] text-base font-semibold tracking-wide text-foreground">{log.licensePlateNumber}</span>
+                      <Badge className={isEntry ? "bg-[var(--color-success-surface)] text-[var(--color-success)]" : "bg-[var(--color-critical-surface)] text-[var(--color-critical)]"}>
+                        {isEntry ? <ArrowDownToLine className="mr-1 h-3 w-3" aria-hidden="true" /> : <ArrowUpFromLine className="mr-1 h-3 w-3" aria-hidden="true" />}
+                        {isEntry ? "Vào" : "Ra"}
+                      </Badge>
+                    </div>
+                    <p className="mt-4 truncate text-sm font-medium text-foreground">{log.driverName || log.employeeName || "Chưa xác định người lái"}</p>
+                    <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{log.gateLocation || "Chưa có vị trí cổng"}</span>
+                    </div>
+                    <p className="mt-4 font-[family:var(--font-outlier)] text-xs text-muted-foreground">{formatTimestamp(log.entryExitTime)}</p>
+                  </button>
+                )
+              })}
+              {filteredLogs.length === 0 && (
+                <div className="col-span-full bg-card px-5 py-14 text-center">
+                  <CarFront className="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
+                  <p className="mt-3 font-medium text-foreground">Chưa có sự kiện phù hợp</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Đổi bộ lọc hoặc làm mới dữ liệu để kiểm tra lại.</p>
+                </div>
+              )}
             </div>
           </div>
-      </div>
 
-        {/* Realtime gate dashboard - updates via WS (pulse) + 30s polling */}
-        <div className="mb-6">
-          <ErrorBoundary>
-            <RealtimeGateDashboard pulse={realtimePulse} />
-          </ErrorBoundary>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Personnel Information */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+          <aside className="min-w-0 space-y-5" aria-label="Chi tiết phương tiện đã chọn">
+            <section className="overflow-hidden rounded-lg border border-border bg-card shadow-[var(--shadow-card)]">
+              <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
+                <div>
+                  <h2 className="font-[family:var(--font-display)] text-xl font-bold tracking-[-0.02em] text-foreground">Chi tiết phương tiện</h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">Sự kiện đang chọn</p>
                 </div>
-                <h2 className="text-xl font-semibold text-gray-800">Thông tin quân nhân ra / vào</h2>
+                {selectedLog && <Badge variant="outline">{movementLabel(selectedLog.type)}</Badge>}
               </div>
-              
-              <div className="border-2 border-gray-200 rounded-xl p-6 bg-gradient-to-br from-gray-50 to-white">
-                {isLoadingEmployeeInfo ? (
-                  <div className="flex items-center justify-center h-48">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-gray-600">Đang tải thông tin quân nhân...</p>
-                    </div>
-                  </div>
-                ) : employeeInfo ? (
-                  <div className="flex gap-6">
-                    {/* Photo placeholder */}
-                    <div className="flex-shrink-0">
-                        <div className="w-32 h-40 bg-gradient-to-br from-green-100 to-green-50 border-2 border-green-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
-                          {employeeInfo.avatar ? (
-                            <img 
-                              src={getImageUrl(employeeInfo.avatar) || '/placeholder-user.jpg'} 
-                              alt="Employee photo" 
-                              className="w-32 h-40 object-cover rounded-xl" 
-                            />
-                          ) : (
-                            <div className="text-center">
-                              <svg className="w-12 h-12 text-green-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                              </svg>
-                              <span className="text-xs text-green-500 font-medium">Ảnh</span>
-                            </div>
-                          )}
-                        </div>
-                    </div>
-                    
-                    {/* Information table */}
-                    <div className="flex-1">
-                      <table className="w-full">
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Giờ ra / vào:</td>
-                            <td className="py-2 text-gray-800">{employeeInfo.logTime ? new Date(employeeInfo.logTime).toLocaleString('vi-VN') : 'N/A'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Họ và tên:</td>
-                            <td className="py-2 text-gray-800">{employeeInfo.employeeName}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Cơ quan, đơn vị:</td>
-                            <td className="py-2 text-gray-800">{employeeInfo.department}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">ID quân nhân:</td>
-                            <td className="py-2 text-gray-800">{employeeInfo.employeeId}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Tình trạng:</td>
-                            <td className="py-2 text-gray-800">{employeeInfo.logType === 'ENTRY' ? 'Vào cổng' : 'Ra cổng'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Loại xe:</td>
-                            <td className="py-2 text-gray-800">{employeeInfo.brand && employeeInfo.model ? `${employeeInfo.brand} ${employeeInfo.model}` : 'N/A'}</td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Biển số:</td>
-                            <td className="py-2 text-gray-800">{employeeInfo.licensePlateNumber}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+
+              <div className="p-4 sm:p-5">
+                {detailLoading ? (
+                  <div className="flex min-h-56 items-center justify-center text-sm text-muted-foreground" aria-live="polite">
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Đang tải chi tiết xe
                   </div>
                 ) : selectedLog ? (
-                  <div className="flex gap-6">
-                    {/* Photo placeholder */}
-                    <div className="flex-shrink-0">
-                        <div className="w-32 h-40 bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200">
-                          {selectedLog.imagePath ? (
-                            <img 
-                              src={getImageUrl(selectedLog.imagePath) || '/placeholder.jpg'} 
-                              alt="Vehicle photo" 
-                              className="w-32 h-40 object-cover rounded-xl" 
-                            />
-                          ) : (
-                            <div className="text-center">
-                              <svg className="w-12 h-12 text-blue-400 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                              </svg>
-                              <span className="text-xs text-blue-500 font-medium">Ảnh</span>
-                            </div>
-                          )}
-                        </div>
-                    </div>
-                    
-                    {/* Information table */}
-                    <div className="flex-1">
-                      <table className="w-full">
-                        <tbody>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Giờ ra / vào:</td>
-                            <td className="py-2 text-gray-800">{formatTime(selectedLog.entryExitTime)} - {formatDate(selectedLog.entryExitTime)}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Họ và tên:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.driverName || 'N/A'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Cơ quan, đơn vị:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.employeeName || 'N/A'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">ID quân nhân:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.vehicleId || 'N/A'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Tình trạng:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.type === 'entry' ? 'Vào cổng' : 'Ra cổng'}</td>
-                          </tr>
-                          <tr className="border-b">
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Loại xe:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.vehicleBrand && selectedLog.vehicleModel ? `${selectedLog.vehicleBrand} ${selectedLog.vehicleModel}` : 'N/A'}</td>
-                          </tr>
-                          <tr>
-                            <td className="py-2 pr-4 font-semibold text-gray-700">Biển số:</td>
-                            <td className="py-2 text-gray-800">{selectedLog.licensePlateNumber}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Chưa có thông tin</h3>
-                    <p className="text-gray-500 mb-4">Chọn một quân nhân từ danh sách bên dưới để xem thông tin chi tiết</p>
-                    <div className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-sm font-medium">
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Hướng dẫn sử dụng
-                    </div>
-        </div>
-      )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Clock and Photo */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 text-center h-full flex flex-col">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                  <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a1 1 0 012 0v4m0 0V3a1 1 0 012 0v4m0 0a3 3 0 11-6 0m6 0a3 3 0 11-6 0m6 0H9a3 3 0 000 6h6a3 3 0 000-6H9z" />
-                  </svg>
-                </div>
-                <div className="text-lg font-medium text-gray-700">{formatCurrentDate(currentTime)}</div>
-          </div>
-
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 mb-6">
-                <div className="text-4xl font-bold text-gray-800 font-mono tracking-wider">
-                  {formatClock(currentTime)}
-                </div>
-                <div className="text-sm text-blue-600 font-medium mt-1">Thời gian hiện tại</div>
-          </div>
-
-              <div className="flex-1 flex items-center justify-center min-h-0 px-4">
-                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 border-2 border-gray-200 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-shadow duration-200 min-h-48">
-                  {employeeInfo && (employeeInfo as any).vehicleImagePath ? (
-                    <img 
-                      src={getImageUrl((employeeInfo as any).vehicleImagePath) || '/placeholder.jpg'}
-                      alt="Vehicle photo"
-                      className="w-full h-full object-cover rounded-xl"
-                      onError={(e) => {
-                        // Fallback to placeholder if image fails to load
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        target.parentElement!.innerHTML = `
-                          <div class="text-center">
-                            <svg class="w-16 h-16 text-gray-400 mx-auto mb-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
-                            </svg>
-                            <span class="text-sm text-gray-500 font-medium">Ảnh xe</span>
-                          </div>
-                        `;
-                      }}
-                    />
-                  ) : (
-                    <div className="text-center">
-                      <svg className="w-16 h-16 text-gray-400 mx-auto mb-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                      </svg>
-                      <span className="text-sm text-gray-500 font-medium">Camera</span>
-                    </div>
-                  )}
-                </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-        {/* Personnel Queue Section - Full Width */}
-        <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 mt-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800">Thứ tự quân nhân ra vào</h2>
-              <p className="text-sm text-gray-500">Nhấp vào thẻ để xem thông tin chi tiết</p>
-            </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-            <div className="flex gap-8 pb-4 min-w-max">
-              {filteredLogs.map((log) => (
-              <div 
-                key={log.id} 
-                className={`flex-shrink-0 w-48 rounded-xl p-8 text-center cursor-pointer transition-all duration-300 transform hover:scale-105 ${
-                  selectedLog?.id === log.id 
-                    ? 'bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-400 shadow-lg' 
-                    : 'bg-gradient-to-br from-gray-50 to-white border border-gray-200 hover:shadow-md hover:border-blue-300'
-                }`}
-                onClick={() => setSelectedLog(log)}
-              >
-                <div className={`w-24 h-32 rounded-lg mx-auto mb-4 flex items-center justify-center transition-all duration-200 ${
-                  selectedLog?.id === log.id 
-                    ? 'bg-gradient-to-br from-blue-200 to-blue-100 border-2 border-blue-300' 
-                    : 'bg-gradient-to-br from-gray-200 to-gray-100 border border-gray-300'
-                  }`} style={{ aspectRatio: '3/4' }}>
-                    {log.employeeAvatar ? (
-                      <img 
-                        src={getImageUrl(log.employeeAvatar) || '/placeholder-user.jpg'} 
-                        alt="employee photo" 
-                        className="w-24 h-32 object-cover rounded-lg" 
-                      />
-                    ) : (
-                      <div className="text-center">
-                        <svg className={`w-10 h-10 mx-auto mb-2 ${
-                          selectedLog?.id === log.id ? 'text-blue-500' : 'text-gray-400'
-                        }`} fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                        </svg>
-                        <div className={`w-2 h-2 rounded-full mx-auto ${
-                          log.type === 'entry' ? 'bg-green-400' : 'bg-red-400'
-                        }`}></div>
+                  <>
+                    <div className="relative flex min-h-44 items-end overflow-hidden rounded-md border border-border bg-[var(--color-paper-3)] p-4">
+                      <CarFront className="absolute right-4 top-4 h-12 w-12 text-[var(--color-accent)]" aria-hidden="true" />
+                      {liveImage && (
+                        <img
+                          src={getImageUrl(liveImage) || ""}
+                          alt={`Ảnh xe biển số ${currentPlate}`}
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(event) => { event.currentTarget.style.display = "none" }}
+                        />
+                      )}
+                      <div className="relative">
+                        <p className="font-[family:var(--font-outlier)] text-xl font-semibold tracking-wide text-foreground">{currentPlate}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{vehicleDescription(selectedLog, vehicleDetail)}</p>
                       </div>
-                    )}
-                  </div>
-                <div className="text-lg font-medium text-gray-700 mb-2 truncate" title={log.employeeName || 'Khách'}>
-                  {log.employeeName || 'Khách'}
-                </div>
-                {/* <div className="text-base text-gray-500 mb-2 truncate" title={log.employeeName || 'N/A'}>
-                  {log.employeeName || 'N/A'}
-                </div> */}
-                {log.employeeDepartment && (
-                  <div className="text-sm text-gray-400 mb-2 truncate" title={log.employeeDepartment}>
-                    {log.employeeDepartment}
+                    </div>
+
+                    <dl className="mt-5 divide-y divide-border text-sm">
+                      {[
+                        { label: "Thời điểm", value: formatTimestamp(vehicleDetail?.logTime || selectedLog.entryExitTime), icon: Clock3 },
+                        { label: "Cổng", value: vehicleDetail?.gateLocation || selectedLog.gateLocation || "Chưa có vị trí cổng", icon: MapPin },
+                        { label: "Người lái / chủ xe", value: vehicleDetail?.driverName || vehicleDetail?.employeeName || selectedLog.driverName || selectedLog.employeeName || "Chưa xác định", icon: UserRound },
+                        { label: "Đơn vị", value: vehicleDetail?.department || selectedLog.employeeDepartment || "Chưa có thông tin", icon: Activity },
+                        { label: "Mã phương tiện", value: vehicleDetail?.vehicleId || selectedLog.vehicleId || "Chưa có mã", icon: CarFront },
+                      ].map(({ label, value, icon: Icon }) => (
+                        <div key={label} className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-3 py-3">
+                          <dt className="flex items-center gap-2 text-muted-foreground"><Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{label}</dt>
+                          <dd className="min-w-0 break-words font-medium text-foreground">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </>
+                ) : (
+                  <div className="flex min-h-56 flex-col items-center justify-center text-center">
+                    <ImageIcon className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
+                    <p className="mt-3 font-medium text-foreground">Chọn một sự kiện</p>
+                    <p className="mt-1 max-w-xs text-sm leading-6 text-muted-foreground">Thông tin xe và người liên quan sẽ hiện tại đây.</p>
                   </div>
                 )}
-                {log.employeePosition && (
-                  <div className="text-sm text-gray-400 mb-3 truncate" title={log.employeePosition}>
-                    {log.employeePosition}
-                  </div>
-                )}
-                <div className="mt-3">
-                  <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium ${
-                    log.type === 'entry' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-red-100 text-red-700'
-                  }`}>
-                    {log.type === 'entry' ? 'Vào' : 'Ra'}
-                  </span>
-                </div>
               </div>
-            ))}
-            </div>
-          </div>
-        </div>
+            </section>
+
+            <ErrorBoundary>
+              <RealtimeGateDashboard pulse={realtimePulse} />
+            </ErrorBoundary>
+          </aside>
+        </section>
       </div>
-    </div>
+    </main>
   )
 }

@@ -1,0 +1,117 @@
+flowchart TD
+    start([Login or Member deep link]) --> identity[Refresh identity, MEMBER role, and owned-resource context]
+    identity --> member{Member?}
+    member -->|Yes| shell[Mobile Member shell with bottom navigation]
+    member -->|Platform Admin| platformLanding[Replace URL with Platform Overview]
+    member -->|Tenant Admin, Site Manager, or Security Guard| operatorLanding[Replace URL with Tenant Operations Dashboard]
+    member -->|Unauthenticated or expired| login[Login with validated relative return path]
+    login --> identity
+
+    shell --> destination{Member destination}
+    destination --> garage[My vehicles]
+    destination --> registrations[Organization registrations]
+    destination --> visit[Visit and QR]
+    destination --> history[Unified history]
+    destination --> account[Account and privacy]
+
+    garage --> garageState{Garage state}
+    garageState -->|Empty| addVehicle[Add owned vehicle]
+    garageState -->|Owned vehicle| editVehicle[View or edit Member-safe metadata]
+    garageState -->|Load failure or offline| garageRecover[Show labeled cached data or retry]
+    addVehicle --> plateCheck{Normalized plate ownership}
+    plateCheck -->|Owned by current Member| editVehicle
+    plateCheck -->|Claimed by another principal| plateConflict[Generic conflict without owner disclosure]
+    plateCheck -->|Available| vehicleForm[Enter type, brand, model, color, year, photo]
+    vehicleForm --> photoState{Photo upload state}
+    photoState -->|Ready or optional| saveVehicle[Save owned platform vehicle]
+    photoState -->|Failed| photoRetry[Keep text and previous photo; Retry or Remove]
+    photoRetry --> photoState
+    editVehicle --> saveVehicle
+    saveVehicle --> garage
+
+    registrations --> eligibleSites[Load only eligible organization and site options]
+    eligibleSites --> registrationStart{Existing request?}
+    registrationStart -->|No| draft[Create server registration DRAFT]
+    registrationStart -->|DRAFT| draft
+    registrationStart -->|PENDING| pending[View PENDING status only]
+    registrationStart -->|APPROVED| approved[View active site registration]
+    registrationStart -->|REJECTED| rejected[Show public reason and Edit to next draft revision]
+    registrationStart -->|SUSPENDED| suspended[Show suspension reason and Contact organization]
+
+    draft --> requirements[Load versioned site requirements]
+    requirements --> editDraft[Edit fields and autosave plus explicit Save draft]
+    editDraft --> attachments[Upload evidence files]
+    attachments --> attachmentState{Attachment state}
+    attachmentState -->|Uploading or scanning| attachmentWait[Show progress]
+    attachmentState -->|Failed| attachmentRetry[Retry or Remove; preserve draft]
+    attachmentState -->|Ready| reviewSubmit[Review org, site, vehicle, requirements, evidence]
+    attachmentWait --> attachmentState
+    attachmentRetry --> attachments
+    reviewSubmit --> submitResult{Versioned idempotent submit succeeds?}
+    submitResult -->|Yes| pending
+    submitResult -->|Validation, stale, or requirements changed| draftRecover[Preserve compatible data and require review]
+    draftRecover --> editDraft
+
+    rejected --> editDraft
+    pending --> reviewerDecision{Reviewer lifecycle decision}
+    reviewerDecision -->|Approve atomically| materialize[Create or activate affiliation and site registration plus audit and outbox]
+    materialize --> approved
+    reviewerDecision -->|Reject with reason| rejected
+    approved --> reviewerStatus{Registration status change}
+    reviewerStatus -->|Suspend with reason| suspended
+    suspended -->|Reviewer reactivates| approved
+
+    visit --> visitAction{Visit path}
+    visitAction -->|Create pass| createPass[Choose eligible site, owned vehicle, validity, gate and direction scope]
+    visitAction -->|Receive pass| claimPass[Claim opaque single-use organization code]
+    visitAction -->|Present existing pass| passDetail[Open owned Visit pass]
+    visitAction -->|Claim parking session| claimSession[Enter opaque single-use parking-session code]
+
+    createPass --> passResult{Ownership, site, and validity accepted?}
+    claimPass --> passResult
+    passResult -->|Yes| passDetail
+    passResult -->|Invalid, expired, or unavailable| passRecover[Generic error; preserve no raw credential]
+
+    passDetail --> passState{Pass lifecycle}
+    passState -->|ISSUED before display window| issued[Show scope and available-from time]
+    passState -->|ACTIVE| tokenIssue[Request short-lived QR presentation token]
+    passState -->|USED| used[Show completed pass]
+    passState -->|EXPIRED| passExpired[Disable QR and show pass expired]
+    passState -->|REVOKED| revoked[Disable QR and show revoked reason]
+    tokenIssue --> connectivity{Online?}
+    connectivity -->|Yes| qrOnline[Show opaque QR, expiry countdown, refresh at 45 seconds]
+    connectivity -->|No with current unexpired token| qrOffline[Show Offline plus countdown until token expiry]
+    connectivity -->|No token or expired token| qrOfflineExpired[Hide QR; Expired reconnect to refresh]
+    qrOnline --> tokenExpiry{Token expires or refreshes}
+    tokenExpiry -->|Pass still active and online| tokenIssue
+    tokenExpiry -->|Offline| qrOfflineExpired
+    tokenExpiry -->|Pass expires or revoked| passState
+
+    claimSession --> sessionClaimResult{Opaque code valid and unclaimed?}
+    sessionClaimResult -->|Yes| sessionDetail[View owned claimed parking session]
+    sessionClaimResult -->|Invalid, expired, already claimed| sessionRecover[Non-enumerating error]
+
+    history --> historyFilter[Filter registrations, Visit passes, or parking visits]
+    historyFilter --> safeDetail[Open only owned authorized detail]
+    shell --> notification[Receive notification targetKind plus targetId]
+    notification --> targetAllowed{Allowlisted target and owned after reauthorization?}
+    targetAllowed -->|Yes| safeDetail
+    targetAllowed -->|No| notificationFallback[Generic unavailable and safe Member parent]
+
+    account --> profile[Profile, locale, timezone, verified email change]
+    account --> security[Password and session security handoff]
+    account --> privacy[Affiliation, registration, visible data, retention summary]
+    account --> preferences[Future Member notification preferences after policy exists]
+
+    shell --> sessionExpired[Session expiry]
+    sessionExpired --> login
+    safeDetail --> crossScope{Ownership or tenant and site scope valid?}
+    crossScope -->|No| unavailable[Non-disclosing unavailable state]
+    crossScope -->|Yes| shell
+
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef warning fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef denied fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    class shell,garage,registrations,visit,history,account,approved,qrOnline,sessionDetail success
+    class garageRecover,photoRetry,pending,rejected,suspended,draftRecover,attachmentWait,attachmentRetry,issued,qrOffline,qrOfflineExpired,passExpired warning
+    class platformLanding,operatorLanding,plateConflict,passRecover,revoked,sessionRecover,notificationFallback,unavailable denied

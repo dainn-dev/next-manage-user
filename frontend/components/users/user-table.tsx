@@ -126,8 +126,8 @@ export function UserTable({
   const someSelected = selectedUsers.length > 0 && selectedUsers.length < users.length
 
   return (
-    <div className="border rounded-lg">
-      <Table>
+    <div className="overflow-x-auto">
+      <Table className="min-w-[58rem]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-12">

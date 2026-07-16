@@ -1,0 +1,16 @@
+[
+  {
+    "date": "2026-07-16",
+    "macrostructure": "Workbench",
+    "theme": "ParkVision Control",
+    "enrichment": "none",
+    "brief": "Tenant-admin management pages aligned to the shared control-plane workbench"
+  },
+  {
+    "date": "2026-07-16",
+    "macrostructure": "Workbench",
+    "theme": "ParkVision Control",
+    "enrichment": "none",
+    "brief": "Vehicle monitoring redesigned around gate events and vehicle operations"
+  }
+]

@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor Operator as Tenant Admin / assigned Site Manager
+    participant UI as Map editor
+    participant API as Commissioning API
+    participant GIS as PostGIS / version store
+    participant Audit as Activation audit
+    participant Runtime as Edge / occupancy runtime
+    actor Guard as Security Guard
+
+    Operator->>UI: Edit slot polygon, code, zone, state
+    UI->>UI: Immediate native-pixel validation
+    UI->>API: PUT draft + If-Match(mapId:lockVersion)
+    alt stale lock
+        API-->>UI: 409 current version metadata
+        UI-->>Operator: Stop autosave; compare/export/load server
+    else saved
+        API->>GIS: Validate and increment lock version
+        API-->>UI: Draft + new ETag
+        UI-->>Operator: Saved timestamp
+    end
+
+    Operator->>UI: Validate and review Publish summary
+    UI->>API: Validate candidate against active site layout
+    API->>GIS: Check source, calibration, polygons, codes, zones and partitions
+    GIS-->>API: Structured validation result
+    API-->>UI: Feature-linked errors or valid summary
+
+    Operator->>UI: Confirm Publish
+    UI->>API: Publish + If-Match + Idempotency-Key
+    API->>GIS: Revalidate; archive old camera version; activate candidate atomically
+    API->>Audit: Record actor, versions, result and correlation
+    API-->>UI: Published version + audit reference + ETag
+    Runtime->>API: GET published slot map + If-None-Match
+    API-->>Runtime: New immutable geometry + calibration + ETag
+    Guard->>API: Read assigned-site published occupancy map
+    API-->>Guard: Published geometry/occupancy only
+
+    Note over UI,Runtime: Draft and invalid geometry are never runtime-readable
+    Note over API,Audit: Rollback repeats current site-wide validation and requires a reason
+

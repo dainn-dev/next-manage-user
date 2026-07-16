@@ -1,5 +1,9 @@
 "use client"
 
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * page: tenant organization settings · data-form: read-only state + focused editing surface
+ */
+
 import { useCallback, useEffect, useState } from "react"
 import {
   tenantSettingsApi,
@@ -12,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -95,11 +98,11 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tổ chức</h1>
-          <p className="text-sm text-muted-foreground">
+    <div className="platform-page max-w-5xl">
+      <header className="platform-page-header">
+        <div className="min-w-0">
+          <h1 className="platform-page-title">Tổ chức</h1>
+          <p className="platform-page-description">
             Hồ sơ tổ chức và quy mô khai báo khi đăng ký. Số khu vực thật quản lý ở trang Khu vực.
           </p>
         </div>
@@ -107,97 +110,59 @@ export default function OrganizationSettingsPage() {
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Làm mới
         </Button>
-      </div>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Thông tin chỉ đọc</CardTitle>
-          <CardDescription>Slug và trạng thái do nền tảng quản lý.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <div className="text-muted-foreground">Slug</div>
-            <div className="font-medium">{settings?.slug ?? "—"}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Trạng thái</div>
-            <div className="font-medium">{settings?.status ?? "—"}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Gói hiện tại</div>
-            <div className="font-medium">
-              {settings?.planName || settings?.planCode || "—"}
+      <section className="platform-data-surface" aria-label="Thông tin tổ chức">
+        <div className="border-b border-border px-4 py-4 sm:px-6">
+          <h2 className="text-base font-semibold">Thông tin chỉ đọc</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Slug và trạng thái do nền tảng quản lý.</p>
+        </div>
+        <dl className="grid divide-y divide-border text-sm sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+          {[
+            ["Slug", settings?.slug ?? "—"],
+            ["Trạng thái", settings?.status ?? "—"],
+            ["Gói hiện tại", settings?.planName || settings?.planCode || "—"],
+            ["Quy mô", `Đã có ${settings?.siteCount ?? 0} khu vực${settings?.areaCount != null ? ` / khai báo ~${settings.areaCount} khu vực` : ""}`],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0 px-4 py-4 sm:px-6">
+              <dt className="platform-stat-label">{label}</dt>
+              <dd className="mt-2 font-medium">{value}</dd>
             </div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Quy mô</div>
-            <div className="font-medium">
-              Đã có {settings?.siteCount ?? 0} khu vực
-              {settings?.areaCount != null
-                ? ` / khai báo ~${settings.areaCount} khu vực`
-                : ""}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+        </dl>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Chỉnh sửa hồ sơ</CardTitle>
-          <CardDescription>
-            Mô hình quản lý: {managementModelLabel(settings?.managementModel)}. Số khu vực
-            khai báo là ước lượng, không tự tạo site.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={submit}>
+      <section className="platform-data-surface" aria-label="Chỉnh sửa hồ sơ tổ chức">
+        <div className="border-b border-border px-4 py-4 sm:px-6">
+          <h2 className="text-base font-semibold">Chỉnh sửa hồ sơ</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Mô hình quản lý: {managementModelLabel(settings?.managementModel)}. Số khu vực khai báo là ước lượng, không tự tạo site.
+          </p>
+        </div>
+        <div className="p-4 sm:p-6">
+          <form className="max-w-2xl space-y-4" onSubmit={submit}>
             <div className="space-y-2">
               <Label htmlFor="org-name">Tên tổ chức</Label>
-              <Input
-                id="org-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={150}
-                required
-              />
+              <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={150} required />
             </div>
             <div className="space-y-2">
               <Label>Mô hình quản lý</Label>
               <Select value={managementModel} onValueChange={setManagementModel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn mô hình" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Chọn mô hình" /></SelectTrigger>
                 <SelectContent>
-                  {MANAGEMENT_MODELS.map((model) => (
-                    <SelectItem key={model.value} value={model.value}>
-                      {model.label}
-                    </SelectItem>
-                  ))}
+                  {MANAGEMENT_MODELS.map((model) => <SelectItem key={model.value} value={model.value}>{model.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="area-count">Số khu vực ước lượng</Label>
-              <Input
-                id="area-count"
-                type="number"
-                min={1}
-                max={999}
-                value={areaCount}
-                onChange={(e) => setAreaCount(e.target.value)}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Hint quy mô — giới hạn site thật theo gói thanh toán (max_sites), không theo số này.
-              </p>
+              <Input id="area-count" type="number" min={1} max={999} value={areaCount} onChange={(e) => setAreaCount(e.target.value)} required />
+              <p className="text-xs text-muted-foreground">Hint quy mô — giới hạn site thật theo gói thanh toán (max_sites), không theo số này.</p>
             </div>
-            <Button type="submit" disabled={saving}>
-              <Save className="mr-2 h-4 w-4" />
-              {saving ? "Đang lưu…" : "Lưu thay đổi"}
-            </Button>
+            <Button type="submit" disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Đang lưu…" : "Lưu thay đổi"}</Button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }

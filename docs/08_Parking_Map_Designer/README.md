@@ -4,24 +4,28 @@ The Parking Map Designer is the visual tool operators use to turn a raw camera s
 uploaded lot photo) into a labeled set of parking-slot polygons — the data the AI pipeline needs
 to know that "the vehicle at pixel (412, 210)" means "slot A01 is now occupied". It also captures
 the camera↔ground homography reference points that `09_AI_Calibration` turns into a
-pixel-to-world transform. Today none of this exists: there is no map UI, no polygon data model,
-and no geospatial storage anywhere in the repo. This document is a from-scratch design.
+pixel-to-world transform. The original architecture in this document has now been implemented as
+the commissioning page, versioned API, PostGIS model, and published runtime contract; remaining UX
+work is tracked by DAI-342.
 
 Status: Architecture and API contract approved (DAI-325) · Owner: Principal Architect · Last updated: 2026-07-16
 
+The role-specific, responsive authoring, recovery, publish, rollback, and Guard-view interaction
+contract is the [DAI-342 Parking Map & Slot setup wireflow](../06_User_RBAC/dai-342-parking-map-slot-setup-wireflow.md).
+
 ## 1. Current state vs Target
 
-### 1.1 Current state (verified from code)
+### 1.1 Current state (verified from code, 2026-07-16)
 
 | Concern | Today |
 |---|---|
-| Map/slot UI | **None.** No map component of any kind in `frontend/` — confirmed no map library dependency and no camera/video component either. |
-| Parking-slot concept | **Does not exist.** No entity, no table, no notion of a slot anywhere in `backend/`. |
-| Geospatial storage | **None.** PostgreSQL has no PostGIS extension enabled; no geometry columns anywhere in the Flyway migration history (V1–V35). |
-| Camera still capture | **None.** No snapshot-on-demand endpoint for cameras; the only images persisted today are vehicle-check evidence snapshots (`uploads/snapshots`, `VehicleLog.imagePath`). |
-| Homography/calibration | **None.** No calibration data is stored or computed anywhere today. |
+| Map/slot UI | `/parking/commissioning` provides the multi-step zone/camera/calibration flow, SVG polygon editor, undo/redo, autosave, validation, history, publish/rollback, and GeoJSON controls. DAI-342 defines the production interaction and responsive completion contract. |
+| Parking-slot concept | Stable logical slots, immutable geometry revisions, per-camera map versions, activation history, and published runtime reads are implemented. |
+| Geospatial storage | PostGIS-backed site-local geometry and same-scope camera/map/slot constraints are implemented through forward-only Flyway migrations. |
+| Camera still capture | Immutable still upload is implemented. Live capture is a best-effort endpoint and currently returns `capture_unavailable` in deployments without an adapter; upload is the guaranteed fallback. |
+| Homography/calibration | Validation and immutable calibration versions are implemented and pinned by map versions. |
 
-### 1.2 Target (from the vision, §2/§4 of the shared brief)
+### 1.2 Target interaction contract
 
 - A Next.js page where an operator selects a site + `OVERVIEW` camera (see `07_Camera_Management`),
   captures or uploads a background image, and draws one polygon per parking slot directly over it.

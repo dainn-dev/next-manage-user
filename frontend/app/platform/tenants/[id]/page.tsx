@@ -1,33 +1,40 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * page: tenant detail · archetype: five-tab task workbench · enrichment: none
+ */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import {
-  tenantApi,
-  type TenantDetail,
-  type TenantStatus,
-} from "@/lib/api/tenant-api"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { AlertTriangle, ArrowLeft, ExternalLink, PauseCircle, RefreshCw, Trash2 } from "lucide-react"
+
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, PauseCircle, RefreshCw, Trash2 } from "lucide-react"
 import { managementModelLabel } from "@/lib/management-models"
+import { tenantApi, type TenantDetail, type TenantStatus } from "@/lib/api/tenant-api"
 
 const STATUS_LABEL: Record<TenantStatus, string> = {
   active: "Active",
   suspended: "Suspended",
   pending_deletion: "Pending deletion",
+}
+
+const STATUS_TONE: Record<TenantStatus, "good" | "serious" | "critical"> = {
+  active: "good",
+  suspended: "serious",
+  pending_deletion: "critical",
 }
 
 export default function PlatformTenantDetailPage() {
@@ -52,7 +59,7 @@ export default function PlatformTenantDetailPage() {
     } catch (error) {
       toast({
         title: "Không tải được tenant",
-        description: error instanceof Error ? error.message : "Lỗi không xác định",
+        description: error instanceof Error ? error.message : "Hãy thử lại.",
         variant: "destructive",
       })
       router.replace("/platform/tenants")
@@ -72,11 +79,10 @@ export default function PlatformTenantDetailPage() {
       const updated = await tenantApi.rename(tenant.id, renameValue.trim())
       setTenant(updated)
       setRenameOpen(false)
-      toast({ title: "Đã đổi tên tenant" })
     } catch (error) {
       toast({
         title: "Đổi tên thất bại",
-        description: error instanceof Error ? error.message : "Lỗi không xác định",
+        description: error instanceof Error ? error.message : "Hãy thử lại.",
         variant: "destructive",
       })
     } finally {
@@ -91,11 +97,10 @@ export default function PlatformTenantDetailPage() {
       const updated = await tenantApi.updateStatus(tenant.id, nextStatus, statusReason || undefined)
       setTenant(updated)
       setStatusOpen(false)
-      toast({ title: "Đã cập nhật trạng thái" })
     } catch (error) {
       toast({
-        title: "Cập nhật thất bại",
-        description: error instanceof Error ? error.message : "Lỗi không xác định",
+        title: "Cập nhật trạng thái thất bại",
+        description: error instanceof Error ? error.message : "Kiểm tra lý do và thử lại.",
         variant: "destructive",
       })
     } finally {
@@ -103,45 +108,53 @@ export default function PlatformTenantDetailPage() {
     }
   }
 
+  const openStatusDialog = (status: TenantStatus) => {
+    setNextStatus(status)
+    setStatusReason("")
+    setStatusOpen(true)
+  }
+
   if (loading || !tenant) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-        Đang tải…
+      <div className="platform-page" aria-live="polite">
+        <div className="platform-empty-state min-h-[40vh]">
+          <p>Đang tải tenant…</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          <Button asChild variant="ghost" size="sm" className="-ml-2">
-            <Link href="/platform/tenants">
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Tenants
-            </Link>
-          </Button>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">{tenant.name}</h1>
-            <Badge>{STATUS_LABEL[tenant.status]}</Badge>
+    <div className="platform-page">
+      <header className="platform-page-header">
+        <div className="min-w-0">
+          <nav aria-label="Breadcrumb" className="mb-3">
+            <Button asChild variant="link" className="h-auto px-0 text-muted-foreground">
+              <Link href="/platform/tenants">
+                <ArrowLeft aria-hidden="true" />
+                Tenants
+              </Link>
+            </Button>
+          </nav>
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h1 className="platform-page-title">{tenant.name}</h1>
+            <span className="platform-status" data-tone={STATUS_TONE[tenant.status]}>
+              {STATUS_LABEL[tenant.status]}
+            </span>
           </div>
-          <p className="text-sm text-muted-foreground">{tenant.slug}</p>
-          <p className="text-sm text-muted-foreground">
-            Model: {managementModelLabel(tenant.managementModel)}
-            {" · "}
-            Khai báo ~{tenant.areaCount ?? "—"} khu vực
-            {" · "}
-            {tenant.sites.length} site thực tế
+          <p className="platform-page-description platform-mono mt-2 break-all">{tenant.slug}</p>
+          <p className="platform-page-description mt-2">
+            {managementModelLabel(tenant.managementModel)} · khai báo {tenant.areaCount ?? "—"} khu vực · {tenant.sites.length} site
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+
+        <div className="platform-page-actions">
+          <Button variant="outline" onClick={() => void load()}>
+            <RefreshCw aria-hidden="true" />
             Làm mới
           </Button>
           <Button
             variant="outline"
-            size="sm"
             onClick={() => {
               setRenameValue(tenant.name)
               setRenameOpen(true)
@@ -150,132 +163,159 @@ export default function PlatformTenantDetailPage() {
             Đổi tên
           </Button>
           {tenant.status === "active" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setNextStatus("suspended")
-                setStatusReason("")
-                setStatusOpen(true)
-              }}
-            >
-              <PauseCircle className="mr-1 h-3.5 w-3.5" />
+            <Button variant="outline" onClick={() => openStatusDialog("suspended")}>
+              <PauseCircle aria-hidden="true" />
               Suspend
             </Button>
           )}
           {tenant.status === "suspended" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setNextStatus("active")
-                setStatusReason("")
-                setStatusOpen(true)
-              }}
-            >
+            <Button variant="outline" onClick={() => openStatusDialog("active")}>
               Reactivate
             </Button>
           )}
           {tenant.status !== "pending_deletion" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive"
-              onClick={() => {
-                setNextStatus("pending_deletion")
-                setStatusReason("")
-                setStatusOpen(true)
-              }}
-            >
-              <Trash2 className="mr-1 h-3.5 w-3.5" />
+            <Button variant="destructive" onClick={() => openStatusDialog("pending_deletion")}>
+              <Trash2 aria-hidden="true" />
               Delete
             </Button>
           )}
-          <Button asChild variant="secondary" size="sm">
+        </div>
+      </header>
+
+      <p className="sr-only" aria-live="polite">
+        Tenant {tenant.name} đang ở trạng thái {STATUS_LABEL[tenant.status]}.
+      </p>
+
+      <Tabs defaultValue="overview" className="min-w-0 gap-5">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="h-auto min-w-max justify-start rounded-[var(--radius-card)] border border-border bg-card p-1">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="sites">Sites / usage</TabsTrigger>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            <TabsTrigger value="admins">Admin contacts</TabsTrigger>
+            <TabsTrigger value="audit">Audit</TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="overview" className="platform-data-surface p-4 sm:p-6">
+          <h2 className="text-lg font-bold tracking-[-0.02em]">Registration profile</h2>
+          <dl className="mt-5 grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">Management model</dt>
+              <dd className="mt-1 text-sm font-semibold">{managementModelLabel(tenant.managementModel)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">Area count intent</dt>
+              <dd className="mt-1 text-sm font-semibold">{tenant.areaCount ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">Created</dt>
+              <dd className="mt-1 text-sm">{new Date(tenant.createdAt).toLocaleString("vi-VN")}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-muted-foreground">Updated</dt>
+              <dd className="mt-1 text-sm">{new Date(tenant.updatedAt).toLocaleString("vi-VN")}</dd>
+            </div>
+          </dl>
+          <p className="mt-6 max-w-3xl border-t border-border pt-4 text-sm text-muted-foreground">
+            Area count mô tả quy mô lúc đăng ký; site và gate vẫn là các tài nguyên riêng biệt.
+          </p>
+        </TabsContent>
+
+        <TabsContent value="sites" className="platform-data-surface">
+          <div className="border-b border-border px-4 py-4 sm:px-6">
+            <h2 className="text-lg font-bold tracking-[-0.02em]">Sites ({tenant.sites.length})</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Danh sách site thuộc tenant và vị trí đã khai báo.</p>
+          </div>
+          {tenant.sites.length === 0 ? (
+            <div className="platform-empty-state">Chưa có site trong tenant này.</div>
+          ) : (
+            <div className="platform-mobile-list">
+              {tenant.sites.map((site) => (
+                <article key={site.id} className="platform-mobile-card sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.5fr)] sm:items-center">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold">{site.name}</h3>
+                    <p className="platform-mono mt-1 truncate text-xs text-muted-foreground">{site.id}</p>
+                  </div>
+                  <p className="text-sm text-muted-foreground sm:text-right">{site.location || "Chưa khai báo vị trí"}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="subscription" className="platform-data-surface p-4 sm:p-6">
+          <h2 className="text-lg font-bold tracking-[-0.02em]">Subscription</h2>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Billing là nguồn dữ liệu cross-tenant cho plan, trạng thái subscription và kỳ hiện tại.
+          </p>
+          <Button asChild className="mt-5">
             <Link href={`/platform/billing?search=${encodeURIComponent(tenant.slug)}`}>
-              Billing
+              Mở billing record
+              <ExternalLink aria-hidden="true" />
             </Link>
           </Button>
-        </div>
-      </div>
+        </TabsContent>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Registration profile</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
-            <div>
-              <div className="text-muted-foreground">Management model</div>
-              <div className="font-medium">{managementModelLabel(tenant.managementModel)}</div>
+        <TabsContent value="admins" className="platform-data-surface">
+          <div className="border-b border-border px-4 py-4 sm:px-6">
+            <h2 className="text-lg font-bold tracking-[-0.02em]">Admin contacts ({tenant.tenantAdmins.length})</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Các tenant admin hiện được gắn với tenant.</p>
+          </div>
+          {tenant.tenantAdmins.length === 0 ? (
+            <div className="platform-empty-state">Chưa có tenant admin.</div>
+          ) : (
+            <div className="platform-mobile-list">
+              {tenant.tenantAdmins.map((admin) => (
+                <article key={admin.id} className="platform-mobile-card sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold">{admin.fullName || admin.username}</h3>
+                    <p className="mt-1 break-all text-sm text-muted-foreground">{admin.email}</p>
+                  </div>
+                  <Badge variant="outline" className="w-fit">{admin.status || "Unknown"}</Badge>
+                </article>
+              ))}
             </div>
-            <div>
-              <div className="text-muted-foreground">Area count (intent)</div>
-              <div className="font-medium">{tenant.areaCount ?? "—"}</div>
-            </div>
-            <div className="sm:col-span-2 text-xs text-muted-foreground">
-              areaCount là ước lượng quy mô lúc đăng ký/onboard — không tự tạo N site. Site ≠ Gate.
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Sites ({tenant.sites.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {tenant.sites.length === 0 && (
-              <p className="text-muted-foreground">Chưa có site.</p>
-            )}
-            {tenant.sites.map((site) => (
-              <div key={site.id} className="rounded-md border px-3 py-2">
-                <div className="font-medium">{site.name}</div>
-                <div className="text-xs text-muted-foreground">{site.location || "—"}</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Tenant admins ({tenant.tenantAdmins.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {tenant.tenantAdmins.length === 0 && (
-              <p className="text-muted-foreground">Chưa có tenant admin.</p>
-            )}
-            {tenant.tenantAdmins.map((admin) => (
-              <div key={admin.id} className="rounded-md border px-3 py-2">
-                <div className="font-medium">{admin.fullName || admin.username}</div>
-                <div className="text-xs text-muted-foreground">
-                  {admin.email} · {admin.status || "—"}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </TabsContent>
 
-      <p className="text-xs text-muted-foreground">
-        Tạo: {new Date(tenant.createdAt).toLocaleString("vi-VN")} · Cập nhật:{" "}
-        {new Date(tenant.updatedAt).toLocaleString("vi-VN")}
-      </p>
+        <TabsContent value="audit" className="platform-data-surface p-4 sm:p-6">
+          <h2 className="text-lg font-bold tracking-[-0.02em]">Tenant audit</h2>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Mở audit log ở phạm vi tenant resource. Resource ID đầy đủ vẫn hiển thị trong từng entry.
+          </p>
+          <Button asChild variant="outline" className="mt-5">
+            <Link href="/platform/audit?resourceType=tenant">
+              Mở audit log
+              <ExternalLink aria-hidden="true" />
+            </Link>
+          </Button>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Đổi tên tenant</DialogTitle>
+            <DialogDescription>Tên mới sẽ xuất hiện trong registry và các liên kết control-plane.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="rename">Tên mới</Label>
-            <Input id="rename" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} />
+            <Input
+              id="rename"
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              aria-required="true"
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameOpen(false)}>
-              Hủy
-            </Button>
-            <Button onClick={() => void submitRename()} disabled={saving || !renameValue.trim()}>
-              Lưu
+            <Button variant="outline" onClick={() => setRenameOpen(false)}>Hủy</Button>
+            <Button
+              onClick={() => void submitRename()}
+              disabled={saving || !renameValue.trim()}
+              data-state={saving ? "loading" : "default"}
+            >
+              {saving ? "Đang lưu" : "Lưu tên"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -285,7 +325,23 @@ export default function PlatformTenantDetailPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Đổi trạng thái → {STATUS_LABEL[nextStatus]}</DialogTitle>
+            <DialogDescription>
+              Xác nhận tenant, hệ quả và lý do trước khi cập nhật lifecycle.
+            </DialogDescription>
           </DialogHeader>
+          <div className="rounded-[var(--radius-card)] border border-border bg-card p-4 text-sm">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--color-serious)]" aria-hidden="true" />
+              <div>
+                <p className="font-semibold">{tenant.name}</p>
+                <p className="mt-1 text-muted-foreground">
+                  {nextStatus === "active" && "Khôi phục quyền truy cập tenant theo trạng thái active."}
+                  {nextStatus === "suspended" && "Tạm dừng tenant; hoạt động tenant có thể bị giới hạn."}
+                  {nextStatus === "pending_deletion" && "Đánh dấu tenant chờ xoá. Đây là thay đổi lifecycle có mức ảnh hưởng cao."}
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="reason">
               Lý do {nextStatus === "pending_deletion" ? "(bắt buộc)" : "(tuỳ chọn)"}
@@ -293,18 +349,20 @@ export default function PlatformTenantDetailPage() {
             <Input
               id="reason"
               value={statusReason}
-              onChange={(e) => setStatusReason(e.target.value)}
+              onChange={(event) => setStatusReason(event.target.value)}
+              placeholder="Ghi chú hỗ trợ hoặc audit"
+              aria-required={nextStatus === "pending_deletion"}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusOpen(false)}>
-              Hủy
-            </Button>
+            <Button variant="outline" onClick={() => setStatusOpen(false)}>Hủy</Button>
             <Button
+              variant={nextStatus === "pending_deletion" ? "destructive" : "default"}
               onClick={() => void submitStatus()}
               disabled={saving || (nextStatus === "pending_deletion" && !statusReason.trim())}
+              data-state={saving ? "loading" : "default"}
             >
-              Xác nhận
+              {saving ? "Đang cập nhật" : `Xác nhận ${STATUS_LABEL[nextStatus]}`}
             </Button>
           </DialogFooter>
         </DialogContent>

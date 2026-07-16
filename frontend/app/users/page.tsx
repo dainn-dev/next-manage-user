@@ -1,5 +1,9 @@
 "use client"
 
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * page: tenant user registry · data-form: KPI strip + filter command row + responsive data surface
+ */
+
 import { useState, useEffect } from "react"
 import type { User, CreateUserRequest, UpdateUserRequest } from "@/lib/types"
 import { UserRole, UserStatus } from "@/lib/types"
@@ -9,9 +13,8 @@ import { UserForm } from "@/components/users/user-form"
 import { BulkOperationsDialog } from "@/components/users/bulk-operations-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { 
@@ -23,8 +26,6 @@ import {
   UserX, 
   Shield, 
   MoreHorizontal,
-  Filter,
-  Download
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
@@ -69,9 +70,6 @@ export default function UsersPage() {
     adminUsers: 0,
     regularUsers: 0,
   })
-
-  // Filter bar state
-  const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
 
   const { user: currentUser } = useAuth()
   const { toast } = useToast()
@@ -318,190 +316,74 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="p-8 bg-background min-h-screen">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Quản lý người dùng</h1>
-          <p className="text-muted-foreground text-lg">Quản lý tài khoản người dùng và quyền hạn trong hệ thống</p>
+    <div className="platform-page">
+      <header className="platform-page-header">
+        <div className="min-w-0">
+          <h1 className="platform-page-title">Quản lý người dùng</h1>
+          <p className="platform-page-description">Quản lý tài khoản, vai trò và trạng thái truy cập trong tổ chức.</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleRefresh} disabled={loading} className="shadow-sm hover:shadow-md transition-all duration-200">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
+        <div className="platform-page-actions">
+          <Button variant="outline" onClick={handleRefresh} disabled={loading}>
+            <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
+            {loading ? "Đang tải" : "Làm mới"}
           </Button>
-          <Button onClick={() => setIsFormOpen(true)} className="shadow-sm hover:shadow-md transition-all duration-200">
-            <Plus className="h-4 w-4 mr-2" />
+          <Button onClick={() => setIsFormOpen(true)}>
+            <Plus aria-hidden="true" />
             Thêm người dùng
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng người dùng</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statistics.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              Tài khoản trong hệ thống
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Hoạt động</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{statistics.activeUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              Người dùng đang hoạt động
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Quản trị viên</CardTitle>
-            <Shield className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{statistics.adminUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              Có quyền quản trị
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bị khóa</CardTitle>
-            <UserX className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{statistics.lockedUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              Tài khoản bị khóa
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search and Filter Bar */}
-      <div className="bg-white border rounded-lg mb-6 shadow-sm">
-        {/* Action Buttons - Inline */}
-        <div className="flex flex-wrap gap-4 p-6 border-b border-gray-100 bg-gray-50/50">
-          <Button
-            variant={isFilterBarOpen ? "default" : "outline"}
-            size="sm"
-            onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
-          >
-            <Filter className="h-4 w-4" />
-            {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
-            {isFilterBarOpen ? (
-              <span className="ml-1 text-sm">▼</span>
-            ) : (
-              <span className="ml-1 text-sm">▶</span>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh} 
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Làm mới dữ liệu
-          </Button>
-        </div>
-
-        {/* Collapsible Filter Content */}
-        {isFilterBarOpen && (
-          <div className="p-6 bg-white">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
-              <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm người dùng theo tiêu chí cụ thể</p>
+      <section className="platform-stat-strip" aria-label="Tổng quan người dùng">
+        {[
+          { label: "Tổng người dùng", value: statistics.totalUsers, note: "Tài khoản trong tổ chức", icon: Users, tone: "var(--color-signal)" },
+          { label: "Hoạt động", value: statistics.activeUsers, note: "Có thể truy cập hệ thống", icon: UserCheck, tone: "var(--color-success)" },
+          { label: "Quản trị viên", value: statistics.adminUsers, note: "Có quyền quản trị", icon: Shield, tone: "var(--color-accent)" },
+          { label: "Bị khóa", value: statistics.lockedUsers, note: "Cần xem xét lại truy cập", icon: UserX, tone: "var(--color-critical)" },
+        ].map(({ label, value, note, icon: Icon, tone }) => (
+          <div key={label} className="platform-stat">
+            <div className="flex items-center gap-2">
+              <Icon className="size-4" style={{ color: tone }} aria-hidden="true" />
+              <p className="platform-stat-label">{label}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Search className="h-4 w-4 text-blue-600" />
-                  Tìm kiếm
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Tìm theo tên, email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-purple-600" />
-                  Vai trò
-                </Label>
-                <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as "all" | UserRole)}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                    <SelectValue placeholder="Tất cả vai trò" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">👥 Tất cả vai trò</SelectItem>
-                    <SelectItem value={UserRole.USER}>👤 Người dùng</SelectItem>
-                    <SelectItem value={UserRole.ADMIN}>🛡️ Quản trị viên</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-green-600" />
-                  Trạng thái
-                </Label>
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | UserStatus)}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                    <SelectValue placeholder="Tất cả trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">🔄 Tất cả trạng thái</SelectItem>
-                    <SelectItem value={UserStatus.ACTIVE}>✅ Hoạt động</SelectItem>
-                    <SelectItem value={UserStatus.INACTIVE}>⏸️ Không hoạt động</SelectItem>
-                    <SelectItem value={UserStatus.LOCKED}>🔒 Bị khóa</SelectItem>
-                    <SelectItem value={UserStatus.SUSPENDED}>⏳ Tạm khóa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700">&nbsp;</Label>
-                <Button 
-                  variant="outline" 
-                  onClick={clearFilters} 
-                  className="w-full h-11 border-gray-300 hover:bg-gray-50 hover:border-gray-400 rounded-lg shadow-sm transition-all duration-200"
-                >
-                  🗑️ Xóa bộ lọc
-                </Button>
-              </div>
-            </div>
+            <p className="platform-stat-value">{value}</p>
+            <p className="platform-stat-note">{note}</p>
           </div>
-        )}
-      </div>
+        ))}
+      </section>
+
+      <section className="platform-toolbar" aria-label="Bộ lọc người dùng">
+        <div className="relative min-w-0 flex-1 basis-64">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input aria-label="Tìm người dùng" placeholder="Tìm theo tên, email hoặc username" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="min-h-11 pl-9" />
+        </div>
+        <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as "all" | UserRole)}>
+          <SelectTrigger className="min-h-11 w-full sm:w-52" aria-label="Lọc theo vai trò"><SelectValue placeholder="Vai trò" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả vai trò</SelectItem>
+            <SelectItem value={UserRole.USER}>Người dùng</SelectItem>
+            <SelectItem value={UserRole.ADMIN}>Quản trị viên</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | UserStatus)}>
+          <SelectTrigger className="min-h-11 w-full sm:w-52" aria-label="Lọc theo trạng thái"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả trạng thái</SelectItem>
+            <SelectItem value={UserStatus.ACTIVE}>Hoạt động</SelectItem>
+            <SelectItem value={UserStatus.INACTIVE}>Không hoạt động</SelectItem>
+            <SelectItem value={UserStatus.LOCKED}>Bị khóa</SelectItem>
+            <SelectItem value={UserStatus.SUSPENDED}>Tạm khóa</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="outline" onClick={clearFilters} className="min-h-11 whitespace-nowrap">Xóa lọc</Button>
+      </section>
 
       {/* Bulk Actions */}
       {selectedUsers.length > 0 && (
-        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
+        <div className="platform-toolbar border-[var(--color-accent)] bg-[var(--color-paper-2)]">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+            <div className="size-2 rounded-full bg-primary" aria-hidden="true"></div>
+            <Badge variant="secondary">
               {selectedUsers.length} người dùng đã chọn
             </Badge>
           </div>
@@ -510,7 +392,6 @@ export default function UsersPage() {
               variant="outline"
               size="sm"
               onClick={() => setIsBulkDialogOpen(true)}
-              className="shadow-sm hover:shadow-md transition-all duration-200"
             >
               <MoreHorizontal className="h-4 w-4 mr-2" />
               Thao tác hàng loạt
@@ -519,7 +400,6 @@ export default function UsersPage() {
               variant="outline"
               size="sm"
               onClick={() => setSelectedUsers([])}
-              className="shadow-sm hover:shadow-md transition-all duration-200"
             >
               Bỏ chọn
             </Button>
@@ -527,24 +407,21 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Users Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Danh sách người dùng</CardTitle>
-            <div className="text-sm text-muted-foreground">
-              Hiển thị {users.length} / {totalElements} người dùng
-            </div>
+      <section className="platform-data-surface" aria-label="Danh sách người dùng">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
+          <div>
+            <h2 className="text-base font-semibold">Danh sách người dùng</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Hiển thị {users.length} / {totalElements} người dùng</p>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="min-w-0">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="platform-empty-state">
               <RefreshCw className="h-6 w-6 animate-spin mr-2" />
               <span>Đang tải...</span>
             </div>
           ) : error ? (
-            <div className="text-center py-8 text-red-600">
+            <div className="platform-empty-state text-destructive">
               {error}
             </div>
           ) : (
@@ -559,18 +436,17 @@ export default function UsersPage() {
               onUpdateUserRole={handleUpdateUserRole}
             />
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
+        <div className="platform-pagination">
+            <div>
               <div className="text-sm text-muted-foreground">
                 Trang {currentPage + 1} / {totalPages}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -605,8 +481,7 @@ export default function UsersPage() {
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
+        </div>
       )}
 
       {/* User Form Dialog */}

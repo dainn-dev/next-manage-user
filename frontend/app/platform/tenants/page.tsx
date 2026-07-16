@@ -1,3 +1,6 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * page: tenant registry · data-form: KPI strip + responsive registry · enrichment: none
+ */
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
@@ -129,7 +132,6 @@ export default function PlatformTenantsPage() {
     setSaving(true)
     try {
       await tenantApi.rename(renameTarget.id, renameValue.trim())
-      toast({ title: "Đã đổi tên tenant" })
       setRenameTarget(null)
       await load()
     } catch (error) {
@@ -155,7 +157,6 @@ export default function PlatformTenantsPage() {
     setSaving(true)
     try {
       await tenantApi.updateStatus(statusTarget.id, nextStatus, statusReason || undefined)
-      toast({ title: "Đã cập nhật trạng thái tenant" })
       setStatusTarget(null)
       await load()
     } catch (error) {
@@ -182,7 +183,6 @@ export default function PlatformTenantsPage() {
         areaCount: Number(createForm.areaCount) || 1,
       }
       const created = await tenantApi.create(payload)
-      toast({ title: "Đã tạo tenant", description: created.tenantName })
       setCreateOpen(false)
       setCreateForm(emptyCreate)
       router.push(`/platform/tenants/${created.tenantId}`)
@@ -198,55 +198,64 @@ export default function PlatformTenantsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tenants</h1>
-          <p className="text-sm text-muted-foreground">
-            Lifecycle registry cho toàn platform — không phải vận hành bãi xe của khách.
+    <div className="platform-page">
+      <header className="platform-page-header">
+        <div className="min-w-0">
+          <h1 className="platform-page-title">Tenant registry</h1>
+          <p className="platform-page-description">
+            Quản lý lifecycle tenant trên toàn platform — không truy cập vận hành bãi xe của khách.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
+        <div className="platform-page-actions">
+          <Button
+            variant="outline"
+            onClick={() => void load()}
+            disabled={loading}
+            data-state={loading ? "loading" : "default"}
+          >
+            <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
+            {loading ? "Đang tải" : "Làm mới"}
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus aria-hidden="true" />
             Tạo tenant
           </Button>
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng tenant</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{stats?.total ?? "—"}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{stats?.active ?? "—"}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Suspended</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{stats?.suspended ?? "—"}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending deletion</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">{stats?.pendingDeletion ?? "—"}</CardContent>
-        </Card>
-      </div>
+      <p className="sr-only" aria-live="polite">
+        {loading ? "Đang tải tenant registry" : `Đã tải ${totalElements} tenant`}
+      </p>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-[220px] flex-1">
+      <section aria-label="Tenant lifecycle metrics" className={loading ? "platform-stat-strip opacity-70" : "platform-stat-strip"}>
+        <Card className="platform-stat rounded-none border-0 bg-transparent shadow-none">
+          <CardHeader className="p-0">
+            <CardTitle className="platform-stat-label">Tổng tenant</CardTitle>
+          </CardHeader>
+          <CardContent className="platform-stat-value p-0">{stats?.total ?? "—"}</CardContent>
+        </Card>
+        <Card className="platform-stat rounded-none border-0 bg-transparent shadow-none">
+          <CardHeader className="p-0">
+            <CardTitle className="platform-stat-label">Active</CardTitle>
+          </CardHeader>
+          <CardContent className="platform-stat-value p-0">{stats?.active ?? "—"}</CardContent>
+        </Card>
+        <Card className="platform-stat rounded-none border-0 bg-transparent shadow-none">
+          <CardHeader className="p-0">
+            <CardTitle className="platform-stat-label">Suspended</CardTitle>
+          </CardHeader>
+          <CardContent className="platform-stat-value p-0">{stats?.suspended ?? "—"}</CardContent>
+        </Card>
+        <Card className="platform-stat rounded-none border-0 bg-transparent shadow-none">
+          <CardHeader className="p-0">
+            <CardTitle className="platform-stat-label">Pending deletion</CardTitle>
+          </CardHeader>
+          <CardContent className="platform-stat-value p-0">{stats?.pendingDeletion ?? "—"}</CardContent>
+        </Card>
+      </section>
+
+      <div className="platform-toolbar">
+        <div className="relative min-w-0 flex-1 basis-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
@@ -265,7 +274,7 @@ export default function PlatformTenantsPage() {
             setStatusFilter(value as TenantStatus | "all")
           }}
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Trạng thái" />
           </SelectTrigger>
           <SelectContent>
@@ -277,9 +286,10 @@ export default function PlatformTenantsPage() {
         </Select>
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-muted-foreground">
+      <div className="platform-data-surface hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[68rem] text-sm">
+          <caption className="sr-only">Tenant registry</caption>
+          <thead className="text-left text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Tenant</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -308,17 +318,19 @@ export default function PlatformTenantsPage() {
             )}
             {!loading &&
               tenants.map((tenant) => (
-                <tr
-                  key={tenant.id}
-                  className="cursor-pointer border-t hover:bg-muted/40"
-                  onClick={() => router.push(`/platform/tenants/${tenant.id}`)}
-                >
+                <tr key={tenant.id}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium">{tenant.name}</div>
-                        <div className="text-xs text-muted-foreground">{tenant.slug}</div>
+                      <div className="min-w-0">
+                        <Button
+                          variant="link"
+                          className="h-auto max-w-[18rem] justify-start truncate p-0 font-semibold"
+                          onClick={() => router.push(`/platform/tenants/${tenant.id}`)}
+                        >
+                          {tenant.name}
+                        </Button>
+                        <div className="platform-mono truncate text-xs text-muted-foreground">{tenant.slug}</div>
                       </div>
                     </div>
                   </td>
@@ -379,7 +391,77 @@ export default function PlatformTenantsPage() {
         </table>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="platform-data-surface md:hidden">
+        <div className="platform-mobile-list">
+          {loading && <div className="platform-empty-state">Đang tải tenant…</div>}
+          {!loading && tenants.length === 0 && (
+            <div className="platform-empty-state">
+              Không có tenant nào khớp bộ lọc. Thử đổi từ khoá hoặc trạng thái.
+            </div>
+          )}
+          {!loading && tenants.map((tenant) => (
+            <article key={tenant.id} className="platform-mobile-card">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <Button
+                    variant="link"
+                    className="h-auto max-w-full justify-start truncate p-0 text-left font-semibold"
+                    onClick={() => router.push(`/platform/tenants/${tenant.id}`)}
+                  >
+                    {tenant.name}
+                  </Button>
+                  <p className="platform-mono mt-1 truncate text-xs text-muted-foreground">{tenant.slug}</p>
+                </div>
+                <Badge variant={statusVariant(tenant.status)}>{STATUS_LABEL[tenant.status]}</Badge>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Model</dt>
+                  <dd className="mt-1 font-medium">{managementModelLabel(tenant.managementModel)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Sites</dt>
+                  <dd className="mt-1 font-medium">{tenant.siteCount}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Areas</dt>
+                  <dd className="mt-1 font-medium">{tenant.areaCount ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Admins</dt>
+                  <dd className="mt-1 font-medium">{tenant.tenantAdminCount}</dd>
+                </div>
+              </dl>
+
+              <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                <Button variant="outline" size="sm" onClick={(event) => openRename(tenant, event)}>
+                  Đổi tên
+                </Button>
+                {tenant.status === "active" && (
+                  <Button variant="outline" size="sm" onClick={(event) => openStatus(tenant, "suspended", event)}>
+                    <PauseCircle aria-hidden="true" />
+                    Suspend
+                  </Button>
+                )}
+                {tenant.status === "suspended" && (
+                  <Button variant="outline" size="sm" onClick={(event) => openStatus(tenant, "active", event)}>
+                    Reactivate
+                  </Button>
+                )}
+                {tenant.status !== "pending_deletion" && (
+                  <Button variant="destructive" size="sm" onClick={(event) => openStatus(tenant, "pending_deletion", event)}>
+                    <Trash2 aria-hidden="true" />
+                    Delete
+                  </Button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="platform-pagination">
         <span>
           {totalElements} tenant · trang {page + 1}/{Math.max(totalPages, 1)}
         </span>
@@ -433,9 +515,14 @@ export default function PlatformTenantsPage() {
           <DialogHeader>
             <DialogTitle>Đổi trạng thái → {STATUS_LABEL[nextStatus]}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Tenant: <span className="font-medium text-foreground">{statusTarget?.name}</span>
-          </p>
+          <div className="rounded-[var(--radius-card)] border border-border bg-card p-4 text-sm">
+            <p className="font-semibold">{statusTarget?.name}</p>
+            <p className="mt-1 text-muted-foreground">
+              {nextStatus === "active" && "Khôi phục quyền truy cập tenant theo trạng thái active."}
+              {nextStatus === "suspended" && "Tạm dừng tenant; hoạt động tenant có thể bị giới hạn."}
+              {nextStatus === "pending_deletion" && "Đánh dấu tenant chờ xoá. Thao tác này cần lý do để phục vụ audit."}
+            </p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="status-reason">Lý do {nextStatus === "pending_deletion" ? "(bắt buộc)" : "(tuỳ chọn)"}</Label>
             <Input
@@ -451,17 +538,19 @@ export default function PlatformTenantsPage() {
               Hủy
             </Button>
             <Button
+              variant={nextStatus === "pending_deletion" ? "destructive" : "default"}
               onClick={() => void submitStatus()}
               disabled={saving || (nextStatus === "pending_deletion" && !statusReason.trim())}
+              data-state={saving ? "loading" : "default"}
             >
-              Xác nhận
+              {saving ? "Đang cập nhật" : `Xác nhận ${STATUS_LABEL[nextStatus]}`}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Tạo tenant thủ công</DialogTitle>
           </DialogHeader>

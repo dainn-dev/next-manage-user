@@ -1,9 +1,12 @@
 "use client"
 
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * page: tenant billing · data-form: subscription state + focused actions
+ */
+
 import { useCallback, useEffect, useState } from "react"
 import { billingApi, type BillingStatusResponse } from "@/lib/api/billing-api"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { CreditCard, ExternalLink, RefreshCw } from "lucide-react"
 
@@ -87,11 +90,11 @@ export default function TenantBillingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Thanh toán</h1>
-          <p className="text-sm text-muted-foreground">
+    <div className="platform-page max-w-5xl">
+      <header className="platform-page-header">
+        <div className="min-w-0">
+          <h1 className="platform-page-title">Thanh toán</h1>
+          <p className="platform-page-description">
             Gói và đăng ký của tổ chức bạn. Quản lý thẻ / hóa đơn qua cổng Stripe.
           </p>
         </div>
@@ -99,50 +102,37 @@ export default function TenantBillingPage() {
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Làm mới
         </Button>
-      </div>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Trạng thái gói</CardTitle>
-          <CardDescription>Thông tin từ /api/v1/billing/status</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <section className="platform-data-surface" aria-label="Trạng thái gói">
+        <div className="border-b border-border px-4 py-4 sm:px-6">
+          <h2 className="text-base font-semibold">Trạng thái gói</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Thông tin đăng ký hiện tại của tổ chức.</p>
+        </div>
+        <div className="p-4 sm:p-6">
           {loading && !status ? (
             <p className="text-sm text-muted-foreground">Đang tải…</p>
           ) : (
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <div className="text-muted-foreground">Gói</div>
-                <div className="font-medium">{status?.planName || status?.planCode || "—"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Subscription</div>
-                <div className="font-medium">{status?.subscriptionStatus || "Chưa có"}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Kỳ hiện tại kết thúc</div>
-                <div className="font-medium">
-                  {status?.currentPeriodEnd
-                    ? new Date(status.currentPeriodEnd).toLocaleString()
-                    : "—"}
+            <dl className="grid divide-y divide-border border-y border-border text-sm sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+              {[
+                ["Gói", status?.planName || status?.planCode || "—"],
+                ["Subscription", status?.subscriptionStatus || "Chưa có"],
+                ["Kỳ hiện tại kết thúc", status?.currentPeriodEnd ? new Date(status.currentPeriodEnd).toLocaleString() : "—"],
+                ["Giới hạn khu vực", status?.usage?.max_sites != null ? status.usage.max_sites : "—"],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0 px-4 py-4">
+                  <dt className="platform-stat-label">{label}</dt>
+                  <dd className="mt-2 font-medium">{value}</dd>
                 </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Sử dụng (sites)</div>
-                <div className="font-medium">
-                  {status?.usage?.max_sites != null ? status.usage.max_sites : "—"}
-                </div>
-              </div>
-            </div>
+              ))}
+            </dl>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Hành động</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
+      <section className="platform-data-surface" aria-label="Hành động thanh toán">
+        <div className="border-b border-border px-4 py-4 sm:px-6"><h2 className="text-base font-semibold">Hành động</h2></div>
+        <div className="flex flex-wrap gap-3 p-4 sm:p-6">
           <Button onClick={() => void openPortal()} disabled={opening}>
             <ExternalLink className="mr-2 h-4 w-4" />
             {opening ? "Đang mở…" : "Mở cổng thanh toán"}
@@ -151,8 +141,8 @@ export default function TenantBillingPage() {
             <CreditCard className="mr-2 h-4 w-4" />
             Checkout / nâng cấp
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   )
 }

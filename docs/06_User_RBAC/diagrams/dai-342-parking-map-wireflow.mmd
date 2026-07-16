@@ -1,0 +1,44 @@
+flowchart TD
+    enter[Site → Thiết lập bãi đỗ → Sơ đồ & Ô đỗ] --> scope{Allowed active site?}
+    scope -->|No| deny[Safe shell + non-enumerating denial]
+    scope -->|Yes| readiness[Readiness: zone, Overview source, calibration, history]
+    readiness --> zone[Create or select Zone]
+    zone --> source{Eligible Overview camera?}
+    source -->|Online and capture supported| capture[Capture immutable snapshot]
+    source -->|Missing/offline/capture unavailable| upload[Upload validated static image fallback]
+    capture --> calibration[Place 4+ site-local control points]
+    upload --> calibration
+    calibration --> calibrationValid{Calibration valid?}
+    calibrationValid -->|No| calibrationRecovery[Fix points, dimensions, or reprojection error]
+    calibrationRecovery --> calibration
+    calibrationValid -->|Yes| draft[Create versioned draft with lockVersion]
+    draft --> editor[Draw slots: code + zone + enabled/disabled]
+    editor --> liveValidation[Live client validation + debounced autosave]
+    liveValidation --> conflict{Save conflict?}
+    conflict -->|Yes| conflictRecovery[Stop autosave; compare, export local, or load server]
+    conflictRecovery --> editor
+    conflict -->|No| validate[Explicit site-wide server validation]
+    validate --> valid{Valid across all camera partitions?}
+    valid -->|No| errorPanel[Feature-linked geometry/code/coverage errors]
+    errorPanel --> editor
+    valid -->|Yes| preview[Unified site preview + occupancy overlay]
+    preview --> publishReview[Publish summary: diff, slots, source, calibration, archived version]
+    publishReview --> publish[Atomic idempotent publish + audit]
+    publish --> runtime[Runtime reads published version only]
+    runtime --> guard[Guard assigned-site view-only occupancy map]
+    publish --> history[Version history]
+    history --> rollbackReview[Compare archived target + enter reason]
+    rollbackReview --> rollbackValidate{Compatible with current site?}
+    rollbackValidate -->|No| rollbackBlocked[Keep current version active; show blockers]
+    rollbackValidate -->|Yes| rollback[Atomic rollback + audit]
+    rollback --> runtime
+    history --> geojson[Export; import only into a new validated draft]
+    geojson --> draft
+
+    classDef error fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d
+    classDef warning fill:#fef3c7,stroke:#b45309,color:#78350f
+    classDef success fill:#dcfce7,stroke:#15803d,color:#14532d
+    class deny,calibrationRecovery,conflictRecovery,errorPanel,rollbackBlocked error
+    class readiness,upload,publishReview,rollbackReview warning
+    class publish,runtime,guard,rollback success
+
