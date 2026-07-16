@@ -19,7 +19,8 @@ import java.util.UUID;
 @Service
 public class PlatformVehicleLookup {
 
-    public record PlateHit(UUID vehicleId, UUID ownerId, String licensePlate) {}
+    public record PlateHit(UUID vehicleId, UUID ownerId, String licensePlate) {
+    }
 
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;

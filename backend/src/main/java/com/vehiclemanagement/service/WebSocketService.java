@@ -11,7 +11,9 @@ import java.util.UUID;
 @Service
 public class WebSocketService {
 
-    /** Global topic kept for backward compatibility with the current monitoring UI. */
+    /**
+     * Global topic kept for backward compatibility with the current monitoring UI.
+     */
     public static final String GLOBAL_TOPIC = "/topic/vehicle-check";
 
     @Autowired
@@ -41,21 +43,21 @@ public class WebSocketService {
      * {@code null} status preserves the historical text-parsing behaviour.
      */
     public void sendVehicleCheckMessage(String licensePlateNumber, String type, String message,
-                                        UUID gateId, String status) {
+            UUID gateId, String status) {
         VehicleCheckMessage vehicleCheckMessage = new VehicleCheckMessage(
-            licensePlateNumber,
-            type,
-            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-            message,
-            gateId != null ? gateId.toString() : null,
-            status
-        );
+                licensePlateNumber,
+                type,
+                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                message,
+                gateId != null ? gateId.toString() : null,
+                status);
 
         publish(vehicleCheckMessage, gateId);
     }
 
     /**
-     * Send a rich vehicle check payload (employee + vehicle info) to the global topic only.
+     * Send a rich vehicle check payload (employee + vehicle info) to the global
+     * topic only.
      */
     public void sendVehicleCheckMessage(Object employeeInfo) {
         sendVehicleCheckMessage(employeeInfo, null);
@@ -68,7 +70,8 @@ public class WebSocketService {
     public void sendVehicleCheckMessage(Object employeeInfo, UUID gateId) {
         System.out.println("=== Sending WebSocket Message ===");
         System.out.println("Employee info object: " + employeeInfo);
-        System.out.println("Employee info class: " + (employeeInfo != null ? employeeInfo.getClass().getName() : "null"));
+        System.out
+                .println("Employee info class: " + (employeeInfo != null ? employeeInfo.getClass().getName() : "null"));
         publish(employeeInfo, gateId);
     }
 
@@ -104,20 +107,25 @@ public class WebSocketService {
         private String timestamp;
         private String message;
         private String gateId;
-        /** approved | denied | pending; null when the outcome is left to text parsing. */
+        /**
+         * approved | denied | pending; null when the outcome is left to text parsing.
+         */
         private String status;
 
-        public VehicleCheckMessage() {}
+        public VehicleCheckMessage() {
+        }
 
         public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message) {
             this(licensePlateNumber, type, timestamp, message, null, null);
         }
 
-        public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message, String gateId) {
+        public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message,
+                String gateId) {
             this(licensePlateNumber, type, timestamp, message, gateId, null);
         }
 
-        public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message, String gateId, String status) {
+        public VehicleCheckMessage(String licensePlateNumber, String type, String timestamp, String message,
+                String gateId, String status) {
             this.licensePlateNumber = licensePlateNumber;
             this.type = type;
             this.timestamp = timestamp;

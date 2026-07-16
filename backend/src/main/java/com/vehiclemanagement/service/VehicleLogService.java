@@ -35,13 +35,13 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class VehicleLogService {
-    
+
     @Autowired
     private VehicleLogRepository vehicleLogRepository;
-    
+
     @Autowired
     private VehicleRepository vehicleRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
 
@@ -57,22 +57,23 @@ public class VehicleLogService {
                 : vehicleLogRepository.findAll(pageable);
         return logs.map(this::convertToDto);
     }
-    
+
     public List<VehicleLogDto> getAllVehicleLogsList() {
         List<VehicleLog> logs = siteAccess.isRestricted()
                 ? vehicleLogRepository.findBySiteIdIn(siteAccess.allowedSiteIds())
                 : vehicleLogRepository.findAll();
         return logs.stream().map(this::convertToDto).toList();
     }
-    
+
     public VehicleLogDto getVehicleLogById(UUID id) {
         VehicleLog log = vehicleLogRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle log not found with id: " + id));
         siteAccess.assertSiteAllowed(log.getSiteId());
         return convertToDto(log);
     }
-    
-    public Page<VehicleLogDto> getVehicleLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+
+    public Page<VehicleLogDto> getVehicleLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate,
+            Pageable pageable) {
         Page<VehicleLog> logs;
         if (siteAccess.isRestricted()) {
             List<UUID> siteIds = siteAccess.allowedSiteIds();
@@ -90,44 +91,45 @@ public class VehicleLogService {
         LocalDate today = LocalDate.now();
         return getVehicleLogsByDateRange(today.atStartOfDay(), today.atTime(LocalTime.MAX), pageable);
     }
-    
+
     public Page<VehicleLogDto> getWeeklyLogs(Pageable pageable) {
         LocalDate today = LocalDate.now();
         LocalDate startOfWeek = today.minusDays(today.getDayOfWeek().getValue() - 1);
         LocalDateTime startDateTime = startOfWeek.atStartOfDay();
         LocalDateTime endDateTime = today.atTime(LocalTime.MAX);
-        
+
         return getVehicleLogsByDateRange(startDateTime, endDateTime, pageable);
     }
-    
+
     public Page<VehicleLogDto> getMonthlyLogs(Pageable pageable) {
         LocalDate today = LocalDate.now();
         LocalDate startOfMonth = today.withDayOfMonth(1);
         LocalDateTime startDateTime = startOfMonth.atStartOfDay();
         LocalDateTime endDateTime = today.atTime(LocalTime.MAX);
-        
+
         return getVehicleLogsByDateRange(startDateTime, endDateTime, pageable);
     }
-    
-    public Page<VehicleLogDto> searchVehicleLogs(String licensePlate, 
-                                                VehicleLog.LogType type,
-                                                VehicleLog.VehicleCategory vehicleType,
-                                                String driverName,
-                                                LocalDateTime startDate,
-                                                LocalDateTime endDate,
-                                                Pageable pageable) {
+
+    public Page<VehicleLogDto> searchVehicleLogs(String licensePlate,
+            VehicleLog.LogType type,
+            VehicleLog.VehicleCategory vehicleType,
+            String driverName,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable) {
         Page<VehicleLog> logs = vehicleLogRepository.findWithFilters(
                 licensePlate, type, vehicleType, driverName, startDate, endDate,
                 siteAccess.isRestricted() ? siteAccess.allowedSiteIds() : null,
                 pageable);
         return logs.map(this::convertToDto);
     }
-    
+
     public VehicleLogDto createVehicleLog(VehicleLogDto vehicleLogDto) {
         VehicleLog vehicleLog = convertToEntity(vehicleLogDto);
-        
+
         // Associate the vehicle and its registered owner by license plate.
-        Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
+        Optional<Vehicle> vehicle = vehicleRepository
+                .findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
         if (vehicle.isPresent()) {
             vehicleLog.setVehicle(vehicle.get());
             vehicleLog.setOwner(vehicle.get().getOwner());
@@ -176,11 +178,11 @@ public class VehicleLogService {
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
-    
+
     public VehicleLogDto updateVehicleLog(UUID id, VehicleLogDto vehicleLogDto) {
         VehicleLog existingLog = vehicleLogRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle log not found with id: " + id));
-        
+
         // Update fields
         existingLog.setLicensePlateNumber(vehicleLogDto.getLicensePlateNumber());
         existingLog.setEntryExitTime(vehicleLogDto.getEntryExitTime());
@@ -191,9 +193,10 @@ public class VehicleLogService {
         existingLog.setGateLocation(vehicleLogDto.getGateLocation());
         existingLog.setNotes(vehicleLogDto.getNotes());
         existingLog.setImagePath(vehicleLogDto.getImagePath());
-        
+
         // Update vehicle association and use its registered owner when present.
-        Optional<Vehicle> vehicle = vehicleRepository.findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
+        Optional<Vehicle> vehicle = vehicleRepository
+                .findByLicensePlateNormalized(vehicleLogDto.getLicensePlateNumber());
         if (vehicle.isPresent()) {
             existingLog.setVehicle(vehicle.get());
             existingLog.setOwner(vehicle.get().getOwner());
@@ -201,7 +204,8 @@ public class VehicleLogService {
             existingLog.setVehicle(null);
             if (vehicleLogDto.getOwnerId() != null) {
                 User owner = userRepository.findById(vehicleLogDto.getOwnerId())
-                        .orElseThrow(() -> new RuntimeException("User not found with id: " + vehicleLogDto.getOwnerId()));
+                        .orElseThrow(
+                                () -> new RuntimeException("User not found with id: " + vehicleLogDto.getOwnerId()));
                 existingLog.setOwner(owner);
             } else {
                 existingLog.setOwner(null);
@@ -210,23 +214,24 @@ public class VehicleLogService {
 
         if (vehicleLogDto.getSecurityGuardId() != null) {
             User securityGuard = userRepository.findById(vehicleLogDto.getSecurityGuardId())
-                    .orElseThrow(() -> new RuntimeException("User not found with id: " + vehicleLogDto.getSecurityGuardId()));
+                    .orElseThrow(() -> new RuntimeException(
+                            "User not found with id: " + vehicleLogDto.getSecurityGuardId()));
             existingLog.setSecurityGuard(securityGuard);
         } else {
             existingLog.setSecurityGuard(null);
         }
-        
+
         VehicleLog savedLog = vehicleLogRepository.save(existingLog);
         return convertToDto(savedLog);
     }
-    
+
     public void deleteVehicleLog(UUID id) {
         if (!vehicleLogRepository.existsById(id)) {
             throw new RuntimeException("Vehicle log not found with id: " + id);
         }
         vehicleLogRepository.deleteById(id);
     }
-    
+
     // Statistics methods
     public VehicleLogTodayStatisticsDto getTodayStatistics(UUID requestedSiteId) {
         LocalDate today = LocalDate.now();
@@ -270,8 +275,8 @@ public class VehicleLogService {
         private final List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats;
 
         public LogBasedStatistics(List<VehicleStatisticsDto.VehicleDailyStatsDto> dailyStats,
-                                  List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats,
-                                  List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats) {
+                List<VehicleStatisticsDto.VehicleWeeklyStatsDto> weeklyStats,
+                List<VehicleStatisticsDto.VehicleMonthlyStatsDto> monthlyStats) {
             this.dailyStats = dailyStats;
             this.weeklyStats = weeklyStats;
             this.monthlyStats = monthlyStats;
@@ -412,7 +417,8 @@ public class VehicleLogService {
                     .count();
             int daysInMonth = monthStart.lengthOfMonth();
             int elapsedDays = (int) (monthEnd.toEpochDay() - monthStart.toEpochDay()) + 1;
-            double averageDailyRequests = elapsedDays > 0 ? (double) totalRequests / elapsedDays : daysInMonth > 0 ? 0.0 : 0.0;
+            double averageDailyRequests = elapsedDays > 0 ? (double) totalRequests / elapsedDays
+                    : daysInMonth > 0 ? 0.0 : 0.0;
 
             VehicleStatisticsDto.VehicleMonthlyStatsDto dto = new VehicleStatisticsDto.VehicleMonthlyStatsDto();
             dto.setMonth(monthStart.getMonthValue());
@@ -512,23 +518,24 @@ public class VehicleLogService {
                 .gateName(vehicleLog.getGate() != null ? vehicleLog.getGate().getName() : null)
                 .siteId(vehicleLog.getSiteId())
                 .securityGuardId(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getId() : null)
-                .securityGuardName(vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getFullName() : null)
+                .securityGuardName(
+                        vehicleLog.getSecurityGuard() != null ? vehicleLog.getSecurityGuard().getFullName() : null)
                 .notes(vehicleLog.getNotes())
                 .imagePath(vehicleLog.getImagePath())
                 .createdAt(vehicleLog.getCreatedAt())
                 .updatedAt(vehicleLog.getUpdatedAt())
                 .build();
-        
+
         // Add vehicle details if available
         if (vehicleLog.getVehicle() != null) {
             dto.setVehicleBrand(vehicleLog.getVehicle().getBrand());
             dto.setVehicleModel(vehicleLog.getVehicle().getModel());
             dto.setVehicleColor(vehicleLog.getVehicle().getColor());
         }
-        
+
         return dto;
     }
-    
+
     public Object getOwnerInfoByLicensePlate(String licensePlateNumber, VehicleLog.LogType type) {
         return getOwnerInfoByLicensePlate(licensePlateNumber, type, null);
     }
@@ -558,7 +565,7 @@ public class VehicleLogService {
             public final String firstName = owner.getFirstName();
             public final String lastName = owner.getLastName();
             public final String email = owner.getEmail();
-            
+
             // Vehicle information
             public final String vehicleId = vehicle.getId().toString();
             public final String licensePlateNumber = vehicle.getLicensePlate();
@@ -567,9 +574,12 @@ public class VehicleLogService {
             public final String color = vehicle.getColor();
             public final String vehicleType = vehicle.getVehicleType() != null ? vehicle.getVehicleType().name() : null;
             public final Integer year = vehicle.getYear();
-            public final String registrationDate = vehicle.getRegistrationDate() != null ? vehicle.getRegistrationDate().toString() : null;
-            public final String expiryDate = vehicle.getExpiryDate() != null ? vehicle.getExpiryDate().toString() : null;
-            
+            public final String registrationDate = vehicle.getRegistrationDate() != null
+                    ? vehicle.getRegistrationDate().toString()
+                    : null;
+            public final String expiryDate = vehicle.getExpiryDate() != null ? vehicle.getExpiryDate().toString()
+                    : null;
+
             // Latest log information
             public final String logId = latestLog != null ? latestLog.getId().toString() : null;
             public final String logType = latestLog != null ? latestLog.getType().name() : type.name();

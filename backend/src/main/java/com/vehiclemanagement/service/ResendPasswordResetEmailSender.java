@@ -41,9 +41,10 @@ public class ResendPasswordResetEmailSender implements PasswordResetEmailSender 
         try {
             String body = objectMapper.writeValueAsString(Map.of(
                     "from", properties.getFrom(),
-                    "to", new String[]{recipientEmail},
+                    "to", new String[] { recipientEmail },
                     "subject", "Reset your password",
-                    "html", "<p>Use the link below to reset your password. It expires soon and can only be used once.</p>"
+                    "html",
+                    "<p>Use the link below to reset your password. It expires soon and can only be used once.</p>"
                             + "<p><a href=\"" + escapeHtml(resetUrl) + "\">Reset password</a></p>"));
             HttpRequest request = HttpRequest.newBuilder(endpoint)
                     .timeout(Duration.ofSeconds(10))

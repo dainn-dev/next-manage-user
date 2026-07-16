@@ -28,7 +28,8 @@ import java.util.List;
 /**
  * Builds Excel (.xlsx via Apache POI) and CSV exports of vehicle entry/exit
  * logs. The export always reflects the full filtered result set (not a single
- * page) by fetching up to {@link #EXPORT_LIMIT} matching rows. Access is guarded
+ * page) by fetching up to {@link #EXPORT_LIMIT} matching rows. Access is
+ * guarded
  * at the controller layer ({@code hasRole('TENANT_ADMIN')}).
  */
 @Service
@@ -54,12 +55,12 @@ public class VehicleLogExportService {
     }
 
     public byte[] exportLogsToExcel(String licensePlate, VehicleLog.LogType type,
-                                    VehicleLog.VehicleCategory vehicleType, String driverName,
-                                    LocalDateTime startDate, LocalDateTime endDate) {
+            VehicleLog.VehicleCategory vehicleType, String driverName,
+            LocalDateTime startDate, LocalDateTime endDate) {
         List<VehicleLogDto> logs = fetchForExport(licensePlate, type, vehicleType, driverName, startDate, endDate);
 
         try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Nhật ký ra vào");
 
             CellStyle headerStyle = workbook.createCellStyle();
@@ -83,7 +84,8 @@ public class VehicleLogExportService {
                 int col = 0;
                 row.createCell(col++).setCellValue(rowIdx);
                 row.createCell(col++).setCellValue(log.getEntryExitTime() != null
-                        ? log.getEntryExitTime().format(DATE_TIME_FMT) : "");
+                        ? log.getEntryExitTime().format(DATE_TIME_FMT)
+                        : "");
                 row.createCell(col++).setCellValue(nullToEmpty(log.getLicensePlateNumber()));
                 row.createCell(col++).setCellValue(typeLabel(log.getType()));
                 row.createCell(col++).setCellValue(categoryLabel(log.getVehicleType()));
@@ -108,8 +110,8 @@ public class VehicleLogExportService {
     }
 
     public byte[] exportLogsToCsv(String licensePlate, VehicleLog.LogType type,
-                                  VehicleLog.VehicleCategory vehicleType, String driverName,
-                                  LocalDateTime startDate, LocalDateTime endDate) {
+            VehicleLog.VehicleCategory vehicleType, String driverName,
+            LocalDateTime startDate, LocalDateTime endDate) {
         List<VehicleLogDto> logs = fetchForExport(licensePlate, type, vehicleType, driverName, startDate, endDate);
 
         StringBuilder sb = new StringBuilder();
@@ -118,7 +120,7 @@ public class VehicleLogExportService {
 
         int idx = 1;
         for (VehicleLogDto log : logs) {
-            appendCsvRow(sb, new String[]{
+            appendCsvRow(sb, new String[] {
                     String.valueOf(idx++),
                     log.getEntryExitTime() != null ? log.getEntryExitTime().format(DATE_TIME_FMT) : "",
                     nullToEmpty(log.getLicensePlateNumber()),
@@ -135,8 +137,8 @@ public class VehicleLogExportService {
     }
 
     private List<VehicleLogDto> fetchForExport(String licensePlate, VehicleLog.LogType type,
-                                               VehicleLog.VehicleCategory vehicleType, String driverName,
-                                               LocalDateTime startDate, LocalDateTime endDate) {
+            VehicleLog.VehicleCategory vehicleType, String driverName,
+            LocalDateTime startDate, LocalDateTime endDate) {
         LocalDateTime effectiveStart = startDate != null ? startDate : MIN_DATE;
         LocalDateTime effectiveEnd = endDate != null ? endDate : LocalDateTime.now();
         Pageable pageable = PageRequest.of(0, EXPORT_LIMIT, Sort.by("entryExitTime").descending());

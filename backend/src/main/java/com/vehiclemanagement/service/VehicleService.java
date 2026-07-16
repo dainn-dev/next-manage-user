@@ -48,13 +48,13 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class VehicleService {
-    
+
     @Autowired
     private VehicleRepository vehicleRepository;
 
     @Autowired
     private PlateSearchReadRepository plateSearchReadRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
 
@@ -63,10 +63,10 @@ public class VehicleService {
 
     @Autowired
     private VehicleLogService vehicleLogService;
-    
+
     @Autowired
     private WebSocketService webSocketService;
-    
+
     @Autowired
     private ImageProcessingUtil imageProcessingUtil;
 
@@ -93,16 +93,19 @@ public class VehicleService {
     private TenantVehicleRegistrationService tenantVehicleRegistrationService;
 
     /**
-     * Window used to suppress duplicate gate-originated access requests for the same
+     * Window used to suppress duplicate gate-originated access requests for the
+     * same
      * plate + gate (Phase 4.4). The edge fires a check per detection frame, so a
-     * short window keeps a single lingering vehicle from flooding the approval queue.
+     * short window keeps a single lingering vehicle from flooding the approval
+     * queue.
      */
     @org.springframework.beans.factory.annotation.Value("${gate.access-request.dedup-window-seconds:300}")
     private long accessRequestDedupWindowSeconds;
 
     /**
      * Meter names for the vehicle-access-check metrics (Phase 4.1). The counter is
-     * named {@code vehicle_check}; the Prometheus registry appends the {@code _total}
+     * named {@code vehicle_check}; the Prometheus registry appends the
+     * {@code _total}
      * suffix, so it is scraped as {@code vehicle_check_total{gate,result}}.
      */
     private static final String VEHICLE_CHECK = "vehicle_check";
@@ -110,7 +113,7 @@ public class VehicleService {
 
     // @Autowired
     // private EntryExitRequestRepository entryExitRequestRepository; // Removed
-    
+
     public List<VehicleDto> getAllVehicles() {
         if (isMemberPrincipal()) {
             return memberOwnVehicles().stream().map(VehicleDto::new).collect(Collectors.toList());
@@ -119,7 +122,7 @@ public class VehicleService {
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
-    
+
     public Page<VehicleDto> getAllVehicles(Pageable pageable) {
         if (isMemberPrincipal()) {
             return pageMemberVehicles(pageable);
@@ -130,7 +133,7 @@ public class VehicleService {
         Page<Vehicle> page = vehicleRepository.findByCurrentSiteIdIn(siteAccess.allowedSiteIds(), pageable);
         return page.map(VehicleDto::new);
     }
-    
+
     public VehicleDto getVehicleById(UUID id) {
         if (isMemberPrincipal()) {
             return memberOwnVehicle(id);
@@ -140,7 +143,7 @@ public class VehicleService {
         assertVehicleVisible(vehicle);
         return new VehicleDto(vehicle);
     }
-    
+
     public VehicleDto getVehicleByLicensePlate(String licensePlate) {
         if (isMemberPrincipal()) {
             return memberOwnVehicles().stream()
@@ -151,11 +154,12 @@ public class VehicleService {
                             "Vehicle not found with license plate: " + licensePlate));
         }
         Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlate)
-                .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with license plate: " + licensePlate));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Vehicle not found with license plate: " + licensePlate));
         assertVehicleVisible(vehicle);
         return new VehicleDto(vehicle);
     }
-    
+
     public List<VehicleDto> getVehiclesByOwner(UUID ownerId) {
         if (isMemberPrincipal()) {
             User self = requireMemberPrincipal();
@@ -171,7 +175,7 @@ public class VehicleService {
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
-    
+
     public List<VehicleDto> getVehiclesByType(Vehicle.VehicleType vehicleType) {
         if (isMemberPrincipal()) {
             return memberOwnVehicles().stream()
@@ -183,7 +187,7 @@ public class VehicleService {
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
-    
+
     public List<VehicleDto> getVehiclesByStatus(Vehicle.VehicleStatus status) {
         if (isMemberPrincipal()) {
             return memberOwnVehicles().stream()
@@ -195,7 +199,7 @@ public class VehicleService {
                 .map(VehicleDto::new)
                 .collect(Collectors.toList());
     }
-    
+
     public Page<VehicleDto> searchVehicles(String searchTerm, Pageable pageable) {
         if (isMemberPrincipal()) {
             return pageMemberVehicles(filterMemberSearch(memberOwnVehicles(), searchTerm), pageable);
@@ -214,17 +218,19 @@ public class VehicleService {
         siteAccess.assertSiteAllowed(siteId);
         return plateSearchReadRepository.search(siteId, normalized, Math.min(Math.max(limit, 1), 50));
     }
-    
-    public Page<VehicleDto> searchVehiclesByType(Vehicle.VehicleType vehicleType, String searchTerm, Pageable pageable) {
+
+    public Page<VehicleDto> searchVehiclesByType(Vehicle.VehicleType vehicleType, String searchTerm,
+            Pageable pageable) {
         if (isMemberPrincipal()) {
             List<Vehicle> filtered = filterMemberSearch(memberOwnVehicles(), searchTerm).stream()
                     .filter(v -> v.getVehicleType() == vehicleType)
                     .collect(Collectors.toList());
             return pageMemberVehicles(filtered, pageable);
         }
-        return filterPage(vehicleRepository.findByVehicleTypeAndSearchTerm(vehicleType, searchTerm, pageable), pageable);
+        return filterPage(vehicleRepository.findByVehicleTypeAndSearchTerm(vehicleType, searchTerm, pageable),
+                pageable);
     }
-    
+
     public Page<VehicleDto> searchVehiclesByStatus(Vehicle.VehicleStatus status, String searchTerm, Pageable pageable) {
         if (isMemberPrincipal()) {
             List<Vehicle> filtered = filterMemberSearch(memberOwnVehicles(), searchTerm).stream()
@@ -234,20 +240,21 @@ public class VehicleService {
         }
         return filterPage(vehicleRepository.findByStatusAndSearchTerm(status, searchTerm, pageable), pageable);
     }
-    
+
     public VehicleCreateResponse createVehicle(VehicleDto vehicleDto) {
         resolveSiteForWrite(vehicleDto.getCurrentSiteId(), true);
-        // Check if vehicle with this license plate already exists (using normalized comparison)
+        // Check if vehicle with this license plate already exists (using normalized
+        // comparison)
         if (vehicleRepository.existsByLicensePlateNormalized(vehicleDto.getLicensePlate())) {
             Vehicle existingVehicle = vehicleRepository.findByLicensePlateNormalized(vehicleDto.getLicensePlate())
-                    .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with license plate: " + vehicleDto.getLicensePlate()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Vehicle not found with license plate: " + vehicleDto.getLicensePlate()));
             return new VehicleCreateResponse(
-                new VehicleDto(existingVehicle), 
-                true, 
-                "Không tạo được xe " + vehicleDto.getLicensePlate() + ", vì đã tồn tại trong hệ thống"
-            );
+                    new VehicleDto(existingVehicle),
+                    true,
+                    "Không tạo được xe " + vehicleDto.getLicensePlate() + ", vì đã tồn tại trong hệ thống");
         }
-        
+
         User owner = userRepository.findById(vehicleDto.getOwnerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + vehicleDto.getOwnerId()));
 
@@ -267,22 +274,21 @@ public class VehicleService {
         vehicle.setNotes(vehicleDto.getNotes());
         vehicle.setImagePath(vehicleDto.getImagePath());
         vehicle.setCurrentSiteId(vehicleDto.getCurrentSiteId());
-        
+
         Vehicle savedVehicle = vehicleRepository.save(vehicle);
         tenantVehicleRegistrationService.ensureRegistrationForVehicle(
                 savedVehicle.getId(), savedVehicle.getCurrentSiteId());
         return new VehicleCreateResponse(
-            new VehicleDto(savedVehicle), 
-            false, 
-            "Xe đã được tạo thành công"
-        );
+                new VehicleDto(savedVehicle),
+                false,
+                "Xe đã được tạo thành công");
     }
-    
+
     public VehicleDto updateVehicle(UUID id, VehicleDto vehicleDto) {
         Vehicle existingVehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
         assertVehicleVisible(existingVehicle);
-        
+
         User owner = userRepository.findById(vehicleDto.getOwnerId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + vehicleDto.getOwnerId()));
 
@@ -308,11 +314,11 @@ public class VehicleService {
         if (vehicleDto.getCurrentSiteId() != null || !siteAccess.isRestricted()) {
             existingVehicle.setCurrentSiteId(vehicleDto.getCurrentSiteId());
         }
-        
+
         Vehicle updatedVehicle = vehicleRepository.save(existingVehicle);
         return new VehicleDto(updatedVehicle);
     }
-    
+
     public VehicleDto approveVehicle(UUID id) {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + id));
@@ -336,23 +342,23 @@ public class VehicleService {
         // ADR-0604: tenant removes plate from management; platform master stays.
         tenantVehicleRegistrationService.revoke(id);
     }
-    
+
     public boolean existsByLicensePlate(String licensePlate) {
         return vehicleRepository.existsByLicensePlate(licensePlate);
     }
-    
+
     public long getVehicleCountByStatus(Vehicle.VehicleStatus status) {
         return vehicleRepository.countByStatus(status);
     }
-    
+
     public List<Object[]> getVehicleCountByType() {
         return vehicleRepository.countByVehicleType();
     }
-    
+
     public List<Object[]> getVehicleCountByFuelType() {
         return vehicleRepository.countByFuelType();
     }
-    
+
     public VehicleStatisticsDto getVehicleStatistics() {
         List<Vehicle> vehicles = scopedVehicles(vehicleRepository.findAll());
 
@@ -385,17 +391,15 @@ public class VehicleService {
         VehicleStatisticsDto.EntryExitStatsDto entryExitStats = new VehicleStatisticsDto.EntryExitStatsDto(
                 totalRequests,
                 totalRequests, // approvedRequests
-                0,             // pendingRequests
-                exitRequests,  // completedRequests
+                0, // pendingRequests
+                exitRequests, // completedRequests
                 entryRequests,
-                exitRequests
-        );
+                exitRequests);
 
         VehicleStatisticsDto dto = new VehicleStatisticsDto(
                 totalVehicles, approvedVehicles, rejectedVehicles, exitedVehicles, enteredVehicles,
                 vehicleTypeStats, fuelTypeStats,
-                logStats.getDailyStats(), logStats.getWeeklyStats(), logStats.getMonthlyStats()
-        );
+                logStats.getDailyStats(), logStats.getWeeklyStats(), logStats.getMonthlyStats());
         dto.setEntryExitStats(entryExitStats);
         return dto;
     }
@@ -411,72 +415,73 @@ public class VehicleService {
             System.out.println("File name: " + imageFile.getOriginalFilename());
             System.out.println("File size: " + imageFile.getSize());
             System.out.println("Content type: " + imageFile.getContentType());
-            
+
             // Find the vehicle
             Vehicle vehicle = vehicleRepository.findById(vehicleId)
                     .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + vehicleId));
-            
+
             // Validate file
             if (imageFile.isEmpty()) {
                 throw new IllegalArgumentException("Image file is empty");
             }
-            
+
             // Check file type
             String contentType = imageFile.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
                 throw new IllegalArgumentException("File must be an image. Content type: " + contentType);
             }
-            
+
             // Generate unique filename with correct extension
             // Always use .jpg since ImageProcessingUtil converts all images to JPG
             String filename = "vehicle_" + vehicleId + "_" + System.currentTimeMillis() + ".jpg";
-            
+
             System.out.println("Generated filename: " + filename);
-            
+
             // Create upload directory if it doesn't exist
             Path uploadDir = Paths.get("uploads", "vehicles");
             System.out.println("Upload directory: " + uploadDir.toAbsolutePath());
-            
+
             if (!Files.exists(uploadDir)) {
                 System.out.println("Creating upload directory...");
                 Files.createDirectories(uploadDir);
             }
-            
+
             // Process and save image (convert to JPG format)
             Path filePath = uploadDir.resolve(filename);
             System.out.println("Full file path: " + filePath.toAbsolutePath());
-            
+
             // Process the image to ensure it's in JPG format and optimized
             byte[] processedImageData = imageProcessingUtil.processImage(imageFile);
             Files.write(filePath, processedImageData, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             System.out.println("Image processed and saved successfully as JPG");
-            
+
             // Update vehicle with image path
             String imagePath = "/uploads/vehicles/" + filename;
             System.out.println("Setting image path on vehicle: " + imagePath);
             System.out.println("Transaction active: " + TransactionSynchronizationManager.isActualTransactionActive());
-            
+
             vehicle.setImagePath(imagePath);
             Vehicle savedVehicle = vehicleRepository.save(vehicle);
-            
+
             // Force flush to ensure database update
             vehicleRepository.flush();
-            
+
             System.out.println("Vehicle saved and flushed. Current image path in DB: " + savedVehicle.getImagePath());
             System.out.println("Vehicle ID: " + savedVehicle.getId());
             System.out.println("=== Upload Complete ===");
-            
+
             return imagePath;
-            
+
         } catch (Exception e) {
             System.err.println("Error uploading vehicle image: " + e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("Failed to upload vehicle image: " + e.getMessage(), e);
         }
     }
-    
+
     /**
-     * Normalize license plate by removing special characters and converting to uppercase
+     * Normalize license plate by removing special characters and converting to
+     * uppercase
      */
     private String normalizeLicensePlate(String licensePlate) {
         if (licensePlate == null) {
@@ -485,9 +490,10 @@ public class VehicleService {
         // Remove common special characters and convert to uppercase
         return licensePlate.replaceAll("[-._\\s]", "").toUpperCase();
     }
-    
+
     /**
-     * Check if a vehicle is approved for access based on license plate and update status
+     * Check if a vehicle is approved for access based on license plate and update
+     * status
      */
     @Transactional
     public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type) {
@@ -516,7 +522,7 @@ public class VehicleService {
      */
     @Transactional
     public VehicleCheckResponse checkVehicleAccess(String licensePlateNumber, String type, UUID gateId,
-                                                   MultipartFile snapshot) {
+            MultipartFile snapshot) {
         Gate gate = resolveGate(gateId);
         // Time every check (approved / denied / not-found / error) and record it as
         // vehicle_check_latency; the per-outcome counters are bumped inside
@@ -532,10 +538,11 @@ public class VehicleService {
     }
 
     private VehicleCheckResponse performVehicleCheck(String licensePlateNumber, String type, Gate gate,
-                                                     MultipartFile snapshot) {
+            MultipartFile snapshot) {
         try {
             // Find vehicle by license plate with normalized search
-            // This handles cases where license plates may have different formatting (e.g., "ABC-123" vs "ABC123")
+            // This handles cases where license plates may have different formatting (e.g.,
+            // "ABC-123" vs "ABC123")
             Vehicle vehicle = vehicleRepository.findByLicensePlateNormalized(licensePlateNumber)
                     .orElse(null);
             if (vehicle == null) {
@@ -568,17 +575,17 @@ public class VehicleService {
 
                 recordCheck(gate, "pending");
                 VehicleCheckResponse pendingResponse = new VehicleCheckResponse(
-                    false,
-                    pendingMessage,
-                    licensePlateNumber,
-                    type,
-                    snapshotPath
-                );
+                        false,
+                        pendingMessage,
+                        licensePlateNumber,
+                        type,
+                        snapshotPath);
                 pendingResponse.setResult(VehicleCheckResponse.CheckResult.PENDING);
                 return pendingResponse;
             }
 
-            // ADR-0604: closed whitelist is tenant_vehicle_registration, not mere vehicle visibility.
+            // ADR-0604: closed whitelist is tenant_vehicle_registration, not mere vehicle
+            // visibility.
             UUID checkTenant = TenantContext.getTenantId();
             if (checkTenant != null
                     && !tenantVehicleRegistrationService.isActivelyRegistered(vehicle.getId(), checkTenant)) {
@@ -605,12 +612,13 @@ public class VehicleService {
                 pendingResponse.setResult(VehicleCheckResponse.CheckResult.PENDING);
                 return pendingResponse;
             }
-            
-            // Check if vehicle status is approved or already in appropriate state for entry/exit
+
+            // Check if vehicle status is approved or already in appropriate state for
+            // entry/exit
             boolean isApproved = vehicle.getStatus() == Vehicle.VehicleStatus.approved ||
                     ("entry".equalsIgnoreCase(type) && vehicle.getStatus() == Vehicle.VehicleStatus.exited) ||
                     ("exit".equalsIgnoreCase(type) && vehicle.getStatus() == Vehicle.VehicleStatus.entered);
-            
+
             String message;
             if (isApproved) {
                 String ownerName = vehicle.getOwner() != null ? vehicle.getOwner().getFullName() : "Không xác định";
@@ -633,14 +641,17 @@ public class VehicleService {
                 } else {
                     message = "Xe biển số " + licensePlateNumber + " của " + ownerName + " được phép ra vào cổng";
                 }
-                
-                // Create vehicle log entry for approved access (with optional snapshot evidence)
+
+                // Create vehicle log entry for approved access (with optional snapshot
+                // evidence)
                 createVehicleLogEntry(vehicle, type, gate, snapshot);
 
                 // Get employee info and send to WebSocket
                 try {
-                    VehicleLog.LogType logType = "entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry : VehicleLog.LogType.exit;
-                    Object monitorInfo = vehicleLogService.getOwnerInfoByLicensePlate(licensePlateNumber, logType, gate);
+                    VehicleLog.LogType logType = "entry".equalsIgnoreCase(type) ? VehicleLog.LogType.entry
+                            : VehicleLog.LogType.exit;
+                    Object monitorInfo = vehicleLogService.getOwnerInfoByLicensePlate(licensePlateNumber, logType,
+                            gate);
                     webSocketService.sendVehicleCheckMessage(monitorInfo, gateId(gate));
                 } catch (Exception e) {
                     // Fallback to simple message if employee info fails
@@ -653,23 +664,22 @@ public class VehicleService {
                 String statusText = getStatusText(vehicle.getStatus()).equals("Entered") ? "đã vào" : "đã ra";
                 message = "Xe biển số " + licensePlateNumber + " của " + ownerName
                         + " không được phép ra vào (Trạng thái: " + statusText + ")";
-                
+
                 // Send WebSocket message for denied access
                 webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
                 recordCheck(gate, "denied");
             }
 
             return new VehicleCheckResponse(
-                isApproved,
-                message,
-                licensePlateNumber,
-                type
-            );
+                    isApproved,
+                    message,
+                    licensePlateNumber,
+                    type);
 
         } catch (Exception e) {
             recordCheck(gate, "error");
             String errorMessage = "Lá»—i kiá»ƒm tra xe: " + e.getMessage();
-            
+
             // Send WebSocket message for error
             try {
                 webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, errorMessage, gateId(gate));
@@ -677,16 +687,15 @@ public class VehicleService {
                 // Log WebSocket error but don't fail the response
                 System.err.println("Failed to send WebSocket message: " + wsException.getMessage());
             }
-            
+
             return new VehicleCheckResponse(
-                false,
-                errorMessage,
-                licensePlateNumber,
-                type
-            );
+                    false,
+                    errorMessage,
+                    licensePlateNumber,
+                    type);
         }
     }
-    
+
     /**
      * Create a vehicle log entry for access events. When {@code gate} is non-null
      * the log is tagged with the gate and its location; otherwise it falls back to
@@ -852,7 +861,8 @@ public class VehicleService {
     }
 
     /**
-     * @param requireWhenRestricted when true (create), SITE_MANAGER must supply a site
+     * @param requireWhenRestricted when true (create), SITE_MANAGER must supply a
+     *                              site
      */
     private void resolveSiteForWrite(UUID siteId, boolean requireWhenRestricted) {
         if (!siteAccess.isRestricted()) {
@@ -872,8 +882,10 @@ public class VehicleService {
     }
 
     /**
-     * Bump the {@code vehicle_check_total{gate,result}} counter for one access check.
-     * {@code result} is one of {@code approved | denied | not_found | error}; the gate
+     * Bump the {@code vehicle_check_total{gate,result}} counter for one access
+     * check.
+     * {@code result} is one of {@code approved | denied | not_found | error}; the
+     * gate
      * tag falls back to {@code none} for gate-less (backward-compatible) checks.
      */
     private void recordCheck(Gate gate, String result) {
@@ -881,7 +893,7 @@ public class VehicleService {
                 "gate", gate != null ? gate.getName() : "none",
                 "result", result).increment();
     }
-    
+
     /**
      * Get status text for vehicle status
      */

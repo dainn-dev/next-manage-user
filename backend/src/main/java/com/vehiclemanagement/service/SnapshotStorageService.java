@@ -21,16 +21,22 @@ import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Persists gate snapshot evidence &mdash; the cropped license-plate image captured
- * by the edge on a check-vehicle call (Phase 4.2) &mdash; to the local filesystem
- * and returns a web path served by the existing {@code /uploads/**} static handler
+ * Persists gate snapshot evidence &mdash; the cropped license-plate image
+ * captured
+ * by the edge on a check-vehicle call (Phase 4.2) &mdash; to the local
+ * filesystem
+ * and returns a web path served by the existing {@code /uploads/**} static
+ * handler
  * (see {@link com.vehiclemanagement.config.WebConfig}).
  *
- * <p>Storage is <b>best-effort</b>: capturing evidence must never fail the vehicle
+ * <p>
+ * Storage is <b>best-effort</b>: capturing evidence must never fail the vehicle
  * access check, so every failure (missing file, unreadable image, IO error) is
  * swallowed and {@code null} is returned. Callers treat {@code null} as
- * "no snapshot" and leave {@link com.vehiclemanagement.entity.VehicleLog#getImagePath()}
- * unset, preserving backward-compatible behaviour for gates that do not send one.
+ * "no snapshot" and leave
+ * {@link com.vehiclemanagement.entity.VehicleLog#getImagePath()}
+ * unset, preserving backward-compatible behaviour for gates that do not send
+ * one.
  */
 @Service
 public class SnapshotStorageService {
@@ -40,16 +46,21 @@ public class SnapshotStorageService {
     private final ImageProcessingUtil imageProcessingUtil;
     private final ObjectStorageService objectStorageService;
 
-    /** Physical directory (relative to the working dir) snapshots are written to. */
+    /**
+     * Physical directory (relative to the working dir) snapshots are written to.
+     */
     @Value("${storage.snapshot-dir:uploads/snapshots}")
     private String snapshotDir;
 
-    /** Public URL prefix that {@link #snapshotDir} is served under by the static handler. */
+    /**
+     * Public URL prefix that {@link #snapshotDir} is served under by the static
+     * handler.
+     */
     @Value("${storage.snapshot-url-prefix:/uploads/snapshots}")
     private String snapshotUrlPrefix;
 
     public SnapshotStorageService(ImageProcessingUtil imageProcessingUtil,
-                                  ObjectStorageService objectStorageService) {
+            ObjectStorageService objectStorageService) {
         this.imageProcessingUtil = imageProcessingUtil;
         this.objectStorageService = objectStorageService;
     }
@@ -93,7 +104,8 @@ public class SnapshotStorageService {
 
     /**
      * Stores one optional ingest snapshot in S3-compatible object storage. The
-     * object key is scoped from the tenant established by camera-key authentication,
+     * object key is scoped from the tenant established by camera-key
+     * authentication,
      * never from client-controlled multipart data. Invalid images and storage
      * failures remain best-effort so an accepted event is not replayed solely
      * because evidence storage is temporarily unavailable.

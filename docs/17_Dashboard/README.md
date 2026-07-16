@@ -9,25 +9,22 @@ Status: Draft · Owner: Principal Architect · Last updated: 2026-07-09
 
 ## 1. Current state vs. Target
 
-**Current state** (`frontend/`, per §1 of the shared brief):
+**Current state** (`frontend/`):
 - **Next.js 14.2.16, App Router**, React 18, TypeScript, pnpm, `output: 'standalone'`.
 - **Tailwind CSS v4 + shadcn/ui** (new-york style, Radix primitives), lucide icons, **recharts** for
   charts, react-hook-form + zod for forms, next-themes, sonner for toasts.
-- **No react-query/SWR/axios** — data access is native `fetch` wrapped in hand-rolled class API
-  clients in `lib/api/` (`auth-api.ts`, `vehicle-api.ts`, `gate-api.ts`, `employee-api.ts`,
-  `department-api.ts`, `position-api.ts`, `user-api.ts`, `access-request-api.ts`,
-  `vehicle-log-api.ts`, `vehicle-statistics-api.ts`).
-- **No global store** — React Context only.
-- **Auth:** JWT in `localStorage` (`auth_token`), `Authorization: Bearer` header, client-side expiry
-  decode. **No `middleware.ts`** — route protection is client-side via `ProtectedLayout` redirecting
-  to `/login`.
-- **Realtime:** STOMP over SockJS (`@stomp/stompjs`), hook `hooks/use-websocket.ts`.
-- **Existing routes:** `/login`, `/employees` (default landing), `/users`, `/departments`,
-  `/positions`, `/vehicles`, `/vehicles/monitoring` (live feed), `/vehicles/entry-exit`,
-  `/vehicles/requests`, `/gate` (registry), `/gate/[gateId]` (full-screen kiosk with Web Speech TTS
-  vi-VN), `/gate/health`, `/statistics`.
-- **No map component and no camera/video component exist today** — `Gate.cameraRtspUrl` is data-only
-  (stored, not rendered).
+- **No react-query/SWR/axios** — data access is native `fetch` wrapped in hand-rolled API clients in
+  `lib/api/`; React Context provides cross-cutting state.
+- **Auth:** JWT in `localStorage` (`auth_token`) and client-side `ProtectedLayout` routing. Backend
+  authorization, tenant RLS, and assigned-site validation remain authoritative.
+- **Shells and routes:** Platform, Tenant Operations, and Member routes already exist; DAI-333 and
+  the DAI-332 permission matrix are the current route inventory and navigation authority.
+- **Scope:** `DashboardScopeProvider` + `Topbar` load permitted sites and zones; their current
+  selector behavior is an implementation baseline, not the final UX contract.
+- **Realtime:** STOMP/SockJS plus REST polling fallback through `use-dashboard-realtime` and the
+  dashboard data context. Explicit stale/reconciliation behavior remains a DAI-339 gap.
+- **Operational surfaces:** dashboard, event, camera, parking-map, search, and commissioning pages
+  exist; their visibility and mutation boundaries are defined by the DAI-332 matrix.
 
 **Target** additions layered on this same stack (no framework rewrite, per §3.1 "evolve, don't
 rewrite"): multi-site switcher, Live Camera view, Parking Map view, real-time slot occupancy,
@@ -51,44 +48,41 @@ billing screens.
 
 ## 3. Information architecture
 
-Route tree, existing routes unchanged, new routes added under the same shell (see
-`diagrams/sitemap-ia.mmd`):
+The current, route-complete three-shell sitemap is the
+[DAI-333 IA and interaction standards](../06_User_RBAC/ia-interaction-standards.md), derived from
+the [DAI-332 permission matrix](../06_User_RBAC/permission-matrix.md). It is authoritative for
+shell ownership, navigation, breadcrumbs, deep links, scope selector behavior, and responsive rules.
 
-```
-/login
-/{shell: site switcher + role-based nav}
-  /employees, /users, /departments, /positions          (existing — workforce module, §4)
-  /vehicles, /vehicles/monitoring, /vehicles/entry-exit,
-  /vehicles/requests                                     (existing)
-  /gate, /gate/[gateId], /gate/health                    (existing)
-  /statistics                                             (existing)
-  /sites/{siteId}/map                                     (target — Parking Map view)
-  /sites/{siteId}/cameras                                 (target — Live Camera view)
-  /vehicles/search                                        (target)
-  /events                                                 (target — event timeline)
-  /analytics                                              (target — 20_Analytics)
-  /notifications                                          (target — 19_Notifications)
-  /admin/tenant, /admin/sites, /admin/roles, /admin/billing (target)
-```
+This document retains the dashboard architecture and realtime strategy; it does not define another
+route tree. In particular:
 
-`/employees` remains a sensible default landing route only for tenants using the workforce module
-(§4 "keep existing Employee/Department/Position as an optional workforce module"); multi-site
-tenants without that module should land on a new operations overview (out of scope to fully design
-here — flag as an open question, §8).
+- `/dashboard` is the Tenant Operations landing for Tenant Admin, Site Manager, and Security Guard;
+  `/employees` is a legacy administrative destination, not a default landing.
+- `/platform/*` and `/me/*` are separate Platform and Member shells, not dashboard routes.
+- `/gate/[gateId]` is a full-screen Tenant Operations kiosk sub-mode.
+- `/notifications`, `/admin/*`, `/sites/{siteId}/map`, `/sites/{siteId}/cameras`, and `/analytics`
+  are historical/future proposals unless and until they have an implemented route and a DAI-332
+  permission-matrix row. They must not appear as current navigable IA.
+- `/departments`, `/positions`, and `/employees` remain legacy Tenant Admin-only destinations until
+  DAI-339 brings browser-route and backend-policy conformance.
 
 ## 4. Role-based navigation
 
-Nav visibility is driven by the JWT `role` claim, per the target role set (§3.9 of the shared
-brief, detailed in `06_User_RBAC`):
+The five canonical roles and each implemented route's visibility, browser fallback, API policy, and
+data scope are defined by the [DAI-332 permission matrix](../06_User_RBAC/permission-matrix.md).
+The three-shell UX behavior is defined by
+[DAI-333](../06_User_RBAC/ia-interaction-standards.md).
 
-| Role | Sees |
+| Role | Dashboard relationship |
 |---|---|
-| `PLATFORM_ADMIN` | Cross-tenant admin (out of the per-tenant dashboard; separate platform console, out of scope here) |
-| `TENANT_ADMIN` | Everything below + `/admin/tenant`, `/admin/billing`, `/admin/roles` — site ops, map, cameras, monitoring, statistics, approvals (legacy APPROVER / SITE_MANAGER / SECURITY_GUARD duties fold here) |
-| `MEMBER` | Own-vehicle views, requests, chatbot (`16_AI_Chatbot`) — a subset closer to the mobile app's scope than the operator dashboard |
+| `PLATFORM_ADMIN` | Uses Platform only; no implicit Tenant Operations data access. |
+| `TENANT_ADMIN` | Tenant Operations dashboard across the validated tenant's sites. |
+| `SITE_MANAGER` | Tenant Operations dashboard for assigned sites only. |
+| `SECURITY_GUARD` | Assigned-site operational dashboard read; no configuration, approval, or vehicle/registration CRUD. |
+| `MEMBER` | Uses the separate mobile-first Member shell, not the operator dashboard. |
 
-This is additive to today's URL + `@PreAuthorize` pattern on the backend (§1) — the dashboard nav
-only *hides* unauthorized items; the backend remains the enforcement point.
+Navigation hides unavailable items and browser guards prevent wrong-shell content flash. Neither is
+backend authorization: server role checks, tenant RLS, and assigned-site validation remain authoritative.
 
 ## 5. Realtime data strategy
 
@@ -118,7 +112,7 @@ permanent decision, it is a "not yet, here's the trigger" decision.
 
 ## 7. Diagrams
 
-- `diagrams/sitemap-ia.mmd` — full route tree, existing routes vs. target additions (color-coded).
+- `diagrams/sitemap-ia.mmd` — historical dashboard sitemap draft; the current three-shell sitemap is DAI-333.
 - `diagrams/dashboard-component-architecture.mmd` — component view: shell, site switcher,
   role-based nav, feature views, data layer (`lib/api/` clients, Context, `use-websocket` hook),
   backend REST + STOMP, and the target Redis relay.
@@ -134,6 +128,8 @@ permanent decision, it is a "not yet, here's the trigger" decision.
 - `adr/ADR-1703-dashboard-rbac-realtime-contracts.md` — accepted MVP contract for role visibility,
   tenant/site/zone/camera/slot scoping, STOMP with polling fallback, REST/event payloads, and the
   backend gaps that block Stage 5.
+- [`../06_User_RBAC/ia-interaction-standards.md`](../06_User_RBAC/ia-interaction-standards.md) —
+  current three-shell IA, interaction, state, deep-link, and responsive contract (DAI-333).
 
 ## 9. Open questions / risks
 
@@ -147,8 +143,9 @@ permanent decision, it is a "not yet, here's the trigger" decision.
   for the react-query adoption threshold in ADR-1701.
 - Notifications center UX (read/unread, grouping, do-not-disturb) is scoped to `19_Notifications`,
   not detailed here beyond the inbox route.
-- `SECURITY_GUARD` is part of the accepted Stage 5 dashboard contract but is not yet present in the
-  backend or frontend role enums; see ADR-1703 for the required compatibility work.
+- `SECURITY_GUARD` now exists in backend/frontend role handling, but its approved read-only
+  dashboard boundary, manual-override flow, audit trail, route enforcement, and realtime stale state
+  still require the DAI-337/DAI-339/DAI-340 follow-up described by DAI-333.
 
 ## 10. Cross-references
 

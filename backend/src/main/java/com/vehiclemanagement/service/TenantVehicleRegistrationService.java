@@ -22,7 +22,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Closed-org “add plate to management” (ADR-0604). Does not delete platform vehicle masters.
+ * Closed-org “add plate to management” (ADR-0604). Does not delete platform
+ * vehicle masters.
  */
 @Service
 public class TenantVehicleRegistrationService {
@@ -70,8 +71,8 @@ public class TenantVehicleRegistrationService {
             throw new IllegalArgumentException("SITE_MANAGER must supply siteId when registering a plate");
         }
 
-        Optional<PlatformVehicleLookup.PlateHit> existing =
-                platformVehicleLookup.findByLicensePlateNormalized(request.getLicensePlate());
+        Optional<PlatformVehicleLookup.PlateHit> existing = platformVehicleLookup
+                .findByLicensePlateNormalized(request.getLicensePlate());
         boolean linkedExisting;
         UUID vehicleId;
         UUID ownerIdForAffiliation = request.getOwnerId();
@@ -109,8 +110,8 @@ public class TenantVehicleRegistrationService {
     @Transactional
     public TenantVehicleRegistrationDto revoke(UUID vehicleId) {
         UUID tenantId = requireTenant();
-        TenantVehicleRegistration.TenantVehicleRegistrationId pk =
-                new TenantVehicleRegistration.TenantVehicleRegistrationId(vehicleId, tenantId);
+        TenantVehicleRegistration.TenantVehicleRegistrationId pk = new TenantVehicleRegistration.TenantVehicleRegistrationId(
+                vehicleId, tenantId);
         TenantVehicleRegistration reg = registrationRepository.findById(pk)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration not found"));
         reg.setStatus(TenantVehicleRegistration.Status.REVOKED);
@@ -139,7 +140,8 @@ public class TenantVehicleRegistrationService {
         User owner = null;
         if (request.getOwnerId() != null) {
             owner = userRepository.findById(request.getOwnerId())
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.getOwnerId()));
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("User not found with id: " + request.getOwnerId()));
             if (owner.getRole() != User.Role.MEMBER) {
                 throw new IllegalArgumentException("Vehicle owner must be a MEMBER");
             }
@@ -159,8 +161,8 @@ public class TenantVehicleRegistrationService {
     }
 
     private TenantVehicleRegistration upsertRegistration(UUID vehicleId, UUID tenantId, UUID siteId) {
-        TenantVehicleRegistration.TenantVehicleRegistrationId pk =
-                new TenantVehicleRegistration.TenantVehicleRegistrationId(vehicleId, tenantId);
+        TenantVehicleRegistration.TenantVehicleRegistrationId pk = new TenantVehicleRegistration.TenantVehicleRegistrationId(
+                vehicleId, tenantId);
         Optional<TenantVehicleRegistration> existing = registrationRepository.findById(pk);
         if (existing.isPresent()) {
             TenantVehicleRegistration row = existing.get();
@@ -179,8 +181,7 @@ public class TenantVehicleRegistrationService {
     }
 
     private void ensureAffiliation(UUID userId, UUID tenantId) {
-        MemberAffiliation.MemberAffiliationId pk =
-                new MemberAffiliation.MemberAffiliationId(userId, tenantId);
+        MemberAffiliation.MemberAffiliationId pk = new MemberAffiliation.MemberAffiliationId(userId, tenantId);
         Optional<MemberAffiliation> existing = memberAffiliationRepository.findById(pk);
         if (existing.isPresent()) {
             MemberAffiliation row = existing.get();

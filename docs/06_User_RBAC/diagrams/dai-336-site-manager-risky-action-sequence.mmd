@@ -1,0 +1,82 @@
+sequenceDiagram
+    autonumber
+    actor SM as Site Manager
+    participant UI as Selected-site page
+    participant Dialog as ConfirmActionDialog or DecisionDialog
+    participant API as Operational API
+    participant Scope as Role, assignment, active-site, and source checks
+    participant Service as Domain service
+    participant Audit as Tenant or site audit writer
+    participant DB as Tenant database
+    participant Handoff as Tenant Admin handoff or artifact delivery
+
+    SM->>UI: Choose risky action in active selected site
+
+    alt Access-request decision
+        UI->>Dialog: Show request, selected site, evidence, effect, and reason rule
+        alt Reject without nonblank reason
+            UI-->>SM: Inline reason validation; do not submit
+        else Approve or valid rejection
+            Dialog-->>SM: Confirm decision
+        end
+    else Unresolved-event escalation
+        UI->>Dialog: Show event, source, selected site, severity, impact, and required reason
+        alt Missing reason
+            UI-->>SM: Inline reason validation; do not submit
+        else Valid escalation
+            Dialog-->>SM: Confirm escalation
+        end
+    else Selected-site export
+        UI->>Dialog: Show selected site, filters, format, data scope, and export impact
+        Dialog-->>SM: Confirm export request
+    end
+
+    SM->>Dialog: Confirm
+    Dialog->>UI: Lock duplicate submit and show pending state
+    UI->>API: Send action, scope, reason where required, and idempotency context
+    API->>Scope: Verify SITE_MANAGER, tenant, UserSite assignment, active site, and source ownership
+
+    alt Scope denied, site disabled, or resource unavailable
+        Scope-->>API: 403, SITE_DISABLED, or non-disclosing 404
+        API-->>UI: Generic unavailable or disabled-site result
+        UI->>Dialog: Keep safe context or return to active scope state
+        Dialog-->>SM: No cross-site or tenant-wide data disclosure
+    else Scope allowed
+        Scope-->>API: Permit selected-site action
+        API->>Service: Validate current request, event, export, or commissioning state
+
+        alt Stale request, duplicate escalation, invalid export, or validation conflict
+            Service-->>API: Conflict or validation result
+            API-->>UI: Prior server state remains authoritative
+            UI->>Dialog: Preserve safe input and offer refresh or retry
+        else Valid action
+            Service->>DB: Write decision, escalation, or export request
+            Service->>Audit: Append actor, selected site, target, reason, action, and outcome
+            Audit->>DB: Persist immutable operational audit in same transaction
+
+            alt Audit write fails
+                DB-->>Audit: Audit failure
+                Audit-->>Service: Fail transaction
+                Service-->>API: Action not completed
+                API-->>UI: Failure; never claim success or release artifact
+                UI->>Dialog: Restore focus and offer retry
+            else Audit written
+                DB-->>Audit: Audit and correlation reference
+                alt Escalation
+                    Audit->>Handoff: Send approved Tenant Admin handoff through outbox
+                    Handoff-->>Service: Escalation outcome
+                else Export
+                    Audit->>Handoff: Release audited selected-site artifact
+                    Handoff-->>Service: Artifact outcome
+                end
+                Audit-->>Service: Durable action outcome
+                Service-->>API: Updated resource or result plus audit and correlation reference
+                API-->>UI: Confirmed server result
+                UI->>UI: Refresh selected-site state
+                UI-->>SM: Inline durable feedback; toast is supplementary only
+            end
+        end
+    end
+
+    Note over SM,DB: Active selected site narrows work but never grants authority beyond server assignment checks.
+    Note over API,Handoff: Escalation requires an approved permission-matrix/API policy row before release.

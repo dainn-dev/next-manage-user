@@ -14,13 +14,15 @@ edge/camera authentication. Tenant-context mechanics live in `04_Multi_Tenant_De
 
 ### Implemented now
 
-- **Roles**: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `SITE_MANAGER`, `MEMBER` (DB CHECK +
-  `User.Role` enum). Site membership in `user_site` for `SITE_MANAGER`.
+- **Roles**: `PLATFORM_ADMIN`, `TENANT_ADMIN`, `SITE_MANAGER`, `SECURITY_GUARD`, and
+  `MEMBER` (DB CHECK + `User.Role` enum). Site membership in `user_site` scopes both
+  `SITE_MANAGER` and `SECURITY_GUARD`.
 - **JWT**: jjwt, HS256; claims include `role`, `email`, `userId`, `tenant_id` (omitted for
-  `PLATFORM_ADMIN` and `MEMBER`), `site_ids` (non-empty for `SITE_MANAGER`),
+  `PLATFORM_ADMIN` and `MEMBER`), `site_ids` (for site-scoped operator roles),
   `affiliation_tenant_ids[]` (MEMBER), `password_version`.
 - **Frontend auth**: JWT in `localStorage` (`auth_token`); route protection is client-side
   (`ProtectedLayout`). Platform console under `/platform/*` is gated to `PLATFORM_ADMIN`.
+  UI visibility and browser routing are not API authorization.
 - **Gate/edge auth**: `GateApiKeyAuthFilter` + `X-Gate-Key` (shared key; see ADR-0602 for
   per-camera target).
 - **MEMBER (Phase A–C, ADR-0603)**: platform consumer with `users.tenant_id NULL`;
@@ -45,11 +47,14 @@ edge/camera authentication. Tenant-context mechanics live in `04_Multi_Tenant_De
 | Role | Scope | Responsibility |
 |---|---|---|
 | `PLATFORM_ADMIN` | Cross-tenant (`tenant_id` NULL) | SaaS operator: tenant lifecycle, platform billing overview, platform audit/support. **Not** day-to-day parking ops. |
-| `TENANT_ADMIN` | One tenant | Org settings, billing, sites CRUD, users (including assigning `SITE_MANAGER` + sites), invite/link MEMBER affiliations, full ops. |
-| `SITE_MANAGER` | 1+ sites via `user_site` / JWT `site_ids` | Ops within assigned branches: gates, cameras, zones, logs, vehicle approve. **No** org/billing/create-delete sites. May manage MEMBER vehicles/affiliations in assigned sites (product: closed orgs). |
-| `MEMBER` | **Platform consumer** (`tenant_id` NULL) | One account per person. Self-service across affiliations + claimed public sessions. **Not** an ops role. |
+| `TENANT_ADMIN` | One tenant | Org settings, billing, sites CRUD, users (including assigning site-scoped operators), invite/link MEMBER affiliations, full ops. |
+| `SITE_MANAGER` | 1+ sites via `user_site` / JWT `site_ids` | Ops within assigned branches: gates, cameras, zones, logs, vehicle approve. **No** org/billing/create-delete sites or guard provisioning. |
+| `SECURITY_GUARD` | 1+ assigned sites via `user_site` / JWT `site_ids` | Operational read, verify/escalate events, and only the DAI-332-approved manual access override. **No** CRUD of users, vehicles/registrations, sites, cameras, credentials, billing, or configuration. |
+| `MEMBER` | **Platform consumer** (`tenant_id` NULL) | One account per person. Mobile-first self-service across affiliations + claimed public sessions. **Not** an ops role. |
 
-Legacy `SECURITY_GUARD` remains retired. `SITE_MANAGER` was reintroduced (V57) for multi-branch orgs.
+The authoritative route/action policy, including the guard boundary and runtime conformance gaps, is
+[permission-matrix.md](permission-matrix.md). `SITE_MANAGER` was reintroduced (V57) for
+multi-branch orgs.
 
 ### 3.1 MEMBER: public vs non-public
 
@@ -77,8 +82,9 @@ Phase D migration.
 
 ### 3.3 MEMBER web MVP (locked)
 
-Minimal web (not mobile-first): **Xe · Đăng ký tại org · Visit/QR · Lịch sử · Tài khoản**.
-No ops chrome. Retail find-car: QR at gate + claim + camera→slot on open session.
+Mobile-first web: **Xe · Đăng ký tại org · Visit/QR · Lịch sử · Tài khoản**. No ops chrome.
+Retail find-car: QR at gate + claim + camera→slot on open session. Native applications are outside
+MVP; see ADR-0605 for the device strategy.
 
 ## 4. JWT Claim Evolution
 
@@ -86,42 +92,26 @@ No ops chrome. Retail find-car: QR at gate + claim + camera→slot on open sessi
 |---|---|
 | `userId` | Subject user id |
 | `email` | Email |
-| `role` | One of `PLATFORM_ADMIN` / `TENANT_ADMIN` / `SITE_MANAGER` / `MEMBER` |
+| `role` | One of `PLATFORM_ADMIN` / `TENANT_ADMIN` / `SITE_MANAGER` / `SECURITY_GUARD` / `MEMBER` |
 | `tenant_id` | Ops: home tenant. **Omitted** for `PLATFORM_ADMIN` and `MEMBER`. |
-| `site_ids[]` | Assigned sites for `SITE_MANAGER`; **empty** = tenant-wide (TENANT_ADMIN) |
+| `site_ids[]` | Assigned sites for `SITE_MANAGER` and `SECURITY_GUARD`; **empty** = tenant-wide (TENANT_ADMIN) |
 | `affiliation_tenant_ids[]` | Active MEMBER affiliations (Phase B) |
 | `password_version` | Invalidates sessions after password reset |
 | `exp` | Expiry (default 86400s) |
 
 ## 5. Permission Matrix
 
-`✓` = allowed · `Own` = own records only · `Site` = within JWT `site_ids` · `Aff` = within
-tenant affiliation · `—` = denied.
+The canonical role × route × action × scope matrix is
+[permission-matrix.md](permission-matrix.md). It covers all five current roles, every implemented
+frontend route, API/action families, technical principals, and the distinct UI visibility,
+frontend-route, backend-enforcement, and data-scope layers.
 
-| Resource | Action | PLATFORM_ADMIN | TENANT_ADMIN | SITE_MANAGER | MEMBER |
-|---|---|---|---|---|---|
-| Tenant | list / get / rename / status | ✓ | — | — | — |
-| Tenant | view/update own profile | — | ✓ | — | — |
-| Site | create/edit/delete | — | ✓ | — | — |
-| Site | list/view assigned | — | ✓ (all) | Site | — |
-| Camera/Gate/Zone | CRUD | — | ✓ | Site | — |
-| Vehicle | view / approve (`current_site_id`) | — | ✓ | Site* | Own |
-| Vehicle registration (closed) | add plate / revoke from tenant management | — | ✓ | Site* | — |
-| Vehicle | platform master CRUD | — | via register† | via register† | config own (target) |
-| VehicleAccessRequest | approve/reject | — | ✓ | ✓ | — |
-| VehicleAccessRequest | create | — | ✓ | ✓ | Own |
-| Vehicle logs | view/export | — | ✓ | Site | Own (target) |
-| Member affiliation | invite / link / revoke | — | ✓ | ✓ (closed) | — |
-| ParkingSession | claim QR / where-is-my-car | — | — | — | Own (target) |
-| User (ops) | manage + assign sites | — | ✓ | — | — |
-| Subscription/Billing (SaaS) | own portal | ✓ (overview) | ✓ | — | — |
-| Analytics dashboard | tenant ops | — | ✓ | ✓ | — |
-| Analytics | cross-tenant overview | ✓ | — | — | — |
-| Audit log | platform / tenant | ✓ / — | — / ✓ | — | — |
+The matrix is authoritative over this overview document. It also records current implementation
+gaps rather than presenting target policy as already enforced. The three-shell sitemap, scope-selector
+behavior, shared interaction states, deep links, and responsive contract live in
+[DAI-333 IA and interaction standards](ia-interaction-standards.md); that document does not grant
+permissions independently of the matrix.
 
-\* SITE_MANAGER vehicle scope: `current_site_id IN site_ids`; NULL = TENANT_ADMIN-only until stamped.
-† ADR-0604: ops **register plate** into `tenant_vehicle_registration` (link existing platform
-  vehicle or create master + registration); revoke registration does not delete the platform row.
 
 ## 6. Site vs Gate, and registration intent
 
@@ -131,8 +121,10 @@ tenant affiliation · `—` = denied.
 
 ## 7. Site-Scoped Permissions
 
-`SITE_MANAGER` membership is stored in `user_site` and copied into JWT `site_ids` at login.
-`SiteAccess` + `SiteContext` enforce app-layer checks on gate/camera/zone/logs/vehicles.
+`SITE_MANAGER` and `SECURITY_GUARD` membership is stored in `user_site` and copied into JWT
+`site_ids` at login. `SiteAccess` + `SiteContext` enforce app-layer checks on
+gate/camera/zone/logs/vehicles. A client-supplied `siteId` is never permission to expand those
+assignments.
 
 - Empty JWT `site_ids` = unrestricted within the tenant (TENANT_ADMIN).
 - Vehicles use `vehicles.current_site_id` (last-known branch). Gate entry stamps it from
@@ -164,6 +156,13 @@ consumer federation is required.
 - [`adr/ADR-0602-edge-camera-credential-model.md`](adr/ADR-0602-edge-camera-credential-model.md)
 - [`adr/ADR-0603-platform-member-and-affiliation.md`](adr/ADR-0603-platform-member-and-affiliation.md)
 - [`adr/ADR-0604-platform-vehicle-and-tenant-registration.md`](adr/ADR-0604-platform-vehicle-and-tenant-registration.md)
+- [`adr/ADR-0605-rbac-product-decisions-and-ux-permission-contract.md`](adr/ADR-0605-rbac-product-decisions-and-ux-permission-contract.md)
+- [DAI-332 permission matrix](permission-matrix.md)
+- [DAI-333 IA and interaction standards](ia-interaction-standards.md)
+- [DAI-334 Platform Admin wireflow](dai-334-platform-admin-wireflow.md)
+- [DAI-335 Tenant Admin wireflow](dai-335-tenant-admin-wireflow.md)
+- [DAI-336 Site Manager wireflow](dai-336-site-manager-wireflow.md)
+- [DAI-337 Security Guard wireflow](dai-337-security-guard-wireflow.md)
 - Parking fees (bank transfer): [`../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md`](../05_Subscription_Billing/adr/ADR-0503-parking-fee-bank-transfer.md)
 
 ## 12. Sample accounts (local testing)

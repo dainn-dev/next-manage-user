@@ -42,9 +42,11 @@ public class ParkingMapCommissioningService {
 
     @Transactional(readOnly = true)
     public HomographyCalibration validateCalibration(UUID siteId, CreateCalibrationRequest request) {
-        if (siteId == null || !siteRepository.existsById(siteId)) throw new ResourceNotFoundException("Site not found with id: " + siteId);
+        if (siteId == null || !siteRepository.existsById(siteId))
+            throw new ResourceNotFoundException("Site not found with id: " + siteId);
         siteAccess.assertSiteAllowed(siteId);
-        if (request == null || request.cameraId() == null || !repository.isOverviewCameraAtSite(request.cameraId(), siteId))
+        if (request == null || request.cameraId() == null
+                || !repository.isOverviewCameraAtSite(request.cameraId(), siteId))
             throw new IllegalArgumentException("Camera must be an OVERVIEW camera belonging to the selected site");
         if (!repository.sourceImageAtCamera(request.sourceImageId(), siteId, request.cameraId()))
             throw new IllegalArgumentException("Calibration source image must belong to the selected OVERVIEW camera");

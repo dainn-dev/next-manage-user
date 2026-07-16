@@ -49,7 +49,8 @@ public class VehicleExportService {
                 v -> v.getExpiryDate() != null ? v.getExpiryDate().format(DATE) : ""));
         COLUMNS.put("status", new Column("Trạng thái", v -> v.getStatus() != null ? v.getStatus().name() : ""));
         COLUMNS.put("fuelType", new Column("Nhiên liệu", v -> v.getFuelType() != null ? v.getFuelType().name() : ""));
-        COLUMNS.put("capacity", new Column("Sức chứa", v -> v.getCapacity() != null ? String.valueOf(v.getCapacity()) : ""));
+        COLUMNS.put("capacity",
+                new Column("Sức chứa", v -> v.getCapacity() != null ? String.valueOf(v.getCapacity()) : ""));
         COLUMNS.put("notes", new Column("Ghi chú", v -> nz(v.getNotes())));
     }
 

@@ -38,10 +38,10 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class UserService implements UserDetailsService {
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private PasswordEncoder passwordEncoder;
 
@@ -62,7 +62,7 @@ public class UserService implements UserDetailsService {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
-    
+
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
@@ -71,41 +71,41 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException(
                         "User not found with username or email: " + usernameOrEmail)));
     }
-    
+
     public Page<UserDto> getAllUsers(Pageable pageable) {
         return userRepository.findAll(pageable).map(this::toDto);
     }
-    
+
     public List<UserDto> getAllUsersList() {
         return userRepository.findAll().stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
-    
+
     public UserDto getUserById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return toDto(user);
     }
-    
+
     public UserDto getUserByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
         return toDto(user);
     }
-    
+
     public Page<UserDto> searchUsers(String searchTerm, Pageable pageable) {
         return userRepository.findBySearchTerm(searchTerm, pageable).map(this::toDto);
     }
-    
+
     public Page<UserDto> getUsersByRole(User.Role role, Pageable pageable) {
         return userRepository.findByRole(role, pageable).map(this::toDto);
     }
-    
+
     public Page<UserDto> getUsersByStatus(User.UserStatus status, Pageable pageable) {
         return userRepository.findByStatus(status, pageable).map(this::toDto);
     }
-    
+
     public UserDto createUser(CreateUserRequest request) {
         if (request.getRole() == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot create PLATFORM_ADMIN via tenant user API");
@@ -128,10 +128,12 @@ public class UserService implements UserDetailsService {
                     request.getFirstName(),
                     request.getLastName(),
                     request.getStatus() != null ? request.getStatus() : User.UserStatus.ACTIVE);
-            // Reload under current tenant RLS (affiliation not yet written — use auth lookup).
+            // Reload under current tenant RLS (affiliation not yet written — use auth
+            // lookup).
             User savedUser = AuthDataSourceContext.callWithAuthLookup(() -> {
                 TransactionTemplate tx = new TransactionTemplate(transactionManager);
-                tx.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                tx.setPropagationBehavior(
+                        org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
                 tx.setReadOnly(true);
                 return tx.execute(status -> userRepository.findById(id)
                         .orElseThrow(() -> new ResourceNotFoundException("User not found after create")));
@@ -172,25 +174,25 @@ public class UserService implements UserDetailsService {
             return tx.execute(status -> userRepository.existsByEmail(email));
         }));
     }
-    
+
     public UserDto updateUser(UUID id, UpdateUserRequest request) {
         User existingUser = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        
+
         if (request.getUsername() != null && !existingUser.getUsername().equals(request.getUsername()) &&
-            userRepository.existsByUsername(request.getUsername())) {
+                userRepository.existsByUsername(request.getUsername())) {
             throw new IllegalArgumentException("Username already exists: " + request.getUsername());
         }
-        
+
         if (request.getEmail() != null && !existingUser.getEmail().equals(request.getEmail()) &&
-            userRepository.existsByEmail(request.getEmail())) {
+                userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already exists: " + request.getEmail());
         }
 
         if (request.getRole() == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN via tenant user API");
         }
-        
+
         if (request.getUsername() != null) {
             existingUser.setUsername(request.getUsername());
         }
@@ -214,7 +216,7 @@ public class UserService implements UserDetailsService {
         if (request.getStatus() != null) {
             existingUser.setStatus(request.getStatus());
         }
-        
+
         User updatedUser = userRepository.saveAndFlush(existingUser);
         User.Role effectiveRole = updatedUser.getRole();
         if (request.getRole() != null || request.getSiteIds() != null) {
@@ -224,7 +226,7 @@ public class UserService implements UserDetailsService {
         ensureMemberAffiliation(updatedUser);
         return toDto(updatedUser);
     }
-    
+
     public void deleteUser(UUID id) {
         if (!userRepository.existsById(id)) {
             throw new ResourceNotFoundException("User not found with id: " + id);
@@ -232,31 +234,31 @@ public class UserService implements UserDetailsService {
         userSiteRepository.deleteByUserId(id);
         userRepository.deleteById(id);
     }
-    
+
     public boolean checkUsernameExists(String username) {
         return userRepository.existsByUsername(username);
     }
-    
+
     public boolean checkEmailExists(String email) {
         return userRepository.existsByEmail(email);
     }
-    
+
     public long getUserCountByRole(User.Role role) {
         return userRepository.countByRole(role);
     }
-    
+
     public long getUserCountByStatus(User.UserStatus status) {
         return userRepository.countByStatus(status);
     }
-    
+
     public UserDto updateUserStatus(UUID id, User.UserStatus status) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        
+
         user.setStatus(status);
         return toDto(userRepository.save(user));
     }
-    
+
     public UserDto updateUserRole(UUID id, User.Role role) {
         if (role == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN via tenant user API");
@@ -266,13 +268,13 @@ public class UserService implements UserDetailsService {
         }
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
-        
+
         user.setRole(role);
         User updated = userRepository.save(user);
         userSiteRepository.deleteByUserId(id);
         return toDto(updated);
     }
-    
+
     public void updateLastLogin(String username) {
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isPresent()) {
@@ -306,7 +308,7 @@ public class UserService implements UserDetailsService {
             }
         }
     }
-    
+
     /**
      * Load active MEMBER affiliations for JWT. Uses {@code app_auth} so rows across
      * tenants are visible (RLS exception on {@code member_affiliation}).
@@ -319,15 +321,17 @@ public class UserService implements UserDetailsService {
         return AuthDataSourceContext.callWithAuthLookup(() -> {
             TransactionTemplate tx = new TransactionTemplate(transactionManager);
             tx.setReadOnly(true);
-            List<UUID> ids = tx.execute(status ->
-                    memberAffiliationRepository.findActiveTenantIdsByUserId(user.getId()));
+            List<UUID> ids = tx
+                    .execute(status -> memberAffiliationRepository.findActiveTenantIdsByUserId(user.getId()));
             return ids != null ? ids : Collections.emptyList();
         });
     }
 
     /**
-     * Ensure a MEMBER created under the current tenant GUC has an ACTIVE affiliation.
-     * Phase C: platform MEMBERs have {@code users.tenant_id NULL}; affiliation is required
+     * Ensure a MEMBER created under the current tenant GUC has an ACTIVE
+     * affiliation.
+     * Phase C: platform MEMBERs have {@code users.tenant_id NULL}; affiliation is
+     * required
      * for tenant visibility and seat counting (ADR-0603).
      */
     void ensureMemberAffiliation(User user) {
@@ -338,8 +342,7 @@ public class UserService implements UserDetailsService {
         if (tenantId == null) {
             return;
         }
-        MemberAffiliation.MemberAffiliationId pk =
-                new MemberAffiliation.MemberAffiliationId(user.getId(), tenantId);
+        MemberAffiliation.MemberAffiliationId pk = new MemberAffiliation.MemberAffiliationId(user.getId(), tenantId);
         Optional<MemberAffiliation> existing = memberAffiliationRepository.findById(pk);
         if (existing.isPresent()) {
             MemberAffiliation row = existing.get();
@@ -355,7 +358,7 @@ public class UserService implements UserDetailsService {
                 .status(MemberAffiliation.Status.ACTIVE)
                 .build());
     }
-    
+
     public void bulkDeleteUsers(List<UUID> userIds) {
         for (UUID id : userIds) {
             if (userRepository.existsById(id)) {
@@ -364,7 +367,7 @@ public class UserService implements UserDetailsService {
             }
         }
     }
-    
+
     public List<UserDto> bulkUpdateUserStatus(List<UUID> userIds, User.UserStatus status) {
         List<User> users = userRepository.findAllById(userIds);
         for (User user : users) {
@@ -372,7 +375,7 @@ public class UserService implements UserDetailsService {
         }
         return userRepository.saveAll(users).stream().map(this::toDto).collect(Collectors.toList());
     }
-    
+
     public List<UserDto> bulkUpdateUserRole(List<UUID> userIds, User.Role role) {
         if (role == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN via tenant user API");

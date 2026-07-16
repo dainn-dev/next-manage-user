@@ -1,0 +1,106 @@
+flowchart TD
+    start([Open login or Platform deep link]) --> auth[Authenticate and refresh current role]
+    auth --> role{Platform Admin?}
+    role -->|Yes| overview[Platform Overview]
+    role -->|Tenant Admin / Site Manager / Security Guard| opsLanding[Replace URL with Tenant Operations Dashboard]
+    role -->|Member| memberLanding[Replace URL with Member Home]
+    role -->|Unauthenticated or expired| login[Login with validated relative return path]
+    login --> auth
+
+    overview --> overviewLoad[Load lifecycle, subscription exception, health usage, admin, and audit panels]
+    overviewLoad --> overviewState{Panel state}
+    overviewState -->|Ready| platformNav[Platform navigation]
+    overviewState -->|Empty| overviewEmpty[Explain zero or no recent data]
+    overviewState -->|Partial error| overviewRetry[Mark failed panel and offer local retry]
+    overviewState -->|Full error| overviewFullError[Show page retry]
+    overviewState -->|401| login
+
+    subgraph platform[Platform control-plane routes]
+        direction LR
+        platformNav --> tenants[Tenants]
+        platformNav --> billing[Billing]
+        platformNav --> admins[Platform Admins]
+        platformNav --> audit[Platform Audit]
+    end
+
+    tenants --> tenantList[Load list, status filter, search, pagination]
+    tenantList --> tenantListState{List state}
+    tenantListState -->|No results| tenantEmpty[Explain no tenants or no search match]
+    tenantListState -->|Load failure| tenantListRetry[Keep filters and retry]
+    tenantListState -->|Create tenant| createDetails[Enter tenant, first site, model, area intent, initial admin]
+    tenantListState -->|Select tenant| detailLoad[Load authorized Tenant Detail]
+
+    createDetails --> createReview[Review before create]
+    createReview --> createConfirm{Confirm create?}
+    createConfirm -->|Cancel| createDetails
+    createConfirm -->|Confirm| createSubmit[Lock duplicate submit and create]
+    createSubmit --> createResult{Server and audit outcome returned?}
+    createResult -->|Yes| tenantOverview[Open new Tenant Detail Overview]
+    createResult -->|Validation or duplicate failure| createDetails
+    createResult -->|Failure| createFailure[Keep safe input and show retry]
+
+    detailLoad --> detailState{Authorized and found?}
+    detailState -->|Yes| tenantOverview
+    detailState -->|No or out of scope| tenantUnavailable[Generic unavailable then Tenants]
+    detailState -->|Load failure| detailRetry[Detail-local retry]
+    detailState -->|401| login
+
+    subgraph detail[Tenant Detail: control-plane only]
+        direction LR
+        tenantOverview[Overview: lifecycle and aggregate health] --> sitesUsage[Sites / usage: read-only aggregate]
+        sitesUsage --> subscription[Subscription: plan and exception state]
+        subscription --> contacts[Admin contacts: read-only]
+        contacts --> tenantAudit[Audit: tenant resource timeline]
+    end
+
+    tenantOverview --> lifecycleAction{Lifecycle action}
+    lifecycleAction -->|Suspend or reactivate or pending deletion| lifecycleConfirm[Confirm target, impact, mandatory reason]
+    lifecycleConfirm --> lifecycleResult{Server transition and audit outcome?}
+    lifecycleResult -->|Yes| tenantOverview
+    lifecycleResult -->|Invalid reason or conflict| lifecycleRecover[Keep prior status and dialog context]
+    lifecycleResult -->|Failure| lifecycleRecover
+
+    subscription --> exception{Billing exception?}
+    exception -->|No| subscriptionReadOnly[Read-only subscription context]
+    exception -->|Yes| exceptionContext[Show plan, dates, impact, freshness, and contacts]
+    exceptionContext --> exceptionCommand{Approved triage command exists?}
+    exceptionCommand -->|No| readOnlyHandoff[Read-only recovery and contact guidance]
+    exceptionCommand -->|Yes| exceptionConfirm[Confirm command with mandatory reason]
+    exceptionConfirm --> exceptionResult{Server outcome and audit reference?}
+    exceptionResult -->|Yes| subscription
+    exceptionResult -->|No| exceptionRecover[Keep exception unhandled and offer retry]
+
+    billing --> billingList[Review cross-tenant subscription and exception list]
+    billingList --> billingState{Billing data state}
+    billingState -->|No exceptions| billingEmpty[Explain normal or no matching subscriptions]
+    billingState -->|Unavailable or stale| billingUnavailable[Show freshness and retry; never infer healthy]
+    billingState -->|Exception| exceptionContext
+
+    admins --> adminList[Load Platform Admin directory]
+    adminList --> adminAction{Add or status change?}
+    adminAction -->|Add| adminReview[Validate and review new Platform Admin]
+    adminAction -->|Suspend or reactivate| adminConfirm[Confirm target and mandatory reason]
+    adminReview --> adminResult{Server and audit outcome?}
+    adminConfirm --> lastAdmin{Self or last active admin?}
+    lastAdmin -->|Yes| adminBlocked[Block action with safe explanation]
+    lastAdmin -->|No| adminResult
+    adminResult -->|Yes| adminList
+    adminResult -->|Failure| adminRecover[Keep current row or form and offer retry]
+
+    audit --> auditList[Read-only audit filters and timeline]
+    auditList --> auditState{Audit state}
+    auditState -->|No matching events| auditEmpty[Explain empty filter result]
+    auditState -->|Load failure| auditRetry[Retry current filters]
+    auditState -->|Lifecycle or admin result| auditResult[Show actor, target, reason, outcome, time, audit reference]
+
+    tenantOverview --> blockedOps[Blocked: tenant operations]
+    sitesUsage --> blockedOps
+    subscription --> blockedOps
+    blockedOps --> noImpersonation[No vehicle, gate, camera, map, site edit, or tenant billing portal action]
+
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef warning fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef denied fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    class overview,tenantOverview,platformNav,tenantList,detailLoad,billingList,adminList,auditList success
+    class overviewRetry,overviewFullError,tenantListRetry,detailRetry,billingUnavailable,auditRetry warning
+    class opsLanding,memberLanding,tenantUnavailable,blockedOps,noImpersonation,adminBlocked denied

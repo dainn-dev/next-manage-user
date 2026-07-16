@@ -17,8 +17,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Tenant-scoped Site CRUD. Every query runs under the current transaction's tenant
- * (RLS), so no explicit tenant_id filter is needed — cross-tenant rows are simply
+ * Tenant-scoped Site CRUD. Every query runs under the current transaction's
+ * tenant
+ * (RLS), so no explicit tenant_id filter is needed — cross-tenant rows are
+ * simply
  * invisible. Site names are unique within a tenant.
  */
 @Service

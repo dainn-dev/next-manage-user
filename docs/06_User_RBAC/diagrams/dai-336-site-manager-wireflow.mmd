@@ -1,0 +1,103 @@
+flowchart TD
+    start([Login or operational deep link]) --> identity[Refresh identity, role, tenant, account status, and UserSite assignments]
+    identity --> manager{Site Manager?}
+    manager -->|Yes| scopeResolve[Resolve URL, stored preference, and active assigned sites]
+    manager -->|Tenant Admin| tenantLanding[Apply Tenant Admin dashboard policy]
+    manager -->|Platform Admin| platformLanding[Replace URL with Platform Overview]
+    manager -->|Security Guard| guardLanding[Apply Security Guard dashboard policy]
+    manager -->|Member| memberLanding[Replace URL with Member Home]
+    manager -->|Unauthenticated or expired| login[Login with validated relative return path]
+    login --> identity
+
+    scopeResolve --> assignmentState{Assignment and site state}
+    assignmentState -->|No assignments| noAssignment[No assigned site; no scoped requests, actions, exports, or subscriptions]
+    assignmentState -->|Assigned site disabled| disabledSite[Distinct disabled assigned-site state; clear data and stop realtime]
+    assignmentState -->|One active assignment| fixedSite[Render fixed accessible active site]
+    assignmentState -->|Many active assignments| siteSelector[Show active assigned-site selector only]
+    siteSelector --> scopeValid{Selected URL or stored scope active and assigned?}
+    scopeValid -->|No| scopeFallback[Generic fallback to active assignment or no-assignment]
+    scopeValid -->|Yes| dashboard
+    fixedSite --> dashboard[Active selected-site Site Dashboard]
+    scopeFallback --> dashboard
+    disabledSite --> activeAlternative{Another active assigned site?}
+    activeAlternative -->|Yes| siteSelector
+    activeAlternative -->|No| noAssignment
+
+    dashboard --> accessQueue[Primary queue: selected-site pending access requests]
+    accessQueue --> accessState{Request state}
+    accessState -->|Pending item| requestDetail[Inspect evidence, gate, selected site, window, and reason]
+    accessState -->|Empty| noPending[Show no pending access requests]
+    accessState -->|Error| accessRetry[Keep dashboard and retry queue]
+    requestDetail --> requestDecision{Approve or reject?}
+    requestDecision -->|Approve| approveConfirm[Confirm selected-site operational effect]
+    requestDecision -->|Reject| rejectConfirm[Confirm with mandatory reason]
+    approveConfirm --> decisionResult{Server scope, pending state, audit outcome?}
+    rejectConfirm --> decisionResult
+    decisionResult -->|Success| accessQueue
+    decisionResult -->|Conflict or failure| decisionRecover[Preserve prior state; refresh or retry]
+
+    dashboard --> eventQueue[Primary queue: unresolved selected-site events]
+    eventQueue --> eventState{Event state}
+    eventState -->|Unresolved event| eventDetail[Inspect severity, source, evidence, state, and correlation]
+    eventState -->|Empty| noEvents[Show no unresolved events]
+    eventState -->|Error or stale| eventRetry[Show stale or retry state]
+    eventDetail --> escalateConfirm[Confirm escalation with mandatory reason]
+    escalateConfirm --> escalationResult{Server active-site, source, idempotency, audit outcome?}
+    escalationResult -->|Success| tenantAdminHandoff[Handoff to Tenant Admin without user-directory disclosure]
+    escalationResult -->|Conflict or failure| escalationRecover[Keep safe context and retry]
+
+    dashboard --> kpis[Supporting snapshot: occupancy, entries, exits, vehicles, camera and map health]
+    kpis --> realtime{Realtime state}
+    realtime -->|Live| drilldown
+    realtime -->|Polling, reconnecting, or stale| freshness[Show accurate polling or updated-time label]
+    freshness --> drilldown
+    realtime -->|Error| dashboardRetry[Retry failed panel without claiming complete data]
+
+    subgraph operations[Active selected-site operations]
+        direction LR
+        drilldown[Operational drilldown] --> events[Events]
+        drilldown --> monitoring[Vehicle monitoring and search]
+        drilldown --> entryExit[Entry and exit review]
+        drilldown --> gates[Gate and health]
+        drilldown --> maps[Parking maps and cameras]
+        drilldown --> commissioning[Commissioning]
+        drilldown --> statistics[Selected-site statistics]
+        drilldown --> exportReview[Selected-site export review]
+    end
+
+    exportReview --> exportConfirm[Confirm selected site, filters, format, and impact]
+    exportConfirm --> exportResult{Server audit before artifact delivery?}
+    exportResult -->|Yes| exportFile[Release selected-site artifact with audit reference]
+    exportResult -->|No| exportRecover[No download success; show retry or failure]
+
+    commissioning --> commissioningScope[Resolve active site, overview camera, zone, source, calibration, map, lock]
+    commissioningScope --> mapStatus{Map status}
+    mapStatus -->|Draft| draftEdit[Edit draft only]
+    mapStatus -->|Published| publishedReadOnly[Published map is read-only]
+    mapStatus -->|Archived| archivedCandidate[Archived valid rollback candidate]
+    publishedReadOnly --> createDraft[Create separate draft from source image and valid calibration]
+    createDraft --> draftEdit
+    draftEdit --> validateMap[Validate geometry, code, coverage, zone, camera, partition]
+    validateMap --> validMap{Validation passes?}
+    validMap -->|No| validationErrors[Show all errors and continue draft edit]
+    validationErrors --> draftEdit
+    validMap -->|Yes| publishConfirm[Confirm site, camera, draft, version, and effect]
+    publishConfirm --> publishResult{If-Match, idempotency, publish, audit outcome?}
+    publishResult -->|Success| publishedReadOnly
+    publishResult -->|Conflict or failure| publishRecover[Keep draft and refresh or retry]
+    archivedCandidate --> rollbackConfirm[Confirm rollback with mandatory reason]
+    rollbackConfirm --> rollbackResult{Revalidate, lock, rollback, audit outcome?}
+    rollbackResult -->|Success| publishedReadOnly
+    rollbackResult -->|Reason, conflict, or failure| rollbackRecover[Keep candidate and retry safely]
+
+    dashboard --> forbiddenAdmin[Forbidden tenant-wide administration]
+    forbiddenAdmin --> deniedRoutes[No billing, organization, sites, users, Platform, or Member access]
+    operations --> sessionExpired[Session expiry or 401]
+    sessionExpired --> login
+
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef warning fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef denied fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    class dashboard,accessQueue,eventQueue,kpis,drilldown,draftEdit,publishedReadOnly,statistics success
+    class noAssignment,disabledSite,scopeFallback,freshness,eventRetry,validationErrors,publishRecover,rollbackRecover,exportRecover warning
+    class platformLanding,memberLanding,forbiddenAdmin,deniedRoutes,archivedCandidate denied

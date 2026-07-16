@@ -46,15 +46,17 @@ public class VehicleAccessRequestService {
      * plate, time, evidence snapshot) instead of being silently denied at the gate
      * (Phase 4.4).
      *
-     * <p>Duplicate suppression: if an identical PENDING gate request for the same
-     * normalized plate and gate was created within {@code dedupWindow}, the existing
+     * <p>
+     * Duplicate suppression: if an identical PENDING gate request for the same
+     * normalized plate and gate was created within {@code dedupWindow}, the
+     * existing
      * one is returned untouched rather than piling up a new row for every frame the
      * edge sends.
      *
      * @return the newly created (or matched existing) request; never {@code null}
      */
     public VehicleAccessRequestDto recordGateDetection(String licensePlate, Gate gate,
-                                                       String imagePath, Duration dedupWindow) {
+            String imagePath, Duration dedupWindow) {
         LocalDateTime cutoff = LocalDateTime.now().minus(dedupWindow);
         String normalizedPlate = normalizePlate(licensePlate);
         UUID gateId = gate != null ? gate.getId() : null;
@@ -99,7 +101,7 @@ public class VehicleAccessRequestService {
     }
 
     public VehicleAccessRequestDto createRequest(UUID vehicleId, UUID requesterId,
-                                                  String reason, LocalDate validFrom, LocalDate validTo) {
+            String reason, LocalDate validFrom, LocalDate validTo) {
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vehicle not found with id: " + vehicleId));
         User requester = userRepository.findById(requesterId)
