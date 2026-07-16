@@ -7,7 +7,7 @@ the camera↔ground homography reference points that `09_AI_Calibration` turns i
 pixel-to-world transform. Today none of this exists: there is no map UI, no polygon data model,
 and no geospatial storage anywhere in the repo. This document is a from-scratch design.
 
-Status: Architecture signed off (DAI-297) · Owner: Principal Architect · Last updated: 2026-07-14
+Status: Architecture and API contract approved (DAI-325) · Owner: Principal Architect · Last updated: 2026-07-16
 
 ## 1. Current state vs Target
 
@@ -224,6 +224,8 @@ Publishing a map version does two things relevant to `09_AI_Calibration`:
   library.
 - [ADR-0803](adr/ADR-0803-multi-camera-map-strategy.md) — Multi-camera wide-lot map strategy:
   partitioned coverage + runtime query by site vs merge/dedup.
+- [ADR-0804](adr/ADR-0804-commissioning-version-and-api-contract.md) — Normative commissioning
+  lifecycle, API, concurrency, authorization, publish/rollback, and compatibility contract.
 - [ADR-1102](../11_Parking_Slot_Detection/adr/ADR-1102-slot-runtime-and-event-contract.md) —
   signed-off published-map handoff, stable slot identity, coordinate and validation contract.
 

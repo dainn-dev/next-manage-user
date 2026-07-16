@@ -1,8 +1,9 @@
 # ADR-0802: SVG/Canvas polygon editor — build vs adopt a library
 
-- Status: Proposed
+- Status: Accepted by DAI-325
 - Date: 2026-07-09
 - Deciders: Principal Architect
+- Approval date: 2026-07-16
 - Context doc: 08_Parking_Map_Designer
 
 ## Context

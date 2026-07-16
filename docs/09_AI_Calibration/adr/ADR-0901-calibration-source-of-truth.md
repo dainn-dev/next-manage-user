@@ -1,8 +1,9 @@
 # ADR-0901: Where calibration lives (edge config vs central backend, synced) and how it's versioned
 
-- Status: Proposed
+- Status: Accepted with clarification by DAI-325
 - Date: 2026-07-09
 - Deciders: Principal Architect
+- Approval date: 2026-07-16
 - Context doc: 09_AI_Calibration
 
 ## Context
@@ -21,9 +22,10 @@ that edge workers must tolerate being offline for extended periods.
 
 ## Decision
 
-The **backend is the source of truth** for calibration: `Camera.calibration_json` (defined in
-`07_Camera_Management`) is written only through the backend API, and carries an incrementing
-`calibration_version`. The **edge caches a local copy on disk** (extending today's
+The **backend is the source of truth** for calibration. An immutable first-class calibration
+version is the audit/history source; `Camera.calibration_json` is only the edge-facing cached
+projection/pointer to the active version. A map publish pins the exact immutable calibration ID.
+The **edge caches a local copy on disk** (extending today's
 config-file-on-disk pattern rather than replacing it) and syncs by comparing versions on its
 existing heartbeat call — pulling the full `calibration_json` only when the server's version is
 newer, then hot-reloading its detection pipeline in place. If the edge is offline, it keeps

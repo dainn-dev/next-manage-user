@@ -8,6 +8,7 @@ import com.vehiclemanagement.parking.SlotOccupancyView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,6 +54,6 @@ public class ParkingSlotController {
     @PreAuthorize("hasRole('TENANT_ADMIN')")
     public ResponseEntity<List<ParkingSlotView>> replace(
             @PathVariable UUID siteId, @RequestBody List<ParkingSlotUpsertRequest> slots) {
-        return ResponseEntity.ok(service.replace(siteId, slots));
+        return ResponseEntity.status(HttpStatus.GONE).build();
     }
 }

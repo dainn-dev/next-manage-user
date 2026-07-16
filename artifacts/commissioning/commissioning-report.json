@@ -1,0 +1,59 @@
+﻿{
+    "schemaVersion":  1,
+    "issue":  "DAI-329",
+    "runId":  "dai-329-20260716-051940",
+    "revision":  "b2fc0c4f2ce4866c389b455e1fe9b3172158bc76",
+    "startedAt":  "2026-07-15T22:19:40.4753478Z",
+    "finishedAt":  "2026-07-15T22:21:50.7723087Z",
+    "status":  "passed",
+    "suites":  [
+                   {
+                       "id":  "COMM-E2E",
+                       "capability":  "Commissioning happy path, HTTP contract, geometry/calibration, multi-camera, RLS, republish, and rollback",
+                       "status":  "passed",
+                       "exitCode":  0,
+                       "durationSeconds":  26.26,
+                       "evidence":  "./artifacts/commissioning/COMM-E2E.log"
+                   },
+                   {
+                       "id":  "CAM-EDGE",
+                       "capability":  "Camera CRUD, credential, heartbeat, and idempotent/replayed ingest",
+                       "status":  "passed",
+                       "exitCode":  0,
+                       "durationSeconds":  41.35,
+                       "evidence":  "./artifacts/commissioning/CAM-EDGE.log"
+                   },
+                   {
+                       "id":  "PARKING-RUNTIME",
+                       "capability":  "Point mapping, occupancy, relocation, exit, and dashboard read models",
+                       "status":  "passed",
+                       "exitCode":  0,
+                       "durationSeconds":  29.28,
+                       "evidence":  "./artifacts/commissioning/PARKING-RUNTIME.log"
+                   },
+                   {
+                       "id":  "TENANT-RLS",
+                       "capability":  "Two-tenant service and database RLS isolation",
+                       "status":  "passed",
+                       "exitCode":  0,
+                       "durationSeconds":  28.28,
+                       "evidence":  "./artifacts/commissioning/TENANT-RLS.log"
+                   },
+                   {
+                       "id":  "COMMISSIONING-UI",
+                       "capability":  "Wizard policy, calibration/publish gates, and dashboard regression",
+                       "status":  "passed",
+                       "exitCode":  0,
+                       "durationSeconds":  1.02,
+                       "evidence":  "./artifacts/commissioning/COMMISSIONING-UI.log"
+                   },
+                   {
+                       "id":  "COMMISSIONING-LINT",
+                       "capability":  "Changed commissioning frontend lint",
+                       "status":  "passed",
+                       "exitCode":  0,
+                       "durationSeconds":  4.09,
+                       "evidence":  "./artifacts/commissioning/COMMISSIONING-LINT.log"
+                   }
+               ]
+}

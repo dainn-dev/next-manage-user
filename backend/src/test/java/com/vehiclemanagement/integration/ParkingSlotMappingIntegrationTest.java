@@ -241,11 +241,12 @@ class ParkingSlotMappingIntegrationTest extends AbstractPostgresIntegrationTest 
                 """, Integer.class, siteId)).isEqualTo(2);
         assertThat(jdbc.queryForList("""
                 SELECT snapshot.kind, snapshot.snapshot_reference
-                  FROM parking_event_snapshot snapshot
+                 FROM parking_event_snapshot snapshot
                   JOIN parking_event event ON event.id=snapshot.event_id
                  WHERE event.event_type='VehicleRelocated'
+                   AND event.site_id = ?
                  ORDER BY snapshot.kind
-                """))
+                """, siteId))
                 .containsExactly(
                         java.util.Map.of("kind", "relocation_new", "snapshot_reference", "new-frame-key"),
                         java.util.Map.of("kind", "relocation_old", "snapshot_reference", "old-frame-key"));

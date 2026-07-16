@@ -280,6 +280,9 @@ public class CameraService {
         if (request.getZoneId() != null) {
             validateZone(request.getZoneId(), camera.getSiteId());
             camera.setZoneId(request.getZoneId());
+        } else if (request.getRole() == Camera.CameraRole.OVERVIEW) {
+            // An OVERVIEW camera may intentionally cover the whole site.
+            camera.setZoneId(null);
         }
         if (request.getRtspUrl() != null) {
             camera.setRtspUrl(request.getRtspUrl());
@@ -297,6 +300,9 @@ public class CameraService {
         }
         if (request.getPanelType() != null) {
             camera.setPanelType(request.getPanelType());
+        } else if (request.getRole() == Camera.CameraRole.OVERVIEW) {
+            // Clear stale entry/exit semantics when changing a camera to OVERVIEW.
+            camera.setPanelType(null);
         }
         if (request.getStatus() != null) {
             camera.setStatus(request.getStatus());

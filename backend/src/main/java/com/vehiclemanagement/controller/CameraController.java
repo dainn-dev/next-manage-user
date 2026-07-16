@@ -72,7 +72,7 @@ public class CameraController {
      */
     @PostMapping("/{id}/credentials")
     @Operation(summary = "Issue a camera API key")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Credential issued once"),
         @ApiResponse(responseCode = "404", description = "Camera not found"),
@@ -88,7 +88,7 @@ public class CameraController {
      */
     @PostMapping("/{id}/credentials/rotate")
     @Operation(summary = "Rotate a camera API key")
-    @PreAuthorize("hasRole('TENANT_ADMIN')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Credential rotated"),
         @ApiResponse(responseCode = "404", description = "Camera not found")

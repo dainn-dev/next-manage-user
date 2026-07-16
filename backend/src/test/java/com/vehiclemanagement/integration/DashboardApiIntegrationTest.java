@@ -21,7 +21,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,7 +43,8 @@ class DashboardApiIntegrationTest extends AbstractPostgresIntegrationTest {
     private final UUID zoneA = UUID.randomUUID();
     private final UUID slotA = UUID.randomUUID();
     private final UUID cameraA = UUID.randomUUID();
-    private final OffsetDateTime base = OffsetDateTime.parse("2026-07-14T03:00:00Z");
+    private final OffsetDateTime base = OffsetDateTime.of(
+            LocalDate.now(), LocalTime.NOON, ZoneOffset.UTC);
 
     @LocalServerPort int port;
     @Autowired TestRestTemplate rest;
@@ -135,7 +139,7 @@ class DashboardApiIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @Test
     void averageDwellUsesCompletedValidSessionsAndReturnsSampleCountAndBoundedRange() throws Exception {
-        String range = "?from=2026-07-07T00:00:00Z&to=2026-07-15T00:00:00Z";
+        String range = "?from=" + base.minusDays(7) + "&to=" + base.plusDays(1);
         JsonNode dwell = body(get("/api/sites/" + siteA + "/analytics/average-dwell" + range, adminToken));
         assertThat(dwell.path("completedSessions").asLong()).isEqualTo(2);
         assertThat(dwell.path("averageDwellSeconds").asDouble()).isEqualTo(3600.0);

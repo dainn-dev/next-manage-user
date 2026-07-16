@@ -24,6 +24,7 @@ import {
   MapPinned,
   Settings,
   ScanLine,
+  Wrench,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -110,6 +111,7 @@ const tenantNavigationGroups: NavigationGroup[] = [
     items: [
       { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, roles: OPS },
       { key: "/parking/cameras", label: "Camera", icon: Camera, roles: OPS },
+      { key: "/parking/commissioning", label: "Thiết lập bãi đỗ", icon: Wrench, roles: MANAGERS },
       { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, comingSoon: true, roles: OPS },
     ],
   },

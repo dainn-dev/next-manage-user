@@ -84,6 +84,14 @@ class CameraManagementIntegrationTest extends AbstractPostgresIntegrationTest {
                     CameraDto.builder().name("North Gate").status(Camera.CameraStatus.online).build());
             assertThat(updated.getName()).isEqualTo("North Gate");
             assertThat(updated.getStatus()).isEqualTo(Camera.CameraStatus.online);
+            assertThat(updated.getZoneId()).isEqualTo(zone.getId());
+
+            // Commissioning may promote a camera to site-wide OVERVIEW coverage.
+            CameraDto overview = cameraService.update(camera.getId(), CameraDto.builder()
+                    .role(Camera.CameraRole.OVERVIEW).zoneId(null).panelType(null).build());
+            assertThat(overview.getRole()).isEqualTo(Camera.CameraRole.OVERVIEW);
+            assertThat(overview.getZoneId()).isNull();
+            assertThat(overview.getPanelType()).isNull();
 
             // delete
             cameraService.delete(camera.getId());

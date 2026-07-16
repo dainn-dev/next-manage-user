@@ -99,10 +99,24 @@ public class ObjectStorageService {
                 + "." + extensionFor(contentType);
     }
 
+    public String storeParkingMapStill(UUID tenantId, UUID cameraId, UUID imageId,
+                                       byte[] image, String contentType) {
+        if (tenantId == null || cameraId == null || imageId == null || image == null || image.length == 0) {
+            throw new IllegalArgumentException("Tenant, camera, image ID, and bytes are required");
+        }
+        ensureBucket();
+        String key = "tenants/" + tenantId + "/cameras/" + cameraId + "/parking-map-stills/"
+                + imageId + "." + extensionFor(contentType);
+        s3Client.putObject(PutObjectRequest.builder().bucket(properties.getBucket()).key(key)
+                .contentType(contentType).build(), RequestBody.fromBytes(image));
+        return key;
+    }
+
     private String extensionFor(String contentType) {
         return switch (contentType) {
             case "image/jpeg", "image/jpg" -> "jpg";
             case "image/png" -> "png";
+            case "image/webp" -> "webp";
             case "image/gif" -> "gif";
             case "image/bmp" -> "bmp";
             case "image/wbmp" -> "wbmp";
