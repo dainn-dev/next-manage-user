@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import type { Vehicle } from "@/lib/types"
 import { UserRole, canApprove, canManageVehicles } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Filter, Download, Car as CarIcon, MoreHorizontal, Edit, Trash2, Eye, Check, X } from "lucide-react"
+import { Upload, FileDown, Loader2, Car as CarIcon, MoreHorizontal, Edit, Trash2, Eye, Check, X } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AdvancedExportDialog } from "@/components/reports/advanced-export-dialog"
 import { ImportDialog } from "@/components/reports/import-dialog"
@@ -35,6 +35,12 @@ interface VehicleTableProps {
   onPageSizeChange: (size: number) => void
   userRole?: UserRole
   isReadOnly?: boolean
+  hasActiveFilters?: boolean
+  toolbarActions?: ReactNode
+  filterPanel?: ReactNode
+  isFiltering?: boolean
+  filterLoadError?: boolean
+  onRetryFilter?: () => void
 }
 
 export function VehicleTable({
@@ -54,7 +60,13 @@ export function VehicleTable({
   onPageChange,
   onPageSizeChange,
   userRole,
-  isReadOnly = false
+  isReadOnly = false,
+  hasActiveFilters = false,
+  toolbarActions,
+  filterPanel,
+  isFiltering = false,
+  filterLoadError = false,
+  onRetryFilter,
 }: VehicleTableProps) {
   const userCanManage = canManageVehicles(userRole)
   const userCanApprove = canApprove(userRole)
@@ -74,6 +86,12 @@ export function VehicleTable({
       setSelectedVehicles([])
     }
   }, [userCanManage, selectedVehicles])
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage >= totalPages) {
+      onPageChange(totalPages - 1)
+    }
+  }, [currentPage, onPageChange, totalPages])
 
   const handleSelectAll = (checked: boolean) => {
     if (!userCanManage) return
@@ -155,36 +173,89 @@ export function VehicleTable({
     }
   }
 
-  return (
-    <div className="space-y-4">
+  const safeCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages - 1) : 0
+  const visibleStart = totalElements === 0 ? 0 : safeCurrentPage * pageSize + 1
+  const visibleEnd = Math.min((safeCurrentPage + 1) * pageSize, totalElements)
+  const isTrulyEmpty = !hasActiveFilters && totalElements === 0
+  const hasNoFilteredResults = hasActiveFilters && totalElements === 0
+  const filterUnavailable = isFiltering || filterLoadError
 
-      {(userCanManage || userCanApprove) && (
-        <div className="flex justify-end gap-2">
+  return (
+    <div className="space-y-3 md:space-y-4">
+
+      <div className="grid grid-flow-col auto-cols-fr gap-2 md:ml-auto md:flex md:w-fit" role="group" aria-label="Thao tác danh sách xe">
+        {toolbarActions}
+        {(userCanManage || userCanApprove) && (
+          <>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-2"
+            className="h-11 w-full p-0 md:size-11 lg:w-auto lg:px-3"
+            aria-label="Nhập xe"
+            title="Nhập xe"
           >
-            <Download className="h-4 w-4 rotate-180" />
-            Nhập xe
+            <Upload className="h-4 w-4" />
+            <span className="sr-only lg:not-sr-only">Nhập xe</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowAdvancedExport(true)}
-            className="flex items-center gap-2"
+            className="h-11 w-full p-0 md:size-11 lg:w-auto lg:px-3"
+            aria-label="Xuất nâng cao"
+            title="Xuất nâng cao"
           >
-            <Download className="h-4 w-4" />
-            Xuất nâng cao
+            <FileDown className="h-4 w-4" />
+            <span className="sr-only lg:not-sr-only">Xuất nâng cao</span>
+          </Button>
+          </>
+        )}
+      </div>
+
+      {filterPanel}
+
+      {/* Data Table */}
+      {isFiltering && (
+        <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border bg-card px-4 py-4 text-center" role="status" aria-live="polite">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm font-medium text-foreground">Đang lọc toàn bộ danh sách…</p>
+        </div>
+      )}
+      {filterLoadError && (
+        <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4 text-center" role="alert">
+          <p className="text-sm font-medium text-destructive">Không thể lọc toàn bộ danh sách</p>
+          <p className="text-xs text-muted-foreground">Kiểm tra kết nối và thử lại.</p>
+          <Button variant="outline" size="sm" className="min-h-11" onClick={onRetryFilter}>
+            Thử lại
           </Button>
         </div>
       )}
-
-      {/* Data Table */}
-      <div className="border rounded-lg">
-        <div className="overflow-x-auto">
-          <Table>
+      {!filterUnavailable && filteredVehicles.length === 0 && (
+        <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-xl border bg-card px-4 py-4 text-center md:hidden">
+          <span className="grid size-10 place-items-center rounded-xl bg-muted">
+            <CarIcon className="h-5 w-5 text-muted-foreground" />
+          </span>
+          <div>
+            <p className="font-medium text-foreground">
+              {isTrulyEmpty ? "Chưa có xe" : hasNoFilteredResults ? "Không tìm thấy kết quả" : "Không có kết quả trên trang này"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isTrulyEmpty ? "Thêm xe mới hoặc nhập danh sách xe để bắt đầu." : hasNoFilteredResults ? "Thử thay đổi từ khóa hoặc điều kiện lọc." : "Thử chuyển sang trang khác."}
+            </p>
+          </div>
+          {isTrulyEmpty && userCanManage && !effectiveReadOnly && (
+            <Button size="sm" className="min-h-11" onClick={onAddNew}>
+              Thêm xe mới
+            </Button>
+          )}
+        </div>
+      )}
+      {!filterUnavailable && filteredVehicles.length > 0 && (
+        <p className="text-xs text-muted-foreground md:hidden">Vuốt ngang để xem đầy đủ thông tin.</p>
+      )}
+      <div className={`rounded-lg border ${filterUnavailable ? "hidden" : filteredVehicles.length === 0 ? "hidden md:block" : ""}`}>
+        <Table className="min-w-[56rem]" containerLabel="Danh sách xe, có thể cuộn ngang">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
@@ -216,7 +287,7 @@ export function VehicleTable({
                         <CarIcon className="h-8 w-8 text-muted-foreground" />
                       </div>
                       <p className="text-muted-foreground">
-                        {vehicles.length === 0 ? "Không có dữ liệu" : "Không tìm thấy kết quả phù hợp"}
+                        {isTrulyEmpty ? "Không có dữ liệu" : "Không có kết quả phù hợp trên trang này"}
                       </p>
                     </div>
                   </TableCell>
@@ -326,12 +397,50 @@ export function VehicleTable({
                 ))
               )}
             </TableBody>
-          </Table>
-        </div>
+        </Table>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className={`${filterUnavailable ? "hidden" : "grid"} grid-cols-[auto_1fr_auto] items-center gap-2 md:hidden`}>
+        <select
+          value={pageSize}
+          onChange={(event) => onPageSizeChange(Number(event.target.value))}
+          className="h-11 rounded-md border bg-background px-2 text-xs"
+          aria-label="Số xe trên mỗi trang"
+        >
+          <option value={5}>5 / trang</option>
+          <option value={10}>10 / trang</option>
+          <option value={20}>20 / trang</option>
+          <option value={50}>50 / trang</option>
+        </select>
+        <span className="min-w-0 truncate whitespace-nowrap text-center text-xs text-muted-foreground">
+          {hasActiveFilters ? `${filteredVehicles.length} kết quả trên trang này` : `${visibleStart}–${visibleEnd} / ${totalElements}`}
+        </span>
+        <div className="flex gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="size-11 p-0"
+            disabled={currentPage === 0}
+            onClick={() => onPageChange(currentPage - 1)}
+            aria-label="Trang trước"
+          >
+            ‹
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="size-11 p-0"
+            disabled={totalPages === 0 || currentPage >= totalPages - 1}
+            onClick={() => onPageChange(currentPage + 1)}
+            aria-label="Trang sau"
+          >
+            ›
+          </Button>
+        </div>
+      </div>
+
+      <div className={`${filterUnavailable ? "hidden" : "md:flex"} hidden items-center justify-between`}>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -350,7 +459,7 @@ export function VehicleTable({
             {"<"}
           </Button>
           <span className="text-sm">
-            {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, totalElements)} / {totalElements}
+            {visibleStart}-{visibleEnd} / {totalElements}
           </span>
           <Button
             variant="outline"
@@ -382,7 +491,7 @@ export function VehicleTable({
             <option value={20}>20</option>
             <option value={50}>50</option>
           </select>
-          <span>Trang {currentPage + 1} / {totalPages}</span>
+          <span>Trang {totalPages === 0 ? 0 : safeCurrentPage + 1} / {totalPages}</span>
           <span>Tổng số xe {totalElements}</span>
         </div>
       </div>

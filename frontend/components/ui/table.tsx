@@ -4,11 +4,19 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-function Table({ className, ...props }: React.ComponentProps<'table'>) {
+type TableProps = React.ComponentProps<'table'> & {
+  containerLabel?: string
+  containerClassName?: string
+}
+
+function Table({ className, containerLabel, containerClassName, ...props }: TableProps) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto overscroll-x-contain"
+      className={cn('relative w-full overflow-x-auto overscroll-x-contain', containerClassName)}
+      role={containerLabel ? 'region' : undefined}
+      aria-label={containerLabel}
+      tabIndex={containerLabel ? 0 : undefined}
     >
       <table
         data-slot="table"

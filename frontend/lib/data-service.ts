@@ -574,6 +574,18 @@ class DataService {
     }
   }
 
+  async getAllVehiclesList(): Promise<Vehicle[]> {
+    try {
+      return await vehicleApi.getAllVehiclesList()
+    } catch (error) {
+      console.error('Failed to fetch complete vehicle list from API:', error)
+      if (!isDev) {
+        throw error
+      }
+      return [...this.vehicles]
+    }
+  }
+
   async getVehicle(id: string): Promise<Vehicle | undefined> {
     try {
       return await vehicleApi.getVehicleById(id)

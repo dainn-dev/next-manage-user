@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Download, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings, Filter } from "lucide-react"
+import { Search, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings, Filter, FileSpreadsheet, RotateCcw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
 import { useAuth } from "@/lib/auth-context"
@@ -37,6 +37,10 @@ export default function VehiclesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "rejected" | "exited" | "entered">("all")
   const [typeFilter, setTypeFilter] = useState<"all" | "car" | "motorbike" | "truck" | "bus">("all")
+  const [filterVehicles, setFilterVehicles] = useState<Vehicle[] | null>(null)
+  const [filterLoading, setFilterLoading] = useState(false)
+  const [filterLoadError, setFilterLoadError] = useState(false)
+  const [filterRetryKey, setFilterRetryKey] = useState(0)
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0)
@@ -113,13 +117,16 @@ export default function VehiclesPage() {
   const preferredSite = isSiteManager(user?.role)
     ? resolvePreferredSiteId(user?.siteIds)
     : null
-  const filteredVehicles = vehicles.filter((vehicle) => {
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+  const hasActiveFilters = Boolean(normalizedSearch || statusFilter !== "all" || typeFilter !== "all")
+  const filterSource = hasActiveFilters && filterVehicles ? filterVehicles : vehicles
+  const matchingVehicles = filterSource.filter((vehicle) => {
     void siteFilterTick
-    const matchesSearch = !searchTerm || 
-      vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = !normalizedSearch ||
+      vehicle.licensePlate.toLowerCase().includes(normalizedSearch) ||
+      vehicle.employeeName?.toLowerCase().includes(normalizedSearch) ||
+      vehicle.brand?.toLowerCase().includes(normalizedSearch) ||
+      vehicle.model?.toLowerCase().includes(normalizedSearch)
     
     const matchesStatus = statusFilter === "all" || vehicle.status === statusFilter
     const matchesType = typeFilter === "all" || vehicle.vehicleType === typeFilter
@@ -127,6 +134,60 @@ export default function VehiclesPage() {
 
     return matchesSearch && matchesStatus && matchesType && matchesSite
   })
+  const filteredTotalElements = hasActiveFilters && filterVehicles ? matchingVehicles.length : totalElements
+  const filteredTotalPages = hasActiveFilters && filterVehicles ? Math.ceil(matchingVehicles.length / pageSize) : totalPages
+  const filterDataReady = !hasActiveFilters || filterVehicles !== null
+  const filteredVehicles = hasActiveFilters && filterVehicles
+    ? matchingVehicles.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+    : matchingVehicles
+
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [normalizedSearch, statusFilter, typeFilter])
+
+  useEffect(() => {
+    if (!hasActiveFilters) {
+      setFilterVehicles(null)
+      setFilterLoading(false)
+      setFilterLoadError(false)
+      return
+    }
+    if (filterVehicles) return
+
+    let cancelled = false
+    setFilterLoading(true)
+    setFilterLoadError(false)
+    dataService.getAllVehiclesList()
+      .then((items) => {
+        if (!cancelled) setFilterVehicles(items)
+      })
+      .catch((filterError) => {
+        if (!cancelled) {
+          setFilterLoadError(true)
+          toast({
+            variant: "destructive",
+            title: "Không thể lọc toàn bộ danh sách",
+            description: "Vui lòng thử lại sau.",
+          })
+          console.error("Failed to load vehicles for filtering:", filterError)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFilterLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [filterVehicles, filterRetryKey, hasActiveFilters, toast])
+
+  const clearFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setTypeFilter("all")
+    setCurrentPage(0)
+    void loadData(0, pageSize, sortBy, sortDir)
+  }
 
   const loadData = async (page: number = currentPage, size: number = pageSize, sort: string = sortBy, direction: string = sortDir) => {
     // Prevent multiple simultaneous calls (but allow initial load)
@@ -142,6 +203,7 @@ export default function VehiclesPage() {
       setTotalPages(vehiclesResponse.totalPages)
       setCurrentPage(vehiclesResponse.currentPage)
       setEmployees([])
+      if (hasActiveFilters) setFilterVehicles(null)
     } catch (err) {
       setError('Không thể tải dữ liệu')
       console.error('Error loading data:', err)
@@ -158,13 +220,17 @@ export default function VehiclesPage() {
   // Pagination handlers
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage)
-    loadData(newPage, pageSize, sortBy, sortDir)
+    if (!hasActiveFilters || !filterVehicles) {
+      loadData(newPage, pageSize, sortBy, sortDir)
+    }
   }
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize)
     setCurrentPage(0) // Reset to first page
-    loadData(0, newPageSize, sortBy, sortDir)
+    if (!hasActiveFilters || !filterVehicles) {
+      loadData(0, newPageSize, sortBy, sortDir)
+    }
   }
 
   const handleSortChange = (newSortBy: string, newSortDir: string) => {
@@ -392,14 +458,22 @@ export default function VehiclesPage() {
       notifyPermissionDenied()
       return
     }
+    if (!filterDataReady) {
+      toast({
+        title: "Đang chuẩn bị dữ liệu",
+        description: "Vui lòng chờ bộ lọc hoàn tất trước khi xuất Excel.",
+      })
+      return
+    }
     try {
+      const exportSource = hasActiveFilters && filterVehicles ? matchingVehicles : vehicles
       const filename = `danh_sach_xe_${new Date().toISOString().split('T')[0]}`
-      const success = exportVehiclesToExcel(vehicles, filename)
+      const success = exportVehiclesToExcel(exportSource, filename)
       
        if (success) {
          toast({
            title: "Xuất file thành công",
-           description: `Đã xuất ${vehicles.length} xe ra file CSV (có thể mở bằng Excel)`,
+           description: `Đã xuất ${exportSource.length} xe ra file CSV (có thể mở bằng Excel)`,
            variant: "default",
          })
        } else {
@@ -552,16 +626,16 @@ export default function VehiclesPage() {
         {mobileStats.map((item) => {
           const Icon = item.icon
           return (
-            <Card key={item.label} className="overflow-hidden rounded-2xl border-border/75 bg-card/90 shadow-[var(--shadow-card)]">
-              <CardContent className="relative min-h-[6.25rem] p-3">
-                <span className={`absolute right-3 top-3 grid size-8 place-items-center rounded-xl ${item.surface}`}>
-                  <Icon className={`h-4 w-4 ${item.tone}`} />
+            <Card key={item.label} className="overflow-hidden rounded-xl border-border/75 bg-card/90 py-0 shadow-[var(--shadow-card)]">
+              <CardContent className="relative min-h-[5.25rem] p-2.5 sm:p-2.5">
+                <span className={`absolute right-2.5 top-2.5 grid size-7 place-items-center rounded-lg ${item.surface}`}>
+                  <Icon className={`h-3.5 w-3.5 ${item.tone}`} />
                 </span>
-                <p className="pr-9 text-xs font-semibold leading-5 text-foreground">{item.label}</p>
-                <p className={`mt-4 font-[family:var(--font-display)] text-[1.85rem] font-bold leading-none tracking-[-0.045em] ${item.tone}`}>
+                <p className="pr-8 text-xs font-semibold leading-4 text-foreground">{item.label}</p>
+                <p className={`mt-2 font-[family:var(--font-display)] text-[1.65rem] font-bold leading-none tracking-[-0.04em] ${item.tone}`}>
                   {item.value}
                 </p>
-                <p className="mt-1 truncate text-[0.7rem] leading-4 text-muted-foreground">{item.description}</p>
+                <p className="mt-0.5 truncate text-xs leading-4 text-muted-foreground">{item.description}</p>
               </CardContent>
             </Card>
           )
@@ -621,114 +695,6 @@ export default function VehiclesPage() {
         </Card>
       </div>
 
-      {/* Search and Filter Bar */}
-      <div className="bg-white border rounded-lg mb-6 shadow-sm">
-        {/* Action Buttons - Inline */}
-        <div className="admin-mobile-actions border-b border-border bg-muted/40 p-4 sm:flex sm:flex-wrap sm:p-5">
-          <Button
-            variant={isFilterBarOpen ? "default" : "outline"}
-            size="sm"
-            onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
-          >
-            <Filter className="h-4 w-4" />
-            {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
-            {isFilterBarOpen ? (
-              <span className="ml-1 text-sm">▼</span>
-            ) : (
-              <span className="ml-1 text-sm">▶</span>
-            )}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => loadData()} 
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Làm mới dữ liệu
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExport}
-            disabled={!userCanApprove}
-            className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
-          >
-            <Download className="h-4 w-4" />
-            Xuất Excel
-          </Button>
-        </div>
-
-        {/* Collapsible Filter Content */}
-        {isFilterBarOpen && (
-          <div className="bg-card p-4 sm:p-5">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
-              <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm xe theo tiêu chí cụ thể</p>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {/* Search Section */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Search className="h-4 w-4 text-blue-600" />
-                  Tìm kiếm
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Nhập biển số, chủ xe, loại xe..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Status Filter */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  Trạng thái
-                </Label>
-                <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                    <SelectValue placeholder="Chọn trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">🚗 Tất cả</SelectItem>
-                    <SelectItem value="approved">✅ Duyệt</SelectItem>
-                    <SelectItem value="rejected">❌ Không được phép</SelectItem>
-                    <SelectItem value="exited">🚪 Đã ra</SelectItem>
-                    <SelectItem value="entered">🏠 Đã vào</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Type Filter */}
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <Car className="h-4 w-4 text-purple-600" />
-                  Loại xe
-                </Label>
-                <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)}>
-                  <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                    <SelectValue placeholder="Chọn loại xe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">🚗 Tất cả</SelectItem>
-                    <SelectItem value="car">🚗 Ô tô</SelectItem>
-                    <SelectItem value="motorbike">🏍️ Xe máy</SelectItem>
-                    <SelectItem value="truck">🚛 Xe tải</SelectItem>
-                    <SelectItem value="bus">🚌 Xe bus</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Action Bar */}
       {selectedVehicles.length > 0 && userCanManage && (
         <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
@@ -760,12 +726,126 @@ export default function VehiclesPage() {
             onApprove={handleApprove}
             onReject={handleReject}
             currentPage={currentPage}
-            totalPages={totalPages}
-            totalElements={totalElements}
+            totalPages={filteredTotalPages}
+            totalElements={filteredTotalElements}
             pageSize={pageSize}
             onPageChange={handlePageChange}
             onPageSizeChange={handlePageSizeChange}
             userRole={user?.role}
+            hasActiveFilters={hasActiveFilters}
+            isFiltering={filterLoading}
+            filterLoadError={filterLoadError}
+            onRetryFilter={() => setFilterRetryKey((key) => key + 1)}
+            toolbarActions={
+              <>
+                <Button
+                  variant={isFilterBarOpen || hasActiveFilters ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
+                  className="h-11 w-full p-0 md:size-11 lg:w-auto lg:px-3"
+                  aria-label={isFilterBarOpen ? "Đóng bộ lọc" : hasActiveFilters ? "Mở bộ lọc, đang áp dụng" : "Mở bộ lọc"}
+                  aria-expanded={isFilterBarOpen}
+                  aria-controls="vehicle-filter-panel"
+                  title={isFilterBarOpen ? "Đóng bộ lọc" : hasActiveFilters ? "Mở bộ lọc (đang áp dụng)" : "Mở bộ lọc"}
+                >
+                  <Filter className="h-4 w-4" />
+                  <span className="sr-only lg:not-sr-only">{isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadData()}
+                  className="h-11 w-full p-0 md:size-11 lg:w-auto lg:px-3"
+                  aria-label="Làm mới dữ liệu"
+                  title="Làm mới dữ liệu"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="sr-only lg:not-sr-only">Làm mới dữ liệu</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={!userCanApprove || !filterDataReady || filterLoading || filterLoadError}
+                  className="h-11 w-full p-0 md:size-11 lg:w-auto lg:px-3"
+                  aria-label="Xuất Excel"
+                  title="Xuất Excel"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span className="sr-only lg:not-sr-only">Xuất Excel</span>
+                </Button>
+              </>
+            }
+            filterPanel={isFilterBarOpen ? (
+              <div id="vehicle-filter-panel" className="rounded-xl border bg-card p-3 shadow-sm sm:p-5">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Bộ lọc</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">Lọc theo biển số, trạng thái và loại xe.</p>
+                  </div>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" className="min-h-11 shrink-0" onClick={clearFilters}>
+                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                      Xóa lọc
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="col-span-2 space-y-1.5 sm:col-span-1">
+                    <Label htmlFor="vehicle-search-filter" className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                      <Search className="h-4 w-4 text-blue-600" />
+                      Tìm kiếm
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <Input
+                        id="vehicle-search-filter"
+                        placeholder="Nhập biển số, chủ xe, loại xe..."
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        className="h-11 rounded-lg border-border pl-10 shadow-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="vehicle-status-filter" className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Trạng thái
+                    </Label>
+                    <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
+                      <SelectTrigger id="vehicle-status-filter" className="h-11 w-full rounded-lg border-border shadow-sm">
+                        <SelectValue placeholder="Chọn trạng thái" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">🚗 Tất cả</SelectItem>
+                        <SelectItem value="approved">✅ Duyệt</SelectItem>
+                        <SelectItem value="rejected">❌ Không được phép</SelectItem>
+                        <SelectItem value="exited">🚪 Đã ra</SelectItem>
+                        <SelectItem value="entered">🏠 Đã vào</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <Label htmlFor="vehicle-type-filter" className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                      <Car className="h-4 w-4 text-purple-600" />
+                      Loại xe
+                    </Label>
+                    <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)}>
+                      <SelectTrigger id="vehicle-type-filter" className="h-11 w-full rounded-lg border-border shadow-sm">
+                        <SelectValue placeholder="Chọn loại xe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">🚗 Tất cả</SelectItem>
+                        <SelectItem value="car">🚗 Ô tô</SelectItem>
+                        <SelectItem value="motorbike">🏍️ Xe máy</SelectItem>
+                        <SelectItem value="truck">🚛 Xe tải</SelectItem>
+                        <SelectItem value="bus">🚌 Xe bus</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           />
 
       {userCanManage && (
