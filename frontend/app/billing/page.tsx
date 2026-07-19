@@ -114,7 +114,7 @@ export default function TenantBillingPage() {
               size="icon"
               onClick={() => void load()}
               disabled={loading}
-              className="h-10 w-10 border-slate-800 bg-slate-950/40 text-slate-300 hover:text-white hover:bg-slate-900 rounded-xl p-0 transition-all shadow-none shrink-0"
+              className="h-10 w-10 border-border bg-card text-slate-700 hover:text-foreground hover:bg-muted rounded-xl p-0 transition-all shadow-none shrink-0"
               aria-label="Làm mới"
               title="Làm mới"
             >
@@ -127,21 +127,21 @@ export default function TenantBillingPage() {
       <div className="space-y-8 mt-4">
         {/* Section 1: Subscription Metrics */}
         <section className="space-y-4" aria-label="Trạng thái gói">
-          <div className="flex items-center gap-3 border-b border-slate-900/60 pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-400 uppercase tracking-widest">
+          <div className="flex items-center gap-3 border-b border-border pb-2">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
               01 // THÔNG TIN ĐĂNG KÝ HIỆN TẠI (SUBSCRIPTION_PROFILE)
             </span>
-            <div className="h-[1px] flex-1 bg-slate-900/50" />
+            <div className="h-[1px] flex-1 bg-muted" />
             <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
               PLATFORM_BILLING_NODE
             </span>
           </div>
 
           {loading && !status ? (
-            <div className="flex min-h-[25vh] items-center justify-center bg-slate-950/20 rounded-xl border border-slate-900">
-              <div className="flex flex-col items-center gap-2 font-mono text-xs text-cyan-400">
-                <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
+            <div className="flex min-h-[25vh] items-center justify-center bg-muted/10 rounded-xl border border-border">
+              <div className="flex flex-col items-center gap-2 font-mono text-xs text-cyan-600">
+                <Loader2 className="h-5 w-5 animate-spin text-cyan-600" />
                 <span className="animate-pulse tracking-widest text-[10px] uppercase mt-1">FETCHING_BILLING_STATE...</span>
               </div>
             </div>
@@ -181,20 +181,20 @@ export default function TenantBillingPage() {
               ].map((item, idx) => (
                 <div
                   key={idx}
-                  className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl rounded-xl p-5 relative overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-slate-700/60 group"
+                  className="border border-border bg-card text-foreground shadow-xl rounded-xl p-5 relative overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-slate-700/60 group"
                 >
                   {/* Tech corner ticks */}
-                  <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
-                  <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
-                  <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
-                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
+                  <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-border group-hover:border-cyan-200 transition-colors" />
+                  <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-border group-hover:border-cyan-200 transition-colors" />
+                  <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-border group-hover:border-cyan-200 transition-colors" />
+                  <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-border group-hover:border-cyan-200 transition-colors" />
 
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-900/60 pb-3 mb-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-border pb-3 mb-3">
                     <div className="space-y-0.5">
                       <p className="font-mono text-[9px] tracking-widest text-slate-500 uppercase">{item.code}</p>
-                      <p className="text-[11px] font-mono tracking-wide text-slate-300 uppercase">{item.label}</p>
+                      <p className="text-[11px] font-mono tracking-wide text-slate-700 uppercase">{item.label}</p>
                     </div>
-                    <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-900 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.1)]">
+                    <div className="p-2 rounded-lg bg-muted/80 border border-border text-cyan-600 shadow-sm">
                       <item.icon className="h-3.5 w-3.5" />
                     </div>
                   </div>
@@ -203,12 +203,12 @@ export default function TenantBillingPage() {
                     {item.badge ? (
                       <div className="flex items-center gap-1.5">
                         <span className={`h-1.5 w-1.5 rounded-full ${item.color === "emerald" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                        <span className={`text-sm font-mono font-bold tracking-wide break-words select-all uppercase ${item.color === "emerald" ? "text-emerald-400" : "text-amber-400"}`}>
+                        <span className={`text-sm font-mono font-bold tracking-wide break-words select-all uppercase ${item.color === "emerald" ? "text-emerald-700" : "text-amber-700"}`}>
                           {item.value}
                         </span>
                       </div>
                     ) : (
-                      <p className="text-sm font-mono font-bold text-white tracking-wide break-words select-all uppercase">
+                      <p className="text-sm font-mono font-bold text-foreground tracking-wide break-words select-all uppercase">
                         {item.value}
                       </p>
                     )}
@@ -226,30 +226,30 @@ export default function TenantBillingPage() {
 
         {/* Section 2: Billing & Plan Actions */}
         <section className="space-y-4" aria-label="Hành động thanh toán">
-          <div className="flex items-center gap-3 border-b border-slate-900/60 pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-400 uppercase tracking-widest">
+          <div className="flex items-center gap-3 border-b border-border pb-2">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
               02 // ĐIỀU PHỐI GIAO DỊCH & CỔNG THANH TOÁN (SECURE_TRANSACTIONS)
             </span>
-            <div className="h-[1px] flex-1 bg-slate-900/50" />
+            <div className="h-[1px] flex-1 bg-muted" />
             <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
               SECURE_WRITE_GATEWAY
             </span>
           </div>
 
-          <div className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl rounded-xl p-6 sm:p-8 relative overflow-hidden backdrop-blur-xl">
+          <div className="border border-border bg-card text-foreground shadow-xl rounded-xl p-6 sm:p-8 relative overflow-hidden backdrop-blur-xl">
             {/* Tech brackets */}
-            <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-500/30" />
-            <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-500/30" />
-            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-500/30" />
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-500/30" />
+            <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-200" />
+            <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-200" />
+            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-200" />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-200" />
 
-            <div className="mb-6 border-b border-slate-900 pb-4">
-              <h2 className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
-                <Lock className="h-4 w-4 shrink-0 text-cyan-500" />
+            <div className="mb-6 border-b border-border pb-4">
+              <h2 className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
+                <Lock className="h-4 w-4 shrink-0 text-cyan-600" />
                 STRIPE_SECURE_API_INTEGRATION // KÊNH THANH TOÁN AN TOÀN
               </h2>
-              <p className="mt-1.5 font-mono text-[10px] text-slate-400 leading-relaxed uppercase">
+              <p className="mt-1.5 font-mono text-[10px] text-muted-foreground leading-relaxed uppercase">
                 Mọi giao dịch và thông tin thẻ tín dụng của bạn đều được mã hóa hoàn toàn và xử lý trực tiếp bởi Stripe. Hệ thống không lưu trữ bất kỳ thông tin nhạy cảm nào liên quan đến phương thức thanh toán của doanh nghiệp.
               </p>
             </div>
@@ -258,12 +258,12 @@ export default function TenantBillingPage() {
               <Button
                 onClick={() => void openPortal()}
                 disabled={opening}
-                className="w-full sm:w-auto bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs h-11 px-6 rounded-lg transition-all shadow-lg hover:shadow-cyan-500/20 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto bg-cyan-600 hover:bg-cyan-700 text-white font-mono font-bold uppercase tracking-wider text-xs h-11 px-6 rounded-lg transition-all shadow-lg hover:shadow-cyan-500/20 flex items-center justify-center gap-2"
               >
                 {opening ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
                 ) : (
-                  <ExternalLink className="h-4 w-4 text-slate-950" />
+                  <ExternalLink className="h-4 w-4 text-white" />
                 )}
                 <span>{opening ? "CONNECTING..." : "MỞ CỔNG THANH TOÁN"}</span>
               </Button>
@@ -272,9 +272,9 @@ export default function TenantBillingPage() {
                 variant="outline"
                 onClick={() => void startCheckout()}
                 disabled={opening || !status?.planId}
-                className="w-full sm:w-auto border-slate-800 bg-slate-950/60 hover:bg-slate-900 text-slate-300 hover:text-white font-mono text-xs uppercase h-11 px-6 rounded-lg transition-all flex items-center justify-center gap-2"
+                className="w-full sm:w-auto border-border bg-background/60 hover:bg-muted text-slate-700 hover:text-foreground font-mono text-xs uppercase h-11 px-6 rounded-lg transition-all flex items-center justify-center gap-2"
               >
-                <CreditCard className="h-4 w-4 text-cyan-400" />
+                <CreditCard className="h-4 w-4 text-cyan-600" />
                 <span>CHECKOUT // NÂNG CẤP GÓI</span>
               </Button>
             </div>

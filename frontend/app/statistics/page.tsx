@@ -49,33 +49,33 @@ function MetricCard({
 }: MetricCardProps) {
   const colorMap = {
     cyan: {
-      text: "text-cyan-400",
-      border: "border-cyan-500/20 hover:border-cyan-500/40",
-      bg: "bg-cyan-950/10",
+      text: "text-cyan-600",
+      border: "border-cyan-200 hover:border-cyan-300",
+      bg: "bg-cyan-50",
       bar: "bg-cyan-500",
       pulse: "bg-cyan-500",
-      glow: "shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+      glow: "shadow-sm"
     },
     emerald: {
-      text: "text-emerald-400",
-      border: "border-emerald-500/20 hover:border-emerald-500/40",
-      bg: "bg-emerald-950/10",
+      text: "text-emerald-700",
+      border: "border-emerald-200 hover:border-emerald-300",
+      bg: "bg-emerald-50",
       bar: "bg-emerald-500",
       pulse: "bg-emerald-500",
-      glow: "shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+      glow: "shadow-sm"
     },
     amber: {
-      text: "text-amber-400",
-      border: "border-amber-500/20 hover:border-amber-500/40",
-      bg: "bg-amber-950/10",
+      text: "text-amber-700",
+      border: "border-amber-200 hover:border-amber-300",
+      bg: "bg-amber-50",
       bar: "bg-amber-500",
       pulse: "bg-amber-500",
-      glow: "shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+      glow: "shadow-sm"
     },
     slate: {
-      text: "text-slate-400",
-      border: "border-slate-800 hover:border-slate-700",
-      bg: "bg-slate-950/10",
+      text: "text-muted-foreground",
+      border: "border-border hover:border-slate-700",
+      bg: "bg-background/10",
       bar: "bg-slate-600",
       pulse: "bg-slate-500",
       glow: ""
@@ -88,25 +88,25 @@ function MetricCard({
     <Card
       aria-label={label}
       className={cn(
-        "border bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl transition-all duration-300 group",
+        "border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl transition-all duration-300 group",
         activeColor.border
       )}
     >
       {/* Sci-fi tech corner ticks */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-800 group-hover:border-slate-500 transition-colors" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-800 group-hover:border-slate-500 transition-colors" />
-      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-800 group-hover:border-slate-500 transition-colors" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-800 group-hover:border-slate-500 transition-colors" />
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-border group-hover:border-slate-500 transition-colors" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-border group-hover:border-slate-500 transition-colors" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-border group-hover:border-slate-500 transition-colors" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-border group-hover:border-slate-500 transition-colors" />
 
       {/* Cyber grid overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none opacity-20" />
 
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-slate-900/60">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
         <div className="space-y-0.5">
           <p className="font-mono text-[9px] tracking-widest text-slate-500 uppercase">{code}</p>
-          <CardTitle className="text-xs font-mono tracking-wide text-slate-300 uppercase">{label}</CardTitle>
+          <CardTitle className="text-xs font-mono tracking-wide text-slate-700 uppercase">{label}</CardTitle>
         </div>
-        <div className={cn("p-2 rounded-lg bg-slate-950/85 border border-slate-900", activeColor.text, activeColor.glow)}>
+        <div className={cn("p-2 rounded-lg bg-muted border border-border", activeColor.text, activeColor.glow)}>
           <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
       </CardHeader>
@@ -114,16 +114,16 @@ function MetricCard({
       <CardContent className="pt-5 space-y-3 p-5">
         {loading ? (
           <div className="space-y-2.5">
-            <div className="h-8 w-28 animate-pulse rounded bg-slate-900" aria-label="Đang tải" />
-            <div className="h-3 w-40 animate-pulse rounded bg-slate-900" />
+            <div className="h-8 w-28 animate-pulse rounded bg-muted" aria-label="Đang tải" />
+            <div className="h-3 w-40 animate-pulse rounded bg-muted" />
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-2xl font-mono font-bold tracking-tight text-white select-all">{value}</p>
+            <p className="text-2xl font-mono font-bold tracking-tight text-foreground select-all">{value}</p>
             
             {progress !== undefined && (
               <div className="space-y-1">
-                <div className="h-1 w-full bg-slate-900 rounded-full overflow-hidden">
+                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
                   <div
                     className={cn("h-full rounded-full transition-all duration-500", activeColor.bar)}
                     style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
@@ -136,7 +136,7 @@ function MetricCard({
               </div>
             )}
 
-            <p className="text-[10px] font-mono text-slate-400 uppercase leading-relaxed tracking-wider">
+            <p className="text-[10px] font-mono text-muted-foreground uppercase leading-relaxed tracking-wider">
               {description}
             </p>
           </div>
@@ -179,27 +179,27 @@ export default function StatisticsPage() {
   if (!scopeLoading && !selectedSiteId) {
     return (
       <AdminPage size="narrow" className="justify-center min-h-dvh flex items-center">
-        <Card className="mx-auto max-w-lg border border-slate-800 bg-slate-950/40 text-slate-100 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+        <Card className="mx-auto max-w-lg border border-border bg-card text-foreground shadow-sm relative overflow-hidden backdrop-blur-xl">
           {/* Cyber ticks */}
-          <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-500/30" />
-          <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-500/30" />
-          <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-500/30" />
-          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-500/30" />
+          <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-200" />
+          <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-200" />
+          <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-200" />
+          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-200" />
 
           <CardContent className="flex flex-col items-center gap-5 p-8 text-center relative z-10">
-            <div className="p-4 rounded-full bg-slate-950/80 border border-slate-900 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse">
+            <div className="p-4 rounded-full bg-muted/80 border border-border text-cyan-600 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse">
               <ParkingSquare className="h-8 w-8" aria-hidden="true" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-sm font-mono tracking-widest text-cyan-400 uppercase">
+              <h1 className="text-sm font-mono tracking-widest text-cyan-600 uppercase">
                 NO_ACTIVE_SITE_SELECTED // CHƯA CHỌN PHÂN KHU
               </h1>
-              <p className="text-xs font-mono text-slate-400 uppercase leading-relaxed max-w-sm">
+              <p className="text-xs font-mono text-muted-foreground uppercase leading-relaxed max-w-sm">
                 Vui lòng cấu hình phân khu bãi đỗ xe hoặc yêu cầu quyền truy cập hệ thống trước khi bắt đầu xem thông số thống kê chi tiết.
               </p>
             </div>
             {scopeError && (
-              <div className="rounded-lg border border-rose-500/20 bg-rose-950/15 p-3.5 text-left font-mono text-[10px] text-rose-400 w-full mb-2">
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3.5 text-left font-mono text-[10px] text-rose-700 w-full mb-2">
                 <span className="font-bold uppercase block mb-1">[SYS_ERROR_LOG]</span>
                 {scopeError}
               </div>
@@ -207,7 +207,7 @@ export default function StatisticsPage() {
             <Button
               variant="outline"
               onClick={retry}
-              className="border-slate-800 bg-slate-950/60 hover:bg-slate-900 text-slate-300 hover:text-white font-mono text-xs uppercase h-10 px-5 rounded-lg transition-all"
+              className="border-border bg-background/60 hover:bg-muted text-slate-700 hover:text-foreground font-mono text-xs uppercase h-10 px-5 rounded-lg transition-all"
             >
               <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
               RETRY_SYSTEM_INITIALIZE
@@ -228,17 +228,17 @@ export default function StatisticsPage() {
         title="THỐNG KÊ VẬN HÀNH"
         className="grid-cols-[minmax(0,1fr)_auto] items-start"
         description={
-          <span className="font-mono text-xs tracking-wider text-slate-400 uppercase flex items-center gap-1.5 flex-wrap">
+          <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-1.5 flex-wrap">
             <span className="text-slate-500">[SITE]</span>
-            <span className="text-cyan-400 font-bold">{selectedSite?.name || "Khu vực đang chọn"}</span>
+            <span className="text-cyan-600 font-bold">{selectedSite?.name || "Khu vực đang chọn"}</span>
             <span className="text-slate-600">·</span>
             <span className="text-slate-500">[ZONE]</span>
-            <span className="text-slate-300">{selectedZone ? selectedZone.name : "Tất cả zone"}</span>
+            <span className="text-slate-700">{selectedZone ? selectedZone.name : "Tất cả zone"}</span>
             {lastUpdatedAt && (
               <>
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-500">[LAST_SYNC]</span>
-                <time className="text-slate-400 font-bold" dateTime={lastUpdatedAt}>
+                <time className="text-muted-foreground font-bold" dateTime={lastUpdatedAt}>
                   {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
                 </time>
               </>
@@ -249,7 +249,7 @@ export default function StatisticsPage() {
           <div className="flex shrink-0 items-start justify-end gap-2.5">
             <Badge
               variant="outline"
-              className="inline-flex h-9 sm:h-10 border-slate-800 bg-slate-950/50 text-cyan-400 font-mono text-[10px] uppercase font-bold tracking-wider px-3.5 rounded-xl gap-2"
+              className="inline-flex h-9 sm:h-10 border-border bg-background/50 text-cyan-600 font-mono text-[10px] uppercase font-bold tracking-wider px-3.5 rounded-xl gap-2"
               aria-label={realtime === "live" ? "Realtime" : "Đang đồng bộ"}
               title={realtime === "live" ? "Realtime" : "Đang đồng bộ"}
             >
@@ -261,7 +261,7 @@ export default function StatisticsPage() {
               size="icon"
               onClick={() => void refresh()}
               disabled={loading || !selectedSiteId}
-              className="h-9 w-9 sm:h-10 sm:w-10 border-slate-800 bg-slate-950/40 text-slate-300 hover:text-white hover:bg-slate-900 rounded-xl p-0 transition-all shadow-none shrink-0"
+              className="h-9 w-9 sm:h-10 sm:w-10 border-border bg-card text-slate-700 hover:text-foreground hover:bg-muted rounded-xl p-0 transition-all shadow-none shrink-0"
               aria-label="Làm mới"
               title="Làm mới"
             >
@@ -274,25 +274,25 @@ export default function StatisticsPage() {
       <div className="space-y-8 mt-4">
         {partialError && (
           <div
-            className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 font-mono text-xs text-amber-300"
+            className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-500/5 p-4 font-mono text-xs text-amber-300"
             role="status"
           >
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-400 animate-pulse" aria-hidden="true" />
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 animate-pulse" aria-hidden="true" />
             <div className="space-y-1">
               <p className="font-bold uppercase">[WARNING] MỘT SỐ CHỈ SỐ CHƯA THỂ ĐỒNG BỘ</p>
-              <p className="text-[11px] text-amber-400/80 leading-relaxed uppercase">{partialError}</p>
+              <p className="text-[11px] text-amber-700/80 leading-relaxed uppercase">{partialError}</p>
             </div>
           </div>
         )}
 
         {/* Section 1: Current Occupancy Rate */}
         <section aria-labelledby="occupancy-statistics" className="space-y-4">
-          <div className="flex items-center gap-3 border-b border-slate-900/60 pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-400 uppercase tracking-widest">
+          <div className="flex items-center gap-3 border-b border-border pb-2">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
               01 // CÔNG SUẤT HIỆN TẠI (CURRENT OCCUPANCY)
             </span>
-            <div className="h-[1px] flex-1 bg-slate-900/50" />
+            <div className="h-[1px] flex-1 bg-muted" />
             <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
               {selectedZone ? "ZONE_SPECIFIC_OCCUPANCY" : "SITE_WIDE_OCCUPANCY"}
             </span>
@@ -343,12 +343,12 @@ export default function StatisticsPage() {
 
         {/* Section 2: Traffic Statistics */}
         <section aria-labelledby="traffic-statistics" className="space-y-4">
-          <div className="flex items-center gap-3 border-b border-slate-900/60 pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-400 uppercase tracking-widest">
+          <div className="flex items-center gap-3 border-b border-border pb-2">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
               02 // LƯU LƯỢNG HÔM NAY (DAILY TRAFFIC LOGS)
             </span>
-            <div className="h-[1px] flex-1 bg-slate-900/50" />
+            <div className="h-[1px] flex-1 bg-muted" />
             <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
               GATEWAY_INTEGRATED_METRICS
             </span>
@@ -387,12 +387,12 @@ export default function StatisticsPage() {
 
         {/* Section 3: Hardware & Performance */}
         <section aria-labelledby="system-statistics" className="space-y-4">
-          <div className="flex items-center gap-3 border-b border-slate-900/60 pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-400 uppercase tracking-widest">
+          <div className="flex items-center gap-3 border-b border-border pb-2">
+            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
               03 // ĐỒNG BỘ THIẾT BỊ & THỜI GIAN ĐỖ (SYSTEM HEALTH)
             </span>
-            <div className="h-[1px] flex-1 bg-slate-900/50" />
+            <div className="h-[1px] flex-1 bg-muted" />
             <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
               HARDWARE_AND_DWELL_METRIC
             </span>

@@ -620,7 +620,7 @@ export default function ParkingCommissioningPage() {
   }
 
   return (
-    <AdminPage className="space-y-6 bg-[#020617] text-slate-100 p-4 sm:p-6 lg:p-8 rounded-2xl relative min-h-screen overflow-hidden">
+    <AdminPage className="space-y-6 bg-background text-foreground p-4 sm:p-6 lg:p-8 rounded-2xl relative min-h-screen overflow-hidden">
       {/* Grid tech background decorations */}
       <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
         <div
@@ -635,35 +635,35 @@ export default function ParkingCommissioningPage() {
       </div>
 
       {/* Cybernetic Header */}
-      <header className="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 p-5 sm:p-6 shadow-[0_0_20px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-500/40" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-500/40" />
-        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-500/40" />
-        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-500/40" />
+      <header className="relative overflow-hidden rounded-xl border border-border bg-card p-5 sm:p-6 shadow-[var(--shadow-card)] backdrop-blur-xl">
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-200" />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-200" />
+        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-200" />
+        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-200" />
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[9px] font-mono font-medium text-cyan-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-[9px] font-mono font-medium text-cyan-600">
                 <span className="size-1.5 rounded-full bg-cyan-500 animate-pulse" />
                 {"SYSTEM_PROVISION // COMMISSIONING_CONSOLE"}
               </span>
               <span className="text-slate-700 font-mono text-[10px]">|</span>
-              <span className="text-slate-400 font-mono text-[9px] tracking-wider uppercase">
+              <span className="text-muted-foreground font-mono text-[9px] tracking-wider uppercase">
                 {selectedSiteId ? `SITE: ${sites.find(s => s.id === selectedSiteId)?.name || selectedSiteId.slice(0, 8)}` : "SELECT_SITE"}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-mono uppercase">
-              THIẾT LẬP BÃI ĐỖ <span className="text-cyan-400">{"// COMMISSIONING"}</span>
+              THIẾT LẬP BÃI ĐỖ <span className="text-cyan-600">{"// COMMISSIONING"}</span>
             </h1>
-            <p className="text-xs text-slate-400 max-w-2xl">
+            <p className="text-xs text-muted-foreground max-w-2xl">
               Thực hiện cấu hình phân cấp từ Site, Zone, Camera, cân chỉnh ảnh trường nhìn đến thiết kế sơ đồ bãi đỗ xe trong thời gian thực.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 self-start md:self-center font-mono">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-cyan-400 font-bold">
-              <ShieldCheck className="size-3.5 text-cyan-400" />
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs text-cyan-600 font-bold">
+              <ShieldCheck className="size-3.5 text-cyan-600" />
               {user?.role === UserRole.ADMIN ? "TENANT_ADMIN" : "SITE_MANAGER"}
             </span>
           </div>
@@ -675,7 +675,7 @@ export default function ParkingCommissioningPage() {
         aria-label="Các bước thiết lập bãi đỗ"
         className="-mx-1 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden"
       >
-        <div className="flex min-w-max gap-2 md:grid md:min-w-0 md:grid-cols-6 bg-slate-950/40 p-1.5 rounded-xl border border-slate-800/80">
+        <div className="flex min-w-max gap-2 md:grid md:min-w-0 md:grid-cols-6 bg-card p-1.5 rounded-xl border border-border">
           {STEPS.map((item, index) => {
             const Icon = item.icon
             const active = item.key === step
@@ -688,16 +688,16 @@ export default function ParkingCommissioningPage() {
                 className={cn(
                   "flex h-10 shrink-0 items-center rounded-lg border text-left text-xs font-mono transition-all duration-200 focus-visible:outline-none md:h-12 md:px-3 md:py-2",
                   active
-                    ? "min-w-[7.75rem] gap-2 border-cyan-500/40 bg-cyan-500/10 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.1)]"
-                    : "w-10 justify-center border-slate-900 bg-slate-950/30 text-slate-400 hover:text-slate-200 hover:bg-slate-900/50 hover:border-slate-800 md:w-auto md:justify-start md:gap-2",
+                    ? "min-w-[7.75rem] gap-2 border-cyan-200 bg-cyan-50 text-cyan-600 shadow-[0_0_12px_rgba(6,182,212,0.1)]"
+                    : "w-10 justify-center border-border bg-muted/10 text-muted-foreground hover:text-slate-800 hover:bg-muted hover:border-border md:w-auto md:justify-start md:gap-2",
                 )}
               >
                 <span
                   className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold border transition-colors",
                     active
-                      ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30 animate-pulse"
-                      : "bg-slate-900 text-slate-500 border-slate-800",
+                      ? "bg-cyan-100/50 text-cyan-600 border-cyan-200 animate-pulse"
+                      : "bg-muted text-slate-500 border-border",
                   )}
                 >
                   {`0${index + 1}`}
@@ -713,28 +713,28 @@ export default function ParkingCommissioningPage() {
       </nav>
 
       {step === "site" && (
-        <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+        <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
           
-          <CardHeader className="border-b border-slate-900/60 pb-4">
-            <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
               01 // CHỌN SITE
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className="text-muted-foreground">
               Mọi zone, camera, calibration và bản đồ bên dưới đều bị giới hạn trong site này.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             {sitesLoading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-cyan-500" />
+                <Loader2 className="h-6 w-6 animate-spin text-cyan-600" />
               </div>
             ) : sites.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500 font-mono">
+              <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-slate-500 font-mono">
                 {"[NO_ACTIVE_SITES]"} Chưa có site nào trong phạm vi được phân quyền.
               </div>
             ) : (
@@ -748,27 +748,27 @@ export default function ParkingCommissioningPage() {
                       className={cn(
                         "rounded-xl border p-5 text-left transition-all duration-200 relative group overflow-hidden",
                         active
-                          ? "border-cyan-500/40 bg-cyan-950/20 text-white shadow-[0_0_15px_rgba(6,182,212,0.1)]"
-                          : "border-slate-800 bg-slate-950/20 text-slate-300 hover:border-slate-700 hover:bg-slate-900/30"
+                          ? "border-cyan-200 bg-cyan-50/20 text-white shadow-[0_0_15px_rgba(6,182,212,0.1)]"
+                          : "border-border bg-muted/20 text-slate-700 hover:border-slate-700 hover:bg-muted/30"
                       )}
                     >
                       <div className="flex items-center justify-between">
                         <div className={cn(
                           "p-2 rounded-lg border",
-                          active ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-400" : "border-slate-800 bg-slate-900/40 text-slate-400"
+                          active ? "border-cyan-200 bg-cyan-50 text-cyan-600" : "border-border bg-muted/50 text-muted-foreground"
                         )}>
                           <MapPinned className="h-5 w-5" />
                         </div>
                         {active && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 text-[9px] font-mono text-cyan-400 font-bold">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 border border-cyan-200 px-2 py-0.5 text-[9px] font-mono text-cyan-600 font-bold">
                             <Check className="h-3 w-3" /> ACTIVE
                           </span>
                         )}
                       </div>
-                      <p className="mt-4 font-mono font-bold tracking-tight text-sm uppercase text-slate-100 group-hover:text-cyan-300 transition-colors">
+                      <p className="mt-4 font-mono font-bold tracking-tight text-sm uppercase text-foreground group-hover:text-cyan-700 transition-colors">
                         {site.name}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1 font-mono truncate">
+                      <p className="text-xs text-muted-foreground mt-1 font-mono truncate">
                         {site.location || "Chưa khai báo địa chỉ"}
                       </p>
                     </button>
@@ -781,19 +781,19 @@ export default function ParkingCommissioningPage() {
       )}
 
       {step === "zones" && (
-        <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+        <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
 
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-900/60 pb-4 gap-4">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 gap-4">
             <div>
-              <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+              <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                 02 // QUẢN LÝ ZONES
               </CardTitle>
-              <CardDescription className="text-slate-400">
+              <CardDescription className="text-muted-foreground">
                 Quản lý các vùng thuộc site đã chọn; hệ thống chặn xóa khi còn camera phụ thuộc.
               </CardDescription>
             </div>
@@ -812,21 +812,21 @@ export default function ParkingCommissioningPage() {
             ) : zones.length === 0 ? (
               <Empty text="Site chưa có zone." />
             ) : (
-              <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/20">
+              <div className="overflow-hidden rounded-xl border border-border bg-muted/20">
                 <Table>
-                  <TableHeader className="bg-slate-950/60 border-b border-slate-800">
-                    <TableRow className="border-b border-slate-800 hover:bg-transparent">
-                      <TableHead className="font-mono text-slate-400 uppercase text-[10px] tracking-wider h-10">Tên zone</TableHead>
-                      <TableHead className="font-mono text-slate-400 uppercase text-[10px] tracking-wider h-10">Camera phụ thuộc</TableHead>
-                      <TableHead className="text-right font-mono text-slate-400 uppercase text-[10px] tracking-wider h-10">Thao tác</TableHead>
+                  <TableHeader className="bg-card border-b border-border">
+                    <TableRow className="border-b border-border hover:bg-transparent">
+                      <TableHead className="font-mono text-muted-foreground uppercase text-[10px] tracking-wider h-10">Tên zone</TableHead>
+                      <TableHead className="font-mono text-muted-foreground uppercase text-[10px] tracking-wider h-10">Camera phụ thuộc</TableHead>
+                      <TableHead className="text-right font-mono text-muted-foreground uppercase text-[10px] tracking-wider h-10">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {zones.map((zone) => (
-                      <TableRow key={zone.id} className="border-b border-slate-900 hover:bg-slate-900/10">
-                        <TableCell className="font-mono font-bold text-slate-200 py-3">{zone.name}</TableCell>
+                      <TableRow key={zone.id} className="border-b border-border hover:bg-muted/10">
+                        <TableCell className="font-mono font-bold text-slate-800 py-3">{zone.name}</TableCell>
                         <TableCell className="py-3">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 border border-slate-800 px-2.5 py-0.5 text-xs text-slate-300 font-mono">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 py-0.5 text-xs text-slate-700 font-mono">
                             {cameras.filter((camera) => camera.zoneId === zone.id).length} cameras
                           </span>
                         </TableCell>
@@ -836,14 +836,14 @@ export default function ParkingCommissioningPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => openZone(zone)}
-                              className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 hover:text-white h-7 w-7 p-0 rounded-md"
+                              className="border-border bg-card hover:bg-muted hover:text-foreground h-7 w-7 p-0 rounded-md"
                             >
-                              <Pencil className="h-3.5 w-3.5 text-slate-400" />
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-slate-800 bg-slate-950/40 text-rose-400 hover:bg-rose-950/20 hover:border-rose-500/30 hover:text-rose-300 h-7 w-7 p-0 rounded-md"
+                              className="border-border bg-card text-rose-600 hover:bg-rose-50/25 hover:border-rose-200 hover:text-rose-700 h-7 w-7 p-0 rounded-md"
                               onClick={() => void removeZone(zone)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -862,19 +862,19 @@ export default function ParkingCommissioningPage() {
 
       {step === "cameras" && (
         <div className="space-y-4">
-          <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+          <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
 
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-900/60 pb-4 gap-4">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 gap-4">
               <div>
-                <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+                <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                   03 // ĐĂNG KÝ CAMERAS
                 </CardTitle>
-                <CardDescription className="text-slate-400">
+                <CardDescription className="text-muted-foreground">
                   Đăng ký camera, vai trò xử lý, RTSP, tình trạng kết nối và thông tin edge.
                 </CardDescription>
               </div>
@@ -901,15 +901,15 @@ export default function ParkingCommissioningPage() {
                     const isOnline = camera.status === "online"
                     const isOffline = camera.status === "offline"
                     const statusClass = isOnline
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                       : isOffline
-                      ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                      : "bg-slate-900 text-slate-500 border-slate-800"
+                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                      : "bg-muted text-slate-500 border-border"
 
                     return (
                       <div
                         key={camera.id}
-                        className="rounded-xl border border-slate-800 bg-slate-950/20 p-5 hover:border-slate-700/80 transition-all flex flex-col justify-between"
+                        className="rounded-xl border border-border bg-muted/20 p-5 hover:border-slate-700/80 transition-all flex flex-col justify-between"
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2 mb-3">
@@ -926,41 +926,41 @@ export default function ParkingCommissioningPage() {
                           </div>
 
                           <div className="flex gap-3 mb-4">
-                            <div className="rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-slate-400 self-start">
-                              <CameraIcon className="h-5 w-5 text-cyan-400" />
+                            <div className="rounded-lg bg-muted border border-border p-2.5 text-muted-foreground self-start">
+                              <CameraIcon className="h-5 w-5 text-cyan-600" />
                             </div>
                             <div className="min-w-0">
-                              <h3 className="font-mono font-bold text-slate-200 text-sm truncate uppercase tracking-tight group-hover:text-cyan-300">
+                              <h3 className="font-mono font-bold text-slate-800 text-sm truncate uppercase tracking-tight group-hover:text-cyan-700">
                                 {camera.name}
                               </h3>
-                              <p className="text-xs text-slate-400 mt-1 font-mono">
+                              <p className="text-xs text-muted-foreground mt-1 font-mono">
                                 {zoneName}
                               </p>
                             </div>
                           </div>
 
-                          <div className="space-y-1.5 border-t border-slate-900/60 pt-3 mb-5 text-[11px] font-mono text-slate-400">
+                          <div className="space-y-1.5 border-t border-border pt-3 mb-5 text-[11px] font-mono text-muted-foreground">
                             <div className="flex justify-between">
                               <span className="text-slate-500">HEARTBEAT:</span>
-                              <span className="text-slate-300">{heartbeat}</span>
+                              <span className="text-slate-700">{heartbeat}</span>
                             </div>
                             {camera.panelType && (
                               <div className="flex justify-between">
                                 <span className="text-slate-500">PANEL_TYPE:</span>
-                                <span className="text-slate-300 uppercase">{camera.panelType}</span>
+                                <span className="text-slate-700 uppercase">{camera.panelType}</span>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 mt-auto border-t border-slate-900/40 pt-3">
+                        <div className="flex items-center gap-2 mt-auto border-t border-border pt-3">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => openCamera(camera)}
-                            className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 hover:text-white h-8 flex-1 font-mono text-xs uppercase"
+                            className="border-border bg-card hover:bg-muted hover:text-foreground h-8 flex-1 font-mono text-xs uppercase"
                           >
-                            <Pencil className="mr-1 h-3.5 w-3.5 text-slate-400" /> Sửa
+                            <Pencil className="mr-1 h-3.5 w-3.5 text-muted-foreground" /> Sửa
                           </Button>
 
                           {canIssueCredentials && (
@@ -970,7 +970,7 @@ export default function ParkingCommissioningPage() {
                                 size="sm"
                                 onClick={() => void revealCredential(camera, false)}
                                 disabled={busy}
-                                className="border-slate-800 bg-slate-950/40 hover:bg-cyan-950/30 hover:border-cyan-500/30 text-slate-300 hover:text-cyan-400 h-8 font-mono text-xs uppercase"
+                                className="border-border bg-card hover:bg-cyan-50 hover:border-cyan-200 text-slate-700 hover:text-cyan-600 h-8 font-mono text-xs uppercase"
                                 title="Cấp khóa"
                               >
                                 <KeyRound className="h-3.5 w-3.5" />
@@ -980,7 +980,7 @@ export default function ParkingCommissioningPage() {
                                 size="sm"
                                 onClick={() => void revealCredential(camera, true)}
                                 disabled={busy}
-                                className="border-slate-800 bg-slate-950/40 hover:bg-cyan-950/30 hover:border-cyan-500/30 text-slate-300 hover:text-cyan-400 h-8 font-mono text-xs uppercase"
+                                className="border-border bg-card hover:bg-cyan-50 hover:border-cyan-200 text-slate-700 hover:text-cyan-600 h-8 font-mono text-xs uppercase"
                                 title="Xoay khóa"
                               >
                                 <RotateCw className="h-3.5 w-3.5" />
@@ -991,7 +991,7 @@ export default function ParkingCommissioningPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="border-slate-800 bg-slate-950/40 text-rose-400 hover:bg-rose-950/20 hover:border-rose-500/30 hover:text-rose-300 h-8 px-2.5"
+                            className="border-border bg-card text-rose-600 hover:bg-rose-50/25 hover:border-rose-200 hover:text-rose-700 h-8 px-2.5"
                             onClick={() => void removeCamera(camera)}
                             title="Xóa camera"
                           >
@@ -1006,14 +1006,14 @@ export default function ParkingCommissioningPage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-cyan-500/10 bg-cyan-950/5 text-slate-300 shadow-md relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-cyan-500/40" />
+          <Card className="border border-cyan-200/10 bg-cyan-950/5 text-slate-700 shadow-md relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-cyan-200" />
             <CardHeader className="py-3 px-4">
-              <CardTitle className="text-xs font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-1.5">
+              <CardTitle className="text-xs font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-1.5">
                 <ShieldCheck className="h-4 w-4" /> EDGE_COMMUNICATION_GUIDELINES
               </CardTitle>
             </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0 text-[11px] font-mono leading-relaxed text-slate-400 space-y-1">
+            <CardContent className="px-4 pb-4 pt-0 text-[11px] font-mono leading-relaxed text-muted-foreground space-y-1">
               <p>1. Khóa ingest chỉ hiển thị một lần duy nhất khi cấp mới hoặc xoay khóa.</p>
               <p>2. Lưu khóa vào secret store an toàn trên edge agent, thiết lập SITE_ID & CAMERA_ID tương ứng.</p>
               <p>3. Tuyệt đối không ghi khóa ingest trực tiếp vào logs hệ thống hoặc file cấu hình nguồn công khai.</p>
@@ -1024,18 +1024,18 @@ export default function ParkingCommissioningPage() {
 
       {step === "calibration" && (
         <div className="space-y-4">
-          <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+          <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
 
-            <CardHeader className="border-b border-slate-900/60 pb-4">
-              <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                 04 // HIỆU CHỈNH CALIBRATION
               </CardTitle>
-              <CardDescription className="text-slate-400 font-mono text-[11px]">
+              <CardDescription className="text-muted-foreground font-mono text-[11px]">
                 Chọn camera OVERVIEW, tải một ảnh tĩnh và đánh dấu ít nhất 4 điểm kiểm soát với tọa độ site-local tính bằng mét.
               </CardDescription>
             </CardHeader>
@@ -1044,12 +1044,12 @@ export default function ParkingCommissioningPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Camera OVERVIEW">
                   <Select value={selectedCameraId} onValueChange={setSelectedCameraId}>
-                    <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-10 rounded-lg">
+                    <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-10 rounded-lg">
                       <SelectValue placeholder="Chọn camera" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
+                    <SelectContent className="bg-background border-border text-slate-800">
                       {overviewCameras.map((camera) => (
-                        <SelectItem key={camera.id} value={camera.id} className="focus:bg-slate-900 focus:text-white font-mono text-xs">
+                        <SelectItem key={camera.id} value={camera.id} className="focus:bg-muted focus:text-white font-mono text-xs">
                           {camera.name}
                         </SelectItem>
                       ))}
@@ -1063,7 +1063,7 @@ export default function ParkingCommissioningPage() {
                       variant="outline"
                       asChild
                       disabled={!selectedCameraId || busy}
-                      className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 hover:text-white h-10 font-mono text-xs uppercase"
+                      className="border-border bg-card hover:bg-muted text-slate-700 hover:text-foreground h-10 font-mono text-xs uppercase"
                     >
                       <label className="cursor-pointer flex items-center gap-1.5">
                         <Upload className="h-4 w-4" /> Tải ảnh
@@ -1079,16 +1079,16 @@ export default function ParkingCommissioningPage() {
                       variant="outline"
                       disabled={!selectedCameraId || busy}
                       onClick={() => selectedSiteId && selectedCameraId && void captureStill(selectedSiteId, selectedCameraId).catch((error) => toast({ title: "Camera chưa hỗ trợ chụp trực tiếp", description: errorMessage(error), variant: "destructive" }))}
-                      className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 hover:text-white h-10 font-mono text-xs uppercase"
+                      className="border-border bg-card hover:bg-muted text-slate-700 hover:text-foreground h-10 font-mono text-xs uppercase"
                     >
-                      <CameraIcon className="mr-1.5 h-4 w-4 text-cyan-400" /> Chụp trực tiếp
+                      <CameraIcon className="mr-1.5 h-4 w-4 text-cyan-600" /> Chụp trực tiếp
                     </Button>
                   </div>
                 </Field>
               </div>
 
               {overviewCameras.length === 0 && (
-                <div className="p-4 rounded-lg bg-rose-500/5 border border-rose-500/20 text-rose-400 text-xs font-mono flex items-center gap-2">
+                <div className="p-4 rounded-lg bg-rose-500/5 border border-rose-500/20 text-rose-600 text-xs font-mono flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   Hãy tạo ít nhất một camera có vai trò OVERVIEW trước khi thực hiện hiệu chỉnh calibration.
                 </div>
@@ -1100,14 +1100,14 @@ export default function ParkingCommissioningPage() {
                   <div className="space-y-2">
                     <span className="text-[10px] font-mono tracking-wider text-slate-500 uppercase block">IMAGE_COORDINATES_CANVAS (NHẤP ĐỂ THÊM ĐIỂM)</span>
                     <div
-                      className="relative overflow-hidden rounded-xl border border-slate-800 bg-black cursor-crosshair group shadow-inner"
+                      className="relative overflow-hidden rounded-xl border border-border bg-slate-100 cursor-crosshair group shadow-inner"
                       onClick={addCalibrationPoint}
                     >
                       <img src={sourceImage.readUrl} alt="Ảnh calibration" className="block h-auto w-full select-none" />
                       {controlPoints.map((point, index) => (
                         <span
                           key={`${point.pixelX}-${point.pixelY}-${index}`}
-                          className="pointer-events-none absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-400 bg-cyan-950 text-[11px] font-mono font-bold text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.4)] transition-all animate-bounce"
+                          className="pointer-events-none absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-400 bg-cyan-950 text-[11px] font-mono font-bold text-cyan-600 shadow-[0_0_10px_rgba(34,211,238,0.4)] transition-all animate-bounce"
                           style={{
                             left: `${point.pixelX / sourceImage.nativeWidth * 100}%`,
                             top: `${point.pixelY / sourceImage.nativeHeight * 100}%`
@@ -1122,15 +1122,15 @@ export default function ParkingCommissioningPage() {
                   {/* Right Side: Inputs & Results */}
                   <div className="space-y-4 flex flex-col justify-between">
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between border-b border-slate-900 pb-2">
-                        <p className="font-mono text-xs font-bold text-slate-300">
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <p className="font-mono text-xs font-bold text-slate-700">
                           ĐIỂM KIỂM SOÁT ({controlPoints.length}/4+)
                         </p>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => { setControlPoints([]); setCalibrationPreview(null) }}
-                          className="text-slate-500 hover:text-rose-400 hover:bg-rose-950/10 font-mono text-xs h-7"
+                          className="text-slate-500 hover:text-rose-600 hover:bg-rose-950/10 font-mono text-xs h-7"
                         >
                           <X className="mr-1 h-3.5 w-3.5" /> Xóa hết
                         </Button>
@@ -1140,9 +1140,9 @@ export default function ParkingCommissioningPage() {
                         {controlPoints.map((point, index) => (
                           <div
                             key={index}
-                            className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-3.5 rounded-lg border border-slate-900 bg-slate-950/40 p-3"
+                            className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-3.5 rounded-lg border border-border bg-card p-3"
                           >
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cyan-500/10 border border-cyan-500/20 text-xs font-mono font-bold text-cyan-400">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-cyan-50 border border-cyan-200 text-xs font-mono font-bold text-cyan-600">
                               {index + 1}
                             </span>
                             <div className="space-y-1">
@@ -1152,7 +1152,7 @@ export default function ParkingCommissioningPage() {
                                 step="0.01"
                                 value={point.siteX}
                                 onChange={(event) => setControlPoints((points) => points.map((item, itemIndex) => itemIndex === index ? { ...item, siteX: Number(event.target.value) } : item))}
-                                className="bg-slate-950 border-slate-800 text-slate-200 text-xs font-mono h-8 rounded-md"
+                                className="bg-background border-border text-slate-800 text-xs font-mono h-8 rounded-md"
                               />
                             </div>
                             <div className="space-y-1">
@@ -1162,14 +1162,14 @@ export default function ParkingCommissioningPage() {
                                 step="0.01"
                                 value={point.siteY}
                                 onChange={(event) => setControlPoints((points) => points.map((item, itemIndex) => itemIndex === index ? { ...item, siteY: Number(event.target.value) } : item))}
-                                className="bg-slate-950 border-slate-800 text-slate-200 text-xs font-mono h-8 rounded-md"
+                                className="bg-background border-border text-slate-800 text-xs font-mono h-8 rounded-md"
                               />
                             </div>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => setControlPoints((points) => points.filter((_, itemIndex) => itemIndex !== index))}
-                              className="text-slate-500 hover:text-rose-400 h-8 w-8 p-0 hover:bg-rose-950/20 rounded-md mt-4"
+                              className="text-slate-500 hover:text-rose-600 h-8 w-8 p-0 hover:bg-rose-50/25 rounded-md mt-4"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1178,9 +1178,9 @@ export default function ParkingCommissioningPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-3 pt-4 border-t border-slate-900/60 mt-auto">
+                    <div className="space-y-3 pt-4 border-t border-border mt-auto">
                       <Button
-                        className="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs h-10 rounded-lg shadow-lg shadow-cyan-500/10"
+                        className="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs h-10 rounded-lg shadow-lg shadow-sm"
                         disabled={!calibrationInputReady(controlPoints) || busy}
                         onClick={() => void runCalibrationValidation()}
                       >
@@ -1189,14 +1189,14 @@ export default function ParkingCommissioningPage() {
                       </Button>
 
                       {calibrationPreview && (
-                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-4 space-y-3">
-                          <div className="flex items-center gap-2 text-emerald-400 font-mono font-bold text-xs uppercase">
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/15 p-4 space-y-3">
+                          <div className="flex items-center gap-2 text-emerald-600 font-mono font-bold text-xs uppercase">
                             <span className="size-1.5 rounded-full bg-emerald-400 animate-ping" />
                             Preview hợp lệ
                           </div>
-                          <p className="text-xs text-slate-300 font-mono">
+                          <p className="text-xs text-slate-700 font-mono">
                             Sai số tái chiếu (reprojection error):{" "}
-                            <span className="text-emerald-400 font-bold">{calibrationPreview.reprojectionError.toFixed(3)} px</span>
+                            <span className="text-emerald-600 font-bold">{calibrationPreview.reprojectionError.toFixed(3)} px</span>
                           </p>
                           <Button
                             size="sm"
@@ -1219,20 +1219,20 @@ export default function ParkingCommissioningPage() {
 
       {step === "map" && (
         <div className="space-y-6">
-          <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+          <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
 
-            <CardHeader className="border-b border-slate-900/60 pb-5 space-y-4">
+            <CardHeader className="border-b border-border pb-5 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div>
-                  <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+                  <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
                     <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                     05 // THIẾT KẾ SƠ ĐỒ BÃI ĐỖ
                   </CardTitle>
-                  <CardDescription className="text-slate-400 font-mono text-[11px] mt-1">
+                  <CardDescription className="text-muted-foreground font-mono text-[11px] mt-1">
                     Nhấp trên ảnh để vẽ vùng; kéo các điểm để điều chỉnh.
                   </CardDescription>
                 </div>
@@ -1251,7 +1251,7 @@ export default function ParkingCommissioningPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 hover:text-white font-mono text-xs h-8"
+                    className="border-border bg-card hover:bg-muted text-slate-700 hover:text-foreground font-mono text-xs h-8"
                     onClick={() => importInputRef.current?.click()}
                     disabled={busy || Boolean(draft) || !sourceImage || !calibration}
                   >
@@ -1259,11 +1259,11 @@ export default function ParkingCommissioningPage() {
                     <span>Nhập GeoJSON</span>
                   </Button>
 
-                  <div className="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-lg border border-slate-850">
+                  <div className="flex items-center gap-1 bg-muted p-0.5 rounded-lg border border-border">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                       onClick={undo}
                       disabled={!undoStack.length}
                       title="Hoàn tác"
@@ -1273,7 +1273,7 @@ export default function ParkingCommissioningPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 text-slate-400 hover:text-white"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                       onClick={redo}
                       disabled={!redoStack.length}
                       title="Làm lại"
@@ -1294,7 +1294,7 @@ export default function ParkingCommissioningPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 bg-slate-950/65 border border-slate-900 px-3.5 py-2 rounded-lg text-xs font-mono">
+              <div className="flex items-center gap-2.5 bg-background/65 border border-border px-3.5 py-2 rounded-lg text-xs font-mono">
                 <span className={cn(
                   "h-2 w-2 rounded-full shrink-0",
                   saveState === "error"
@@ -1307,7 +1307,7 @@ export default function ParkingCommissioningPage() {
                     ? "bg-emerald-500 animate-pulse"
                     : "bg-slate-700"
                 )} />
-                <span className="text-slate-400">
+                <span className="text-muted-foreground">
                   {!sourceImage || !calibration
                     ? "Hãy hoàn tất bước hiệu chỉnh để bắt đầu vẽ sơ đồ."
                     : saveState === "error"
@@ -1324,15 +1324,15 @@ export default function ParkingCommissioningPage() {
             </CardHeader>
 
             <CardContent className="space-y-6 pt-6">
-              <div className="grid gap-4 rounded-xl border border-slate-900 bg-slate-950/60 p-4 md:grid-cols-2">
+              <div className="grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2">
                 <Field label="Camera OVERVIEW">
                   <Select value={selectedCameraId} onValueChange={setSelectedCameraId}>
-                    <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-10 rounded-lg">
+                    <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-10 rounded-lg">
                       <SelectValue placeholder="Chọn camera" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
+                    <SelectContent className="bg-background border-border text-slate-800">
                       {overviewCameras.map((camera) => (
-                        <SelectItem key={camera.id} value={camera.id} className="focus:bg-slate-900 focus:text-white font-mono text-xs">
+                        <SelectItem key={camera.id} value={camera.id} className="focus:bg-muted focus:text-white font-mono text-xs">
                           {camera.name}
                         </SelectItem>
                       ))}
@@ -1340,20 +1340,20 @@ export default function ParkingCommissioningPage() {
                   </Select>
                 </Field>
                 <div className="flex items-center">
-                  <p className="text-xs text-slate-400 font-mono leading-relaxed pl-1">
+                  <p className="text-xs text-muted-foreground font-mono leading-relaxed pl-1">
                     [INFO] Ảnh nền và calibration đi theo camera. Sử dụng bước Calibration để tải ảnh hoặc chụp ảnh trực tiếp mới trước khi vẽ sơ đồ.
                   </p>
                 </div>
               </div>
 
               {!sourceImage || !calibration ? (
-                <div className="p-4 rounded-lg bg-rose-500/5 border border-rose-500/20 text-rose-400 text-xs font-mono flex items-center gap-2">
+                <div className="p-4 rounded-lg bg-rose-500/5 border border-rose-500/20 text-rose-600 text-xs font-mono flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   Hoàn tất calibration trong phiên làm việc này trước khi tạo một bản đồ mới.
                 </div>
               ) : !draft ? (
-                <div className="rounded-xl border border-dashed border-slate-800 p-10 text-center bg-slate-950/15">
-                  <p className="mb-4 text-xs font-mono text-slate-400">
+                <div className="rounded-xl border border-dashed border-border p-10 text-center bg-background/15">
+                  <p className="mb-4 text-xs font-mono text-muted-foreground">
                     Chưa có bản nháp sơ đồ nào cho ảnh và calibration đang chọn.
                   </p>
                   <Button
@@ -1369,25 +1369,25 @@ export default function ParkingCommissioningPage() {
                   <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_340px]">
                     {/* SVG Interactive Editor Container */}
                     <div className="space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/60 border border-slate-900 p-2.5 rounded-xl">
+                      <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-2.5 rounded-xl">
                         {/* Zoom Controls */}
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-mono text-slate-500 uppercase mr-1">Tỷ lệ:</span>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 h-8 w-8 p-0"
+                            className="border-border bg-card hover:bg-muted text-slate-700 h-8 w-8 p-0"
                             onClick={() => setZoom((value) => Math.max(1, value - 0.25))}
                           >
                             <ZoomOut className="h-4 w-4" />
                           </Button>
-                          <span className="inline-flex items-center justify-center rounded-md border border-slate-800 bg-slate-950 px-3 py-1 text-xs font-mono text-cyan-400 font-bold min-w-[50px] text-center">
+                          <span className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-1 text-xs font-mono text-cyan-600 font-bold min-w-[50px] text-center">
                             {Math.round(zoom * 100)}%
                           </span>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 h-8 w-8 p-0"
+                            className="border-border bg-card hover:bg-muted text-slate-700 h-8 w-8 p-0"
                             onClick={() => setZoom((value) => Math.min(3, value + 0.25))}
                           >
                             <ZoomIn className="h-4 w-4" />
@@ -1400,7 +1400,7 @@ export default function ParkingCommissioningPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 font-mono text-slate-400 hover:text-white"
+                            className="h-8 w-8 p-0 font-mono text-muted-foreground hover:text-foreground"
                             onClick={() => setPan((value) => ({ ...value, y: Math.max(0, value.y - 30) }))}
                           >
                             ↑
@@ -1408,7 +1408,7 @@ export default function ParkingCommissioningPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 font-mono text-slate-400 hover:text-white"
+                            className="h-8 w-8 p-0 font-mono text-muted-foreground hover:text-foreground"
                             onClick={() => setPan((value) => ({ ...value, x: Math.max(0, value.x - 30) }))}
                           >
                             ←
@@ -1416,7 +1416,7 @@ export default function ParkingCommissioningPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 font-mono text-slate-400 hover:text-white"
+                            className="h-8 w-8 p-0 font-mono text-muted-foreground hover:text-foreground"
                             onClick={() => setPan((value) => ({ ...value, x: value.x + 30 }))}
                           >
                             →
@@ -1424,7 +1424,7 @@ export default function ParkingCommissioningPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 font-mono text-slate-400 hover:text-white"
+                            className="h-8 w-8 p-0 font-mono text-muted-foreground hover:text-foreground"
                             onClick={() => setPan((value) => ({ ...value, y: value.y + 30 }))}
                           >
                             ↓
@@ -1433,7 +1433,7 @@ export default function ParkingCommissioningPage() {
                       </div>
 
                       {/* SVG Canvas Board */}
-                      <div className="overflow-hidden rounded-xl border border-slate-800 bg-black relative group shadow-inner">
+                      <div className="overflow-hidden rounded-xl border border-border bg-slate-100 relative group shadow-inner">
                         <svg
                           role="img"
                           aria-label="Trình vẽ ô đỗ"
@@ -1481,9 +1481,9 @@ export default function ParkingCommissioningPage() {
                               <text
                                 x={slot.pixelVertices[0]?.x}
                                 y={(slot.pixelVertices[0]?.y || 0) - 8 / zoom}
-                                fill="white"
+                                fill="black"
                                 fontSize={20 / zoom}
-                                stroke="black"
+                                stroke="white"
                                 strokeWidth={0.8}
                                 className="font-mono font-bold select-none text-shadow-md"
                               >
@@ -1506,9 +1506,9 @@ export default function ParkingCommissioningPage() {
                     {/* Editor Action sidebar panels */}
                     <div className="space-y-4">
                       {/* Active Slot Form */}
-                      <Card className="border border-slate-800/80 bg-slate-950/30 rounded-xl p-4 space-y-4">
-                        <div className="border-b border-slate-900/60 pb-2">
-                          <p className="font-mono text-xs font-bold text-cyan-400 uppercase flex items-center gap-1.5">
+                      <Card className="border border-border bg-muted/10 rounded-xl p-4 space-y-4">
+                        <div className="border-b border-border pb-2">
+                          <p className="font-mono text-xs font-bold text-cyan-600 uppercase flex items-center gap-1.5">
                             <span className="size-1 rounded-full bg-cyan-500 animate-ping" />
                             Ô ĐANG VẼ
                           </p>
@@ -1520,18 +1520,18 @@ export default function ParkingCommissioningPage() {
                               value={slotCode}
                               onChange={(event) => setSlotCode(event.target.value)}
                               placeholder="Ví dụ: A-01"
-                              className="bg-slate-950 border-slate-800 text-slate-200 text-xs font-mono h-9 rounded-md"
+                              className="bg-background border-border text-slate-800 text-xs font-mono h-9 rounded-md"
                             />
                           </Field>
                           
                           <Field label="Vùng Zone">
                             <Select value={slotZoneId} onValueChange={setSlotZoneId}>
-                              <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-9 rounded-md">
+                              <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-9 rounded-md">
                                 <SelectValue placeholder="Chọn zone" />
                               </SelectTrigger>
-                              <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
+                              <SelectContent className="bg-background border-border text-slate-800">
                                 {zones.map((zone) => (
-                                  <SelectItem key={zone.id} value={zone.id} className="focus:bg-slate-900 focus:text-white font-mono text-xs">
+                                  <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted focus:text-white font-mono text-xs">
                                     {zone.name}
                                   </SelectItem>
                                 ))}
@@ -1541,13 +1541,13 @@ export default function ParkingCommissioningPage() {
 
                           <Field label="Trạng thái quản trị">
                             <Select value={slotStatus} onValueChange={(value) => setSlotStatus(value as ParkingMapSlot["adminStatus"])}>
-                              <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-9 rounded-md">
+                              <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-9 rounded-md">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
-                                <SelectItem value="ACTIVE" className="focus:bg-slate-900 font-mono text-xs text-emerald-400">ACTIVE</SelectItem>
-                                <SelectItem value="RESERVED" className="focus:bg-slate-900 font-mono text-xs text-amber-400">RESERVED</SelectItem>
-                                <SelectItem value="DISABLED" className="focus:bg-slate-900 font-mono text-xs text-rose-400">DISABLED</SelectItem>
+                              <SelectContent className="bg-background border-border text-slate-800">
+                                <SelectItem value="ACTIVE" className="focus:bg-muted font-mono text-xs text-emerald-600">ACTIVE</SelectItem>
+                                <SelectItem value="RESERVED" className="focus:bg-muted font-mono text-xs text-amber-600">RESERVED</SelectItem>
+                                <SelectItem value="DISABLED" className="focus:bg-muted font-mono text-xs text-rose-600">DISABLED</SelectItem>
                               </SelectContent>
                             </Select>
                           </Field>
@@ -1563,7 +1563,7 @@ export default function ParkingCommissioningPage() {
                             <Button
                               variant="outline"
                               onClick={() => setCurrentPolygon([])}
-                              className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-400 hover:text-white h-9 w-9 p-0"
+                              className="border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground h-9 w-9 p-0"
                               title="Hủy nét vẽ hiện tại"
                             >
                               <X className="h-4 w-4" />
@@ -1574,9 +1574,9 @@ export default function ParkingCommissioningPage() {
 
                       {/* Selected Slot Inspector */}
                       {selectedSlot !== null && slots[selectedSlot] && (
-                        <Card className="border border-cyan-500/20 bg-cyan-950/10 rounded-xl p-4 space-y-4">
-                          <div className="border-b border-cyan-500/20 pb-2">
-                            <p className="font-mono text-xs font-bold text-cyan-400 uppercase flex items-center gap-1.5">
+                        <Card className="border border-cyan-200 bg-cyan-50/10 rounded-xl p-4 space-y-4">
+                          <div className="border-b border-cyan-200 pb-2">
+                            <p className="font-mono text-xs font-bold text-cyan-600 uppercase flex items-center gap-1.5">
                               <span className="size-1.5 rounded-full bg-cyan-400" />
                               CHỈNH SỬA Ô ĐÃ CHỌN
                             </p>
@@ -1587,7 +1587,7 @@ export default function ParkingCommissioningPage() {
                               <Input
                                 value={slots[selectedSlot].code}
                                 onChange={(event) => updateSlot(selectedSlot, { code: event.target.value })}
-                                className="bg-slate-950 border-slate-800 text-slate-200 text-xs font-mono h-9 rounded-md"
+                                className="bg-background border-border text-slate-800 text-xs font-mono h-9 rounded-md"
                               />
                             </Field>
 
@@ -1596,12 +1596,12 @@ export default function ParkingCommissioningPage() {
                                 value={slots[selectedSlot].zoneId}
                                 onValueChange={(value) => updateSlot(selectedSlot, { zoneId: value })}
                               >
-                                <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-9 rounded-md">
+                                <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-9 rounded-md">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
+                                <SelectContent className="bg-background border-border text-slate-800">
                                   {zones.map((zone) => (
-                                    <SelectItem key={zone.id} value={zone.id} className="focus:bg-slate-900 focus:text-white font-mono text-xs">
+                                    <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted focus:text-white font-mono text-xs">
                                       {zone.name}
                                     </SelectItem>
                                   ))}
@@ -1614,13 +1614,13 @@ export default function ParkingCommissioningPage() {
                                 value={slots[selectedSlot].adminStatus}
                                 onValueChange={(value) => updateSlot(selectedSlot, { adminStatus: value as ParkingMapSlot["adminStatus"] })}
                               >
-                                <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-9 rounded-md">
+                                <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-9 rounded-md">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
-                                  <SelectItem value="ACTIVE" className="focus:bg-slate-900 font-mono text-xs text-emerald-400">ACTIVE</SelectItem>
-                                  <SelectItem value="RESERVED" className="focus:bg-slate-900 font-mono text-xs text-amber-400">RESERVED</SelectItem>
-                                  <SelectItem value="DISABLED" className="focus:bg-slate-900 font-mono text-xs text-rose-400">DISABLED</SelectItem>
+                                <SelectContent className="bg-background border-border text-slate-800">
+                                  <SelectItem value="ACTIVE" className="focus:bg-muted font-mono text-xs text-emerald-600">ACTIVE</SelectItem>
+                                  <SelectItem value="RESERVED" className="focus:bg-muted font-mono text-xs text-amber-600">RESERVED</SelectItem>
+                                  <SelectItem value="DISABLED" className="focus:bg-muted font-mono text-xs text-rose-600">DISABLED</SelectItem>
                                 </SelectContent>
                               </Select>
                             </Field>
@@ -1630,14 +1630,14 @@ export default function ParkingCommissioningPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => copySlot(selectedSlot)}
-                                className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 h-8 font-mono text-xs"
+                                className="border-border bg-card hover:bg-muted text-slate-700 h-8 font-mono text-xs"
                               >
                                 <Copy className="mr-1 h-3.5 w-3.5" /> Sao chép
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="border-slate-800 bg-slate-950/40 text-rose-400 hover:bg-rose-950/20 hover:border-rose-500/30 hover:text-rose-300 h-8 font-mono text-xs ml-auto"
+                                className="border-border bg-card text-rose-600 hover:bg-rose-50/25 hover:border-rose-200 hover:text-rose-700 h-8 font-mono text-xs ml-auto"
                                 onClick={() => {
                                   changeSlots(slots.filter((_, index) => index !== selectedSlot))
                                   setSelectedSlot(null)
@@ -1650,25 +1650,25 @@ export default function ParkingCommissioningPage() {
                         </Card>
                       )}
 
-                      <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-950 text-[10px] font-mono text-slate-500 uppercase space-y-1">
+                      <div className="p-3 bg-muted rounded-lg border border-slate-950 text-[10px] font-mono text-slate-500 uppercase space-y-1">
                         <div className="flex justify-between">
                           <span>SỐ_Ô_BẢN_ĐỒ:</span>
-                          <span className="text-cyan-400 font-bold">{slots.length} slots</span>
+                          <span className="text-cyan-600 font-bold">{slots.length} slots</span>
                         </div>
                         <div className="flex justify-between">
                           <span>ĐỈNH_ĐANG_VẼ:</span>
-                          <span className="text-slate-300">{currentPolygon.length} vertexes</span>
+                          <span className="text-slate-700">{currentPolygon.length} vertexes</span>
                         </div>
                         <div className="flex justify-between">
                           <span>TỰ_ĐỘNG_SẮP_XẾP:</span>
-                          <span className={cn(dirty ? "text-amber-400" : "text-emerald-400")}>{dirty ? "dirty_state" : "synchronized"}</span>
+                          <span className={cn(dirty ? "text-amber-600" : "text-emerald-600")}>{dirty ? "dirty_state" : "synchronized"}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Sync & Publish Control block */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl border border-slate-900 bg-slate-950/30 mt-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-xl border border-border bg-muted/10 mt-4">
                     <Button
                       variant="outline"
                       onClick={() => {
@@ -1677,7 +1677,7 @@ export default function ParkingCommissioningPage() {
                         setValidation(null)
                       }}
                       disabled={!dirty}
-                      className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-400 hover:text-white h-9 font-mono text-xs uppercase"
+                      className="border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground h-9 font-mono text-xs uppercase"
                     >
                       <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Bỏ thay đổi nháp
                     </Button>
@@ -1687,9 +1687,9 @@ export default function ParkingCommissioningPage() {
                         variant="outline"
                         onClick={() => void runMapValidation()}
                         disabled={busy || slots.length === 0}
-                        className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 hover:text-white h-9 font-mono text-xs uppercase"
+                        className="border-border bg-card hover:bg-muted text-slate-700 hover:text-foreground h-9 font-mono text-xs uppercase"
                       >
-                        <ShieldCheck className="mr-1.5 h-4 w-4 text-cyan-400" /> Validate
+                        <ShieldCheck className="mr-1.5 h-4 w-4 text-cyan-600" /> Validate
                       </Button>
                       <Button
                         onClick={() => setPublishDialog(true)}
@@ -1702,12 +1702,12 @@ export default function ParkingCommissioningPage() {
                   </div>
 
                   {validation && !validation.valid && (
-                    <div className="rounded-xl border border-rose-500/30 bg-rose-950/15 p-4 space-y-2">
-                      <p className="font-mono text-xs font-bold text-rose-400 uppercase flex items-center gap-1.5">
+                    <div className="rounded-xl border border-rose-200 bg-rose-50/25 p-4 space-y-2">
+                      <p className="font-mono text-xs font-bold text-rose-600 uppercase flex items-center gap-1.5">
                         <AlertTriangle className="h-4 w-4 shrink-0" />
                         Chưa thể publish sơ đồ bãi đỗ
                       </p>
-                      <ul className="list-disc space-y-1 pl-5 text-xs text-slate-300 font-mono">
+                      <ul className="list-disc space-y-1 pl-5 text-xs text-slate-700 font-mono">
                         {validation.errors.map((error, index) => (
                           <li key={index}>{error}</li>
                         ))}
@@ -1743,18 +1743,18 @@ export default function ParkingCommissioningPage() {
       {step === "verify" && (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           {/* Left panel: Readiness Checklist */}
-          <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+          <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
 
-            <CardHeader className="border-b border-slate-900/60 pb-4">
-              <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                 06 // KIỂM TRA CHỈ SỐ SẴN SÀNG (VERIFY)
               </CardTitle>
-              <CardDescription className="text-slate-400 font-mono text-[11px] mt-1">
+              <CardDescription className="text-muted-foreground font-mono text-[11px] mt-1">
                 Kiểm tra nhanh chất lượng dữ liệu trước khi bàn giao site cho vận hành.
               </CardDescription>
             </CardHeader>
@@ -1765,14 +1765,14 @@ export default function ParkingCommissioningPage() {
                   className={cn(
                     "flex items-center gap-3 rounded-xl border p-4 font-mono text-xs transition-all",
                     item.ok
-                      ? "border-emerald-500/20 bg-emerald-950/10 text-emerald-300"
-                      : "border-amber-500/20 bg-amber-950/10 text-amber-300"
+                      ? "border-emerald-200 bg-emerald-50/25 text-emerald-700"
+                      : "border-amber-200 bg-amber-50/25 text-amber-700"
                   )}
                 >
                   {item.ok ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
                   ) : (
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
                   )}
                   <span className="leading-relaxed">{item.label}</span>
                 </div>
@@ -1781,23 +1781,23 @@ export default function ParkingCommissioningPage() {
           </Card>
 
           {/* Right panel: Unified Site-local Preview */}
-          <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+          <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
 
-            <CardHeader className="border-b border-slate-900/60 pb-4">
-              <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                 UNIFIED SITE-LOCAL PREVIEW
               </CardTitle>
-              <CardDescription className="text-slate-400 font-mono text-[11px] mt-1">
+              <CardDescription className="text-muted-foreground font-mono text-[11px] mt-1">
                 Tất cả camera được ghép chung hệ tọa độ site-local-meters-v1; pixel của từng ảnh không bị trộn.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
-              <div className="overflow-hidden rounded-xl border border-slate-900 bg-black/60 relative p-1.5 shadow-inner">
+              <div className="overflow-hidden rounded-xl border border-border bg-muted/20 relative p-1.5 shadow-inner">
                 {unifiedPreview ? <UnifiedSiteMap preview={unifiedPreview} /> : <Loading />}
               </div>
 
@@ -1805,15 +1805,15 @@ export default function ParkingCommissioningPage() {
                 {overviewCameras.map((camera) => (
                   <div
                     key={camera.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-900 bg-slate-950/40 p-3.5 transition-all hover:border-slate-800"
+                    className="flex items-center justify-between rounded-xl border border-border bg-card p-3.5 transition-all hover:border-border"
                   >
                     <div>
-                      <p className="font-mono text-xs font-bold text-slate-200">{camera.name}</p>
-                      <p className="text-[10px] font-mono text-slate-400 mt-0.5">
+                      <p className="font-mono text-xs font-bold text-slate-800">{camera.name}</p>
+                      <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
                         {zones.find((zone) => zone.id === camera.zoneId)?.name || "Toàn bộ Site"} · {camera.status}
                       </p>
                     </div>
-                    <Badge className="border-cyan-500/20 bg-cyan-950/20 text-cyan-400 font-mono text-[10px] uppercase font-bold tracking-wider rounded px-2 py-0.5">
+                    <Badge className="border-cyan-200 bg-cyan-50/20 text-cyan-600 font-mono text-[10px] uppercase font-bold tracking-wider rounded px-2 py-0.5">
                       {unifiedPreview?.features.filter((feature) => feature.cameraId === camera.id).length || 0} slots
                     </Badge>
                   </div>
@@ -1825,19 +1825,19 @@ export default function ParkingCommissioningPage() {
       )}
 
       {/* Navigation Buttons Row */}
-      <div className="flex justify-between items-center pt-4 border-t border-slate-900/60 mt-6">
+      <div className="flex justify-between items-center pt-4 border-t border-border mt-6">
         <Button
           variant="outline"
           disabled={currentStepIndex === 0}
           onClick={() => setStep(STEPS[currentStepIndex - 1].key)}
-          className="border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white hover:bg-slate-900 font-mono text-xs uppercase h-10 px-5 rounded-xl transition-all"
+          className="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted font-mono text-xs uppercase h-10 px-5 rounded-xl transition-all"
         >
           <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại
         </Button>
         <Button
           disabled={currentStepIndex === STEPS.length - 1 || (currentStepIndex === 0 && !selectedSiteId)}
           onClick={() => setStep(STEPS[currentStepIndex + 1].key)}
-          className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs h-10 px-6 rounded-xl transition-all shadow-lg shadow-cyan-500/10"
+          className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs h-10 px-6 rounded-xl transition-all shadow-lg shadow-sm"
         >
           Tiếp tục <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
@@ -1845,11 +1845,11 @@ export default function ParkingCommissioningPage() {
 
       {/* Modern High-Tech Modals / Dialogs */}
       <Dialog open={zoneDialog} onOpenChange={setZoneDialog}>
-        <DialogContent className="bg-slate-950 border border-slate-800 text-slate-100 font-mono max-w-md p-6 rounded-xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500" />
-          <DialogHeader className="pb-4 border-b border-slate-900">
-            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase">
+        <DialogContent className="bg-background border border-border text-foreground font-mono max-w-md p-6 rounded-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+          <DialogHeader className="pb-4 border-b border-border">
+            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase">
               {editingZone ? "CHỈNH SỬA VÙNG ZONE" : "KÍCH HOẠT VÙNG ZONE MỚI"}
             </DialogTitle>
           </DialogHeader>
@@ -1859,15 +1859,15 @@ export default function ParkingCommissioningPage() {
                 value={zoneName}
                 onChange={(event) => setZoneName(event.target.value)}
                 placeholder="Ví dụ: Tầng hầm B1, Khu vực A"
-                className="bg-slate-950 border-slate-800 text-slate-200 text-xs font-mono h-10 rounded-lg focus-visible:ring-cyan-500"
+                className="bg-background border-border text-slate-800 text-xs font-mono h-10 rounded-lg focus-visible:ring-cyan-500"
               />
             </Field>
           </div>
-          <DialogFooter className="pt-4 border-t border-slate-900 gap-2">
+          <DialogFooter className="pt-4 border-t border-border gap-2">
             <Button
               variant="outline"
               onClick={() => setZoneDialog(false)}
-              className="border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white hover:bg-slate-900 font-mono text-xs rounded-lg h-9"
+              className="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted font-mono text-xs rounded-lg h-9"
             >
               Hủy bỏ
             </Button>
@@ -1884,11 +1884,11 @@ export default function ParkingCommissioningPage() {
       </Dialog>
 
       <Dialog open={cameraDialog} onOpenChange={setCameraDialog}>
-        <DialogContent className="bg-slate-950 border border-slate-800 text-slate-100 font-mono sm:max-w-2xl p-6 rounded-xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500" />
-          <DialogHeader className="pb-4 border-b border-slate-900">
-            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase">
+        <DialogContent className="bg-background border border-border text-foreground font-mono sm:max-w-2xl p-6 rounded-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+          <DialogHeader className="pb-4 border-b border-border">
+            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase">
               {editingCamera ? "CHỈNH SỬA CAMERA" : "THIẾT LẬP THIẾT BỊ CAMERA"}
             </DialogTitle>
             <DialogDescription className="text-slate-500 text-[11px] font-mono">
@@ -1900,7 +1900,7 @@ export default function ParkingCommissioningPage() {
               <Input
                 value={cameraForm.name}
                 onChange={(event) => setCameraForm((form) => ({ ...form, name: event.target.value }))}
-                className="bg-slate-950 border-slate-800 text-slate-200 text-xs font-mono h-10 rounded-lg focus-visible:ring-cyan-500"
+                className="bg-background border-border text-slate-800 text-xs font-mono h-10 rounded-lg focus-visible:ring-cyan-500"
               />
             </Field>
             <Field label="Phân vùng Zone">
@@ -1908,13 +1908,13 @@ export default function ParkingCommissioningPage() {
                 value={cameraForm.zoneId || "site-wide"}
                 onValueChange={(value) => setCameraForm((form) => ({ ...form, zoneId: value === "site-wide" ? null : value }))}
               >
-                <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-10 rounded-lg">
+                <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-10 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
-                  <SelectItem value="site-wide" className="focus:bg-slate-900 font-mono text-xs">Toàn bộ site</SelectItem>
+                <SelectContent className="bg-background border-border text-slate-800">
+                  <SelectItem value="site-wide" className="focus:bg-muted font-mono text-xs">Toàn bộ site</SelectItem>
                   {zones.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id} className="focus:bg-slate-900 font-mono text-xs">
+                    <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted font-mono text-xs">
                       {zone.name}
                     </SelectItem>
                   ))}
@@ -1926,12 +1926,12 @@ export default function ParkingCommissioningPage() {
                 value={cameraForm.role}
                 onValueChange={(value) => setCameraForm((form) => ({ ...form, role: value as CameraRole, panelType: value === "OVERVIEW" ? null : form.panelType || "entry" }))}
               >
-                <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-10 rounded-lg">
+                <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-10 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
-                  <SelectItem value="OVERVIEW" className="focus:bg-slate-900 font-mono text-xs text-cyan-400">OVERVIEW (Bản đồ)</SelectItem>
-                  <SelectItem value="ANPR_GATE" className="focus:bg-slate-900 font-mono text-xs text-purple-400">ANPR_GATE (Nhận diện cổng)</SelectItem>
+                <SelectContent className="bg-background border-border text-slate-800">
+                  <SelectItem value="OVERVIEW" className="focus:bg-muted font-mono text-xs text-cyan-600">OVERVIEW (Bản đồ)</SelectItem>
+                  <SelectItem value="ANPR_GATE" className="focus:bg-muted font-mono text-xs text-purple-400">ANPR_GATE (Nhận diện cổng)</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -1941,12 +1941,12 @@ export default function ParkingCommissioningPage() {
                   value={cameraForm.panelType || "entry"}
                   onValueChange={(value) => setCameraForm((form) => ({ ...form, panelType: value as CameraPanelType }))}
                 >
-                  <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-10 rounded-lg">
+                  <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-10 rounded-lg">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
-                    <SelectItem value="entry" className="focus:bg-slate-900 font-mono text-xs text-emerald-400">ENTRY (Lối vào)</SelectItem>
-                    <SelectItem value="exit" className="focus:bg-slate-900 font-mono text-xs text-amber-400">EXIT (Lối ra)</SelectItem>
+                  <SelectContent className="bg-background border-border text-slate-800">
+                    <SelectItem value="entry" className="focus:bg-muted font-mono text-xs text-emerald-600">ENTRY (Lối vào)</SelectItem>
+                    <SelectItem value="exit" className="focus:bg-muted font-mono text-xs text-amber-600">EXIT (Lối ra)</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
@@ -1956,14 +1956,14 @@ export default function ParkingCommissioningPage() {
                 value={cameraForm.status || "provisioned"}
                 onValueChange={(value) => setCameraForm((form) => ({ ...form, status: value as CameraStatus }))}
               >
-                <SelectTrigger className="w-full bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-10 rounded-lg">
+                <SelectTrigger className="w-full bg-card border-border text-slate-800 font-mono h-10 rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
-                  <SelectItem value="provisioned" className="focus:bg-slate-900 font-mono text-xs text-slate-400">PROVISIONED</SelectItem>
-                  <SelectItem value="online" className="focus:bg-slate-900 font-mono text-xs text-emerald-400">ONLINE</SelectItem>
-                  <SelectItem value="offline" className="focus:bg-slate-900 font-mono text-xs text-rose-400">OFFLINE</SelectItem>
-                  <SelectItem value="disabled" className="focus:bg-slate-900 font-mono text-xs text-slate-600">DISABLED</SelectItem>
+                <SelectContent className="bg-background border-border text-slate-800">
+                  <SelectItem value="provisioned" className="focus:bg-muted font-mono text-xs text-muted-foreground">PROVISIONED</SelectItem>
+                  <SelectItem value="online" className="focus:bg-muted font-mono text-xs text-emerald-600">ONLINE</SelectItem>
+                  <SelectItem value="offline" className="focus:bg-muted font-mono text-xs text-rose-600">OFFLINE</SelectItem>
+                  <SelectItem value="disabled" className="focus:bg-muted font-mono text-xs text-slate-600">DISABLED</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -1975,16 +1975,16 @@ export default function ParkingCommissioningPage() {
                   value={cameraForm.rtspUrl || ""}
                   onChange={(event) => setCameraForm((form) => ({ ...form, rtspUrl: event.target.value }))}
                   placeholder="rtsp://admin:password@192.168.1.100:554/stream1"
-                  className="bg-slate-950 border-slate-800 text-slate-200 text-xs font-mono h-10 rounded-lg focus-visible:ring-cyan-500"
+                  className="bg-background border-border text-slate-800 text-xs font-mono h-10 rounded-lg focus-visible:ring-cyan-500"
                 />
               </Field>
             </div>
           </div>
-          <DialogFooter className="pt-4 border-t border-slate-900 gap-2">
+          <DialogFooter className="pt-4 border-t border-border gap-2">
             <Button
               variant="outline"
               onClick={() => setCameraDialog(false)}
-              className="border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white hover:bg-slate-900 font-mono text-xs rounded-lg h-9"
+              className="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted font-mono text-xs rounded-lg h-9"
             >
               Hủy bỏ
             </Button>
@@ -2001,11 +2001,11 @@ export default function ParkingCommissioningPage() {
       </Dialog>
 
       <Dialog open={Boolean(credential)} onOpenChange={(open) => !open && setCredential(null)}>
-        <DialogContent className="bg-slate-950 border border-slate-800 text-slate-100 font-mono max-w-lg p-6 rounded-xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500" />
-          <DialogHeader className="pb-4 border-b border-slate-900">
-            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+        <DialogContent className="bg-background border border-border text-foreground font-mono max-w-lg p-6 rounded-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+          <DialogHeader className="pb-4 border-b border-border">
+            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
               <span className="size-1.5 rounded-full bg-cyan-500 animate-ping" />
               KHÓA KẾT NỐI INGEST // {credential?.cameraName}
             </DialogTitle>
@@ -2014,7 +2014,7 @@ export default function ParkingCommissioningPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-5">
-            <div className="rounded-lg border border-cyan-500/30 bg-cyan-950/15 p-4 font-mono text-xs text-cyan-300 break-all select-all tracking-wider relative group shadow-inner">
+            <div className="rounded-lg border border-cyan-200 bg-cyan-50/15 p-4 font-mono text-xs text-cyan-700 break-all select-all tracking-wider relative group shadow-inner">
               {credential?.key}
             </div>
             {credential?.expiresAt && (
@@ -2023,7 +2023,7 @@ export default function ParkingCommissioningPage() {
               </p>
             )}
           </div>
-          <DialogFooter className="pt-4 border-t border-slate-900">
+          <DialogFooter className="pt-4 border-t border-border">
             <Button
               onClick={() => credential && void navigator.clipboard.writeText(credential.key).then(() => toast({ title: "Đã sao chép khóa kết nối" }))}
               className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs rounded-lg h-10 w-full"
@@ -2035,36 +2035,36 @@ export default function ParkingCommissioningPage() {
       </Dialog>
 
       <Dialog open={publishDialog} onOpenChange={setPublishDialog}>
-        <DialogContent className="bg-slate-950 border border-slate-800 text-slate-100 font-mono max-w-md p-6 rounded-xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500" />
-          <DialogHeader className="pb-4 border-b border-slate-900">
-            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase">
+        <DialogContent className="bg-background border border-border text-foreground font-mono max-w-md p-6 rounded-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+          <DialogHeader className="pb-4 border-b border-border">
+            <DialogTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase">
               XÁC NHẬN PUBLISH SƠ ĐỒ?
             </DialogTitle>
             <DialogDescription className="text-slate-500 text-[11px] font-mono mt-1">
               Phiên bản thiết kế sơ đồ này sẽ ngay lập tức được biên dịch và áp dụng làm cấu hình vận hành chính thức mới cho bãi đỗ.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2 text-xs font-mono text-slate-300 bg-slate-950/60 rounded-lg border border-slate-900 p-3.5">
+          <div className="py-4 space-y-2 text-xs font-mono text-slate-700 bg-card rounded-lg border border-border p-3.5">
             <p className="flex justify-between">
               <span className="text-slate-500">THIẾT BỊ CAMERA:</span>
-              <span className="text-slate-200 font-bold">{selectedCamera?.name}</span>
+              <span className="text-slate-800 font-bold">{selectedCamera?.name}</span>
             </p>
             <p className="flex justify-between">
               <span className="text-slate-500 font-mono">TỔNG SỐ Ô ĐỖ:</span>
-              <span className="text-cyan-400 font-bold">{slots.length} slots</span>
+              <span className="text-cyan-600 font-bold">{slots.length} slots</span>
             </p>
             <p className="flex justify-between">
               <span className="text-slate-500">HIỆU CHỈNH:</span>
-              <span className="text-slate-200 font-bold">Calibration v{calibration?.versionNumber || "hiện tại"}</span>
+              <span className="text-slate-800 font-bold">Calibration v{calibration?.versionNumber || "hiện tại"}</span>
             </p>
           </div>
-          <DialogFooter className="pt-4 border-t border-slate-900 gap-2">
+          <DialogFooter className="pt-4 border-t border-border gap-2">
             <Button
               variant="outline"
               onClick={() => setPublishDialog(false)}
-              className="border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white hover:bg-slate-900 font-mono text-xs rounded-lg h-9"
+              className="border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted font-mono text-xs rounded-lg h-9"
             >
               Hủy bỏ
             </Button>
@@ -2086,7 +2086,7 @@ export default function ParkingCommissioningPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="font-mono text-[10px] tracking-wider text-slate-400 uppercase pl-0.5">{label}</Label>
+      <Label className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase pl-0.5">{label}</Label>
       {children}
     </div>
   )
@@ -2094,9 +2094,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Loading() {
   return (
-    <div className="flex min-h-36 items-center justify-center bg-slate-950/20 rounded-xl border border-slate-900">
-      <div className="flex flex-col items-center gap-2 font-mono text-xs text-cyan-400">
-        <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
+    <div className="flex min-h-36 items-center justify-center bg-muted/20 rounded-xl border border-border">
+      <div className="flex flex-col items-center gap-2 font-mono text-xs text-cyan-600">
+        <Loader2 className="h-5 w-5 animate-spin text-cyan-600" />
         <span className="animate-pulse tracking-widest text-[10px] uppercase mt-1">LOADING_STREAM...</span>
       </div>
     </div>
@@ -2105,7 +2105,7 @@ function Loading() {
 
 function Empty({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-850 p-8 text-center bg-slate-950/10">
+    <div className="rounded-xl border border-dashed border-border p-8 text-center bg-muted/10">
       <p className="text-xs font-mono text-slate-500">{text}</p>
     </div>
   )
@@ -2113,7 +2113,7 @@ function Empty({ text }: { text: string }) {
 
 function Warning({ text }: { text: string }) {
   return (
-    <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs font-mono text-amber-300">
+    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-500/5 p-4 text-xs font-mono text-amber-700">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
       <span className="leading-relaxed">{text}</span>
     </div>
@@ -2124,7 +2124,7 @@ function UnifiedSiteMap({ preview }: { preview: UnifiedMapPreview }) {
   const points = preview.features.flatMap((feature) => feature.polygon)
   if (!points.length) {
     return (
-      <div className="flex aspect-video items-center justify-center rounded-lg bg-slate-950 text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+      <div className="flex aspect-video items-center justify-center rounded-lg bg-background text-[10px] font-mono text-slate-500 uppercase tracking-wider">
         Không có dữ liệu bản đồ
       </div>
     )
@@ -2137,7 +2137,7 @@ function UnifiedSiteMap({ preview }: { preview: UnifiedMapPreview }) {
   return (
     <svg
       aria-label="Unified site-local parking map"
-      className="aspect-video w-full rounded-lg bg-slate-950 border border-slate-900"
+      className="aspect-video w-full rounded-lg bg-background border border-border"
       viewBox={`${minX - 5} ${minY - 5} ${width + 10} ${height + 10}`}
     >
       {preview.features.map((feature, index) => (
@@ -2152,9 +2152,9 @@ function UnifiedSiteMap({ preview }: { preview: UnifiedMapPreview }) {
           <text
             x={feature.polygon[0]?.x}
             y={(feature.polygon[0]?.y || 0) - 0.3}
-            fill="white"
+            fill="black"
             fontSize={Math.max(width, height) / 38}
-            className="font-mono font-bold fill-emerald-300 select-none text-shadow"
+            className="font-mono font-bold fill-emerald-700 select-none text-shadow"
           >
             {feature.code}
           </text>
@@ -2178,18 +2178,18 @@ function History({
   onRollback: (item: ParkingMapDraft) => Promise<void>
 }) {
   return (
-    <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl">
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/30" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/30" />
-      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/30" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/30" />
+    <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl">
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200" />
 
-      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-900/60 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
         <div className="min-w-0">
-          <CardTitle className="text-sm font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+          <CardTitle className="text-sm font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
             LỊCH SỬ PHIÊN BẢN (VERSION LOG)
           </CardTitle>
-          <CardDescription className="text-slate-400 font-mono text-[11px] mt-1">
+          <CardDescription className="text-muted-foreground font-mono text-[11px] mt-1">
             Bản nháp, bản chính và lưu trữ được định danh an toàn.
           </CardDescription>
         </div>
@@ -2200,7 +2200,7 @@ function History({
             onClick={onRefresh}
             aria-label="Làm mới lịch sử phiên bản"
             title="Làm mới"
-            className="h-8 w-8 border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white rounded-lg p-0 shadow-none"
+            className="h-8 w-8 border-border bg-background hover:bg-muted text-slate-700 hover:text-foreground rounded-lg p-0 shadow-none"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
@@ -2213,8 +2213,8 @@ function History({
         ) : (
           <div className="overflow-x-auto">
             <Table className="min-w-[600px]">
-              <TableHeader className="border-b border-slate-900">
-                <TableRow className="border-b border-slate-900/60 hover:bg-transparent">
+              <TableHeader className="border-b border-border">
+                <TableRow className="border-b border-border hover:bg-transparent">
                   <TableHead className="font-mono text-[10px] uppercase text-slate-500 h-10">Mã Phiên Bản</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase text-slate-500 h-10">Trạng Thái</TableHead>
                   <TableHead className="font-mono text-[10px] uppercase text-slate-500 h-10">Số Ô Đỗ</TableHead>
@@ -2224,9 +2224,9 @@ function History({
               </TableHeader>
               <TableBody>
                 {history.map((item) => (
-                  <TableRow key={item.id} className="border-b border-slate-900/40 hover:bg-slate-900/20">
+                  <TableRow key={item.id} className="border-b border-border hover:bg-muted/20">
                     <TableCell className="h-12 py-2">
-                      <span className="inline-flex items-center gap-2 font-mono text-xs text-slate-300">
+                      <span className="inline-flex items-center gap-2 font-mono text-xs text-slate-700">
                         <FileClock className="h-3.5 w-3.5 text-slate-500" />
                         v{item.versionNumber}
                       </span>
@@ -2235,18 +2235,18 @@ function History({
                       <Badge className={cn(
                         "font-mono text-[10px] tracking-wide uppercase font-bold px-2 py-0.5 rounded",
                         item.status === "PUBLISHED"
-                          ? "bg-emerald-950/25 border border-emerald-500/20 text-emerald-400"
+                          ? "bg-emerald-50/25 border border-emerald-200 text-emerald-600"
                           : item.status === "DRAFT"
-                          ? "bg-cyan-950/25 border border-cyan-500/20 text-cyan-400"
-                          : "bg-slate-900/80 border border-slate-800 text-slate-400"
+                          ? "bg-cyan-950/25 border border-cyan-200 text-cyan-600"
+                          : "bg-muted border border-border text-muted-foreground"
                       )}>
                         {item.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="h-12 py-2 font-mono text-xs text-slate-300">
+                    <TableCell className="h-12 py-2 font-mono text-xs text-slate-700">
                       {item.slots.length} slots
                     </TableCell>
-                    <TableCell className="h-12 py-2 font-mono text-[10px] text-slate-400 max-w-[120px] truncate">
+                    <TableCell className="h-12 py-2 font-mono text-[10px] text-muted-foreground max-w-[120px] truncate">
                       {item.lockVersion || "N/A"}
                     </TableCell>
                     <TableCell className="h-12 py-2 text-right">
@@ -2255,7 +2255,7 @@ function History({
                           variant="ghost"
                           size="sm"
                           onClick={() => void onExport(item)}
-                          className="h-8 px-2.5 hover:bg-slate-900 hover:text-white font-mono text-[10px] uppercase tracking-wide text-cyan-400"
+                          className="h-8 px-2.5 hover:bg-muted hover:text-foreground font-mono text-[10px] uppercase tracking-wide text-cyan-600"
                         >
                           <Download className="mr-1 h-3 w-3" /> GeoJSON
                         </Button>
@@ -2264,7 +2264,7 @@ function History({
                             variant="outline"
                             size="sm"
                             onClick={() => void onArchive(item)}
-                            className="h-8 px-2.5 border-slate-800 bg-slate-950/30 hover:bg-slate-900 text-slate-400 hover:text-white font-mono text-[10px] uppercase tracking-wide"
+                            className="h-8 px-2.5 border-border bg-muted/10 hover:bg-muted text-muted-foreground hover:text-foreground font-mono text-[10px] uppercase tracking-wide"
                           >
                             <Archive className="mr-1 h-3 w-3" /> Archive
                           </Button>
@@ -2274,7 +2274,7 @@ function History({
                             variant="outline"
                             size="sm"
                             onClick={() => void onRollback(item)}
-                            className="h-8 px-2.5 border-slate-800 bg-slate-950/30 hover:bg-slate-900 text-slate-400 hover:text-white font-mono text-[10px] uppercase tracking-wide"
+                            className="h-8 px-2.5 border-border bg-muted/10 hover:bg-muted text-muted-foreground hover:text-foreground font-mono text-[10px] uppercase tracking-wide"
                           >
                             <RotateCw className="mr-1 h-3 w-3" /> Rollback
                           </Button>
