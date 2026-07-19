@@ -109,58 +109,62 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
       value: entryCount,
       icon: ArrowDownToLine,
       id: "GATE_IN_COUNT",
-      color: "text-emerald-400",
-      glow: "rgba(16,185,129,0.12)",
-      border: "border-emerald-500/20",
+      color: "text-emerald-600",
+      glow: "rgba(16,185,129,0.04)",
+      border: "border-emerald-100",
+      bg: "bg-emerald-50/20",
     },
     {
       label: "Lượt ra",
       value: exitCount,
       icon: ArrowUpFromLine,
       id: "GATE_OUT_COUNT",
-      color: "text-rose-400",
-      glow: "rgba(244,63,94,0.12)",
-      border: "border-rose-500/20",
+      color: "text-rose-600",
+      glow: "rgba(244,63,94,0.04)",
+      border: "border-rose-100",
+      bg: "bg-rose-50/20",
     },
     {
       label: "Xe duy nhất",
       value: uniqueVehicles,
       icon: Users,
       id: "UNIQUE_VEH_COUNT",
-      color: "text-cyan-400",
-      glow: "rgba(6,182,212,0.12)",
-      border: "border-cyan-500/20",
+      color: "text-cyan-600",
+      glow: "rgba(6,182,212,0.04)",
+      border: "border-cyan-100",
+      bg: "bg-cyan-50/20",
     },
     {
       label: "Đang trong cổng",
       value: totalInside,
       icon: Car,
       id: "CURRENT_ACTIVE_IN",
-      color: "text-amber-400",
-      glow: "rgba(245,158,11,0.12)",
-      border: "border-amber-500/20",
+      color: "text-amber-600",
+      glow: "rgba(245,158,11,0.04)",
+      border: "border-amber-100",
+      bg: "bg-amber-50/20",
     },
   ]
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-5 backdrop-blur-xl">
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
       {/* Decorative pulse glow in the top-right */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[50px] pointer-events-none" />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-900 pb-4 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4 mb-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest">
+            <span className="text-[10px] font-mono text-emerald-600 uppercase tracking-widest font-semibold">
               LIVE_FEED // MONITORING
             </span>
             <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
           </div>
-          <h3 className="text-base font-bold text-white font-mono flex items-center gap-2 mt-0.5">
-            <Car className="size-4 text-emerald-400" />
+          <h3 className="text-base font-bold text-foreground font-mono flex items-center gap-2 mt-0.5">
+            <Car className="size-4 text-emerald-600" />
             Cổng realtime hôm nay
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Theo dõi thời gian thực lượt ra vào, tổng xe duy nhất và các phương tiện đang trong cổng.
           </p>
         </div>
@@ -168,7 +172,7 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
         <Button
           variant="outline"
           size="sm"
-          className="h-8 shrink-0 self-start sm:self-center border-slate-800 bg-slate-950 text-slate-200 font-mono text-xs hover:border-emerald-500/30 hover:bg-slate-900"
+          className="h-8 shrink-0 self-start sm:self-center border-border bg-background text-muted-foreground font-mono text-xs hover:border-emerald-500/30 hover:text-emerald-600 hover:bg-emerald-50"
           onClick={refresh}
           disabled={loading}
         >
@@ -179,7 +183,7 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
 
       <div className="space-y-4">
         {error && (
-          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3 text-xs font-mono text-rose-400">
+          <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-3 text-xs font-mono text-rose-600">
             ● ERROR_API_FEED: {error}
           </div>
         )}
@@ -191,21 +195,21 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
             return (
               <div
                 key={metric.label}
-                className={`min-w-0 rounded-xl border ${metric.border} bg-slate-950/80 p-3 flex flex-col justify-between transition-all duration-300 hover:scale-[1.01]`}
+                className={`min-w-0 rounded-xl border ${metric.border} ${metric.bg} p-3 flex flex-col justify-between transition-all duration-300 hover:scale-[1.01]`}
                 style={{
                   boxShadow: `inset 0 0 10px ${metric.glow}`,
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[8px] font-mono text-slate-500">[{metric.id}]</span>
-                  <span className="text-[8px] font-mono text-slate-600">ACTIVE</span>
+                  <span className="text-[8px] font-mono text-muted-foreground/80">[{metric.id}]</span>
+                  <span className="text-[8px] font-mono text-muted-foreground/60">ACTIVE</span>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-lg bg-slate-900/50 border border-slate-800`}>
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-lg bg-white border border-slate-100`}>
                     <Icon className={`size-4 ${metric.color}`} />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-mono text-slate-400 uppercase tracking-wide truncate">
+                    <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wide truncate">
                       {metric.label}
                     </p>
                     <p className={`font-mono text-lg sm:text-xl font-bold leading-none mt-1 ${metric.color}`}>
@@ -220,8 +224,8 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
 
         {/* Overnight Warning */}
         {overnight.length > 0 && (
-          <div className="p-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5 space-y-2">
-            <div className="flex items-center gap-2 text-rose-400 font-mono text-xs">
+          <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/30 space-y-2">
+            <div className="flex items-center gap-2 text-rose-600 font-mono text-xs font-semibold">
               <AlertTriangle className="h-4 w-4 animate-bounce" />
               <span>[!] WARNING // OVERNIGHT_DETECTION: {overnight.length} xe đỗ qua đêm</span>
             </div>
@@ -230,14 +234,14 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
                 <Badge
                   key={v.id}
                   variant="outline"
-                  className="bg-slate-950/80 text-slate-200 border-rose-500/20 font-mono text-[10px] py-0.5 px-2"
+                  className="bg-white text-slate-700 border-rose-200 font-mono text-[10px] py-0.5 px-2"
                 >
                   {v.licensePlate}
                   {v.employeeName ? ` — ${v.employeeName}` : ""}
                 </Badge>
               ))}
             </div>
-            <p className="text-[10px] text-slate-500 font-mono">
+            <p className="text-[10px] text-slate-400 font-mono">
               VehicleSchedulerService sẽ tự động chuyển trạng thái thành &quot;đã ra&quot; lúc 01:00 AM mỗi ngày.
             </p>
           </div>
@@ -246,7 +250,7 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
         {/* Active Lot Section */}
         {totalInside > 0 && overnight.length < totalInside && (
           <div className="space-y-2">
-            <p className="text-[10px] text-slate-400 font-mono">
+            <p className="text-[10px] text-slate-500 font-mono">
               &gt; VEHICLES_INSIDE_GATE: {insideToday.length}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -254,7 +258,7 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
                 <Badge
                   key={v.id}
                   variant="secondary"
-                  className="bg-slate-900 text-slate-300 border border-slate-800 font-mono text-[10px] py-0.5 px-2 hover:bg-slate-800"
+                  className="bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[10px] py-0.5 px-2 hover:bg-slate-200/80"
                 >
                   {v.licensePlate}
                   {v.employeeName ? ` — ${v.employeeName}` : ""}
@@ -266,7 +270,7 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
 
         {/* Footer info bar */}
         {(totalInside === 0 || lastUpdated) && !error && (
-          <div className="flex flex-col gap-1 rounded-xl border border-slate-900 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1 rounded-xl border border-border bg-slate-50/50 px-3 py-2 text-[10px] font-mono text-slate-500 sm:flex-row sm:items-center sm:justify-between">
             {totalInside === 0 ? (
               <span>● NO_VEHICLES_PRESENT // Không có xe nào đang đỗ trong cổng.</span>
             ) : (
