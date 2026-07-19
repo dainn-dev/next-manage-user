@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
+import { cn } from "@/lib/utils"
 import { 
   Search, 
   Plus, 
@@ -22,6 +24,16 @@ import {
   UserX, 
   Shield, 
   MoreHorizontal,
+  X,
+  SlidersHorizontal,
+  Activity,
+  Cpu,
+  Layers,
+  Database,
+  ShieldCheck,
+  Loader2,
+  Unlock,
+  Lock
 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
@@ -34,6 +46,91 @@ interface PaginatedUsers {
   first: boolean
   last: boolean
   numberOfElements: number
+}
+
+interface MetricCardProps {
+  label: string
+  code: string
+  value: number | string
+  note: string
+  icon: any
+  color?: "cyan" | "emerald" | "amber" | "rose" | "slate"
+}
+
+function MetricCard({
+  label,
+  code,
+  value,
+  note,
+  icon: Icon,
+  color = "cyan"
+}: MetricCardProps) {
+  const colorMap = {
+    cyan: {
+      text: "text-cyan-400",
+      border: "border-cyan-500/20 hover:border-cyan-500/40",
+      bg: "bg-cyan-950/10",
+      glow: "shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+    },
+    emerald: {
+      text: "text-emerald-400",
+      border: "border-emerald-500/20 hover:border-emerald-500/40",
+      bg: "bg-emerald-950/10",
+      glow: "shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+    },
+    amber: {
+      text: "text-amber-400",
+      border: "border-amber-500/20 hover:border-amber-500/40",
+      bg: "bg-amber-950/10",
+      glow: "shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+    },
+    rose: {
+      text: "text-rose-400",
+      border: "border-rose-500/20 hover:border-rose-500/40",
+      bg: "bg-rose-950/10",
+      glow: "shadow-[0_0_15px_rgba(244,63,94,0.15)]"
+    },
+    slate: {
+      text: "text-slate-400",
+      border: "border-slate-800 hover:border-slate-700",
+      bg: "bg-slate-950/10",
+      glow: ""
+    }
+  }
+
+  const activeColor = colorMap[color]
+
+  return (
+    <div
+      className={cn(
+        "border bg-slate-950/40 text-slate-100 shadow-xl rounded-xl p-5 relative overflow-hidden backdrop-blur-xl transition-all duration-300 group",
+        activeColor.border
+      )}
+    >
+      {/* Sci-fi tech corner ticks */}
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
+
+      <div className="flex items-center justify-between gap-2 border-b border-slate-900/60 pb-3 mb-3">
+        <div className="space-y-0.5">
+          <p className="font-mono text-[9px] tracking-widest text-slate-500 uppercase">{code}</p>
+          <p className="text-[11px] font-mono tracking-wide text-slate-300 uppercase">{label}</p>
+        </div>
+        <div className={cn("p-2 rounded-lg bg-slate-950/80 border border-slate-900", activeColor.text, activeColor.glow)}>
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </div>
+      </div>
+
+      <p className="text-2xl font-mono font-bold text-white tracking-tight select-all">
+        {value}
+      </p>
+      <p className="text-[10px] font-mono text-slate-500 mt-1 leading-normal uppercase">
+        {note}
+      </p>
+    </div>
+  )
 }
 
 export default function UsersPage() {
@@ -71,7 +168,7 @@ export default function UsersPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    loadUsers()
+    void loadUsers()
   }, [currentPage, pageSize, searchTerm, roleFilter, statusFilter])
 
   const loadUsers = async () => {
@@ -95,11 +192,8 @@ export default function UsersPage() {
       setCurrentPage(usersData.number)
 
       // Calculate statistics from the current page data (for basic stats)
-      // Only fetch full list for statistics on first load with no filters
       if (searchTerm === "" && roleFilter === "all" && statusFilter === "all" && currentPage === 0) {
-        // Use the paginated data for basic statistics if we have enough data
         if (usersData.totalElements <= usersData.size) {
-          // If all users fit in one page, use current data for statistics
           const stats = {
             totalUsers: usersData.totalElements,
             activeUsers: usersData.content.filter(u => u.status === UserStatus.ACTIVE).length,
@@ -111,7 +205,6 @@ export default function UsersPage() {
           }
           setStatistics(stats)
         } else {
-          // If there are more users, fetch full list for accurate statistics
           const allUsersData = await userApi.getAllUsersList()
           const stats = {
             totalUsers: allUsersData.length,
@@ -126,8 +219,8 @@ export default function UsersPage() {
         }
       }
     } catch (err) {
-      setError('Không thể tải danh sách người dùng')
-      console.error('Error loading users:', err)
+      setError("Không thể tải danh sách người dùng")
+      console.error("Error loading users:", err)
     } finally {
       setLoading(false)
     }
@@ -280,7 +373,7 @@ export default function UsersPage() {
   }
 
   const handleRefresh = () => {
-    loadUsers()
+    void loadUsers()
   }
 
   const clearFilters = () => {
@@ -290,221 +383,306 @@ export default function UsersPage() {
     setCurrentPage(0)
   }
 
-  // Check if current user has admin privileges
   const isAdmin = currentUser?.role === UserRole.ADMIN
 
   if (!isAdmin) {
     return (
-      <div className="admin-mobile-page">
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <Shield className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Không có quyền truy cập</h3>
-              <p className="text-muted-foreground">
-                Bạn cần quyền quản trị viên để truy cập trang quản lý người dùng.
+      <AdminPage size="narrow" className="justify-center min-h-dvh flex items-center">
+        <Card className="mx-auto max-w-lg border border-rose-500/20 bg-slate-950/40 text-slate-100 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+          {/* Cyber ticks */}
+          <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-rose-500/30" />
+          <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-rose-500/30" />
+          <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-rose-500/30" />
+          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-rose-500/30" />
+
+          <CardContent className="flex flex-col items-center gap-5 p-8 text-center relative z-10">
+            <div className="p-4 rounded-full bg-slate-950/80 border border-slate-900 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.15)] animate-pulse">
+              <Shield className="h-8 w-8" aria-hidden="true" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-sm font-mono tracking-widest text-rose-400 uppercase">
+                {"ACCESS_DENIED // KHÔNG CÓ QUYỀN TRUY CẬP"}
+              </h1>
+              <p className="text-xs font-mono text-slate-400 uppercase leading-relaxed max-w-sm">
+                Tài khoản của bạn không sở hữu đặc quyền quản trị cấp cao. Vui lòng liên hệ với quản trị viên hệ thống để yêu cầu cấp quyền.
               </p>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </AdminPage>
     )
   }
 
   return (
-    <div className="platform-page">
-      <header className="platform-page-header grid-cols-[minmax(0,1fr)_auto] items-start">
-        <div className="min-w-0">
-          <h1 className="platform-page-title">Quản lý người dùng</h1>
-          <p className="platform-page-description">Quản lý tài khoản, vai trò và trạng thái truy cập trong tổ chức.</p>
-        </div>
-        <div className="platform-page-actions !flex shrink-0 items-start justify-end gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={loading}
-            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
-            aria-label={loading ? "Đang tải" : "Làm mới"}
-            title={loading ? "Đang tải" : "Làm mới"}
-          >
-            <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
-            <span className="sr-only sm:not-sr-only sm:ml-2">{loading ? "Đang tải" : "Làm mới"}</span>
-          </Button>
-          <Button
-            size="icon"
-            onClick={() => setIsFormOpen(true)}
-            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
-            aria-label="Thêm người dùng"
-            title="Thêm người dùng"
-          >
-            <Plus aria-hidden="true" />
-            <span className="sr-only sm:not-sr-only sm:ml-2">Thêm người dùng</span>
-          </Button>
-        </div>
-      </header>
-
-      <section className="platform-stat-strip" aria-label="Tổng quan người dùng">
-        {[
-          { label: "Tổng người dùng", value: statistics.totalUsers, note: "Tài khoản trong tổ chức", icon: Users, tone: "var(--color-signal)" },
-          { label: "Hoạt động", value: statistics.activeUsers, note: "Có thể truy cập hệ thống", icon: UserCheck, tone: "var(--color-success)" },
-          { label: "Quản trị viên", value: statistics.adminUsers, note: "Có quyền quản trị", icon: Shield, tone: "var(--color-accent)" },
-          { label: "Bị khóa", value: statistics.lockedUsers, note: "Cần xem xét lại truy cập", icon: UserX, tone: "var(--color-critical)" },
-        ].map(({ label, value, note, icon: Icon, tone }) => (
-          <div key={label} className="platform-stat">
-            <div className="flex items-center gap-2">
-              <Icon className="size-4" style={{ color: tone }} aria-hidden="true" />
-              <p className="platform-stat-label">{label}</p>
-            </div>
-            <p className="platform-stat-value">{value}</p>
-            <p className="platform-stat-note">{note}</p>
-          </div>
-        ))}
-      </section>
-
-      <section className="platform-toolbar" aria-label="Bộ lọc người dùng">
-        <div className="relative min-w-0 flex-1 basis-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input aria-label="Tìm người dùng" placeholder="Tìm theo tên, email hoặc username" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} className="min-h-11 pl-9" />
-        </div>
-        <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as "all" | UserRole)}>
-          <SelectTrigger className="min-h-11 w-full sm:w-52" aria-label="Lọc theo vai trò"><SelectValue placeholder="Vai trò" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả vai trò</SelectItem>
-            <SelectItem value={UserRole.USER}>Người dùng</SelectItem>
-            <SelectItem value={UserRole.ADMIN}>Quản trị viên</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | UserStatus)}>
-          <SelectTrigger className="min-h-11 w-full sm:w-52" aria-label="Lọc theo trạng thái"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả trạng thái</SelectItem>
-            <SelectItem value={UserStatus.ACTIVE}>Hoạt động</SelectItem>
-            <SelectItem value={UserStatus.INACTIVE}>Không hoạt động</SelectItem>
-            <SelectItem value={UserStatus.LOCKED}>Bị khóa</SelectItem>
-            <SelectItem value={UserStatus.SUSPENDED}>Tạm khóa</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={clearFilters} className="min-h-11 whitespace-nowrap">Xóa lọc</Button>
-      </section>
-
-      {/* Bulk Actions */}
-      {selectedUsers.length > 0 && (
-        <div className="platform-toolbar border-[var(--color-accent)] bg-[var(--color-paper-2)]">
-          <div className="flex items-center gap-2">
-            <div className="size-2 rounded-full bg-primary" aria-hidden="true"></div>
-            <Badge variant="secondary">
-              {selectedUsers.length} người dùng đã chọn
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2">
+    <AdminPage className="min-h-dvh">
+      <AdminPageHeader
+        eyebrow="MODULE // HỆ THỐNG"
+        title="QUẢN LÝ NGƯỜI DÙNG"
+        description="Quản trị cơ sở dữ liệu tài khoản, phân quyền vai trò (Role-based access control) và giám sát trạng thái bảo mật của thành viên tổ chức."
+        className="grid-cols-[minmax(0,1fr)_auto] items-start"
+        actions={
+          <div className="flex shrink-0 items-start justify-end gap-2.5">
             <Button
               variant="outline"
-              size="sm"
-              onClick={() => setIsBulkDialogOpen(true)}
+              size="icon"
+              onClick={handleRefresh}
+              disabled={loading}
+              className="h-10 w-10 border-slate-800 bg-slate-950/40 text-slate-300 hover:text-white hover:bg-slate-900 rounded-xl p-0 transition-all shadow-none shrink-0"
+              aria-label="Làm mới"
+              title="Làm mới"
             >
-              <MoreHorizontal className="h-4 w-4 mr-2" />
-              Thao tác hàng loạt
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
             <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedUsers([])}
+              onClick={() => setIsFormOpen(true)}
+              className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs h-10 px-4 rounded-xl transition-all shadow-lg hover:shadow-cyan-500/20 flex items-center justify-center gap-1.5"
             >
-              Bỏ chọn
+              <Plus className="h-4 w-4 text-slate-950" />
+              <span>ADD_USER</span>
             </Button>
           </div>
-        </div>
-      )}
+        }
+      />
 
-      <section className="platform-data-surface" aria-label="Danh sách người dùng">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
-          <div>
-            <h2 className="text-base font-semibold">Danh sách người dùng</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Hiển thị {users.length} / {totalElements} người dùng</p>
-          </div>
-        </div>
-        <div className="min-w-0">
-          {loading ? (
-            <div className="platform-empty-state">
-              <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-              <span>Đang tải...</span>
-            </div>
-          ) : error ? (
-            <div className="platform-empty-state text-destructive">
-              {error}
-            </div>
-          ) : (
-            <UserTable
-              users={users}
-              selectedUsers={selectedUsers}
-              onUserSelect={handleUserSelect}
-              onSelectAll={handleSelectAll}
-              onEditUser={handleEditUser}
-              onDeleteUser={handleDeleteUser}
-              onUpdateUserStatus={handleUpdateUserStatus}
-              onUpdateUserRole={handleUpdateUserRole}
+      <div className="space-y-8 mt-4">
+        {/* Section 1: Dynamic Metrics Cards Strip */}
+        <section aria-label="Tổng quan thông số tài khoản" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Tổng thành viên"
+            code="SYS_USERS_REGISTERED"
+            value={statistics.totalUsers}
+            note="Tổng tài khoản đăng ký trong tổ chức"
+            icon={Users}
+            color="cyan"
+          />
+          <MetricCard
+            label="Đang hoạt động"
+            code="ACTIVE_CONNECTION_NODES"
+            value={statistics.activeUsers}
+            note="Tài khoản sẵn sàng vận hành"
+            icon={UserCheck}
+            color="emerald"
+          />
+          <MetricCard
+            label="Quản trị viên"
+            code="AUTH_LEVEL_ADMIN"
+            value={statistics.adminUsers}
+            note="Sở hữu toàn quyền quản trị"
+            icon={Shield}
+            color="cyan"
+          />
+          <MetricCard
+            label="Tài khoản bị khóa"
+            code="LOCKED_ACCESS_NODES"
+            value={statistics.lockedUsers}
+            note="Truy cập bị đình chỉ bảo mật"
+            icon={UserX}
+            color="rose"
+          />
+        </section>
+
+        {/* Section 2: Advanced Dynamic Filters Toolbar */}
+        <section aria-label="Bộ lọc tài khoản" className="border border-slate-800 bg-slate-955/60 p-4 rounded-xl relative overflow-hidden backdrop-blur-xl flex flex-col md:flex-row items-center gap-4 group">
+          <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-slate-700 group-hover:border-cyan-500/30 transition-colors" />
+          <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-slate-700 group-hover:border-cyan-500/30 transition-colors" />
+          <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l border-slate-700 group-hover:border-cyan-500/30 transition-colors" />
+          <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-slate-700 group-hover:border-cyan-500/30 transition-colors" />
+
+          <div className="relative min-w-0 flex-1 w-full">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+            <Input
+              aria-label="Tìm người dùng"
+              placeholder="TÌM THEO TÊN, EMAIL HOẶC USERNAME..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="bg-slate-950/70 border-slate-800 text-cyan-100 placeholder-slate-700 font-mono h-11 pl-10 rounded-lg focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/30 tracking-wide text-xs"
             />
-          )}
-        </div>
-      </section>
+          </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="platform-pagination">
-            <div>
-              <div className="text-sm text-muted-foreground">
-                Trang {currentPage + 1} / {totalPages}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <Select value={roleFilter} onValueChange={(value) => setRoleFilter(value as "all" | UserRole)}>
+              <SelectTrigger className="w-full sm:w-48 bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-11 rounded-lg text-xs" aria-label="Lọc theo vai trò">
+                <SelectValue placeholder="VAI TRÒ" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
+                <SelectItem value="all" className="focus:bg-slate-900 font-mono text-xs">Tất cả vai trò</SelectItem>
+                <SelectItem value={UserRole.USER} className="focus:bg-slate-900 font-mono text-xs">Người dùng</SelectItem>
+                <SelectItem value={UserRole.ADMIN} className="focus:bg-slate-900 font-mono text-xs">Quản trị viên</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as "all" | UserStatus)}>
+              <SelectTrigger className="w-full sm:w-48 bg-slate-950/60 border-slate-800 text-slate-200 font-mono h-11 rounded-lg text-xs" aria-label="Lọc theo trạng thái">
+                <SelectValue placeholder="TRẠNG THÁI" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-950 border-slate-800 text-slate-200">
+                <SelectItem value="all" className="focus:bg-slate-900 font-mono text-xs">Tất cả trạng thái</SelectItem>
+                <SelectItem value={UserStatus.ACTIVE} className="focus:bg-slate-900 font-mono text-xs">Hoạt động</SelectItem>
+                <SelectItem value={UserStatus.INACTIVE} className="focus:bg-slate-900 font-mono text-xs">Không hoạt động</SelectItem>
+                <SelectItem value={UserStatus.LOCKED} className="focus:bg-slate-900 font-mono text-xs">Bị khóa</SelectItem>
+                <SelectItem value={UserStatus.SUSPENDED} className="focus:bg-slate-900 font-mono text-xs">Tạm khóa</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              onClick={clearFilters}
+              className="w-full sm:w-auto border-slate-800 bg-slate-950/40 text-slate-400 hover:text-white hover:bg-slate-900 font-mono text-xs h-11 px-4 rounded-lg flex items-center justify-center gap-1.5"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>CLEAR</span>
+            </Button>
+          </div>
+        </section>
+
+        {/* Section 3: Selected Pipeline Strip */}
+        {selectedUsers.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border border-cyan-500/30 bg-slate-950/80 rounded-xl relative overflow-hidden backdrop-blur-xl shadow-[0_0_20px_rgba(6,182,212,0.1)] animate-in fade-in-50 duration-200">
+            {/* Pulsing indicator */}
+            <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500 animate-pulse" />
+            
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500" />
+              </span>
+              <div className="space-y-0.5">
+                <p className="font-mono text-[9px] tracking-widest text-slate-500 uppercase">BULK_OPERATIONS_PIPELINE</p>
+                <p className="text-xs font-mono font-bold text-cyan-400 uppercase">
+                  {selectedUsers.length} TÀI KHOẢN ĐƯỢC CHỌN TRONG SESSION
+                </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsBulkDialogOpen(true)}
+                className="border-cyan-500/20 bg-slate-950 text-cyan-400 hover:text-cyan-300 hover:bg-slate-900/60 font-mono text-[10px] uppercase h-9 px-4 rounded-lg flex items-center gap-1.5 shadow-sm"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                EXECUTE_BATCH
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedUsers([])}
+                className="border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-300 hover:bg-slate-900 font-mono text-[10px] uppercase h-9 px-4 rounded-lg flex items-center gap-1.5"
+              >
+                <X className="h-3.5 w-3.5" />
+                CLEAR
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Section 4: Main Registry Table Surface */}
+        <section className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl rounded-xl relative overflow-hidden backdrop-blur-xl animate-in fade-in-60 duration-300" aria-label="Danh sách người dùng">
+          {/* Cyber ticks */}
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-800" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-800" />
+          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-800" />
+          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-800" />
+
+          {/* Cyber grid overlay */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.005)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.005)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none opacity-20" />
+
+          <div className="border-b border-slate-900 px-5 py-4 sm:px-6 flex items-center justify-between relative z-10">
+            <div>
+              <h2 className="text-xs font-mono tracking-wider text-cyan-400 uppercase">{"USER_REGISTRY // CƠ SỞ DỮ LIỆU TÀI KHOẢN"}</h2>
+              <p className="mt-1 font-mono text-[10px] text-slate-500 uppercase">
+                Hiển thị {users.length} tài khoản trong tổng số {totalElements} bản ghi thuộc hệ thống.
+              </p>
+            </div>
+            <span className="font-mono text-[9px] text-slate-500 uppercase tracking-widest hidden sm:inline">{"[NODE_DWELL: ONLINE_STRICT]"}</span>
+          </div>
+
+          <div className="min-w-0 relative z-10">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-2 font-mono text-xs text-cyan-400 bg-slate-950/10">
+                <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
+                <span className="animate-pulse tracking-widest text-[10px] uppercase mt-1">FETCHING_DATABASE_STATE...</span>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-16 text-rose-400 font-mono text-xs">
+                <p className="uppercase font-bold">[!] ERROR_FETCH_FAILURE</p>
+                <p className="text-[11px] text-slate-500 mt-1">{error}</p>
+              </div>
+            ) : (
+              <UserTable
+                users={users}
+                selectedUsers={selectedUsers}
+                onUserSelect={handleUserSelect}
+                onSelectAll={handleSelectAll}
+                onEditUser={handleEditUser}
+                onDeleteUser={handleDeleteUser}
+                onUpdateUserStatus={handleUpdateUserStatus}
+                onUpdateUserRole={handleUpdateUserRole}
+              />
+            )}
+          </div>
+
+          {/* High-Tech Pagination controls */}
+          {totalPages > 1 && (
+            <div className="border-t border-slate-900 bg-slate-950/50 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+              <span className="font-mono text-[10px] text-slate-500 uppercase tracking-widest">
+                {"[PAGE: "}{currentPage + 1}{" // TOTAL_SEGMENTS: "}{totalPages}{"]"}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(0)}
                   disabled={currentPage === 0}
+                  className="border-slate-800 bg-slate-950 text-slate-300 hover:text-white font-mono text-[10px] uppercase h-8 px-3 rounded-lg"
                 >
-                  Đầu
+                  FIRST
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 0}
+                  className="border-slate-800 bg-slate-950 text-slate-300 hover:text-white font-mono text-[10px] uppercase h-8 px-3 rounded-lg"
                 >
-                  Trước
+                  PREV
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage === totalPages - 1}
+                  className="border-slate-800 bg-slate-950 text-slate-300 hover:text-white font-mono text-[10px] uppercase h-8 px-3 rounded-lg"
                 >
-                  Sau
+                  NEXT
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setCurrentPage(totalPages - 1)}
                   disabled={currentPage === totalPages - 1}
+                  className="border-slate-800 bg-slate-950 text-slate-300 hover:text-white font-mono text-[10px] uppercase h-8 px-3 rounded-lg"
                 >
-                  Cuối
+                  LAST
                 </Button>
               </div>
             </div>
-        </div>
-      )}
+          )}
+        </section>
+      </div>
 
-      {/* User Form Dialog */}
+      {/* User Form Dialog overlay */}
       <UserForm
         isOpen={isFormOpen}
         onClose={handleCloseForm}
-        onSubmit={editingUser ? handleUpdateUser as (userData: CreateUserRequest | UpdateUserRequest) => Promise<void> : handleCreateUser as (userData: CreateUserRequest | UpdateUserRequest) => Promise<void>}
+        onSubmit={editingUser ? (handleUpdateUser as (userData: CreateUserRequest | UpdateUserRequest) => Promise<void>) : (handleCreateUser as (userData: CreateUserRequest | UpdateUserRequest) => Promise<void>)}
         user={editingUser}
         employees={[]}
         isEditing={!!editingUser}
       />
 
-      {/* Bulk Operations Dialog */}
+      {/* Bulk Operations Dialog overlay */}
       <BulkOperationsDialog
         isOpen={isBulkDialogOpen}
         onClose={() => setIsBulkDialogOpen(false)}
@@ -513,6 +691,6 @@ export default function UsersPage() {
         onBulkUpdateRole={handleBulkUpdateRole}
         onBulkDelete={handleBulkDelete}
       />
-    </div>
+    </AdminPage>
   )
 }

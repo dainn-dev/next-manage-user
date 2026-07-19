@@ -37,6 +37,57 @@ export interface MemberParkingSession {
 async function memberFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = authApi.getToken()
   if (!token) throw new Error("Not authenticated")
+
+  if (token === "mock_member_token") {
+    if (path === "/member/vehicles") {
+      const localVehiclesStr = typeof window !== "undefined" ? localStorage.getItem("mock_member_vehicles") : null
+      if (localVehiclesStr) {
+        try {
+          return JSON.parse(localVehiclesStr) as unknown as T
+        } catch (e) {
+          console.error("Failed to parse localVehicles", e)
+        }
+      }
+      return [
+        {
+          vehicleId: "v-1",
+          licensePlate: "30F-123.45",
+          vehicleType: "car",
+          brand: "Toyota",
+          model: "Camry",
+          color: "Đen",
+          status: "APPROVED",
+          registeredAt: [{ tenantId: "t-1", tenantName: "Hà Nội Tower - Chi nhánh Hai Bà Trưng" }],
+        },
+      ] as unknown as T
+    }
+
+    if (path === "/member/sessions") {
+      const localSessionsStr = typeof window !== "undefined" ? localStorage.getItem("mock_member_sessions") : null
+      if (localSessionsStr) {
+        try {
+          return JSON.parse(localSessionsStr) as unknown as T
+        } catch (e) {
+          console.error("Failed to parse localSessions", e)
+        }
+      }
+      return [
+        {
+          sessionId: "s-1",
+          tenantId: "t-1",
+          tenantName: "Hà Nội Tower - Chi nhánh Hai Bà Trưng",
+          siteId: "site-1",
+          licensePlate: "30F-123.45",
+          status: "ACTIVE",
+          startedAt: new Date(Date.now() - 3600000).toISOString(),
+          locationLabel: "Tầng hầm B1 - Vị trí A-12",
+        },
+      ] as unknown as T
+    }
+
+    return [] as unknown as T
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {

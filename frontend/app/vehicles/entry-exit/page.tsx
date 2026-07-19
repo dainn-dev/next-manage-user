@@ -9,7 +9,30 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, RefreshCw, Car, TrendingUp, ArrowUp, ArrowDown, Calendar, Download, Plus, Filter, Eye, Edit, Trash2 } from "lucide-react"
+import { 
+  Search, 
+  RefreshCw, 
+  Car, 
+  TrendingUp, 
+  ArrowUp, 
+  ArrowDown, 
+  Calendar, 
+  Download, 
+  Plus, 
+  Filter, 
+  Eye, 
+  Edit, 
+  Trash2,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  CarFront,
+  Clock3,
+  ImageIcon,
+  MapPin,
+  UserRound,
+  Radio,
+  ShieldAlert
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { vehicleLogApi, VehicleLogPage, VehicleLog, VehicleLogExportFilter } from "@/lib/api/vehicle-log-api"
 import { getImageUrl } from "@/lib/api/config"
@@ -17,7 +40,7 @@ import { downloadBlob } from "@/lib/utils/download-blob"
 import { ExportDialog } from "@/components/reports/export-dialog"
 import { useAuth } from "@/lib/auth-context"
 import { canViewAllLogs } from "@/lib/types"
-import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
+import { AdminPage } from "@/components/layout/admin-page"
 
 export default function VehicleEntryExitPage() {
   const { user } = useAuth()
@@ -38,7 +61,19 @@ export default function VehicleEntryExitPage() {
   const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
   const [showExportDialog, setShowExportDialog] = useState(false)
 
+  const [currentTime, setCurrentTime] = useState<string>("")
   const { toast } = useToast()
+
+  // Realtime clock hook for high-tech header
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCurrentTime(new Date().toLocaleTimeString("vi-VN"))
+      const interval = setInterval(() => {
+        setCurrentTime(new Date().toLocaleTimeString("vi-VN"))
+      }, 1000)
+      return () => clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -77,8 +112,8 @@ export default function VehicleEntryExitPage() {
     } catch (error) {
       console.error('Error loading vehicle logs:', error)
       toast({
-        title: "Lỗi",
-        description: "Không thể tải dữ liệu thông tin ra vào",
+        title: "Lỗi hệ thống",
+        description: "Không thể tải dữ liệu thông tin ra vào từ máy chủ.",
         variant: "destructive",
       })
     } finally {
@@ -87,56 +122,64 @@ export default function VehicleEntryExitPage() {
   }
 
   const handleSearch = async () => {
+    let start: string
+    let end: string
+
     if (!startDate || !endDate) {
-      // If no date range is set, use default ranges based on period
       const now = new Date()
-      let start: Date, end: Date
+      let sDate: Date, eDate: Date
 
       switch (periodFilter) {
         case 'daily':
-          start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+          sDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          eDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
           break
-        case 'weekly':
+        case 'weekly': {
           const startOfWeek = new Date(now)
           startOfWeek.setDate(now.getDate() - now.getDay())
-          start = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate())
-          end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+          sDate = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate())
+          eDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
           break
+        }
         case 'monthly':
-          start = new Date(now.getFullYear(), now.getMonth(), 1)
-          end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+          sDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          eDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
           break
         default:
-          start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-          end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+          sDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          eDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
       }
+      start = sDate.toISOString()
+      end = eDate.toISOString()
+    } else {
+      start = new Date(startDate).toISOString()
+      end = new Date(endDate).toISOString()
+    }
 
-      try {
-        setLoading(true)
-        const response = await vehicleLogApi.searchVehicleLogs({
-          licensePlate: searchTerm || undefined,
-          type: typeFilter !== "all" ? typeFilter : undefined,
-          vehicleType: vehicleTypeFilter !== "all" ? vehicleTypeFilter : undefined,
-          startDate: startDate || start.toISOString(),
-          endDate: endDate || end.toISOString(),
-          page: currentPage,
-          size: pageSize
-        })
+    try {
+      setLoading(true)
+      const response = await vehicleLogApi.searchVehicleLogs({
+        licensePlate: searchTerm || undefined,
+        type: typeFilter !== "all" ? typeFilter : undefined,
+        vehicleType: vehicleTypeFilter !== "all" ? vehicleTypeFilter : undefined,
+        startDate: start,
+        endDate: end,
+        page: currentPage,
+        size: pageSize
+      })
 
-        setLogs(response.content)
-        setTotalPages(response.totalPages)
-        setTotalElements(response.totalElements)
-      } catch (error) {
-        console.error('Error searching vehicle logs:', error)
-        toast({
-          title: "Lỗi",
-          description: "Không thể tìm kiếm dữ liệu",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+      setLogs(response.content)
+      setTotalPages(response.totalPages)
+      setTotalElements(response.totalElements)
+    } catch (error) {
+      console.error('Error searching vehicle logs:', error)
+      toast({
+        title: "Lỗi tìm kiếm",
+        description: "Hệ thống gặp sự cố khi lọc và truy xuất thông tin.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -149,9 +192,7 @@ export default function VehicleEntryExitPage() {
     setCurrentPage(0)
   }
 
-  // Build the export filter from the current search/period state. When no
-  // explicit date range is set, derive one from the active period tab so the
-  // export matches what the user is looking at.
+  // Build the export filter from the current search/period state
   const computeExportFilter = (): VehicleLogExportFilter => {
     let start = startDate ? new Date(startDate).toISOString() : undefined
     let end = endDate ? new Date(endDate).toISOString() : undefined
@@ -205,7 +246,7 @@ export default function VehicleEntryExitPage() {
     const format = (options.format || "EXCEL").toUpperCase()
     if (format !== "EXCEL" && format !== "CSV") {
       toast({
-        title: "Chưa hỗ trợ",
+        title: "Chưa hỗ trợ định dạng",
         description: `Định dạng ${format} chưa được hỗ trợ. Vui lòng chọn EXCEL hoặc CSV.`,
         variant: "destructive",
       })
@@ -223,15 +264,15 @@ export default function VehicleEntryExitPage() {
       downloadBlob(blob, `bao-cao-xe-ra-vao-${today}.${isCsv ? 'csv' : 'xlsx'}`)
 
       toast({
-        title: "Xuất file thành công",
-        description: `Đã xuất dữ liệu ra file ${isCsv ? 'CSV' : 'Excel'}`,
+        title: "Xuất tệp dữ liệu thành công",
+        description: `Đã hoàn tất xuất báo cáo định dạng ${isCsv ? 'CSV' : 'Excel'}.`,
         variant: "default",
       })
     } catch (error) {
       console.error('Error exporting vehicle logs:', error)
       toast({
-        title: "Lỗi xuất file",
-        description: "Có lỗi xảy ra khi xuất dữ liệu. Vui lòng thử lại.",
+        title: "Lỗi xuất báo cáo",
+        description: "Có lỗi xảy ra trong quá trình xuất dữ liệu. Vui lòng thử lại.",
         variant: "destructive",
       })
     }
@@ -239,22 +280,6 @@ export default function VehicleEntryExitPage() {
 
   const formatDateTime = (dateString: string) => {
     return new Date(dateString).toLocaleString('vi-VN')
-  }
-
-  const getTypeIcon = (type: string) => {
-    return type === 'entry' ? <ArrowUp className="h-4 w-4 text-green-600" /> : <ArrowDown className="h-4 w-4 text-red-600" />
-  }
-
-  const getTypeBadge = (type: string) => {
-    return type === 'entry' 
-      ? <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Vào</Badge>
-      : <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Ra</Badge>
-  }
-
-  const getVehicleTypeBadge = (vehicleType: string) => {
-    return vehicleType === 'internal'
-      ? <Badge variant="secondary">Nội bộ</Badge>
-      : <Badge variant="outline">Bên ngoài</Badge>
   }
 
   const getPeriodLabel = () => {
@@ -279,449 +304,611 @@ export default function VehicleEntryExitPage() {
     ? logs
     : logs.filter((log) => log.employeeName && user?.employeeName && log.employeeName === user.employeeName)
 
-  if (loading && logs.length === 0) {
-    return (
-      <div className="admin-mobile-page min-h-dvh bg-background">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <p className="text-blue-600 font-medium">Đang tải thông tin ra vào...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Computed page stats for technical metrics
+  const pageInCount = visibleLogs.filter(l => l.type === 'entry').length
+  const pageOutCount = visibleLogs.filter(l => l.type === 'exit').length
 
   return (
-    <AdminPage className="min-h-dvh">
-      <AdminPageHeader
-        className="gap-3 p-3 sm:p-5 lg:px-5 lg:py-4"
-        eyebrow="Vận hành cổng"
-        title="Thông tin ra vào"
-        description={
-          <>
-            <span className="sm:hidden">Theo dõi lịch sử xe ra/vào.</span>
-            <span className="hidden sm:inline">Quản lý và theo dõi lịch sử ra vào của xe</span>
-          </>
-        }
-      />
+    <AdminPage className="space-y-6 bg-[#020617] text-slate-100 p-4 sm:p-6 lg:p-8 rounded-2xl relative min-h-screen overflow-hidden">
+      {/* Visual background decorations matching Monitoring Page */}
+      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: "radial-gradient(circle, #06b6d4 1.2px, transparent 1.2px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+        <div className="absolute top-1/4 right-1/4 w-[350px] h-[350px] rounded-full bg-cyan-500/5 blur-[120px]" />
+        <div className="absolute bottom-1/3 left-10 w-[300px] h-[300px] rounded-full bg-emerald-500/5 blur-[100px]" />
+      </div>
 
-      {/* Period Tabs and Filter Actions */}
-      <Tabs value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)} className="mb-4 sm:mb-6">
-      <div className="overflow-hidden rounded-[1.15rem] border border-border/70 bg-card/95 p-1.5 shadow-[0_14px_34px_rgba(15,23,42,0.07)] backdrop-blur">
-        <div className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 md:flex md:justify-between md:gap-3 md:p-1.5 ${isFilterBarOpen ? "border-b border-border/70 pb-1.5" : ""}`}>
-          <div className="relative h-10 min-w-0 md:hidden">
-            <Calendar className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-primary" aria-hidden="true" />
-            <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
-              <SelectTrigger aria-label="Chọn khoảng thời gian" className="h-10 min-h-10 w-full rounded-[0.95rem] border-border/70 bg-background/90 pl-9 pr-2 text-sm font-medium shadow-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/15">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Hôm nay</SelectItem>
-                <SelectItem value="weekly">Tuần này</SelectItem>
-                <SelectItem value="monthly">Tháng này</SelectItem>
-              </SelectContent>
-            </Select>
+      {/* High-Tech custom page header with operations glow */}
+      <header className="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 p-5 sm:p-6 shadow-[0_0_20px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-500/40" />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-500/40" />
+        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-500/40" />
+        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-500/40" />
+
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[9px] font-mono font-medium text-cyan-400">
+                <span className="size-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                {"DATABASE_REGISTRY // ENTRANCE_LOGS"}
+              </span>
+              <span className="text-slate-700 font-mono text-[10px]">|</span>
+              <span className="text-slate-400 font-mono text-[9px] tracking-wider uppercase">ARCHIVE_ACCESS: ALL_EVENTS</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-mono uppercase">
+              THÔNG TIN RA VÀO <span className="text-cyan-400">{"// RECORDS"}</span>
+            </h1>
+            <p className="text-xs text-slate-400 max-w-2xl">
+              Danh sách chi tiết lịch sử đóng mở cổng, định danh phương tiện nội bộ và khách vãng lai thông qua AI Camera.
+            </p>
           </div>
-          <TabsList className="hidden h-10 w-full grid-cols-3 rounded-xl bg-muted/60 p-1 shadow-sm md:grid md:w-auto md:min-w-[24rem]">
-            <TabsTrigger value="daily" className="h-7 gap-1 rounded-lg px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
-              <Calendar className="hidden h-4 w-4 md:block" />
-              Hôm nay
-            </TabsTrigger>
-            <TabsTrigger value="weekly" className="h-7 gap-1 rounded-lg px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
-              <Calendar className="hidden h-4 w-4 md:block" />
-              Tuần này
-            </TabsTrigger>
-            <TabsTrigger value="monthly" className="h-7 gap-1 rounded-lg px-1 text-xs transition-colors duration-200 hover:bg-blue-50 sm:gap-2 sm:px-2 sm:text-sm">
-              <Calendar className="hidden h-4 w-4 md:block" />
-              Tháng này
-            </TabsTrigger>
-          </TabsList>
 
-        {/* Action Buttons - Inline */}
-        <div className="flex shrink-0 items-center justify-end gap-1.5 md:w-auto md:flex-wrap md:gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
-            className={`!h-10 !min-h-10 !w-10 justify-center gap-1.5 rounded-[0.95rem] !px-0 text-[0.75rem] shadow-none transition-all duration-200 md:!w-auto md:!px-3 md:text-sm ${
-              isFilterBarOpen
-                ? "border-primary/50 bg-primary/10 text-primary hover:bg-primary/15"
-                : "border-border/70 bg-background/90 hover:border-primary/40 hover:bg-primary/5"
-            }`}
-            aria-label={isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
-            title={isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
-          >
-            <Filter className="h-4 w-4" />
-            <span className="sr-only md:not-sr-only md:ml-1.5">{isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={loadData} 
-            className="!h-10 !min-h-10 !w-10 justify-center gap-1.5 rounded-[0.95rem] border-border/70 bg-background/90 !px-0 text-[0.75rem] shadow-none transition-all duration-200 hover:border-blue-300 hover:bg-blue-50 md:!w-auto md:!px-3 md:text-sm"
-            aria-label="Làm mới dữ liệu"
-            title="Làm mới dữ liệu"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span className="sr-only md:not-sr-only md:ml-1.5">Làm mới dữ liệu</span>
-          </Button>
-          {viewAllLogs && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              className="!h-10 !min-h-10 !w-10 justify-center gap-1.5 rounded-[0.95rem] border-border/70 bg-background/90 !px-0 text-[0.75rem] shadow-none transition-all duration-200 hover:border-green-300 hover:bg-green-50 md:!w-auto md:!px-3 md:text-sm"
-              aria-label="Xuất báo cáo"
-              title="Xuất báo cáo"
-            >
-              <Download className="h-4 w-4" />
-              <span className="sr-only md:not-sr-only md:ml-1.5">Xuất báo cáo</span>
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-3 self-start md:self-center">
+            {/* Live digital clock */}
+            <div className="hidden sm:flex flex-col items-end px-3 py-1 rounded-lg border border-slate-900 bg-slate-950/80 font-mono text-xs">
+              <span className="text-slate-500 text-[8px] uppercase tracking-wider">Hệ thống thời gian</span>
+              <span className="text-cyan-400 font-bold tabular-nums">
+                {currentTime || "00:00:00"}
+              </span>
+            </div>
+          </div>
         </div>
-        </div>
+      </header>
 
-        {/* Collapsible Filter Content */}
-        {isFilterBarOpen && (
-          <div className="bg-card px-1 pt-3 sm:p-5">
-            <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
+      {/* Mini Diagnostic Grid */}
+      <section className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Thông số phân đoạn">
+        {[
+          { 
+            label: "Bộ lọc thời gian", 
+            value: getPeriodLabel(), 
+            icon: Calendar, 
+            id: "FILTER_PERIOD", 
+            color: "text-cyan-400", 
+            glow: "rgba(6,182,212,0.08)", 
+            border: "border-cyan-500/15" 
+          },
+          { 
+            label: "Lượt vào trang này", 
+            value: loading ? "..." : pageInCount, 
+            icon: ArrowDownToLine, 
+            id: "PAGE_IN_COUNT", 
+            color: "text-emerald-400", 
+            glow: "rgba(16,185,129,0.08)", 
+            border: "border-emerald-500/15" 
+          },
+          { 
+            label: "Lượt ra trang này", 
+            value: loading ? "..." : pageOutCount, 
+            icon: ArrowUpFromLine, 
+            id: "PAGE_OUT_COUNT", 
+            color: "text-rose-400", 
+            glow: "rgba(244,63,94,0.08)", 
+            border: "border-rose-500/15",
+            className: "col-span-2 sm:col-span-1" 
+          },
+        ].map(({ label, value, icon: Icon, id, color, glow, border, className }) => (
+          <div
+            key={label}
+            className={`relative overflow-hidden rounded-xl border ${border} bg-slate-950/40 p-4 transition-all duration-300 hover:scale-[1.01] hover:bg-slate-950/60 ${className ?? ""}`}
+            style={{
+              boxShadow: `inset 0 0 12px ${glow}`,
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[8px] font-mono text-slate-500">[{id}]</span>
+              <span className="text-[8px] font-mono text-slate-600">STATE_OK</span>
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 border border-slate-800">
+                <Icon className={`size-4.5 ${color}`} />
+              </span>
               <div className="min-w-0">
-                <h3 className="text-base font-semibold leading-tight text-foreground sm:text-lg">Bộ lọc</h3>
-                <p className="mt-1 hidden text-sm leading-5 text-muted-foreground sm:block">
-                  Lọc lịch sử ra/vào theo biển số, hoạt động, loại xe và khoảng thời gian.
+                <p className="text-[10px] font-mono text-slate-400 uppercase tracking-wide truncate">
+                  {label}
                 </p>
-                {activeFilterCount > 0 && (
-                  <p className="mt-1 text-xs text-muted-foreground sm:hidden">
-                    {activeFilterCount} điều kiện đang bật
-                  </p>
-                )}
+                <p className={`font-mono text-sm sm:text-lg font-black leading-none tracking-tight mt-1 ${color}`}>
+                  {value}
+                </p>
               </div>
-              {activeFilterCount > 0 && (
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* Control Actions / Period Select & Filter Triggers */}
+      <Tabs value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)} className="w-full">
+        <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 p-2 backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+          <div className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 md:flex md:justify-between md:gap-3 ${isFilterBarOpen ? "border-b border-slate-900 pb-2 mb-2" : ""}`}>
+            
+            {/* Mobile Period Dropdown */}
+            <div className="relative h-10 min-w-0 md:hidden">
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-cyan-400" aria-hidden="true" />
+              <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
+                <SelectTrigger aria-label="Chọn khoảng thời gian" className="h-10 min-h-10 w-full rounded-lg border-slate-900 bg-slate-950 text-xs font-mono text-slate-200 pl-9 pr-2 focus:border-cyan-500/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-slate-800 bg-slate-950 text-slate-200 font-mono text-xs">
+                  <SelectItem value="daily">Hôm nay</SelectItem>
+                  <SelectItem value="weekly">Tuần này</SelectItem>
+                  <SelectItem value="monthly">Tháng này</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Desktop Tabs List in High Tech Style */}
+            <TabsList className="hidden h-10 w-full grid-cols-3 rounded-lg bg-slate-900/60 p-1 md:grid md:w-auto md:min-w-[24rem] border border-slate-900">
+              <TabsTrigger 
+                value="daily" 
+                className="h-8 gap-2 rounded-md px-3 text-xs font-mono tracking-wider transition-all data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-400 data-[state=active]:border data-[state=active]:border-cyan-500/20 hover:text-slate-200 text-slate-400"
+              >
+                <Calendar className="size-3.5" />
+                HÔM_NAY
+              </TabsTrigger>
+              <TabsTrigger 
+                value="weekly" 
+                className="h-8 gap-2 rounded-md px-3 text-xs font-mono tracking-wider transition-all data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-400 data-[state=active]:border data-[state=active]:border-cyan-500/20 hover:text-slate-200 text-slate-400"
+              >
+                <Calendar className="size-3.5" />
+                TUẦN_NÀY
+              </TabsTrigger>
+              <TabsTrigger 
+                value="monthly" 
+                className="h-8 gap-2 rounded-md px-3 text-xs font-mono tracking-wider transition-all data-[state=active]:bg-cyan-500/10 data-[state=active]:text-cyan-400 data-[state=active]:border data-[state=active]:border-cyan-500/20 hover:text-slate-200 text-slate-400"
+              >
+                <Calendar className="size-3.5" />
+                THÁNG_NÀY
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Actions Panel */}
+            <div className="flex shrink-0 items-center justify-end gap-2 md:w-auto md:flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
+                className={`h-10 px-3 rounded-lg font-mono text-xs transition-all duration-200 border ${
+                  isFilterBarOpen
+                    ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20"
+                    : "border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:border-cyan-500/20"
+                }`}
+                aria-label={isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
+              >
+                <Filter className="size-3.5 mr-1.5" />
+                <span>{isFilterBarOpen ? "ĐÓNG_LỌC" : "BỘ_LỌC"}</span>
+              </Button>
+
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={loadData} 
+                className="h-10 px-3 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 font-mono text-xs hover:border-cyan-500/20"
+                aria-label="Làm mới dữ liệu"
+              >
+                <RefreshCw className={`size-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+                <span>NẠP_LẠI</span>
+              </Button>
+
+              {viewAllLogs && (
                 <Button
-                  type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={handleClearFilters}
-                  className="h-8 shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground sm:h-9 sm:px-3 sm:text-sm"
+                  onClick={handleExport}
+                  className="h-10 px-3 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-emerald-400 font-mono text-xs hover:border-emerald-500/20 hover:bg-emerald-500/5"
+                  aria-label="Xuất báo cáo"
                 >
-                  Xóa lọc
+                  <Download className="size-3.5 mr-1.5" />
+                  <span>XUẤT_EXCEL</span>
                 </Button>
               )}
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                  <Search className="h-3.5 w-3.5" />
-                  Biển số
-                </Label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Nhập biển số xe"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-10 rounded-lg border-border bg-background pl-9 text-sm shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11"
-                  />
+          {/* High-Tech Collapsible Filter Panel */}
+          {isFilterBarOpen && (
+            <div className="bg-slate-950/80 border border-slate-900/60 rounded-lg p-4 mt-2 relative">
+              <div className="absolute top-0 left-4 w-10 h-[1px] bg-cyan-500/50" />
+              
+              <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+                <div>
+                  <span className="text-[8px] font-mono text-cyan-400">{"QUERY_FILTER // ENGINE"}</span>
+                  <h3 className="text-xs font-bold text-white font-mono uppercase mt-0.5">Tham số truy vấn</h3>
                 </div>
+                {activeFilterCount > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearFilters}
+                    className="h-7 px-2.5 rounded text-[10px] font-mono text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                  >
+                    XÓA_BỘ_LỌC
+                  </Button>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="min-w-0 space-y-1.5">
-                  <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                    <Filter className="h-3.5 w-3.5" />
-                    Hoạt động
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+                    <Search className="size-3 text-cyan-400" />
+                    Biển số xe
+                  </Label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-500" />
+                    <Input
+                      placeholder="Nhập mã biển số..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-10 rounded-lg border-slate-900 bg-slate-950 pl-9 text-xs font-mono text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/30 focus:ring-cyan-500/10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+                    <Filter className="size-3 text-cyan-400" />
+                    Chiều di chuyển
                   </Label>
                   <Select value={typeFilter} onValueChange={(value: any) => setTypeFilter(value)}>
-                    <SelectTrigger className="h-10 w-full rounded-lg border-border bg-background text-sm shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11">
-                      <SelectValue placeholder="Hoạt động" />
+                    <SelectTrigger className="h-10 w-full rounded-lg border-slate-900 bg-slate-950 text-xs font-mono text-slate-400 focus:border-cyan-500/30">
+                      <SelectValue placeholder="Chiều di chuyển" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="entry">Vào</SelectItem>
-                      <SelectItem value="exit">Ra</SelectItem>
+                    <SelectContent className="border-slate-800 bg-slate-950 text-slate-300 font-mono text-xs">
+                      <SelectItem value="all">TẤT CẢ CHIỀU</SelectItem>
+                      <SelectItem value="entry">VÀO CỔNG</SelectItem>
+                      <SelectItem value="exit">RA CỔNG</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="min-w-0 space-y-1.5">
-                  <Label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                    <Car className="h-3.5 w-3.5" />
-                    Loại xe
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+                    <Car className="size-3 text-cyan-400" />
+                    Phân loại xe
                   </Label>
                   <Select value={vehicleTypeFilter} onValueChange={(value: any) => setVehicleTypeFilter(value)}>
-                    <SelectTrigger className="h-10 w-full rounded-lg border-border bg-background text-sm shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11">
-                      <SelectValue placeholder="Loại xe" />
+                    <SelectTrigger className="h-10 w-full rounded-lg border-slate-900 bg-slate-950 text-xs font-mono text-slate-400 focus:border-cyan-500/30">
+                      <SelectValue placeholder="Phân loại xe" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="internal">Nội bộ</SelectItem>
-                      <SelectItem value="external">Bên ngoài</SelectItem>
+                    <SelectContent className="border-slate-800 bg-slate-950 text-slate-300 font-mono text-xs">
+                      <SelectItem value="all">TẤT CẢ PHÂN LOẠI</SelectItem>
+                      <SelectItem value="internal">XE NỘI BỘ</SelectItem>
+                      <SelectItem value="external">XE BÊN NGOÀI</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-border bg-background/60 p-2.5 sm:p-3">
-                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Khoảng thời gian
+              <div className="rounded-xl border border-slate-900 bg-slate-950/40 p-3 mt-4">
+                <div className="mb-2 flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-400">
+                  <Calendar className="size-3 text-cyan-400" />
+                  KHOẢNG THỜI GIAN TUỲ CHỈNH
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="min-w-0 space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground">Từ</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <Label className="text-[9px] font-mono text-slate-500">MỐC BẮT ĐẦU (TỪ)</Label>
                     <Input
                       aria-label="Từ ngày"
                       type="datetime-local"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="h-10 w-full min-w-0 rounded-lg border-border bg-card px-2 text-xs shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:px-3 sm:text-sm"
+                      className="h-10 w-full rounded-lg border-slate-900 bg-slate-950 text-xs font-mono text-slate-300 focus:border-cyan-500/30"
                     />
                   </div>
-                  <div className="min-w-0 space-y-1.5">
-                    <Label className="text-xs font-medium text-muted-foreground">Đến</Label>
+                  <div className="min-w-0 space-y-1">
+                    <Label className="text-[9px] font-mono text-slate-500">MỐC KẾT THÚC (ĐẾN)</Label>
                     <Input
                       aria-label="Đến ngày"
                       type="datetime-local"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="h-10 w-full min-w-0 rounded-lg border-border bg-card px-2 text-xs shadow-none focus:border-primary focus:ring-2 focus:ring-primary/15 sm:h-11 sm:px-3 sm:text-sm"
+                      className="h-10 w-full rounded-lg border-slate-900 bg-slate-950 text-xs font-mono text-slate-300 focus:border-cyan-500/30"
                     />
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </Tabs>
 
-      {/* Data Table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-[var(--shadow-card)]">
-        <div className="border-b border-border p-3 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
+      {/* Main Logs Table Block */}
+      <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/40 backdrop-blur-xl shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+        <div className="border-b border-slate-900 p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
             <div className="min-w-0">
-              <h2 className="text-base font-semibold tracking-[-0.01em] text-foreground sm:text-xl">Lịch sử ra vào</h2>
-              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
-                <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                <span>{getPeriodLabel()}</span>
+              <span className="text-[8px] font-mono text-cyan-400">{"LOG_HISTORY // STREAMS"}</span>
+              <h2 className="text-base sm:text-lg font-black text-white font-mono uppercase mt-0.5">
+                Nhật ký vận hành cổng
+              </h2>
+              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-mono text-slate-500">
+                <span className="size-1.5 rounded-full bg-cyan-400"></span>
+                <span>Phạm vi: {getPeriodLabel()}</span>
                 <span>·</span>
-                <span>Tổng: <span className="font-medium text-blue-600">{visibleLogs.length}</span> bản ghi</span>
+                <span>Kết quả: <span className="text-cyan-400 font-bold">{totalElements}</span> logs</span>
                 {!viewAllLogs && (
-                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-600">Xe của bạn</span>
+                  <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-400 border border-cyan-500/20 uppercase">
+                    Mã nhân viên nội bộ
+                  </span>
                 )}
               </p>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <Label className="hidden text-sm font-medium text-muted-foreground sm:inline">Hiển thị:</Label>
-                <Select value={pageSize.toString()} onValueChange={(value) => handlePageSizeChange(parseInt(value))}>
-                  <SelectTrigger aria-label="Số bản ghi hiển thị" className="h-9 w-20 rounded-xl border-border bg-background text-sm shadow-none sm:w-24">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            
+            <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+              <Label className="hidden text-[10px] font-mono text-slate-500 uppercase sm:inline">Kích thước trang:</Label>
+              <Select value={pageSize.toString()} onValueChange={(value) => handlePageSizeChange(parseInt(value))}>
+                <SelectTrigger aria-label="Số bản ghi hiển thị" className="h-9 w-20 rounded-lg border-slate-900 bg-slate-950 text-xs font-mono text-slate-300 focus:border-cyan-500/30">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-slate-800 bg-slate-950 text-slate-300 font-mono text-xs">
+                  <SelectItem value="10">10 dòng</SelectItem>
+                  <SelectItem value="25">25 dòng</SelectItem>
+                  <SelectItem value="50">50 dòng</SelectItem>
+                  <SelectItem value="100">100 dòng</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3 p-3 md:hidden">
-          {visibleLogs.map((log) => (
-            <article key={log.id} className="rounded-lg border border-gray-200 p-3 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-mono text-base font-semibold text-gray-900">{log.licensePlateNumber}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(log.entryExitTime)}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  {getTypeIcon(log.type)}
-                  {getTypeBadge(log.type)}
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
-                <div>
-                  <p className="text-xs text-muted-foreground">Loại xe</p>
-                  <div className="mt-1">{getVehicleTypeBadge(log.vehicleType)}</div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Cổng</p>
-                  <p className="mt-1 truncate font-medium text-gray-800">{log.gateLocation || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Tài xế</p>
-                  <p className="mt-1 truncate text-gray-800">{log.driverName || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Chủ xe</p>
-                  <p className="mt-1 truncate text-gray-800">{log.employeeName || 'N/A'}</p>
-                </div>
-              </div>
-              {log.imagePath && (
-                <a
-                  href={getImageUrl(log.imagePath) || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-blue-700 hover:underline"
-                >
-                  <img
-                    src={getImageUrl(log.imagePath) || '/placeholder.jpg'}
-                    alt={`Ảnh biển số ${log.licensePlateNumber}`}
-                    className="h-10 w-16 rounded border object-cover"
-                  />
-                  Xem ảnh biển số
-                </a>
-              )}
-            </article>
-          ))}
-          {visibleLogs.length === 0 && (
-            <div className="px-4 py-10 text-center">
-              <span className="mx-auto grid size-10 place-items-center rounded-xl bg-muted/70 text-muted-foreground" aria-hidden="true">
-                <Car className="h-5 w-5" />
-              </span>
-              <p className="mt-2 text-sm font-medium text-foreground">Không có dữ liệu ra vào</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">Thử đổi bộ lọc hoặc làm mới dữ liệu.</p>
-            </div>
-          )}
-        </div>
-
-        <div className="hidden overflow-x-auto md:block">
-          <Table className="min-w-[54rem]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Thời gian</TableHead>
-                <TableHead>Biển số</TableHead>
-                <TableHead>Hoạt động</TableHead>
-                <TableHead>Loại xe</TableHead>
-                <TableHead>Tài xế</TableHead>
-                <TableHead>Chủ xe</TableHead>
-                <TableHead>Mục đích</TableHead>
-                <TableHead>Cổng</TableHead>
-                <TableHead>Ảnh</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleLogs.map((log) => (
-                <TableRow key={log.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium">
-                    <span className="text-sm">{formatDateTime(log.entryExitTime)}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-mono font-semibold">{log.licensePlateNumber}</span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getTypeIcon(log.type)}
-                      {getTypeBadge(log.type)}
+        {/* Loading shimmer and skeleton spinner */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 font-mono text-xs text-slate-500">
+            <RefreshCw className="h-8 w-8 animate-spin text-cyan-400" />
+            <span className="animate-pulse">DECRYPTING_SECURITY_LOGS...</span>
+          </div>
+        ) : (
+          <>
+            {/* Mobile View Card List */}
+            <div className="space-y-4 p-4 md:hidden">
+              {visibleLogs.map((log) => {
+                const isEntry = log.type === "entry"
+                return (
+                  <article 
+                    key={log.id} 
+                    className="rounded-xl border border-slate-900 bg-slate-950/60 p-4 transition-all duration-300 hover:border-slate-800"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="text-[8px] font-mono text-slate-600">[LICENSE_PLATE_ID]</span>
+                        <p className="font-mono text-base font-black text-white tracking-wider">{log.licensePlateNumber}</p>
+                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">{formatDateTime(log.entryExitTime)}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase border ${
+                          isEntry 
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                        }`}>
+                          {isEntry ? <ArrowDownToLine className="size-2.5" /> : <ArrowUpFromLine className="size-2.5" />}
+                          {isEntry ? "VÀO" : "RA"}
+                        </span>
+                      </div>
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {getVehicleTypeBadge(log.vehicleType)}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{log.driverName || 'N/A'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{log.employeeName || 'N/A'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">{log.purpose || 'N/A'}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">{log.gateLocation || 'N/A'}</span>
-                  </TableCell>
-                  <TableCell>
-                    {log.imagePath ? (
-                      <a
-                        href={getImageUrl(log.imagePath) || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Nhấn để phóng to ảnh biển số"
-                      >
-                        <img
-                          src={getImageUrl(log.imagePath) || '/placeholder.jpg'}
-                          alt={`Ảnh biển số ${log.licensePlateNumber}`}
-                          className="h-10 w-16 object-cover rounded border hover:opacity-80 transition-opacity"
-                        />
-                      </a>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+
+                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs font-mono border-t border-slate-900/60 pt-2.5">
+                      <div>
+                        <p className="text-[8px] text-slate-500 uppercase">Loại xe</p>
+                        <span className={`inline-flex items-center mt-1 text-[9px] px-1.5 py-0.5 rounded border font-bold ${
+                          log.vehicleType === 'internal'
+                            ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+                            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        }`}>
+                          {log.vehicleType === 'internal' ? 'NỘI BỘ' : 'BÊN NGOÀI'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[8px] text-slate-500 uppercase">Cổng vị trí</p>
+                        <p className="mt-1 truncate text-[11px] font-bold text-slate-300">{log.gateLocation || 'GATE_CENTRAL'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[8px] text-slate-500 uppercase">Người điều khiển</p>
+                        <p className="mt-1 truncate text-[11px] font-bold text-slate-300">{log.driverName || 'CHƯA XÁC ĐỊNH'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[8px] text-slate-500 uppercase">Chủ xe</p>
+                        <p className="mt-1 truncate text-[11px] font-bold text-slate-300">{log.employeeName || 'CHƯA XÁC ĐỊNH'}</p>
+                      </div>
+                    </div>
+
+                    {log.imagePath && (
+                      <div className="mt-3 border-t border-slate-900/60 pt-2.5">
+                        <span className="text-[8px] font-mono text-slate-500 block mb-1">[IMAGE_CAPTURED]</span>
+                        <a
+                          href={getImageUrl(log.imagePath) || '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="relative flex items-center gap-3 rounded-lg border border-slate-900 bg-slate-900/40 p-2 hover:bg-slate-900 transition-all duration-200"
+                        >
+                          <div className="relative size-12 shrink-0 overflow-hidden rounded border border-slate-800">
+                            <img
+                              src={getImageUrl(log.imagePath) || '/placeholder.jpg'}
+                              alt={`Ảnh biển số ${log.licensePlateNumber}`}
+                              className="h-full w-full object-cover"
+                            />
+                            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-cyan-400/50 animate-[pulse_1.5s_infinite]" />
+                          </div>
+                          <div className="min-w-0 font-mono text-[10px]">
+                            <p className="text-cyan-400 font-bold uppercase tracking-wider">PHÂN TÍCH THỊ GIÁC</p>
+                            <p className="text-slate-500 truncate mt-0.5">Click để xem ảnh độ phân giải cao</p>
+                          </div>
+                        </a>
+                      </div>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </article>
+                )
+              })}
               {visibleLogs.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <span className="grid size-10 place-items-center rounded-xl bg-muted/70 text-muted-foreground" aria-hidden="true">
-                        <Car className="h-5 w-5" />
-                      </span>
-                      <span className="text-sm font-medium text-foreground">Không có dữ liệu ra vào</span>
-                      <span className="text-xs">Thử đổi bộ lọc hoặc làm mới dữ liệu.</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <div className="px-4 py-12 text-center font-mono text-slate-500">
+                  <span className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-900 border border-slate-800 text-slate-600 mb-3">
+                    <CarFront className="size-6" />
+                  </span>
+                  <p className="text-xs font-bold text-slate-400 uppercase">Không tìm thấy dữ liệu</p>
+                  <p className="text-[10px] mt-1 text-slate-600">Thử thay đổi tham số lọc hoặc nạp lại trang.</p>
+                </div>
               )}
-            </TableBody>
-          </Table>
-        </div>
+            </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex flex-col gap-3 border-t border-border bg-muted/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div className="flex w-full items-center justify-center gap-2 text-center text-sm text-gray-600 sm:w-auto sm:justify-start sm:text-left">
-              <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-              Hiển thị <span className="font-medium text-gray-800">{currentPage * pageSize + 1}</span> đến <span className="font-medium text-gray-800">{Math.min((currentPage + 1) * pageSize, totalElements)}</span> của <span className="font-medium text-gray-800">{totalElements}</span> bản ghi
+            {/* Desktop Table View */}
+            <div className="hidden overflow-x-auto md:block">
+              <Table className="min-w-[54rem] border-collapse font-mono text-xs">
+                <TableHeader className="bg-slate-950/60 border-b border-slate-900">
+                  <TableRow className="border-b border-slate-900 hover:bg-transparent">
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Thời gian</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Biển số</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Hoạt động</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Loại xe</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Tài xế</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Chủ xe</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Mục đích</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Cổng</TableHead>
+                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Ảnh Captured</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visibleLogs.map((log) => {
+                    const isEntry = log.type === "entry"
+                    return (
+                      <TableRow 
+                        key={log.id} 
+                        className="border-b border-slate-900 hover:bg-slate-900/30 transition-all duration-150"
+                      >
+                        <TableCell className="font-bold text-slate-300 py-3.5">
+                          {formatDateTime(log.entryExitTime)}
+                        </TableCell>
+                        <TableCell className="font-black text-white tracking-widest text-sm">
+                          {log.licensePlateNumber}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold uppercase border ${
+                            isEntry 
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                              : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                          }`}>
+                            {isEntry ? <ArrowDownToLine className="size-3" /> : <ArrowUpFromLine className="size-3" />}
+                            {isEntry ? "VÀO" : "RA"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded border font-bold ${
+                            log.vehicleType === 'internal'
+                              ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          }`}>
+                            {log.vehicleType === 'internal' ? 'NỘI BỘ' : 'BÊN NGOÀI'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-slate-300 font-medium">
+                          {log.driverName || 'CHƯA CÓ'}
+                        </TableCell>
+                        <TableCell className="text-slate-300 font-medium">
+                          {log.employeeName || 'CHƯA CÓ'}
+                        </TableCell>
+                        <TableCell className="text-slate-400 max-w-[12rem] truncate">
+                          {log.purpose || '—'}
+                        </TableCell>
+                        <TableCell className="text-slate-300 font-bold">
+                          {log.gateLocation || 'GATE_CENTRAL'}
+                        </TableCell>
+                        <TableCell>
+                          {log.imagePath ? (
+                            <a
+                              href={getImageUrl(log.imagePath) || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="relative inline-block size-10 overflow-hidden rounded border border-slate-800 hover:border-cyan-400/50 transition-all duration-200"
+                              title="Xem ảnh biển số chất lượng cao"
+                            >
+                              <img
+                                src={getImageUrl(log.imagePath) || '/placeholder.jpg'}
+                                alt={`Ảnh biển số ${log.licensePlateNumber}`}
+                                className="h-full w-full object-cover opacity-80 hover:opacity-100 transition-opacity"
+                              />
+                              <div className="absolute top-0 left-0 right-0 h-[1px] bg-cyan-400/50 animate-[pulse_2s_infinite]" />
+                            </a>
+                          ) : (
+                            <span className="text-[10px] text-slate-600">[NO_IMAGE]</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {visibleLogs.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="py-20 text-center text-slate-500 hover:bg-transparent">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <span className="grid size-12 place-items-center rounded-xl bg-slate-900 border border-slate-800 text-slate-600" aria-hidden="true">
+                            <CarFront className="size-6" />
+                          </span>
+                          <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">Không tìm thấy dữ liệu ra vào</span>
+                          <span className="text-xs text-slate-600">Điều chỉnh các bộ lọc để tìm kiếm bản ghi khác.</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 0}
-                className="shadow-sm hover:shadow-md transition-all duration-200"
-              >
-                <span className="sm:hidden">←</span>
-                <span className="hidden sm:inline">← Trước</span>
-              </Button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const page = currentPage < 3 ? i : currentPage - 2 + i
-                  if (page >= totalPages) return null
-                  return (
-                    <Button
-                      key={page}
-                      variant={currentPage === page ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handlePageChange(page)}
-                      className="w-9 h-9 p-0 shadow-sm hover:shadow-md transition-all duration-200"
-                    >
-                      {page + 1}
-                    </Button>
-                  )
-                })}
+
+            {/* Pagination Controls in High-Tech style */}
+            {totalPages > 1 && (
+              <div className="flex flex-col gap-4 border-t border-slate-900 bg-slate-950/40 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="flex w-full items-center justify-center gap-2 text-center font-mono text-[10px] text-slate-500 sm:w-auto sm:justify-start sm:text-left">
+                  <span className="size-2 bg-cyan-500/50 rounded-full animate-pulse"></span>
+                  <span>HIỂN THỊ <span className="font-bold text-slate-300">{currentPage * pageSize + 1}</span> - <span className="font-bold text-slate-300">{Math.min((currentPage + 1) * pageSize, totalElements)}</span> / TỔNG <span className="font-bold text-slate-300">{totalElements}</span> RECORDS</span>
+                </div>
+                
+                <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 0}
+                    className="h-8 border-slate-800 bg-slate-950 text-slate-300 font-mono text-xs hover:bg-slate-900 disabled:opacity-30 disabled:hover:bg-slate-950"
+                  >
+                    <span>&lt; PREV</span>
+                  </Button>
+
+                  <div className="flex items-center gap-1 font-mono text-xs">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      const page = currentPage < 3 ? i : currentPage - 2 + i
+                      if (page >= totalPages) return null
+                      const active = currentPage === page
+                      return (
+                        <Button
+                          key={page}
+                          variant={active ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(page)}
+                          className={`size-8 p-0 text-xs font-bold font-mono transition-all duration-150 ${
+                            active 
+                              ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.2)]" 
+                              : "border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {page + 1}
+                        </Button>
+                      )
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages - 1}
+                    className="h-8 border-slate-800 bg-slate-950 text-slate-300 font-mono text-xs hover:bg-slate-900 disabled:opacity-30 disabled:hover:bg-slate-950"
+                  >
+                    <span>NEXT &gt;</span>
+                  </Button>
+                </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage >= totalPages - 1}
-                className="shadow-sm hover:shadow-md transition-all duration-200"
-              >
-                <span className="sm:hidden">→</span>
-                <span className="hidden sm:inline">Sau →</span>
-              </Button>
-            </div>
-          </div>
+            )}
+          </>
         )}
       </div>
 

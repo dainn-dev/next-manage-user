@@ -115,7 +115,7 @@ const tenantNavigationGroups: NavigationGroup[] = [
       { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, roles: OPS },
       { key: "/parking/cameras", label: "Camera", icon: Camera, roles: OPS },
       { key: "/parking/commissioning", label: "Thiết lập bãi đỗ", icon: Wrench, roles: MANAGERS },
-      { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, comingSoon: true, roles: OPS },
+      { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, roles: OPS },
     ],
   },
   {
@@ -324,10 +324,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
     }
 
     return (
-      <button
+      <Link
         key={item.key}
-        type="button"
-        onClick={() => handleMenuClick(item.key)}
+        href={item.key}
+        onClick={onMobileClose}
         title={compact ? item.label : undefined}
         aria-label={item.label}
         aria-current={isActive ? "page" : undefined}
@@ -335,7 +335,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       >
         {Icon && <Icon className="h-4 w-4 shrink-0" />}
         {!compact && <span className="flex-1 text-left">{item.label}</span>}
-      </button>
+      </Link>
     )
   }
 

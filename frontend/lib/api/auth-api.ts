@@ -29,6 +29,75 @@ function normalizeUser(user: User): User {
 
 class AuthApi {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
+    // Check local mock registered users first for Member simulation
+    if (typeof window !== 'undefined') {
+      const mockUsersStr = localStorage.getItem('mock_registered_users')
+      if (mockUsersStr) {
+        try {
+          const mockUsers = JSON.parse(mockUsersStr)
+          const matched = mockUsers.find(
+            (u: any) => u.username === credentials.username && u.password === credentials.password
+          )
+          if (matched) {
+            localStorage.setItem(
+              'mock_member_user',
+              JSON.stringify({
+                id: matched.id,
+                username: matched.username,
+                email: matched.email,
+                fullName: matched.fullName,
+                role: 'USER',
+                status: 'ACTIVE',
+                createdAt: matched.createdAt,
+                updatedAt: matched.updatedAt,
+              })
+            )
+
+            localStorage.setItem(
+              'mock_member_vehicles',
+              JSON.stringify([
+                {
+                  vehicleId: 'v-' + Date.now(),
+                  licensePlate: matched.licensePlate,
+                  vehicleType: matched.vehicleType,
+                  brand: matched.brand,
+                  model: matched.model,
+                  status: 'APPROVED',
+                  registeredAt: [
+                    {
+                      tenantId: 't-demo',
+                      tenantName: matched.joinCode || 'ParkVision HQ - Chi nhánh Đống Đa',
+                    },
+                  ],
+                },
+              ])
+            )
+
+            return {
+              token: 'mock_member_token',
+              tokenType: 'Bearer',
+              username: matched.username,
+              email: matched.email,
+              role: 'MEMBER',
+              expiresAt: new Date(Date.now() + 86400000).toISOString(),
+              user: {
+                id: matched.id,
+                username: matched.username,
+                email: matched.email,
+                fullName: matched.fullName,
+                role: UserRole.USER,
+                status: UserStatus.ACTIVE,
+                createdAt: matched.createdAt,
+                updatedAt: matched.updatedAt,
+              },
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse mock users', e)
+        }
+      }
+    }
+
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
@@ -86,6 +155,29 @@ class AuthApi {
       throw new Error('No authentication token found')
     }
 
+    if (token === 'mock_member_token') {
+      if (typeof window !== 'undefined') {
+        const mockUserStr = localStorage.getItem('mock_member_user')
+        if (mockUserStr) {
+          try {
+            return normalizeUser(JSON.parse(mockUserStr))
+          } catch (e) {
+            console.error('Failed to parse mock_member_user', e)
+          }
+        }
+      }
+      return {
+        id: 'mock-member-id',
+        username: 'member_demo',
+        email: 'member@parkvision.vn',
+        fullName: 'Nguyễn Văn Thành Viên',
+        role: UserRole.USER,
+        status: UserStatus.ACTIVE,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    }
+
     const response = await fetch(`${API_BASE_URL}/auth/me`, {
       method: 'GET',
       headers: {
@@ -105,6 +197,11 @@ class AuthApi {
   async logout(): Promise<void> {
     const token = this.getToken()
     if (!token) {
+      return
+    }
+
+    if (token === 'mock_member_token') {
+      this.clearAuthData()
       return
     }
 
@@ -137,11 +234,14 @@ class AuthApi {
     if (typeof window === 'undefined') return
     localStorage.removeItem('auth_token')
     localStorage.removeItem('user_data')
+    localStorage.removeItem('mock_member_user')
+    localStorage.removeItem('mock_member_vehicles')
   }
 
   isTokenExpired(): boolean {
     const token = this.getToken()
     if (!token) return true
+    if (token === 'mock_member_token') return false
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))

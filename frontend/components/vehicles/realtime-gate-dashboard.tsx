@@ -108,125 +108,154 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
       label: "Lượt vào",
       value: entryCount,
       icon: ArrowDownToLine,
-      tone: "text-emerald-700",
-      surface: "bg-emerald-50",
-      border: "border-emerald-200/80",
+      id: "GATE_IN_COUNT",
+      color: "text-emerald-400",
+      glow: "rgba(16,185,129,0.12)",
+      border: "border-emerald-500/20",
     },
     {
       label: "Lượt ra",
       value: exitCount,
       icon: ArrowUpFromLine,
-      tone: "text-rose-700",
-      surface: "bg-rose-50",
-      border: "border-rose-200/80",
+      id: "GATE_OUT_COUNT",
+      color: "text-rose-400",
+      glow: "rgba(244,63,94,0.12)",
+      border: "border-rose-500/20",
     },
     {
       label: "Xe duy nhất",
       value: uniqueVehicles,
       icon: Users,
-      tone: "text-sky-700",
-      surface: "bg-sky-50",
-      border: "border-sky-200/80",
+      id: "UNIQUE_VEH_COUNT",
+      color: "text-cyan-400",
+      glow: "rgba(6,182,212,0.12)",
+      border: "border-cyan-500/20",
     },
     {
       label: "Đang trong cổng",
       value: totalInside,
       icon: Car,
-      tone: "text-teal-700",
-      surface: "bg-teal-50",
-      border: "border-teal-200/80",
+      id: "CURRENT_ACTIVE_IN",
+      color: "text-amber-400",
+      glow: "rgba(245,158,11,0.12)",
+      border: "border-amber-500/20",
     },
   ]
 
   return (
-    <Card className="overflow-hidden gap-0 py-0">
-      <div
-        className={`h-1 w-full ${error ? "bg-[var(--color-critical)]" : "bg-[var(--color-success)]"}`}
-        aria-hidden="true"
-      />
-      <CardHeader className="grid-cols-[minmax(0,1fr)_auto] gap-x-3 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-5 backdrop-blur-xl">
+      {/* Decorative pulse glow in the top-right */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[50px] pointer-events-none" />
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-900 pb-4 mb-4">
         <div className="min-w-0">
-          <CardTitle className="flex min-w-0 items-center gap-2 text-sm sm:text-lg">
-            <Car className="size-5 shrink-0 text-primary" />
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest">
+              LIVE_FEED // MONITORING
+            </span>
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <h3 className="text-base font-bold text-white font-mono flex items-center gap-2 mt-0.5">
+            <Car className="size-4 text-emerald-400" />
             Cổng realtime hôm nay
-            <span
-              className={`inline-flex size-2.5 shrink-0 rounded-full ${
-                error ? "bg-[var(--color-critical)]" : "bg-[var(--color-success)] animate-pulse"
-              }`}
-              aria-label={error ? "Mất kết nối dữ liệu" : "Cập nhật realtime"}
-            />
-          </CardTitle>
-          <p className="mt-1 text-sm leading-5 text-muted-foreground">
-            Theo dõi lượt vào/ra, xe duy nhất và xe còn trong cổng theo thời gian thực.
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Theo dõi thời gian thực lượt ra vào, tổng xe duy nhất và các phương tiện đang trong cổng.
           </p>
         </div>
-        <CardAction>
-          <Button
-            variant="outline"
-            size="icon"
-            className="!h-8 !min-h-8 !w-8 shrink-0 rounded-lg !p-0 shadow-none sm:!h-10 sm:!min-h-10 sm:!w-auto sm:px-3"
-            onClick={refresh}
-            disabled={loading}
-            aria-label="Làm mới cổng realtime"
-            title="Làm mới"
-          >
-            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-            <span className="sr-only sm:not-sr-only sm:ml-2">Làm mới</span>
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="space-y-3 px-4 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4">
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 shrink-0 self-start sm:self-center border-slate-800 bg-slate-950 text-slate-200 font-mono text-xs hover:border-emerald-500/30 hover:bg-slate-900"
+          onClick={refresh}
+          disabled={loading}
+        >
+          <RefreshCw className={`size-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+          LÀM_MỚI
+        </Button>
+      </div>
+
+      <div className="space-y-4">
         {error && (
-          <div className="rounded-xl border border-[var(--color-critical)] bg-[var(--color-critical-surface)] p-3 text-sm text-[var(--color-critical)]">{error}</div>
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3 text-xs font-mono text-rose-400">
+            ● ERROR_API_FEED: {error}
+          </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           {metrics.map((metric) => {
             const Icon = metric.icon
             return (
-              <div key={metric.label} className={`min-w-0 rounded-xl border bg-background/80 p-2.5 text-left ${metric.border}`}>
-                <div className={`mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold ${metric.surface} ${metric.tone}`}>
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="truncate">{metric.label}</span>
+              <div
+                key={metric.label}
+                className={`min-w-0 rounded-xl border ${metric.border} bg-slate-950/80 p-3 flex flex-col justify-between transition-all duration-300 hover:scale-[1.01]`}
+                style={{
+                  boxShadow: `inset 0 0 10px ${metric.glow}`,
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[8px] font-mono text-slate-500">[{metric.id}]</span>
+                  <span className="text-[8px] font-mono text-slate-600">ACTIVE</span>
                 </div>
-                <div className={`font-[family:var(--font-display)] text-xl font-bold leading-none tracking-[-0.025em] tabular-nums sm:text-3xl sm:tracking-[-0.03em] ${metric.tone}`}>
-                  {metric.value.toLocaleString("vi-VN")}
+                <div className="flex items-center gap-2 mt-2">
+                  <span className={`grid size-8 shrink-0 place-items-center rounded-lg bg-slate-900/50 border border-slate-800`}>
+                    <Icon className={`size-4 ${metric.color}`} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-mono text-slate-400 uppercase tracking-wide truncate">
+                      {metric.label}
+                    </p>
+                    <p className={`font-mono text-lg sm:text-xl font-bold leading-none mt-1 ${metric.color}`}>
+                      {metric.value.toLocaleString("vi-VN")}
+                    </p>
+                  </div>
                 </div>
               </div>
             )
           })}
         </div>
 
+        {/* Overnight Warning */}
         {overnight.length > 0 && (
-          <div className="p-3 rounded-lg border border-amber-300 bg-amber-50">
-            <div className="flex items-center gap-2 mb-2 text-amber-800">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Cảnh báo: {overnight.length} xe ở lại qua đêm (vào ngày trước, chưa ra)
-              </span>
+          <div className="p-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5 space-y-2">
+            <div className="flex items-center gap-2 text-rose-400 font-mono text-xs">
+              <AlertTriangle className="h-4 w-4 animate-bounce" />
+              <span>[!] WARNING // OVERNIGHT_DETECTION: {overnight.length} xe đỗ qua đêm</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {overnight.map((v) => (
-                <Badge key={v.id} variant="outline" className="bg-white border-amber-300">
+                <Badge
+                  key={v.id}
+                  variant="outline"
+                  className="bg-slate-950/80 text-slate-200 border-rose-500/20 font-mono text-[10px] py-0.5 px-2"
+                >
                   {v.licensePlate}
                   {v.employeeName ? ` — ${v.employeeName}` : ""}
                 </Badge>
               ))}
             </div>
-            <p className="text-xs text-amber-700 mt-2">
-              Bộ định giờ backend (VehicleSchedulerService) sẽ tự đặt lại thành &quot;đã ra&quot; lúc 1:00 sáng.
+            <p className="text-[10px] text-slate-500 font-mono">
+              VehicleSchedulerService sẽ tự động chuyển trạng thái thành &quot;đã ra&quot; lúc 01:00 AM mỗi ngày.
             </p>
           </div>
         )}
 
+        {/* Active Lot Section */}
         {totalInside > 0 && overnight.length < totalInside && (
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">
-              Đang trong cổng (vào hôm nay): {insideToday.length}
+          <div className="space-y-2">
+            <p className="text-[10px] text-slate-400 font-mono">
+              &gt; VEHICLES_INSIDE_GATE: {insideToday.length}
             </p>
             <div className="flex flex-wrap gap-2">
               {insideToday.map((v) => (
-                <Badge key={v.id} variant="secondary">
+                <Badge
+                  key={v.id}
+                  variant="secondary"
+                  className="bg-slate-900 text-slate-300 border border-slate-800 font-mono text-[10px] py-0.5 px-2 hover:bg-slate-800"
+                >
                   {v.licensePlate}
                   {v.employeeName ? ` — ${v.employeeName}` : ""}
                 </Badge>
@@ -235,13 +264,20 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
           </div>
         )}
 
+        {/* Footer info bar */}
         {(totalInside === 0 || lastUpdated) && !error && (
-          <div className="flex flex-col gap-1 rounded-lg border border-border/70 bg-muted/25 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            {totalInside === 0 && <span>Hiện không có xe nào đang trong cổng.</span>}
-            {lastUpdated && <span className="shrink-0">Cập nhật {lastUpdated.toLocaleTimeString("vi-VN")}</span>}
+          <div className="flex flex-col gap-1 rounded-xl border border-slate-900 bg-slate-950/60 px-3 py-2 text-[10px] font-mono text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            {totalInside === 0 ? (
+              <span>● NO_VEHICLES_PRESENT // Không có xe nào đang đỗ trong cổng.</span>
+            ) : (
+              <span>● STREAM_SYNC_ACTIVE // Cổng kết nối thời gian thực ổn định.</span>
+            )}
+            {lastUpdated && (
+              <span className="shrink-0">ĐỒNG_BỘ: {lastUpdated.toLocaleTimeString("vi-VN")}</span>
+            )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

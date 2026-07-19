@@ -1,15 +1,33 @@
 "use client"
 
 import * as React from 'react'
-import { AlertCircle, Camera, Car, Clock, Loader2, MapPin, QrCode, ScanLine, Search, WifiOff, X } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  Camera,
+  Car,
+  Clock,
+  Loader2,
+  MapPin,
+  QrCode,
+  ScanLine,
+  Search,
+  WifiOff,
+  X,
+  RefreshCw,
+  Cpu,
+  Terminal,
+  Activity
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { AdminEmptyState, AdminPage, AdminPageHeader } from '@/components/layout/admin-page'
+import { AdminPage, AdminPageHeader } from '@/components/layout/admin-page'
 import { useDashboardData } from '@/lib/dashboard-data-context'
 import { useDashboardScope } from '@/lib/dashboard-scope-context'
 import { validPlateQuery } from '@/lib/plate-search.mjs'
+import { cn } from '@/lib/utils'
 
 type DetectedBarcode = { rawValue?: string }
 type BarcodeDetectorInstance = { detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]> }
@@ -26,34 +44,34 @@ function cameraAccessErrorMessage(error: unknown): string {
   switch (name) {
     case 'NotAllowedError':
     case 'SecurityError':
-      return 'Trình duyệt đang chặn quyền camera. Hãy chọn Cho phép camera trong trình duyệt rồi thử lại.'
+      return 'TRÌNH DUYỆT ĐANG CHẶN QUYỀN CAMERA. VUI LÒNG ĐỔI SANG CHO PHÉP ĐỂ KHỞI CHẠY QUÉT QR.'
     case 'NotFoundError':
     case 'OverconstrainedError':
-      return 'Không tìm thấy camera phù hợp trên thiết bị này. Bạn vẫn có thể nhập biển số thủ công.'
+      return 'KHÔNG TÌM THẤY THIẾT BỊ CAMERA PHÙ HỢP. VUI LÒNG NHẬP BIỂN SỐ THỦ CÔNG.'
     case 'NotReadableError':
     case 'AbortError':
-      return 'Camera đang bận hoặc không thể đọc được. Hãy đóng app khác đang dùng camera rồi thử lại.'
+      return 'THIẾT BỊ CAMERA ĐANG BẬN HOẶC BỊ CHIẾM QUYỀN BỞI ỨNG DỤNG KHÁC.'
     default:
-      return 'Không thể mở camera. Hãy cấp quyền camera rồi thử lại, hoặc nhập biển số thủ công.'
+      return 'LỖI KHÔNG XÁC ĐỊNH KHI TRUY CẬP CAMERA. HÃY KIỂM TRA QUYỀN THIẾT BỊ.'
   }
 }
 
 function scannerStatusMessage(status: ScannerStatus): string {
   switch (status) {
     case 'requesting':
-      return 'Đang yêu cầu quyền camera từ thiết bị…'
+      return 'REQS_CAMERA_ACCESS // ĐANG YÊU CẦU QUYỀN TRUY CẬP...'
     case 'granted':
-      return 'Đã được cấp quyền camera, đang khởi động khung quét…'
+      return 'CONN_ESTABLISHED // ĐÃ KẾT NỐI, KHỞI ĐỘNG CỔNG QUÉT...'
     case 'scanning':
-      return 'Đang tìm mã QR trong khung hình…'
+      return 'MATRIX_DECODER_RUNNING // ĐANG GIẢI MÃ KHUNG HÌNH...'
     case 'denied':
-      return 'Camera đang bị chặn. Hãy cấp quyền camera để quét QR.'
+      return 'ACCESS_DENIED // CAMERA BỊ CHẶN BỞI TRÌNH DUYỆT'
     case 'unavailable':
-      return 'Thiết bị hoặc trình duyệt hiện không hỗ trợ truy cập camera.'
+      return 'SYSTEM_UNSUPPORTED // THIẾT BỊ KHÔNG HỖ TRỢ CAMERA'
     case 'error':
-      return 'Không thể khởi động quét QR từ camera.'
+      return 'HARDWARE_FAILURE // KHÔNG THỂ KHỞI CHẠY KHUNG QUÉT'
     default:
-      return 'Sẵn sàng xin quyền camera để quét QR.'
+      return 'READY_TO_CONNECT // SẴN SÀNG KẾT NỐI CAMERA'
   }
 }
 
@@ -113,13 +131,13 @@ export default function VehiclePlateSearchPage() {
 
     if (!window.isSecureContext) {
       setScannerStatus('unavailable')
-      setScannerError('Trình duyệt chỉ cho phép dùng camera trên HTTPS hoặc localhost. Hãy mở trang bằng HTTPS để quét QR.')
+      setScannerError('CAMERA_REQUIRE_SECURE_CONTEXT // YÊU CẦU KẾT NỐI BẢO MẬT HTTPS HOẶC LOCALHOST.')
       return
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setScannerStatus('unavailable')
-      setScannerError('Trình duyệt này không hỗ trợ truy cập camera. Hãy nhập biển số thủ công hoặc dùng trình duyệt khác.')
+      setScannerError('API_NOT_SUPPORTED // TRÌNH DUYỆT KHÔNG HỖ TRỢ TRUY CẬP THIẾT BỊ ẢNH.')
       return
     }
 
@@ -177,7 +195,7 @@ export default function VehiclePlateSearchPage() {
         void searchVehiclesRef.current(nextQuery)
       } else {
         scanned = false
-        setScannerError('Mã QR không có biển số hoặc mã tìm kiếm hợp lệ.')
+        setScannerError('INVALID_PLATE_FORMAT // MÃ QR KHÔNG CHỨA BIỂN SỐ HỢP LỆ.')
       }
     }
 
@@ -242,50 +260,276 @@ export default function VehiclePlateSearchPage() {
     }
   }, [closeScanner, scannerOpen, scannerStream])
 
-  return <AdminPage>
-    <AdminPageHeader
-      eyebrow="Phương tiện"
-      title="Tìm phương tiện theo biển số"
-      description={`Quét QR hoặc nhập biển số. Kết quả được giới hạn trong site đang chọn và cập nhật theo ${realtime === 'live' ? 'realtime' : 'polling'}.`}
-    />
+  return (
+    <AdminPage>
+      {/* Dynamic CSS styles injection for high-tech custom lasers and frame loops */}
+      <style>{`
+        @keyframes techScan {
+          0% { transform: translateY(0); opacity: 0.8; }
+          50% { transform: translateY(220px); opacity: 1; }
+          100% { transform: translateY(0); opacity: 0.8; }
+        }
+        .tech-laser-line {
+          animation: techScan 2.5s ease-in-out infinite;
+        }
+      `}</style>
 
-    <form onSubmit={submit} className="grid gap-2 sm:flex">
-      <div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(event) => setQuery(event.target.value.toUpperCase())} placeholder="Ví dụ: 51A-123.45" className="pl-9 font-mono uppercase" aria-label="Biển số xe" /></div>
-      <div className="grid grid-cols-2 gap-2 sm:flex">
-        <Button type="button" variant="outline" onClick={handleScannerToggle} disabled={!selectedSiteId || scannerStatus === 'requesting'} aria-expanded={scannerOpen} aria-controls="vehicle-qr-scanner">{scannerStatus === 'requesting' ? <Loader2 className="h-4 w-4 animate-spin" /> : scannerOpen ? <X className="h-4 w-4" /> : <ScanLine className="h-4 w-4" />}{scannerStatus === 'requesting' ? 'Đang xin quyền' : scannerOpen ? 'Đóng quét' : 'Quét QR'}</Button>
-        <Button type="submit" disabled={!selectedSiteId || !validPlateQuery(query) || searchStatus === 'loading'}>{searchStatus === 'loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Tìm kiếm</Button>
-      </div>
-    </form>
+      <AdminPageHeader
+        eyebrow="MODULE // PHƯƠNG TIỆN"
+        title="TÌM PHƯƠNG TIỆN THEO BIỂN SỐ"
+        description={`Quét QR thiết bị hoặc truy vấn mã biển số. Cấu hình định vị site-local và phân giải luồng cập nhật dạng: ${realtime === 'live' ? 'AUTO_REALTIME' : 'POLLING_STATE'}.`}
+      />
 
-    {scannerOpen && <section id="vehicle-qr-scanner" className="platform-data-surface overflow-hidden p-3 sm:p-4" aria-labelledby="vehicle-qr-scanner-title">
-      <div className="mb-3 flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-[var(--radius-input)] bg-primary/10 text-primary"><QrCode className="size-5" aria-hidden="true" /></span><div className="min-w-0"><h2 id="vehicle-qr-scanner-title" className="font-semibold">Đưa mã QR vào khung hình</h2><p className="mt-1 text-sm text-muted-foreground">Ứng dụng sẽ xin quyền camera của thiết bị trước, ưu tiên camera sau, rồi tự điền biển số khi đọc được QR.</p></div></div>
-      <div className="relative aspect-video overflow-hidden rounded-[var(--radius-input)] bg-black">
-        {scannerStream ? <>
-          <video ref={videoRef} className="h-full w-full object-cover" muted playsInline aria-label="Khung xem trước camera quét QR" />
-          <div className="pointer-events-none absolute inset-[18%] rounded-[var(--radius-input)] border-2 border-primary shadow-[0_0_0_999px_rgb(0_0_0_/_0.35)]" aria-hidden="true" />
-        </> : <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-slate-200">
-          <span className="grid size-14 place-items-center rounded-full bg-white/10">
-            {scannerStatus === 'requesting' ? <Loader2 className="size-7 animate-spin" /> : <Camera className="size-7" />}
-          </span>
-          <div>
-            <p className="font-medium">{scannerStatus === 'requesting' ? 'Đang chờ bạn cấp quyền camera' : 'Camera chưa sẵn sàng'}</p>
-            <p className="mt-1 max-w-md text-sm text-slate-400">Nếu trình duyệt hỏi quyền, hãy chọn “Cho phép” để bắt đầu quét QR.</p>
+      <div className="space-y-6">
+        {/* Main Terminal Shell Card */}
+        <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+          {/* Cyan High-Tech Brackets */}
+          <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-500/30" />
+          <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-500/30" />
+          <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-500/30" />
+          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-500/30" />
+
+          <CardHeader className="border-b border-slate-900/60 pb-4">
+            <CardTitle className="text-xs font-mono tracking-wider text-cyan-400 uppercase flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
+              01 // SYS_VEHICLE_REG_SEARCH // CỦA NGÕ DỮ LIỆU
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="pt-6">
+            <form onSubmit={submit} className="grid gap-3 sm:flex">
+              <div className="relative flex-1">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-cyan-500/85 text-xs font-bold select-none">▶</span>
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value.toUpperCase())}
+                  placeholder="MÃ BIỂN SỐ (VÍ DỤ: 51A-123.45)..."
+                  className="pl-8 bg-slate-950/70 border-slate-800 text-cyan-100 placeholder-slate-700 font-mono uppercase h-11 rounded-lg focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/30 tracking-wider text-sm shadow-inner"
+                  aria-label="Biển số xe"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:flex">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleScannerToggle}
+                  disabled={!selectedSiteId || scannerStatus === 'requesting'}
+                  className="border-slate-800 bg-slate-950/40 hover:bg-slate-900 text-slate-300 hover:text-white font-mono text-xs uppercase h-11 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+                  aria-expanded={scannerOpen}
+                  aria-controls="vehicle-qr-scanner"
+                >
+                  {scannerStatus === 'requesting' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-500" />
+                  ) : scannerOpen ? (
+                    <X className="h-3.5 w-3.5 text-rose-400" />
+                  ) : (
+                    <ScanLine className="h-3.5 w-3.5 text-cyan-400" />
+                  )}
+                  <span>{scannerStatus === 'requesting' ? 'BUSY...' : scannerOpen ? 'CLOSE_SCAN' : 'SCAN_QR'}</span>
+                </Button>
+
+                <Button
+                  type="submit"
+                  disabled={!selectedSiteId || !validPlateQuery(query) || searchStatus === 'loading'}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-mono font-bold uppercase tracking-wider text-xs h-11 px-5 rounded-lg transition-all shadow-lg hover:shadow-cyan-500/20 flex items-center justify-center gap-2 disabled:opacity-40"
+                >
+                  {searchStatus === 'loading' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Search className="h-3.5 w-3.5" />
+                  )}
+                  <span>QUERY_EXEC</span>
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* High-Tech QR Scanner Surface */}
+        {scannerOpen && (
+          <section
+            id="vehicle-qr-scanner"
+            className="border border-cyan-500/20 bg-slate-950/30 text-slate-100 rounded-xl p-4 sm:p-5 relative overflow-hidden shadow-2xl backdrop-blur-md transition-all duration-300"
+            aria-labelledby="vehicle-qr-scanner-title"
+          >
+            {/* Tech Corners */}
+            <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t border-l border-cyan-500" />
+            <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t border-r border-cyan-500" />
+            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-cyan-500" />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b border-r border-cyan-500" />
+
+            <div className="mb-4 flex items-start gap-3.5 border-b border-slate-900/60 pb-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-cyan-950/40 border border-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)] animate-pulse">
+                <QrCode className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <h2 id="vehicle-qr-scanner-title" className="font-mono text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <span className="size-1 bg-cyan-500 rounded-full animate-ping" />
+                  QR_MATRIX_DECODER // QUÉT QR TỰ ĐỘNG
+                </h2>
+                <p className="mt-1 font-mono text-[10px] text-slate-400 leading-relaxed uppercase">
+                  Đưa mã QR định danh xe vào vùng quét. Luồng dữ liệu sẽ giải mã và điền kết quả vào hệ thống ngay lập tức.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative aspect-video max-w-2xl mx-auto overflow-hidden rounded-xl border border-slate-800 bg-slate-950/80 p-1.5 shadow-inner">
+              {scannerStream ? (
+                <div className="relative w-full h-full overflow-hidden rounded-lg bg-black">
+                  <video
+                    ref={videoRef}
+                    className="h-full w-full object-cover"
+                    muted
+                    playsInline
+                    aria-label="Khung xem trước camera quét QR"
+                  />
+                  
+                  {/* High Tech Reticle Viewfinder */}
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                    <div className="w-[50%] h-[55%] border border-cyan-500/30 rounded relative">
+                      {/* Viewfinder corners */}
+                      <div className="absolute -top-[1.5px] -left-[1.5px] w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400" />
+                      <div className="absolute -top-[1.5px] -right-[1.5px] w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400" />
+                      <div className="absolute -bottom-[1.5px] -left-[1.5px] w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400" />
+                      <div className="absolute -bottom-[1.5px] -right-[1.5px] w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400" />
+                      
+                      {/* Reticle center dot */}
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                      </div>
+
+                      {/* Moving tech scanning laser */}
+                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee] tech-laser-line" />
+                    </div>
+                  </div>
+
+                  {/* Camera overlay metadata */}
+                  <div className="absolute bottom-3 left-3 bg-slate-950/80 border border-slate-800 px-2 py-0.5 rounded font-mono text-[9px] text-cyan-400 tracking-wider">
+                    FEED_STATUS // ARMED
+                  </div>
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-slate-300">
+                  <span className="grid size-14 place-items-center rounded-full bg-slate-950 border border-slate-800 text-slate-400 shadow-inner">
+                    {scannerStatus === 'requesting' ? (
+                      <Loader2 className="size-6 animate-spin text-cyan-500" />
+                    ) : (
+                      <Camera className="size-6 text-slate-500" />
+                    )}
+                  </span>
+                  <div>
+                    <p className="font-mono text-xs font-bold text-slate-300 uppercase tracking-widest">
+                      {scannerStatus === 'requesting' ? 'CAMERA_CONNECTING...' : 'CAMERA_SIGNAL_OFFLINE'}
+                    </p>
+                    <p className="mt-1.5 max-w-xs font-mono text-[10px] text-slate-500 leading-relaxed uppercase">
+                      Vui lòng ấn &quot;Cho phép&quot; trong trình duyệt khi được yêu cầu để kích hoạt ống kính camera.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-900/60 pt-3.5">
+              <div className="flex items-center gap-2 font-mono text-xs">
+                <span className={cn(
+                  "h-2 w-2 rounded-full shrink-0",
+                  scannerError ? "bg-rose-500 animate-pulse" : "bg-cyan-500 animate-ping"
+                )} />
+                <p className={cn(
+                  "font-mono text-xs tracking-wide uppercase",
+                  scannerError ? 'text-rose-400' : 'text-cyan-400'
+                )} aria-live="polite">
+                  {scannerError ? `[SYS_ERROR] ${scannerError}` : `[TELEMETRY] ${scannerStatusMessage(scannerStatus)}`}
+                </p>
+              </div>
+              
+              {(scannerStatus === 'denied' || scannerStatus === 'unavailable' || scannerStatus === 'error') && (
+                <Button
+                  className="w-full sm:w-auto border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white font-mono text-[10px] uppercase tracking-wider h-8"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void requestCameraAccess()}
+                >
+                  <Camera className="h-3.5 w-3.5 mr-1.5 text-cyan-500" />
+                  RECONNECT_CAMERA
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Dynamic Search result rendering or appropriate Empty Panels */}
+        {!selectedSiteId && (
+          <StatePanel
+            icon={MapPin}
+            title="NO_ACTIVE_SITE // CHƯA CHỌN SITE"
+            description="Vui lòng lựa chọn một phân khu bãi đỗ (site) từ menu điều hướng trên cùng để bắt đầu thực hiện truy vấn."
+          />
+        )}
+
+        {selectedSiteId && searchStatus === 'idle' && (
+          <StatePanel
+            icon={Car}
+            title="SYSTEM_AWAITING_QUERY // ĐANG CHỜ PHƯƠNG TIỆN"
+            description="Nhập mã biển số xe thủ công hoặc khởi động quét mã QR định vị để bắt đầu khai thác thông tin từ cơ sở dữ liệu."
+          />
+        )}
+
+        {searchStatus === 'loading' && (
+          <div className="grid gap-6 md:grid-cols-2">
+            {[0, 1].map((item) => (
+              <div
+                key={item}
+                className="h-80 animate-pulse rounded-xl border border-slate-900 bg-slate-950/30 relative overflow-hidden"
+              >
+                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/10" />
+                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/10" />
+                <div className="h-44 bg-slate-950/80 border-b border-slate-900" />
+                <div className="p-5 space-y-3">
+                  <div className="h-5 bg-slate-900 rounded w-1/3" />
+                  <div className="h-4 bg-slate-900 rounded w-2/3" />
+                </div>
+              </div>
+            ))}
           </div>
-        </div>}
-      </div>
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className={`text-sm ${scannerError ? 'text-destructive' : 'text-muted-foreground'}`} aria-live="polite">{scannerError || scannerStatusMessage(scannerStatus)}</p>
-        {(scannerStatus === 'denied' || scannerStatus === 'unavailable' || scannerStatus === 'error') && <Button className="w-full sm:w-auto" type="button" variant="outline" size="sm" onClick={() => void requestCameraAccess()}><Camera className="h-4 w-4" />Cấp quyền lại</Button>}
-      </div>
-    </section>}
+        )}
 
-    {!selectedSiteId && <StatePanel icon={MapPin} title="Chưa có site để tìm kiếm" description="Chọn một site hoặc liên hệ quản trị viên để được cấp phạm vi." />}
-    {selectedSiteId && searchStatus === 'idle' && <StatePanel icon={Car} title="Nhập biển số để bắt đầu" description="Có thể nhập có hoặc không có dấu chấm và dấu gạch ngang." />}
-    {searchStatus === 'loading' && <div className="grid gap-4 md:grid-cols-2">{[0, 1].map((item) => <div key={item} className="h-64 animate-pulse rounded-xl bg-muted" />)}</div>}
-    {searchStatus === 'empty' && <StatePanel icon={Search} title="Không tìm thấy phương tiện" description={`Không có kết quả cho “${searchQuery}” trong site hiện tại.`} />}
-    {searchStatus === 'error' && <StatePanel icon={AlertCircle} title="Không thể tìm kiếm" description={searchError || 'API tìm kiếm đang không khả dụng.'} action={<Button variant="outline" onClick={() => void searchVehicles(query || searchQuery)}>Thử lại</Button>} />}
-    {searchStatus === 'ready' && vehicles.length > 0 && <div className="grid gap-4 md:grid-cols-2">{vehicles.map((vehicle) => <VehicleResult key={vehicle.id} vehicle={vehicle} />)}</div>}
-  </AdminPage>
+        {searchStatus === 'empty' && (
+          <StatePanel
+            icon={Search}
+            title="TARGET_NOT_FOUND // KHÔNG TÌM THẤY PHƯƠNG TIỆN"
+            description={`Hệ thống không ghi nhận bất kỳ dấu vết nào của phương tiện mang mã biển số “${searchQuery}” trong site hiện hành.`}
+          />
+        )}
+
+        {searchStatus === 'error' && (
+          <StatePanel
+            icon={AlertCircle}
+            title="API_CONNECTION_ERROR // TRUY VẤN THẤT BẠI"
+            description={searchError || 'Hệ thống Gateway API đang quá tải hoặc gặp lỗi đồng bộ hóa. Vui lòng thử lại.'}
+            action={
+              <Button
+                variant="outline"
+                className="border-slate-800 bg-slate-950/60 hover:bg-slate-900 text-slate-300 font-mono text-xs uppercase"
+                onClick={() => void searchVehicles(query || searchQuery)}
+              >
+                RETRY_TRANSMISSION
+              </Button>
+            }
+          />
+        )}
+
+        {searchStatus === 'ready' && vehicles.length > 0 && (
+          <div className="grid gap-6 md:grid-cols-2">
+            {vehicles.map((vehicle) => (
+              <VehicleResult key={vehicle.id} vehicle={vehicle} />
+            ))}
+          </div>
+        )}
+      </div>
+    </AdminPage>
+  )
 }
 
 function VehicleResult({ vehicle }: { vehicle: ReturnType<typeof useDashboardData>['vehicles'][number] }) {
@@ -293,19 +537,126 @@ function VehicleResult({ vehicle }: { vehicle: ReturnType<typeof useDashboardDat
   React.useEffect(() => setSnapshotFailed(false), [vehicle.snapshotUrl])
   const snapshot = vehicle.snapshotUrl && !snapshotFailed ? vehicle.snapshotUrl : null
   const inSlot = !!vehicle.currentSlotId
-  return <Card className="overflow-hidden">
-    <div className="flex aspect-video items-center justify-center bg-slate-950">
-      {snapshot ? <img src={snapshot} alt={`Ảnh gần nhất của ${vehicle.licensePlateNumber}`} className="h-full w-full object-cover" onError={() => setSnapshotFailed(true)} /> : <div className="flex flex-col items-center gap-2 text-sm text-slate-400"><Camera className="h-9 w-9" />Chưa có snapshot</div>}
-    </div>
-    <CardHeader><div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><CardTitle className="min-w-0 break-words font-[family:var(--font-outlier)] text-xl tabular-nums">{vehicle.licensePlateNumber}</CardTitle><Badge className="w-fit" variant={inSlot ? 'default' : 'secondary'}>{inSlot ? 'Trong bãi' : vehicle.lastEventType === 'exit' ? 'Đã rời bãi' : 'Không xác định vị trí'}</Badge></div></CardHeader>
-    <CardContent className="space-y-3 text-sm">
-      <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" /><span>{vehicle.currentSlotCode ? `Ô ${vehicle.currentSlotCode}` : vehicle.lastEventType === 'exit' ? 'Đã rời bãi' : 'Chưa có dữ liệu ô đỗ'}</span></div>
-      <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /><span>{vehicle.lastSeenAt ? new Date(vehicle.lastSeenAt).toLocaleString('vi-VN') : 'Chưa có lần nhìn thấy gần nhất'}</span></div>
-      {!inSlot && !snapshot && <div className="flex items-center gap-2 rounded-md bg-muted p-2 text-xs text-muted-foreground"><WifiOff className="h-4 w-4" />Không có occupancy hiện tại hoặc snapshot gần nhất.</div>}
-    </CardContent>
-  </Card>
+
+  return (
+    <Card className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl relative overflow-hidden backdrop-blur-xl group hover:border-cyan-500/30 transition-all duration-300">
+      {/* Sci-fi tech corner ticks */}
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/20 group-hover:border-cyan-500/50 transition-colors" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/20 group-hover:border-cyan-500/50 transition-colors" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/20 group-hover:border-cyan-500/50 transition-colors" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/20 group-hover:border-cyan-500/50 transition-colors" />
+
+      {/* Snapshot target camera box */}
+      <div className="relative aspect-video overflow-hidden bg-black/90 border-b border-slate-900/80">
+        {snapshot ? (
+          <>
+            <img
+              src={snapshot}
+              alt={`Ảnh chụp xe ${vehicle.licensePlateNumber}`}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={() => setSnapshotFailed(true)}
+            />
+            {/* Visual tech target overlay on hover */}
+            <div className="pointer-events-none absolute inset-0 bg-slate-950/15 mix-blend-overlay" />
+            <div className="pointer-events-none absolute inset-4 border border-cyan-500/10 rounded transition-opacity duration-300 group-hover:border-cyan-500/25">
+              <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
+              <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-400" />
+              <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-cyan-400" />
+              <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400" />
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-500 font-mono text-[10px] uppercase">
+            <Camera className="h-6 w-6 text-slate-700" />
+            <span>SNAPSHOT_NOT_FOUND</span>
+          </div>
+        )}
+
+        {/* Diagnostic tag overlay */}
+        <div className="absolute top-3 left-3 bg-slate-950/85 border border-slate-800/80 px-2.5 py-0.5 rounded font-mono text-[9px] text-cyan-400 uppercase tracking-widest">
+          CAM_FEED_SNAPSHOT
+        </div>
+      </div>
+
+      <CardHeader className="border-b border-slate-900/60 py-4 px-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <CardTitle className="font-mono text-base font-bold text-white tracking-widest uppercase select-all">
+            {vehicle.licensePlateNumber}
+          </CardTitle>
+          <Badge
+            className={cn(
+              "font-mono text-[10px] tracking-wide uppercase font-bold px-2 py-0.5 rounded border transition-colors",
+              inSlot
+                ? "bg-emerald-950/25 border-emerald-500/20 text-emerald-400"
+                : vehicle.lastEventType === 'exit'
+                ? "bg-slate-900/60 border-slate-800 text-slate-400"
+                : "bg-amber-950/25 border-amber-500/20 text-amber-400"
+            )}
+          >
+            {inSlot ? 'Trong bãi' : vehicle.lastEventType === 'exit' ? 'Đã rời bãi' : 'Ngoại vi / Chưa xác định'}
+          </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3.5 p-5 font-mono text-xs text-slate-300">
+        <div className="flex items-center gap-3.5 bg-slate-950/30 border border-slate-900/85 px-3.5 py-2 rounded-lg">
+          <MapPin className="h-4 w-4 shrink-0 text-cyan-400" />
+          <div className="min-w-0">
+            <p className="text-[9px] text-slate-500 uppercase tracking-wider">MÃ_PHÂN_VÙNG_Ô_ĐỖ:</p>
+            <p className="text-slate-200 mt-0.5 font-bold">
+              {vehicle.currentSlotCode ? `Ô SỐ ${vehicle.currentSlotCode}` : vehicle.lastEventType === 'exit' ? 'ĐÃ RỜI BÃI' : 'CHƯA ĐỊNH VỊ VÙNG'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3.5 bg-slate-950/30 border border-slate-900/85 px-3.5 py-2 rounded-lg">
+          <Clock className="h-4 w-4 shrink-0 text-cyan-400" />
+          <div className="min-w-0">
+            <p className="text-[9px] text-slate-500 uppercase tracking-wider">LẦN_CUỐI_GHI_NHẬN:</p>
+            <p className="text-slate-200 mt-0.5">
+              {vehicle.lastSeenAt ? new Date(vehicle.lastSeenAt).toLocaleString('vi-VN') : 'N/A'}
+            </p>
+          </div>
+        </div>
+
+        {!inSlot && !snapshot && (
+          <div className="flex items-start gap-2.5 rounded-lg border border-slate-900/40 bg-slate-950/20 p-3 text-[10px] text-slate-400 leading-relaxed uppercase">
+            <WifiOff className="h-4 w-4 shrink-0 text-slate-600" />
+            <span>Mất liên kết Occupancy hiện tại hoặc Snapshot gần nhất.</span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
-function StatePanel({ icon: Icon, title, description, action }: { icon: typeof Search; title: string; description: string; action?: React.ReactNode }) {
-  return <AdminEmptyState icon={<Icon className="size-6" />} title={title} description={description} action={action} />
+function StatePanel({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: typeof Search
+  title: string
+  description: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="border border-slate-900 bg-slate-950/15 rounded-xl p-8 text-center max-w-xl mx-auto flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-sm min-h-[260px] my-4 shadow-inner">
+      {/* Visual corners */}
+      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-800" />
+      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-800" />
+      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-800" />
+      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-800" />
+
+      <div className="p-4 rounded-full bg-slate-950/80 border border-slate-850 text-cyan-500/70 shadow-[0_0_15px_rgba(6,182,212,0.05)] mb-4">
+        <Icon className="size-6" />
+      </div>
+
+      <h3 className="font-mono text-xs font-bold text-slate-300 uppercase tracking-widest mb-1.5">{title}</h3>
+      <p className="text-[10px] font-mono text-slate-500 max-w-sm leading-relaxed uppercase mb-4">{description}</p>
+      
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  )
 }
