@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -45,7 +45,8 @@ import { RealtimeGateDashboard } from "@/components/vehicles/realtime-gate-dashb
 import { useAuth } from "@/lib/auth-context"
 import { canViewDashboard } from "@/lib/types"
 import { MvpAnalytics } from "@/components/dashboard/mvp-analytics"
-import { AdminEmptyState, AdminPage, AdminPageHeader, AdminSectionHeader } from "@/components/layout/admin-page"
+import { AdminPage, AdminPageHeader, AdminSectionHeader } from "@/components/layout/admin-page"
+import { cn } from "@/lib/utils"
 
 const TIMELINE_PAGE_SIZE = 8
 
@@ -72,9 +73,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [realtimePulse, setRealtimePulse] = useState(0)
 
-  // Role guard: non-operators are sent to the vehicle list (the dashboard is
-  // operator-only; target RBAC is documented in docs/06, today's 4-role model
-  // is the interim mapping via canViewDashboard).
+  // Role guard: non-operators are sent to the vehicle list
   useEffect(() => {
     if (!authLoading && user && !canViewDashboard(user.role)) {
       router.replace("/vehicles")
@@ -101,9 +100,6 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // WebSocket: bump the realtime pulse on every gate vehicle-check event so the
-  // embedded RealtimeGateDashboard refreshes immediately, and prepend a lightweight
-  // entry to the event timeline for instant feedback.
   const handleVehicleCheck = useCallback(
     (message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
       setRealtimePulse((p) => p + 1)
@@ -138,17 +134,15 @@ export default function DashboardPage() {
     }
   }, [loadData, user])
 
-  // Don't render the operator dashboard while auth resolves or a non-operator
-  // is being redirected away.
   if (authLoading || (user && !canViewDashboard(user.role))) {
     return (
       <AdminPage>
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
+            <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center">
               <RefreshCw className="h-8 w-8 text-primary animate-spin" />
             </div>
-            <p className="text-muted-foreground font-medium">Đang tải tổng quan...</p>
+            <p className="text-muted-foreground font-semibold text-sm">Đang tải...</p>
           </div>
         </div>
       </AdminPage>
@@ -160,10 +154,10 @@ export default function DashboardPage() {
       <AdminPage>
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
+            <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center">
               <RefreshCw className="h-8 w-8 text-primary animate-spin" />
             </div>
-            <p className="text-muted-foreground font-medium">Đang tải dữ liệu tổng quan...</p>
+            <p className="text-muted-foreground font-semibold text-sm">Đang tải dữ liệu tổng quan...</p>
           </div>
         </div>
       </AdminPage>
@@ -181,95 +175,46 @@ export default function DashboardPage() {
     {
       label: "Tổng phương tiện",
       value: vehicleStats?.totalVehicles ?? 0,
-      sub: "Phương tiện được quản lý",
+      sub: "Phương tiện được đăng ký",
       icon: Car,
-      metricId: "VEH_TOT",
-      glowColor: "rgba(34,211,238,0.12)", // Cyan
-      barColor: "bg-cyan-500",
-      textColor: "text-cyan-400",
-      borderColor: "border-cyan-500/20",
+      color: "text-blue-500 bg-blue-500/10 border-blue-500/20",
     },
     {
       label: "Đang hoạt động",
       value: vehicleStats?.activeVehicles ?? 0,
       sub: "Phương tiện đã được duyệt",
       icon: Activity,
-      metricId: "VEH_ACT",
-      glowColor: "rgba(16,185,129,0.12)", // Emerald
-      barColor: "bg-emerald-500",
-      textColor: "text-emerald-400",
-      borderColor: "border-emerald-500/20",
+      color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
     },
     {
       label: "Lượt vào hôm nay",
       value: todayStats?.entryCount ?? 0,
       sub: "Số lượt xe vào cổng",
       icon: ArrowDownToLine,
-      metricId: "LOG_ENT",
-      glowColor: "rgba(16,185,129,0.12)", // Emerald
-      barColor: "bg-emerald-400",
-      textColor: "text-emerald-400",
-      borderColor: "border-emerald-400/20",
+      color: "text-teal-500 bg-teal-500/10 border-teal-500/20",
     },
     {
       label: "Lượt ra hôm nay",
       value: todayStats?.exitCount ?? 0,
       sub: "Số lượt xe ra cổng",
       icon: ArrowUpFromLine,
-      metricId: "LOG_EXT",
-      glowColor: "rgba(244,63,94,0.12)", // Rose
-      barColor: "bg-rose-500",
-      textColor: "text-rose-400",
-      borderColor: "border-rose-500/20",
+      color: "text-rose-500 bg-rose-500/10 border-rose-500/20",
     },
   ]
 
   return (
-    <AdminPage className="space-y-6 bg-[#020617] text-slate-100 p-4 sm:p-6 lg:p-8 rounded-2xl relative min-h-screen overflow-hidden">
-      {/* Dynamic scan elements & background grid */}
-      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "radial-gradient(circle, #10b981 1.2px, transparent 1.2px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="absolute top-12 left-1/3 w-[300px] h-[300px] rounded-full bg-emerald-500/5 blur-[120px]" />
-        <div className="absolute bottom-24 right-1/4 w-[400px] h-[400px] rounded-full bg-cyan-500/5 blur-[140px]" />
-      </div>
-
-      {/* High-Tech Custom Header */}
-      <header className="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 p-5 sm:p-6 shadow-[0_0_20px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-        {/* Decorative corner lines */}
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-emerald-500/40" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-emerald-500/40" />
-        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-emerald-500/40" />
-        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-emerald-500/40" />
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[9px] font-mono font-medium text-emerald-400">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
-                SYSTEM_OK // LIVE_FEED
-              </span>
-              <span className="text-slate-700 font-mono text-[10px]">|</span>
-              <span className="text-slate-400 font-mono text-[9px] tracking-wider uppercase">LOC: CENTRAL_GATEWAY</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-mono uppercase">
-              PARK<span className="text-emerald-400">VISION</span> COMMAND_CENTER
-            </h1>
-            <p className="text-xs text-slate-400 max-w-2xl">
-              Hệ thống giám sát và quản lý vận hành cổng bãi đỗ thông minh thời gian thực.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 self-start md:self-center">
-            {/* Live digital clock */}
-            <div className="hidden sm:flex flex-col items-end px-3 py-1 rounded-lg border border-slate-900 bg-slate-950/80 font-mono text-xs">
-              <span className="text-slate-500 text-[8px] uppercase tracking-wider">Hệ thống thời gian</span>
-              <span className="text-emerald-400 font-bold tabular-nums">
+    <AdminPage className="space-y-6">
+      {/* Custom Page Header */}
+      <AdminPageHeader
+        eyebrow="Bảng điều khiển"
+        title="Trung tâm điều hành"
+        description="Hệ thống giám sát và quản lý vận hành cổng bãi đỗ thông minh thời gian thực."
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Live real-time clock */}
+            <div className="flex flex-col items-end px-3 py-1 rounded-xl border border-border bg-card font-mono text-xs shadow-sm min-w-[120px]">
+              <span className="text-muted-foreground text-[8px] uppercase tracking-wider font-semibold">Giờ ca trực</span>
+              <span className="text-primary font-bold tabular-nums">
                 {currentTime || "00:00:00"}
               </span>
             </div>
@@ -279,20 +224,20 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               size="sm"
-              className="h-9 border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-200 font-mono text-xs hover:border-emerald-500/30"
+              className="h-10 border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-1.5"
               onClick={() => loadData()}
               disabled={loading}
             >
-              <RefreshCw className={`size-3.5 mr-2 ${loading ? "animate-spin" : ""}`} />
-              LÀM_MỚI
+              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+              <span>Nạp lại API</span>
             </Button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {error && (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 text-xs font-mono text-rose-400">
-          ● API_ERROR_FETCH: {error}
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 text-xs font-mono text-rose-600 dark:text-rose-400 font-semibold shadow-sm">
+          ● LỖI TRUY XUẤT HỆ THỐNG: {error}
         </div>
       )}
 
@@ -303,8 +248,8 @@ export default function DashboardPage() {
       <section aria-labelledby="dashboard-metrics-title" className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <h2 id="dashboard-metrics-title" className="text-xs font-bold font-mono tracking-widest text-slate-400 uppercase">
-            KPI_MONITORING // Chỉ số cốt lõi hôm nay
+          <h2 id="dashboard-metrics-title" className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
+            Chỉ số cốt lõi hôm nay
           </h2>
         </div>
 
@@ -314,33 +259,25 @@ export default function DashboardPage() {
             return (
               <div
                 key={kpi.label}
-                className={`relative overflow-hidden rounded-xl border ${kpi.borderColor} bg-slate-950/40 p-4 transition-all duration-300 hover:scale-[1.02] hover:bg-slate-950/60`}
-                style={{
-                  boxShadow: `inset 0 0 12px ${kpi.glowColor}`,
-                }}
+                className="relative overflow-hidden rounded-xl border border-border bg-card p-4 transition-all duration-300 hover:scale-[1.01] shadow-[var(--shadow-card)]"
               >
-                {/* Decorative border bar */}
-                <div className={`absolute top-0 left-0 right-0 h-0.5 ${kpi.barColor}`} />
                 <div className="flex items-center justify-between gap-2">
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-mono text-slate-500 tracking-wider">
-                      [{kpi.metricId}]
-                    </span>
-                    <p className="text-xs font-semibold text-slate-400 tracking-wide">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground tracking-wide">
                       {kpi.label}
                     </p>
                   </div>
-                  <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 border border-slate-800`}>
-                    <Icon className={`size-4 ${kpi.textColor}`} />
+                  <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-xl border", kpi.color)}>
+                    <Icon className="size-4" />
                   </span>
                 </div>
                 <div className="mt-3 flex items-baseline justify-between">
-                  <span className="font-mono text-xl sm:text-2xl font-black leading-none tracking-tight text-white tabular-nums">
+                  <span className="font-mono text-xl sm:text-2xl font-black leading-none tracking-tight text-foreground tabular-nums">
                     {kpi.value.toLocaleString("vi-VN")}
                   </span>
-                  <span className="text-[9px] font-mono text-slate-500">ACTIVE</span>
+                  <Badge variant="outline" className="text-[9px] font-mono border-muted">Active</Badge>
                 </div>
-                <p className="mt-1.5 text-[11px] text-slate-500 truncate">{kpi.sub}</p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground truncate">{kpi.sub}</p>
               </div>
             )
           })}
@@ -359,59 +296,49 @@ export default function DashboardPage() {
 
       {/* Operational trends */}
       <section aria-label="Xu hướng và trạng thái vận hành" className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.75fr)]">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-5 backdrop-blur-xl flex flex-col justify-between">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between">
           <div>
             {/* Header */}
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="min-w-0">
-                <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest">
-                  ANALYTICS // CHART_TREND
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                  Thống kê & Biểu đồ
                 </span>
-                <h3 className="text-base font-bold text-white font-mono mt-0.5">Xu hướng lưu lượng</h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <h3 className="text-base font-bold text-foreground mt-0.5">Xu hướng lưu lượng</h3>
+                <p className="text-xs text-muted-foreground mt-1">
                   Biểu đồ thống kê lượt vào/ra và lượng phương tiện duy nhất theo ngày.
                 </p>
               </div>
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 border border-slate-800 text-emerald-400">
-                <BarChart3 className="size-4 animate-pulse" />
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-muted text-primary border border-border">
+                <BarChart3 className="size-4" />
               </span>
             </div>
 
             {/* Chart Area */}
             {chartData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center min-h-[250px] border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-6 text-center">
-                <BarChart3 className="size-8 text-slate-600 mb-2" />
-                <p className="text-sm font-semibold text-slate-400">Chưa có dữ liệu xu hướng</p>
-                <p className="text-xs text-slate-500 max-w-sm mt-1">
-                  Khi có lượt xe ra/vào, biểu đồ sẽ hiển thị nhịp vận hành tại đây.
+              <div className="flex flex-col items-center justify-center min-h-[250px] border border-dashed border-border rounded-xl bg-muted/25 p-6 text-center">
+                <BarChart3 className="size-8 text-muted-foreground/60 mb-2" />
+                <p className="text-sm font-semibold text-muted-foreground">Chưa có dữ liệu xu hướng</p>
+                <p className="text-xs text-muted-foreground/70 max-w-sm mt-1">
+                  Khi có lượt xe ra/vào cổng, biểu đồ nhịp vận hành sẽ hiển thị tại đây.
                 </p>
               </div>
             ) : (
               <div className="h-60 sm:h-80 w-full font-mono text-xs mt-4">
                 <ResponsiveContainer>
                   <ComposedChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
-                    <defs>
-                      <linearGradient id="entryGlow" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
-                      </linearGradient>
-                      <linearGradient id="exitGlow" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.4} />
-                    <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} stroke="#334155" />
-                    <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} stroke="#334155" allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-muted/30" opacity={0.4} />
+                    <XAxis dataKey="label" tick={{ fill: 'currentColor', fontSize: 10 }} className="text-muted-foreground" stroke="currentColor" />
+                    <YAxis tick={{ fill: 'currentColor', fontSize: 10 }} className="text-muted-foreground" stroke="currentColor" allowDecimals={false} />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(2, 6, 23, 0.95)',
-                        borderColor: '#334155',
-                        borderRadius: '8px',
-                        color: '#f8fafc',
+                        backgroundColor: 'var(--background)',
+                        borderColor: 'var(--border)',
+                        borderRadius: '12px',
+                        color: 'var(--foreground)',
                         fontFamily: 'monospace',
                         fontSize: '11px',
-                        boxShadow: '0 0 15px rgba(0,0,0,0.5)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                       }}
                     />
                     <Bar dataKey="entry" name="Lượt vào" fill="#10b981" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
@@ -420,9 +347,9 @@ export default function DashboardPage() {
                       type="monotone"
                       dataKey="unique"
                       name="Xe duy nhất"
-                      stroke="#06b6d4"
+                      stroke="#3b82f6"
                       strokeWidth={2.5}
-                      dot={{ fill: '#06b6d4', strokeWidth: 1 }}
+                      dot={{ fill: '#3b82f6', strokeWidth: 1 }}
                       activeDot={{ r: 5 }}
                     />
                   </ComposedChart>
@@ -444,21 +371,24 @@ export default function DashboardPage() {
       {/* Bottom panels: Logs & Radar scanning */}
       <section aria-label="Sự kiện và sơ đồ bãi đỗ" className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Live event feed */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-5 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-900">
-            <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
-              <ListTree className="h-4 w-4 text-emerald-400" />
-              LOG_FEED // Sự kiện gần đây
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <ListTree className="h-4.5 w-4.5 text-primary" />
+              Sự kiện ra vào gần đây
             </h3>
-            <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
           </div>
 
           {recentLogs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[220px] border border-dashed border-slate-800 rounded-xl bg-slate-950/20 p-6 text-center">
-              <ListTree className="size-8 text-slate-600 mb-2" />
-              <p className="text-sm font-semibold text-slate-400">Chưa có sự kiện nào hôm nay</p>
-              <p className="text-xs text-slate-500 max-w-sm mt-1">
-                Sự kiện vào/ra realtime sẽ xuất hiện ở đây kèm biển số.
+            <div className="flex flex-col items-center justify-center min-h-[220px] border border-dashed border-border rounded-xl bg-muted/20 p-6 text-center">
+              <ListTree className="size-8 text-muted-foreground/60 mb-2" />
+              <p className="text-sm font-semibold text-muted-foreground">Chưa có sự kiện nào hôm nay</p>
+              <p className="text-xs text-muted-foreground/70 max-w-sm mt-1">
+                Sự kiện xe ra/vào cổng trong thời gian thực sẽ xuất hiện ở đây.
               </p>
             </div>
           ) : (
@@ -466,27 +396,27 @@ export default function DashboardPage() {
               {recentLogs.map((log) => (
                 <li
                   key={log.id}
-                  className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-slate-900 bg-slate-950/60 px-3 py-2 transition-all duration-200 hover:border-slate-800"
+                  className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-muted/30 px-3.5 py-2.5 transition-all duration-200 hover:border-muted"
                 >
-                  <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                  <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase border ${
                     log.type === "entry"
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
                   }`}>
                     {log.type === "entry" ? "VÀO" : "RA"}
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate font-mono text-xs font-bold text-slate-200 tracking-wider">
+                    <p className="truncate font-mono text-xs font-bold text-foreground tracking-wider">
                       {log.licensePlateNumber}
                     </p>
                     {log.employeeName && (
-                      <p className="truncate text-[10px] text-slate-500 font-mono mt-0.5">
+                      <p className="truncate text-[10px] text-muted-foreground font-medium mt-0.5">
                         {log.employeeName}
                       </p>
                     )}
                   </div>
-                  <time className="flex items-center gap-1 font-mono text-[10px] text-slate-500" dateTime={log.entryExitTime}>
-                    <Clock className="h-3 w-3 text-emerald-400" />
+                  <time className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground" dateTime={log.entryExitTime}>
+                    <Clock className="h-3 w-3 text-muted-foreground/60" />
                     {log.entryExitTime
                       ? new Date(log.entryExitTime).toLocaleTimeString("vi-VN")
                       : "—"}
@@ -498,44 +428,44 @@ export default function DashboardPage() {
         </div>
 
         {/* High-Tech Active Radar / Parking Area Layout */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-5 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-900">
-            <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
-              <MapIcon className="h-4 w-4 text-emerald-400" />
-              RADAR_SCAN // Sơ đồ ô đỗ xe
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+              <MapIcon className="h-4.5 w-4.5 text-primary" />
+              Sơ đồ vùng đỗ xe
             </h3>
-            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-mono text-[9px] font-semibold text-cyan-400">
-              SYS_ACTIVE
-            </span>
+            <Badge variant="outline" className="border-primary/25 bg-primary/5 text-primary text-[10px] uppercase">
+              Vận hành ổn định
+            </Badge>
           </div>
 
-          <div className="relative flex flex-col items-center justify-center min-h-[220px] border border-slate-900 rounded-xl bg-slate-950/60 p-6 overflow-hidden">
+          <div className="relative flex flex-col items-center justify-center min-h-[220px] border border-border rounded-xl bg-muted/20 p-6 overflow-hidden">
             {/* Background grid */}
-            <div className="absolute inset-0 opacity-[0.15]" style={{
-              backgroundImage: "linear-gradient(to right, #10b981 1px, transparent 1px), linear-gradient(to bottom, #10b981 1px, transparent 1px)",
+            <div className="absolute inset-0 opacity-[0.1]" style={{
+              backgroundImage: "linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)",
               backgroundSize: "20px 20px"
             }} />
 
             {/* Pulsing scanning beam */}
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-transparent to-emerald-500/5 animate-pulse border-b border-emerald-500/20" />
+            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-transparent to-primary/5 animate-pulse border-b border-primary/10" />
 
             {/* Radar scan circular line */}
-            <div className="relative size-32 rounded-full border border-emerald-500/25 flex items-center justify-center">
-              <div className="size-24 rounded-full border border-emerald-500/15 flex items-center justify-center">
-                <div className="size-16 rounded-full border border-emerald-500/10 flex items-center justify-center">
-                  <div className="size-2 bg-emerald-400 rounded-full animate-ping" />
+            <div className="relative size-32 rounded-full border border-primary/25 flex items-center justify-center">
+              <div className="size-24 rounded-full border border-primary/15 flex items-center justify-center">
+                <div className="size-16 rounded-full border border-primary/10 flex items-center justify-center">
+                  <div className="size-2 bg-primary rounded-full animate-ping" />
                 </div>
               </div>
               {/* Spinning sweep arm */}
               <div className="absolute inset-0 origin-center animate-[spin_8s_linear_infinite] pointer-events-none">
-                <div className="w-1/2 h-full border-r border-emerald-400/25 bg-gradient-to-l from-emerald-500/5 to-transparent skew-x-12" />
+                <div className="w-1/2 h-full border-r border-primary/25 bg-gradient-to-l from-primary/5 to-transparent skew-x-12" />
               </div>
             </div>
 
             <div className="relative z-10 text-center mt-4">
-              <p className="text-xs font-mono font-bold text-slate-300">SCANNING_ZONES... OK</p>
-              <p className="text-[11px] text-slate-500 max-w-sm mt-1">
-                Giao diện quản lý ô đỗ thời gian thực. Zone A, B, C hiện đang đạt hiệu suất tối ưu 82%.
+              <p className="text-xs font-mono font-bold text-foreground">HỆ THỐNG KIỂM SOÁT SLOT</p>
+              <p className="text-[11px] text-muted-foreground max-w-sm mt-1">
+                Giao diện quản lý thông minh. Các phân khu đang đạt hiệu suất tối ưu 82%.
               </p>
             </div>
           </div>
@@ -565,41 +495,39 @@ function OperationalSnapshotCard({
 
   const items = [
     {
-      label: "LƯU_LƯỢNG_HÔM_NAY",
-      value: `${(todayStats?.entryCount ?? 0).toLocaleString("vi-VN")} VÀO // ${(todayStats?.exitCount ?? 0).toLocaleString("vi-VN")} RA`,
-      note: `${(todayStats?.uniqueVehicles ?? 0).toLocaleString("vi-VN")} XE DUY NHẤT`,
-      color: "text-emerald-400",
+      label: "LƯU LƯỢNG HÔM NAY",
+      value: `${(todayStats?.entryCount ?? 0).toLocaleString("vi-VN")} Vào / ${(todayStats?.exitCount ?? 0).toLocaleString("vi-VN")} Ra`,
+      note: `${(todayStats?.uniqueVehicles ?? 0).toLocaleString("vi-VN")} Xe duy nhất`,
+      color: "text-emerald-600 dark:text-emerald-400",
     },
     {
-      label: "ĐỘI_XE_VẬN_HÀNH",
+      label: "ĐỘI XE VẬN HÀNH",
       value: `${(vehicleStats?.activeVehicles ?? 0).toLocaleString("vi-VN")} / ${(vehicleStats?.totalVehicles ?? 0).toLocaleString("vi-VN")}`,
-      note: "PHƯƠNG TIỆN ĐÃ ĐƯỢC DUYỆT HOẠT ĐỘNG",
-      color: "text-cyan-400",
+      note: "Phương tiện hoạt động",
+      color: "text-blue-600 dark:text-blue-400",
     },
     {
-      label: "SỰ_KIỆN_MỚI_NHẤT",
+      label: "SỰ KIỆN MỚI NHẤT",
       value: lastLogTime,
-      note: lastLog?.licensePlateNumber ? `BIỂN SỐ: ${lastLog.licensePlateNumber}` : "CHỜ SỰ KIỆN GHI NHẬN",
-      color: "text-amber-400",
+      note: lastLog?.licensePlateNumber ? `Biển số: ${lastLog.licensePlateNumber}` : "Đang chờ ghi nhận",
+      color: "text-amber-600 dark:text-amber-400",
     },
   ]
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/40 p-5 backdrop-blur-xl flex flex-col justify-between">
-      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 blur-[40px] pointer-events-none" />
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm flex flex-col justify-between">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-mono text-slate-500">MONITOR_PANEL</span>
-            <h3 className="text-base font-bold text-white font-mono">Bảng trạng thái ca trực</h3>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">TRẠNG THÁI CA TRỰC</span>
           </div>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-mono font-medium border ${
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-mono font-semibold border ${
             connected
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-              : "border-rose-500/30 bg-rose-500/10 text-rose-400"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
           }`}>
             <span className={`size-1.5 rounded-full ${connected ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
-            {connected ? "SYS_STABLE" : "SYS_OFFLINE"}
+            {connected ? "Gateway Online" : "Gateway Offline"}
           </span>
         </div>
 
@@ -607,26 +535,26 @@ function OperationalSnapshotCard({
           {items.map((item) => (
             <div
               key={item.label}
-              className="rounded-xl border border-slate-900 bg-slate-950/80 p-3 flex flex-col justify-between gap-1 transition-all duration-200 hover:border-slate-800"
+              className="rounded-xl border border-border bg-muted/20 p-3.5 flex flex-col justify-between gap-1 transition-all duration-200 hover:border-muted"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[9px] font-mono text-slate-500">{item.label}</span>
-                <span className="text-[8px] font-mono text-slate-600">LIVE</span>
+                <span className="text-[9px] font-bold text-muted-foreground">{item.label}</span>
+                <span className="text-[8px] font-mono text-muted-foreground">LIVE</span>
               </div>
-              <div className="flex items-baseline justify-between mt-0.5">
+              <div className="flex items-baseline justify-between mt-1">
                 <p className={`text-sm font-bold font-mono ${item.color}`}>
-                  {loading ? "LOAD_DATA..." : item.value}
+                  {loading ? "Đang tải..." : item.value}
                 </p>
-                <p className="text-[10px] text-slate-400 font-mono tracking-wide">{item.note}</p>
+                <p className="text-[10px] text-muted-foreground font-medium tracking-wide">{item.note}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-emerald-500/15 bg-emerald-500/5 px-3 py-2.5 text-xs font-mono text-emerald-400 leading-normal flex items-start gap-2">
-        <span className="font-bold text-emerald-500">[!]</span>
-        <span>Hệ thống ưu tiên kết nối realtime. Nếu xảy ra sự cố mất đồng bộ, hãy nhấn nút LÀM_MỚI ở trên đầu.</span>
+      <div className="mt-4 rounded-xl border border-primary/10 bg-primary/5 px-3.5 py-3 text-xs text-primary leading-normal flex items-start gap-2 shadow-sm font-medium">
+        <span className="font-bold text-primary">[!]</span>
+        <span>Hệ thống ưu tiên đồng bộ WebSocket. Nếu xảy ra gián đoạn, hãy sử dụng nút làm mới ở phía trên.</span>
       </div>
     </div>
   )
@@ -645,22 +573,22 @@ function ConnectionPill({
         role="status"
         aria-label="Realtime"
         title="Realtime"
-        className="inline-flex !h-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 gap-1.5 px-3 text-xs font-mono font-medium text-emerald-400"
+        className="inline-flex !h-10 shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 gap-1.5 px-3.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 shadow-sm"
       >
         <Wifi className="size-3.5" />
-        <span>SYS_SYNC</span>
+        <span>Thời gian thực</span>
       </span>
     )
   }
   return (
     <button
       onClick={onReconnect}
-      className="inline-flex !h-9 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/10 gap-1.5 px-3 text-xs font-mono font-medium text-rose-400 transition-opacity duration-150 hover:opacity-80"
+      className="inline-flex !h-10 shrink-0 touch-manipulation items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 gap-1.5 px-3.5 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-opacity duration-150 hover:opacity-80 shadow-sm"
       aria-label="Mất kết nối realtime — nhấn để kết nối lại"
       title="Mất kết nối realtime"
     >
       <WifiOff className="size-3.5" />
-      <span>SYS_LOST</span>
+      <span>Mất kết nối</span>
     </button>
   )
 }

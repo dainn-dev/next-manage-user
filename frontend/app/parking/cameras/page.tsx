@@ -7,8 +7,6 @@ import {
   RefreshCw,
   Radio,
   Activity,
-  Clock3,
-  Wifi,
   WifiOff,
   Loader2,
 } from "lucide-react"
@@ -16,7 +14,7 @@ import {
 import { CameraTile } from "@/components/dashboard/camera-tile"
 import { useDashboardData } from "@/lib/dashboard-data-context"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
-import { AdminPage } from "@/components/layout/admin-page"
+import { AdminPage, AdminPageHeader, AdminEmptyState } from "@/components/layout/admin-page"
 import { Button } from "@/components/ui/button"
 
 export default function LiveCamerasPage() {
@@ -25,7 +23,7 @@ export default function LiveCamerasPage() {
 
   const [currentTime, setCurrentTime] = React.useState<string>("")
 
-  // Realtime clock for high-tech header
+  // Realtime clock
   React.useEffect(() => {
     if (typeof window !== "undefined") {
       setCurrentTime(new Date().toLocaleTimeString("vi-VN"))
@@ -47,52 +45,18 @@ export default function LiveCamerasPage() {
   const loading = status === "loading" || status === "idle"
 
   return (
-    <AdminPage className="space-y-6 bg-[#020617] text-slate-100 p-4 sm:p-6 lg:p-8 rounded-2xl relative min-h-screen overflow-hidden">
-      {/* Grid tech background decorations */}
-      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "radial-gradient(circle, #06b6d4 1.2px, transparent 1.2px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="absolute top-1/4 right-1/4 w-[350px] h-[350px] rounded-full bg-cyan-500/5 blur-[120px]" />
-        <div className="absolute bottom-1/3 left-10 w-[300px] h-[300px] rounded-full bg-emerald-500/5 blur-[100px]" />
-      </div>
-
-      {/* Cybernetic Header */}
-      <header className="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 p-5 sm:p-6 shadow-[0_0_20px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-500/40" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-500/40" />
-        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-500/40" />
-        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-500/40" />
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[9px] font-mono font-medium text-cyan-400">
-                <span className="size-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                {"VIDEO_STREAM // MULTI_CAM_SURVEILLANCE"}
-              </span>
-              <span className="text-slate-700 font-mono text-[10px]">|</span>
-              <span className="text-slate-400 font-mono text-[9px] tracking-wider uppercase">
-                {selectedZoneId ? `ZONE: ${selectedZoneId.slice(0, 8)}` : "ALL_ZONES"}
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-mono uppercase">
-              CAMERA TRỰC TIẾP <span className="text-cyan-400">{"// LIVE_FEED"}</span>
-            </h1>
-            <p className="text-xs text-slate-400 max-w-2xl">
-              Giám sát trực tiếp các camera an ninh tại bãi xe. Chỉ hiển thị camera thuộc site và zone đang được chọn ở thanh điều phối.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 self-start md:self-center">
-            {/* Live digital clock */}
-            <div className="hidden sm:flex flex-col items-end px-3 py-1 rounded-lg border border-slate-900 bg-slate-950/80 font-mono text-xs">
-              <span className="text-slate-500 text-[8px] uppercase tracking-wider">Hệ thống thời gian</span>
-              <span className="text-cyan-400 font-bold tabular-nums">
+    <AdminPage className="space-y-6">
+      {/* Page Header */}
+      <AdminPageHeader
+        eyebrow="Giám sát bãi xe"
+        title="Camera trực tuyến"
+        description="Giám sát trực tiếp các camera an ninh AI tại bãi xe. Chỉ hiển thị camera thuộc site và zone đang được chọn."
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Live real-time clock */}
+            <div className="flex flex-col items-end px-3 py-1 rounded-xl border border-border bg-card font-mono text-xs shadow-sm min-w-[120px]">
+              <span className="text-muted-foreground text-[8px] uppercase tracking-wider font-semibold">Giờ hệ thống</span>
+              <span className="text-primary font-bold tabular-nums">
                 {currentTime || "00:00:00"}
               </span>
             </div>
@@ -102,68 +66,55 @@ export default function LiveCamerasPage() {
               size="sm"
               onClick={() => void refresh()}
               disabled={loading}
-              className="h-10 px-3.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 font-mono text-xs hover:border-cyan-500/20"
-              title="Làm mới"
+              className="h-10 px-3.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-1.5"
             >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin text-cyan-400" : ""}`} />
-              <span>NẠP LẠI</span>
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
+              <span>Nạp lại API</span>
             </Button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      {/* Cyber stats widgets */}
+      {/* Stats Cards */}
       <section className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Thông số camera">
         {[
           {
             label: "TỔNG SỐ CAMERA",
             value: loading && cameras.length === 0 ? "..." : cameras.length,
             icon: Camera,
-            id: "TOTAL_CAMERAS",
-            color: "text-cyan-400",
-            glow: "rgba(6,182,212,0.08)",
-            border: "border-cyan-500/15",
+            color: "text-blue-500 dark:text-blue-400 bg-blue-500/10 border-blue-500/20",
           },
           {
-            label: "TRỰC TUYẾN",
+            label: "CAMERA ONLINE",
             value: loading && cameras.length === 0 ? "..." : onlineCount,
             icon: Radio,
-            id: "ONLINE_FEED",
-            color: "text-emerald-400",
-            glow: "rgba(16,185,129,0.08)",
-            border: "border-emerald-500/15",
+            color: "text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
           },
           {
-            label: "NGOẠI TUYẾN",
+            label: "CAMERA OFFLINE",
             value: loading && cameras.length === 0 ? "..." : offlineCount,
             icon: WifiOff,
-            id: "OFFLINE_FEED",
-            color: "text-rose-400",
-            glow: "rgba(244,63,94,0.08)",
-            border: "border-rose-500/15",
+            color: "text-rose-500 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
             className: "col-span-2 sm:col-span-1",
           },
-        ].map(({ label, value, icon: Icon, id, color, glow, border, className }) => (
+        ].map(({ label, value, icon: Icon, color, className }) => (
           <div
             key={label}
-            className={`relative overflow-hidden rounded-xl border ${border} bg-slate-950/40 p-4 transition-all duration-300 hover:scale-[1.01] hover:bg-slate-950/60 ${className ?? ""}`}
-            style={{
-              boxShadow: `inset 0 0 12px ${glow}`,
-            }}
+            className={`relative overflow-hidden rounded-xl border border-border bg-card p-4 transition-all duration-300 hover:scale-[1.01] shadow-[var(--shadow-card)] ${className ?? ""}`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[8px] font-mono text-slate-500">[{id}]</span>
-              <span className="text-[8px] font-mono text-slate-600">ACTIVE</span>
-            </div>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 border border-slate-800">
-                <Icon className={`size-4.5 ${color}`} />
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+              <span className="flex h-1.5 w-1.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/40 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
               </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-mono text-slate-400 uppercase tracking-wide truncate">
-                  {label}
-                </p>
-                <p className={`font-mono text-sm sm:text-lg font-black leading-none tracking-tight mt-1 ${color}`}>
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl border ${color}`}>
+                <Icon className="size-5" />
+              </span>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono">
                   {value}
                 </p>
               </div>
@@ -172,17 +123,17 @@ export default function LiveCamerasPage() {
         ))}
       </section>
 
-      {/* Mode fallback notifications */}
+      {/* Connection fallback status */}
       {realtime !== "live" && (
-        <div className="flex flex-col gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-mono text-amber-200 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-primary sm:flex-row sm:items-center shadow-sm font-medium">
           <div className="flex min-w-0 items-start gap-2">
-            <WifiOff className="mt-0.5 size-4 shrink-0 text-amber-400" />
-            <span className="min-w-0">
-              CHẾ ĐỘ REALTID_OFFLINE: Đang đồng bộ trạng thái camera định kỳ thay vì kết nối Socket liên tục.
+            <Activity className="mt-0.5 size-4 shrink-0 text-primary animate-pulse" />
+            <span className="min-w-0 uppercase text-[10px] tracking-wide leading-relaxed">
+              Đồng bộ camera định kỳ: Đang tự động cập nhật trạng thái kết nối camera định kỳ từ Gateway.
             </span>
           </div>
           {lastUpdatedAt && (
-            <span className="shrink-0 text-[10px] text-amber-400/70 sm:ml-auto">
+            <span className="shrink-0 text-[10px] text-primary/80 sm:ml-auto">
               ĐỒNG BỘ CUỐI: {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
             </span>
           )}
@@ -190,10 +141,10 @@ export default function LiveCamerasPage() {
       )}
 
       {error && (
-        <div className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-mono text-rose-300">
-          <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-400" />
+        <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/5 p-3.5 text-xs text-rose-600 dark:text-rose-400 shadow-sm font-medium">
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-500" />
           <div className="min-w-0">
-            <span className="text-[9px] block text-rose-400 mb-1">{"[ERROR_OCCURRED]"}</span>
+            <span className="text-[9px] font-mono block text-rose-500 font-bold mb-1">SYSTEM_ERROR</span>
             <span>{error}</span>
           </div>
         </div>
@@ -201,26 +152,31 @@ export default function LiveCamerasPage() {
 
       {/* Main Grid View */}
       {!selectedSiteId ? (
-        <EmptyState title="CHƯA CÓ SITE ĐỂ HIỂN THỊ" description="Vui lòng cấu hình hoặc chọn một site để truy xuất dòng truyền camera tương ứng." />
+        <AdminEmptyState
+          icon={<Camera className="size-6 text-muted-foreground" />}
+          title="Chưa chọn phân khu bãi xe"
+          description="Vui lòng chọn một phân khu (site) ở bộ điều phối phía trên để xem luồng truyền hình ảnh camera tương ứng."
+        />
       ) : loading && cameras.length === 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
-              className="relative aspect-video rounded-xl border border-slate-900 bg-slate-950/40 overflow-hidden"
+              className="relative aspect-video rounded-xl border border-border bg-muted/30 overflow-hidden shadow-sm"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-900/40 to-transparent animate-pulse" />
-              <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] text-slate-700">
-                <Loader2 className="size-4 animate-spin mr-2 text-cyan-500/50" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-muted/40 to-transparent animate-pulse" />
+              <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground font-mono">
+                <Loader2 className="size-4 animate-spin mr-2 text-primary" />
                 CONNECTING_CHANNEL_{index}...
               </div>
             </div>
           ))}
         </div>
       ) : cameras.length === 0 ? (
-        <EmptyState
-          title="KHÔNG CÓ CAMERA ĐƯỢC THIẾT LẬP"
-          description={selectedZoneId ? "Zone hiện tại chưa được gán nguồn camera nào." : "Site hiện tại chưa thiết lập camera giám sát nào."}
+        <AdminEmptyState
+          icon={<Camera className="size-6 text-muted-foreground" />}
+          title="Không tìm thấy camera"
+          description={selectedZoneId ? "Khu vực đang chọn chưa có nguồn camera giám sát nào." : "Phân khu đang chọn chưa thiết lập nguồn camera giám sát nào."}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -230,19 +186,5 @@ export default function LiveCamerasPage() {
         </div>
       )}
     </AdminPage>
-  )
-}
-
-function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center font-mono text-slate-500 border border-slate-900 rounded-xl bg-slate-950/20 min-h-[18rem]">
-      <span className="grid size-12 place-items-center rounded-xl bg-slate-900 border border-slate-800 text-slate-600 mb-3">
-        <Camera className="size-6 text-cyan-400 animate-pulse" />
-      </span>
-      <p className="text-xs font-bold text-slate-400 uppercase">{title}</p>
-      <p className="text-[10px] mt-1 text-slate-600 max-w-sm mx-auto leading-relaxed">
-        {description}
-      </p>
-    </div>
   )
 }

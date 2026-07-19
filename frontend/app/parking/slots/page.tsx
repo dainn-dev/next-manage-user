@@ -32,7 +32,7 @@ import {
 
 import { useDashboardData } from "@/lib/dashboard-data-context"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
-import { AdminPage } from "@/components/layout/admin-page"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -254,58 +254,18 @@ export default function ParkingSlotsPage() {
   }, [selectedZoneId, zones])
 
   return (
-    <AdminPage className="space-y-6 bg-[#020617] text-slate-100 p-4 sm:p-6 lg:p-8 rounded-2xl relative min-h-screen overflow-hidden">
-      {/* Visual Tech Corner Accents */}
-      <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-500/20 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyan-500/20 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyan-500/20 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyan-500/20 pointer-events-none" />
-
-      {/* Futuristic Backdrop Matrix Grids */}
-      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "radial-gradient(circle, #06b6d4 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
-          }}
-        />
-        <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] rounded-full bg-cyan-500/5 blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] rounded-full bg-emerald-500/5 blur-[100px]" />
-      </div>
-
-      {/* Sci-Fi Tech Header Banner */}
-      <header className="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60 p-5 sm:p-6 shadow-[0_0_25px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-500" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-500" />
-        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-500" />
-        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-500" />
-
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-[9px] font-mono font-bold text-cyan-400">
-                <span className="size-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                {"SENSOR_ARRAY // PARKING_SLOT_MONITOR"}
-              </span>
-              <span className="text-slate-800 font-mono text-[10px]">|</span>
-              <span className="text-slate-400 font-mono text-[9px] tracking-widest uppercase">
-                {activeZoneName}
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-wider text-white font-mono uppercase flex items-center gap-2">
-              QUẢN LÝ Ô ĐỖ XE <span className="text-cyan-400">{"// DETECTOR_CELLS"}</span>
-            </h1>
-            <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
-              Trạng thái bận/trống thực tế của bãi xe được kết nối trực tiếp với cảm biến IoT thông minh và AI Camera. Tự động phản hồi ra/vào tức thì.
-            </p>
-          </div>
-
+    <AdminPage className="space-y-6">
+      {/* Page Header */}
+      <AdminPageHeader
+        eyebrow="Quản lý bãi xe"
+        title="Quản lý ô đỗ xe"
+        description="Trạng thái bận/trống thực tế của bãi xe được kết nối trực tiếp với cảm biến IoT thông minh và AI Camera. Tự động phản hồi ra/vào tức thì."
+        actions={
           <div className="flex flex-wrap items-center gap-3">
             {/* Live real-time clock */}
-            <div className="flex flex-col items-end px-3 py-1 rounded-lg border border-slate-900 bg-slate-950 font-mono text-xs shadow-inner min-w-[120px]">
-              <span className="text-slate-600 text-[8px] uppercase tracking-wider font-bold">SYSTEM_UTC_VN</span>
-              <span className="text-cyan-400 font-bold tabular-nums">
+            <div className="flex flex-col items-end px-3 py-1 rounded-xl border border-border bg-card font-mono text-xs shadow-sm min-w-[120px]">
+              <span className="text-muted-foreground text-[8px] uppercase tracking-wider font-semibold">Giờ hệ thống</span>
+              <span className="text-primary font-bold tabular-nums">
                 {currentTime || "00:00:00"}
               </span>
             </div>
@@ -315,91 +275,73 @@ export default function ParkingSlotsPage() {
               size="sm"
               onClick={() => void refresh()}
               disabled={loading}
-              className="h-10 px-3.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 font-mono text-xs hover:border-cyan-500/30 transition-all flex items-center gap-1.5"
+              className="h-10 px-3.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-1.5"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-cyan-400" : ""}`} />
-              <span>NẠP LẠI API</span>
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
+              <span>Nạp lại API</span>
             </Button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      {/* Micro-telemetry & Connection status bar */}
+      {/* Connection status bar */}
       {realtime !== "live" && (
-        <div className="flex flex-col gap-2 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3.5 text-xs font-mono text-cyan-200 sm:flex-row sm:items-center shadow-lg">
+        <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-primary sm:flex-row sm:items-center shadow-sm">
           <div className="flex min-w-0 items-start gap-2">
-            <Activity className="mt-0.5 size-4 shrink-0 text-cyan-400 animate-pulse" />
-            <span className="min-w-0 uppercase text-[10px] tracking-wide leading-relaxed">
-              {"REALTID_STATE // HYBRID_SYNC_MODE: Bảng thông tin tự động đồng bộ cảm biến định kỳ."}
+            <Activity className="mt-0.5 size-4 shrink-0 text-primary animate-pulse" />
+            <span className="min-w-0 uppercase text-[10px] tracking-wide leading-relaxed font-semibold">
+              Đồng bộ cảm biến định kỳ: Bảng thông tin tự động đồng bộ cảm biến định kỳ từ Gateway.
             </span>
           </div>
           {lastUpdatedAt && (
-            <span className="shrink-0 text-[10px] text-cyan-400/80 sm:ml-auto">
+            <span className="shrink-0 text-[10px] text-primary/80 sm:ml-auto">
               ĐỒNG BỘ CUỐI: {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
             </span>
           )}
         </div>
       )}
 
-      {/* Cyber stats cards */}
+      {/* Stats cards */}
       <section className="grid min-w-0 grid-cols-2 lg:grid-cols-5 gap-3" aria-label="Thông số bãi xe">
         {[
           {
             label: "TỔNG SỐ Ô ĐỖ",
             value: loading && slots.length === 0 ? "..." : stats.total,
             icon: LayoutGrid,
-            id: "TOTAL_CELLS",
-            color: "text-blue-400",
-            glow: "rgba(59,130,246,0.1)",
-            border: "border-blue-500/20",
+            color: "text-blue-500 dark:text-blue-400 bg-blue-500/10 border-blue-500/20",
           },
           {
             label: "Ô TRỐNG (AVAILABLE)",
             value: loading && slots.length === 0 ? "..." : stats.available,
             icon: CheckCircle,
-            id: "VACANT_NODES",
-            color: "text-emerald-400",
-            glow: "rgba(16,185,129,0.1)",
-            border: "border-emerald-500/20",
+            color: "text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
             pulse: true,
           },
           {
             label: "CÓ XE (OCCUPIED)",
             value: loading && slots.length === 0 ? "..." : stats.occupied,
             icon: Car,
-            id: "OCCUPIED_CELLS",
-            color: "text-rose-400",
-            glow: "rgba(244,63,94,0.1)",
-            border: "border-rose-500/20",
+            color: "text-rose-500 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
           },
           {
             label: "ĐẶT TRƯỚC (RESERVED)",
             value: loading && slots.length === 0 ? "..." : stats.reserved,
             icon: Sliders,
-            id: "RESERVED_POOL",
-            color: "text-amber-400",
-            glow: "rgba(245,158,11,0.1)",
-            border: "border-amber-500/20",
+            color: "text-amber-500 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
           },
           {
             label: "BẢO TRÌ (DISABLED)",
             value: loading && slots.length === 0 ? "..." : stats.disabled,
             icon: Ban,
-            id: "MAINT_BLOCKS",
-            color: "text-slate-400",
-            glow: "rgba(148,163,184,0.05)",
-            border: "border-slate-500/20",
+            color: "text-slate-500 dark:text-slate-400 bg-slate-500/10 border-slate-500/20",
           },
-        ].map(({ label, value, icon: Icon, id, color, glow, border, pulse }) => (
+        ].map(({ label, value, icon: Icon, color, pulse }) => (
           <div
             key={label}
-            className={`relative overflow-hidden rounded-xl border ${border} bg-slate-950 p-4 transition-all duration-300 hover:bg-slate-950/80 hover:scale-[1.02] shadow-[0_4px_20px_rgba(0,0,0,0.3)]`}
-            style={{
-              boxShadow: `inset 0 0 14px ${glow}`,
-            }}
+            className="relative overflow-hidden rounded-xl border border-border bg-card p-4 transition-all duration-300 hover:scale-[1.02] shadow-[var(--shadow-card)]"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[8px] font-mono text-slate-500">[{id}]</span>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
               {pulse && (
                 <span className="flex h-1.5 w-1.5 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -407,15 +349,12 @@ export default function ParkingSlotsPage() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-900 border border-slate-800">
-                <Icon className={`size-4.5 ${color}`} />
+            <div className="flex items-center gap-3 mt-3">
+              <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl border ${color}`}>
+                <Icon className="size-5" />
               </span>
-              <div className="min-w-0">
-                <p className="text-[9px] font-mono text-slate-400 uppercase tracking-wider truncate">
-                  {label}
-                </p>
-                <p className={`font-mono text-base sm:text-xl font-bold leading-none mt-1 ${color}`}>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono">
                   {value}
                 </p>
               </div>
@@ -429,20 +368,17 @@ export default function ParkingSlotsPage() {
         {/* Left column: Controls, search filters and IoT terminal */}
         <div className="lg:col-span-1 space-y-6">
           {/* Filters card */}
-          <div className="border border-slate-850 bg-slate-950 rounded-xl p-5 relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-700" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-700" />
-            
-            <div className="flex items-center gap-1.5 text-cyan-400 border-b border-slate-900 pb-3 mb-4">
-              <Search className="h-4 w-4 text-cyan-500" />
-              <h3 className="font-mono text-[10px] font-bold uppercase tracking-wider">
-                BỘ LỌC CONSOLE
+          <div className="border border-border bg-card rounded-xl p-5 relative overflow-hidden shadow-[var(--shadow-card)]">
+            <div className="flex items-center gap-1.5 text-primary border-b border-border pb-3 mb-4">
+              <Search className="h-4 w-4" />
+              <h3 className="text-xs font-bold uppercase tracking-wider">
+                BỘ LỌC TÌM KIẾM
               </h3>
             </div>
 
-            <div className="space-y-4 font-mono text-xs">
+            <div className="space-y-4 text-xs">
               <div className="space-y-2">
-                <Label htmlFor="search-input" className="text-slate-400 uppercase text-[9px] tracking-widest font-bold">Tìm ô đỗ / biển số</Label>
+                <Label htmlFor="search-input" className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold">Tìm ô đỗ / biển số</Label>
                 <div className="relative">
                   <Input
                     id="search-input"
@@ -450,13 +386,13 @@ export default function ParkingSlotsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Mã: A01, Xe: 30F..."
-                    className="bg-slate-950 border-slate-800 text-cyan-300 placeholder-slate-700 h-9 pl-8 text-xs rounded pr-3 focus-visible:ring-cyan-500/20 focus-visible:border-cyan-500/40"
+                    className="bg-background border-border text-foreground h-9 pl-8 text-xs rounded-xl focus-visible:ring-primary/20"
                   />
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-700" />
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -465,7 +401,7 @@ export default function ParkingSlotsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-slate-400 uppercase text-[9px] tracking-widest font-bold">Lọc trạng thái</Label>
+                <Label className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold">Lọc trạng thái</Label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {[
                     { key: "ALL", name: "TẤT CẢ" },
@@ -478,10 +414,10 @@ export default function ParkingSlotsPage() {
                       key={f.key}
                       variant={statusFilter === f.key ? "default" : "outline"}
                       onClick={() => setStatusFilter(f.key)}
-                      className={`h-8 text-[9px] tracking-wide rounded border font-mono uppercase ${
+                      className={`h-8 text-[9px] tracking-wide rounded-lg font-mono uppercase border ${
                         statusFilter === f.key
-                          ? "bg-cyan-500 hover:bg-cyan-600 text-slate-950 border-cyan-500"
-                          : "border-slate-850 hover:bg-slate-900 text-slate-400 hover:text-white"
+                          ? "bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
+                          : "border-border hover:bg-muted text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       {f.name}
@@ -493,40 +429,37 @@ export default function ParkingSlotsPage() {
           </div>
 
           {/* IoT Active Simulation Panel */}
-          <div className="border border-slate-850 bg-slate-950 rounded-xl p-5 relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/40" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/40" />
-            
-            <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
-              <div className="flex items-center gap-1.5 text-cyan-400">
-                <Terminal className="h-4 w-4 text-cyan-500 animate-pulse" />
-                <h3 className="font-mono text-[10px] font-bold uppercase tracking-wider">
-                  THIẾT BỊ GIẢ LẬP IOT
+          <div className="border border-border bg-card rounded-xl p-5 relative overflow-hidden shadow-[var(--shadow-card)]">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+              <div className="flex items-center gap-1.5 text-primary">
+                <Terminal className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">
+                  MÔ PHỎNG CẢM BIẾN IOT
                 </h3>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleResetSimulations}
-                className="h-6 w-6 text-slate-500 hover:text-white hover:bg-slate-900 rounded"
+                className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
                 title="Khôi phục trạng thái thật"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             </div>
 
-            <p className="text-[10px] font-mono text-slate-500 uppercase mb-4 leading-relaxed">
-              Nhập biển số để mô phỏng xe đỗ vào một ô đỗ trống trong bãi xe và kích hoạt tín hiệu gửi về máy chủ.
+            <p className="text-[10px] text-muted-foreground uppercase mb-4 leading-relaxed">
+              Chọn ô đỗ và nhập biển số để mô phỏng xe đỗ vào một ô trống trong bãi xe và kích hoạt tín hiệu gửi về máy chủ.
             </p>
 
-            <form onSubmit={handleSimulateCheckIn} className="space-y-4 font-mono text-xs">
+            <form onSubmit={handleSimulateCheckIn} className="space-y-4 text-xs">
               <div className="space-y-1.5">
-                <Label htmlFor="sim-slot" className="text-slate-400 uppercase text-[9px] tracking-widest font-bold">Chọn ô đỗ trống</Label>
+                <Label htmlFor="sim-slot" className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold">Chọn ô đỗ trống</Label>
                 <select
                   id="sim-slot"
                   value={selectedSimulationSlotId}
                   onChange={(e) => setSelectedSimulationSlotId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-cyan-300 h-9 px-2 text-xs rounded focus:ring-0 focus:border-cyan-500/30"
+                  className="w-full bg-background border border-border text-foreground h-9 px-2 text-xs rounded-xl focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
                 >
                   <option value="">-- CHỌN Ô ĐỖ TRỐNG --</option>
                   {slots
@@ -538,12 +471,12 @@ export default function ParkingSlotsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="sim-plate" className="text-slate-400 uppercase text-[9px] tracking-widest font-bold flex justify-between items-center">
+                <Label htmlFor="sim-plate" className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold flex justify-between items-center">
                   <span>Biển số xe giả lập</span>
                   <button
                     type="button"
                     onClick={handleRandomPlateGen}
-                    className="text-[8px] text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5 uppercase border-b border-cyan-400/40"
+                    className="text-[8px] text-primary hover:text-primary/80 flex items-center gap-0.5 uppercase border-b border-primary/40"
                   >
                     <Zap className="h-2 w-2" /> Ngẫu nhiên
                   </button>
@@ -555,14 +488,14 @@ export default function ParkingSlotsPage() {
                   placeholder="Ví dụ: 30F-123.45"
                   value={customPlate}
                   onChange={(e) => setCustomPlate(e.target.value)}
-                  className="bg-slate-950 border-slate-800 text-cyan-300 placeholder-slate-700 h-9 px-3 text-xs rounded focus-visible:ring-cyan-500/20 focus-visible:border-cyan-500/30 font-bold tracking-wide uppercase"
+                  className="bg-background border-border text-foreground h-9 px-3 text-xs rounded-xl focus-visible:ring-primary/20 font-bold tracking-wide uppercase font-mono"
                 />
               </div>
 
               <Button
                 type="submit"
                 disabled={!selectedSimulationSlotId}
-                className="w-full bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold uppercase tracking-wider text-[10px] h-9 rounded flex items-center justify-center gap-1.5 transition-all shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold uppercase tracking-wider text-[10px] h-9 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
               >
                 <Play className="h-3.5 w-3.5" />
                 MÔ PHỎNG ĐỖ XE
@@ -571,15 +504,15 @@ export default function ParkingSlotsPage() {
           </div>
 
           {/* Real-time Logger Terminal */}
-          <div className="border border-slate-900 bg-slate-950 rounded-xl p-4 shadow-xl">
-            <span className="block font-mono text-[8px] text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1">
-              <span className="h-1.5 w-1.5 bg-cyan-500 rounded-full animate-ping" />
-              LIVE_IOT_TERMINAL_LOG
+          <div className="border border-border bg-card rounded-xl p-4 shadow-[var(--shadow-card)]">
+            <span className="block font-mono text-[8px] text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1 font-bold">
+              <span className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" />
+              Nhật ký hoạt động cảm biến
             </span>
-            <div className="bg-slate-950 border border-slate-900 p-2.5 rounded font-mono text-[9px] h-44 overflow-y-auto space-y-2 select-all text-slate-400">
+            <div className="bg-slate-950 dark:bg-slate-900 border border-border p-2.5 rounded-lg font-mono text-[9px] h-44 overflow-y-auto space-y-2 select-all text-slate-300">
               {simulationLogs.map((log, index) => (
-                <div key={index} className="leading-normal border-b border-slate-950 pb-1 flex items-start gap-1">
-                  <span className="text-slate-600 shrink-0">[{log.time}]</span>
+                <div key={index} className="leading-normal border-b border-slate-900 dark:border-slate-800 pb-1 flex items-start gap-1">
+                  <span className="text-slate-500 shrink-0">[{log.time}]</span>
                   <span className={
                     log.type === "success" ? "text-emerald-400" :
                     log.type === "warn" ? "text-amber-400" :
@@ -596,111 +529,103 @@ export default function ParkingSlotsPage() {
 
         {/* Right column: Grid visualizer & Data table */}
         <div className="lg:col-span-3 space-y-6">
-          <div className="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-850">
+          <div className="flex items-center justify-between bg-card p-2.5 rounded-xl border border-border shadow-sm">
             {/* Tab selection */}
-            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg">
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
               <Button
                 size="sm"
                 variant={activeTab === "grid" ? "default" : "ghost"}
                 onClick={() => setActiveTab("grid")}
-                className={`h-8 font-mono text-xs rounded px-4 flex items-center gap-1.5 ${
+                className={`h-8 text-xs rounded-lg px-4 flex items-center gap-1.5 ${
                   activeTab === "grid"
-                    ? "bg-cyan-500 text-slate-950 hover:bg-cyan-600 font-bold"
-                    : "text-slate-400 hover:text-white hover:bg-slate-950"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
-                SƠ ĐỒ LƯỚI
+                <span>Sơ đồ lưới</span>
               </Button>
               <Button
                 size="sm"
                 variant={activeTab === "table" ? "default" : "ghost"}
                 onClick={() => setActiveTab("table")}
-                className={`h-8 font-mono text-xs rounded px-4 flex items-center gap-1.5 ${
+                className={`h-8 text-xs rounded-lg px-4 flex items-center gap-1.5 ${
                   activeTab === "table"
-                    ? "bg-cyan-500 text-slate-950 hover:bg-cyan-600 font-bold"
-                    : "text-slate-400 hover:text-white hover:bg-slate-950"
+                    ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <Sliders className="h-3.5 w-3.5" />
-                BẢNG THÔNG SỐ
+                <span>Bảng thông số</span>
               </Button>
             </div>
 
-            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider pr-2">
-              HIỂN THỊ: <span className="text-cyan-400 font-bold">{filteredSlots.length}</span> / {slots.length} CELL_NODES
+            <div className="text-xs text-muted-foreground pr-2 font-medium">
+              Hiển thị: <span className="text-primary font-bold">{filteredSlots.length}</span> / {slots.length} ô đỗ
             </div>
           </div>
 
           {loading && slots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-slate-800 rounded-2xl bg-slate-950/40 p-10 text-center font-mono text-slate-500">
-              <Loader2 className="h-8 w-8 animate-spin text-cyan-500 mb-3" />
-              <p className="text-xs uppercase tracking-widest">Đang kết nối tới trạm điều khiển bãi xe...</p>
-              <p className="text-[10px] text-slate-600 uppercase mt-1">Connecting to gateway IoT API</p>
+            <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-border rounded-2xl bg-card p-10 text-center text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+              <p className="text-xs uppercase tracking-wider font-semibold">Đang kết nối tới API bãi xe...</p>
             </div>
           ) : filteredSlots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-slate-850 rounded-2xl bg-slate-950/40 p-10 text-center font-mono">
+            <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-border rounded-2xl bg-card p-10 text-center">
               <AlertTriangle className="h-8 w-8 text-amber-500 mb-3 animate-bounce" />
-              <p className="text-xs uppercase text-slate-300 font-bold tracking-wider">Không tìm thấy ô đỗ phù hợp</p>
-              <p className="text-[10px] text-slate-500 uppercase mt-1">Vui lòng thay đổi cấu hình bộ lọc hoặc từ khóa tìm kiếm</p>
+              <p className="text-xs font-bold text-foreground">Không tìm thấy ô đỗ phù hợp</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Vui lòng thay đổi cấu hình bộ lọc hoặc từ khóa tìm kiếm</p>
             </div>
           ) : activeTab === "grid" ? (
-            /* Tab 1: Technology Grid visualizer */
+            /* Tab 1: Grid visualizer */
             <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
               {filteredSlots.map((slot) => {
                 const isOccupied = slot.status === "OCCUPIED"
                 const isAvailable = slot.status === "AVAILABLE" || slot.status === "FREE"
                 const isReserved = slot.status === "RESERVED"
-                const isDisabled = slot.status === "DISABLED"
 
                 return (
                   <div
                     key={slot.id}
                     onClick={() => setSelectedSlot(slot)}
-                    className={`relative cursor-pointer select-none rounded-xl border p-4 transition-all duration-300 bg-slate-950/70 hover:scale-[1.03] group ${
+                    className={`relative cursor-pointer select-none rounded-xl border p-4 transition-all duration-350 bg-card hover:scale-[1.03] group shadow-sm hover:shadow-md ${
                       isOccupied
-                        ? "border-rose-500/30 hover:border-rose-500 shadow-[0_4px_20px_rgba(239,68,68,0.05)] hover:shadow-[0_0_20px_rgba(239,68,68,0.15)]"
+                        ? "border-rose-500/20 hover:border-rose-500 dark:border-rose-500/30"
                         : isAvailable
-                        ? "border-emerald-500/30 hover:border-emerald-500 shadow-[0_4px_20px_rgba(16,185,129,0.05)] hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                        ? "border-emerald-500/20 hover:border-emerald-500 dark:border-emerald-500/30"
                         : isReserved
-                        ? "border-amber-500/30 hover:border-amber-500 shadow-[0_4px_20px_rgba(245,158,11,0.05)] hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]"
-                        : "border-slate-800 hover:border-slate-500"
+                        ? "border-amber-500/20 hover:border-amber-500 dark:border-amber-500/30"
+                        : "border-border hover:border-foreground/50"
                     }`}
                   >
-                    {/* Tech corners decoration */}
-                    <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-slate-700 group-hover:border-cyan-400" />
-                    <div className="absolute top-0 right-0 w-1.5 h-1.5 border-t border-r border-slate-700 group-hover:border-cyan-400" />
-                    <div className="absolute bottom-0 left-0 w-1.5 h-1.5 border-b border-l border-slate-700 group-hover:border-cyan-400" />
-                    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-slate-700 group-hover:border-cyan-400" />
-
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[8px] text-slate-500">CELL_N_{slot.id.slice(0, 4)}</span>
-                      {/* Glow Indicator LED */}
-                      <span className={`h-2 w-2 rounded-full flex ${
-                        isOccupied ? "bg-rose-500 shadow-[0_0_8px_#ef4444]" :
-                        isAvailable ? "bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" :
-                        isReserved ? "bg-amber-500 shadow-[0_0_8px_#f59e0b]" :
-                        "bg-slate-700"
+                      <span className="text-[9px] text-muted-foreground font-mono">ID: {slot.id.slice(0, 4)}</span>
+                      {/* Status Indicator LED */}
+                      <span className={`h-2.5 w-2.5 rounded-full flex ${
+                        isOccupied ? "bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
+                        isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" :
+                        isReserved ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" :
+                        "bg-slate-400 dark:bg-slate-600"
                       }`} />
                     </div>
 
                     <div className="mt-3 text-center space-y-1">
-                      <div className="font-mono text-lg font-black tracking-widest text-white uppercase group-hover:text-cyan-300 transition-colors">
+                      <div className="font-bold text-lg tracking-widest text-foreground uppercase group-hover:text-primary transition-colors font-mono">
                         {slot.code}
                       </div>
-                      <div className="font-mono text-[9px] text-slate-500 uppercase tracking-wider truncate">
+                      <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                         {isOccupied ? "CÓ XE" : isAvailable ? "TRỐNG" : isReserved ? "ĐẶT TRƯỚC" : "BẢO TRÌ"}
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-2 border-t border-slate-900/60 min-h-[34px] flex items-center justify-center">
+                    <div className="mt-4 pt-2 border-t border-border min-h-[34px] flex items-center justify-center">
                       {isOccupied && slot.plate ? (
-                        <div className="font-mono text-[10px] font-bold text-rose-400 border border-rose-500/30 bg-rose-950/20 px-1.5 py-0.5 rounded tracking-wide uppercase shadow-sm select-all">
+                        <div className="font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400 border border-rose-500/20 bg-rose-500/5 px-2 py-0.5 rounded-lg tracking-wide uppercase shadow-sm select-all">
                           {slot.plate}
                         </div>
                       ) : (
-                        <div className="font-mono text-[9px] text-slate-600 uppercase tracking-widest">
-                          {isAvailable ? "AVAILABLE" : isReserved ? "RESERVED" : "DISABLED"}
+                        <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">
+                          {isAvailable ? "SẴN SÀNG" : isReserved ? "ĐÃ ĐẶT" : "BẢO TRÌ"}
                         </div>
                       )}
                     </div>
@@ -709,65 +634,64 @@ export default function ParkingSlotsPage() {
               })}
             </div>
           ) : (
-            /* Tab 2: Dense technical data table */
-            <div className="border border-slate-850 bg-slate-950/40 rounded-xl overflow-hidden shadow-2xl">
+            /* Tab 2: Data table */
+            <div className="border border-border bg-card rounded-xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-left font-mono text-xs border-collapse">
+                <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-950 border-b border-slate-850 text-slate-500 uppercase text-[9px] tracking-widest">
+                    <tr className="bg-muted/50 border-b border-border text-muted-foreground uppercase text-[9px] tracking-wider font-bold">
                       <th className="p-4">Ô ĐỖ</th>
                       <th className="p-4">MÃ ĐỊNH DANH</th>
-                      <th className="p-4">ZONE_ID</th>
+                      <th className="p-4">KHU VỰC</th>
                       <th className="p-4">TRẠNG THÁI</th>
                       <th className="p-4">BIỂN SỐ XE</th>
-                      <th className="p-4">CẢM BIẾN CUỐI</th>
-                      <th className="p-4 text-right">ĐIỀU HÀNH</th>
+                      <th className="p-4">CẬP NHẬT CUỐI</th>
+                      <th className="p-4 text-right">HÀNH ĐỘNG</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-900/80">
+                  <tbody className="divide-y divide-border">
                     {filteredSlots.map((slot) => {
                       const isOccupied = slot.status === "OCCUPIED"
                       const isAvailable = slot.status === "AVAILABLE" || slot.status === "FREE"
                       const isReserved = slot.status === "RESERVED"
-                      const isDisabled = slot.status === "DISABLED"
 
                       return (
-                        <tr key={slot.id} className="hover:bg-slate-950/60 transition-colors group">
-                          <td className="p-4 font-bold text-white text-sm tracking-widest">
+                        <tr key={slot.id} className="hover:bg-muted/35 transition-colors group">
+                          <td className="p-4 font-bold text-foreground text-sm tracking-wide font-mono">
                             <span className="flex items-center gap-1.5">
                               <span className={`h-1.5 w-1.5 rounded-full ${
                                 isOccupied ? "bg-rose-500" :
                                 isAvailable ? "bg-emerald-500" :
                                 isReserved ? "bg-amber-500" :
-                                "bg-slate-700"
+                                "bg-slate-400"
                               }`} />
                               {slot.code}
                             </span>
                           </td>
-                          <td className="p-4 text-slate-500 text-[10px] tracking-wider select-all">
+                          <td className="p-4 text-muted-foreground text-[10px] tracking-wider select-all font-mono">
                             {slot.id}
                           </td>
-                          <td className="p-4 text-slate-400">
-                            {slot.zoneId ? `ZONE_${slot.zoneId.slice(0, 8).toUpperCase()}` : "—"}
+                          <td className="p-4 text-muted-foreground font-medium">
+                            {slot.zoneId ? `Zone: ${slot.zoneId.slice(0, 8).toUpperCase()}` : "—"}
                           </td>
                           <td className="p-4">
-                            <Badge className={`font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 border ${
-                              isOccupied ? "bg-rose-950/30 text-rose-400 border-rose-500/20" :
-                              isAvailable ? "bg-emerald-950/30 text-emerald-400 border-emerald-500/20" :
-                              isReserved ? "bg-amber-950/30 text-amber-400 border-amber-500/20" :
-                              "bg-slate-900 text-slate-400 border-slate-800"
+                            <Badge className={`text-[9px] tracking-widest uppercase px-2 py-0.5 border ${
+                              isOccupied ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" :
+                              isAvailable ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
+                              isReserved ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" :
+                              "bg-slate-500/10 text-slate-500 border-slate-500/20"
                             }`}>
                               {isOccupied ? "CÓ XE" : isAvailable ? "TRỐNG" : isReserved ? "ĐẶT TRƯỚC" : "BẢO TRÌ"}
                             </Badge>
                           </td>
-                          <td className="p-4 font-bold">
+                          <td className="p-4 font-bold font-mono">
                             {isOccupied && slot.plate ? (
-                              <span className="text-rose-400 select-all tracking-wider uppercase">{slot.plate}</span>
+                              <span className="text-rose-600 dark:text-rose-400 select-all tracking-wider uppercase">{slot.plate}</span>
                             ) : (
-                              <span className="text-slate-600">—</span>
+                              <span className="text-muted-foreground font-normal">—</span>
                             )}
                           </td>
-                          <td className="p-4 text-slate-500 text-[10px] tracking-wider">
+                          <td className="p-4 text-muted-foreground text-[10px] tracking-wider font-mono">
                             {slot.lastSeenAt ? new Date(slot.lastSeenAt).toLocaleString("vi-VN") : "CHƯA NHẬN TÍN HIỆU"}
                           </td>
                           <td className="p-4 text-right">
@@ -775,9 +699,9 @@ export default function ParkingSlotsPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => setSelectedSlot(slot)}
-                              className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-900 rounded"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
                             >
-                              <Eye className="h-4.5 w-4.5 text-cyan-400" />
+                              <Eye className="h-4.5 w-4.5 text-primary" />
                             </Button>
                           </td>
                         </tr>
@@ -791,127 +715,115 @@ export default function ParkingSlotsPage() {
         </div>
       </div>
 
-      {/* Futuristic Slot Inspector Detail Dialog */}
+      {/* Slot Inspector Detail Dialog */}
       <Dialog open={!!selectedSlot} onOpenChange={(open) => !open && setSelectedSlot(null)}>
         {selectedSlot && (
-          <DialogContent className="bg-slate-950 border border-slate-850 text-slate-100 max-w-lg font-mono">
-            {/* Tech accents */}
-            <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-500" />
-            <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-500" />
-            <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-500" />
-            <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-500" />
-
-            <DialogHeader className="border-b border-slate-900 pb-3 mb-4">
-              <DialogTitle className="text-sm font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5">
-                <Settings className="h-4 w-4 text-cyan-500 animate-spin" />
-                SLOT_INSPECTOR_CORE // {selectedSlot.code}
+          <DialogContent className="max-w-md bg-card border border-border text-foreground">
+            <DialogHeader className="border-b border-border pb-3 mb-4">
+              <DialogTitle className="text-base font-bold uppercase tracking-wide flex items-center gap-1.5 text-primary">
+                <Settings className="h-4.5 w-4.5 text-primary" />
+                <span>Chi tiết ô đỗ {selectedSlot.code}</span>
               </DialogTitle>
-              <DialogDescription className="text-[10px] text-slate-500 uppercase">
-                MÃ THIẾT BỊ KHU VỰC: {selectedSlot.id}
+              <DialogDescription className="text-[11px] text-muted-foreground uppercase font-mono">
+                MÃ ĐỊNH DANH: {selectedSlot.id}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 text-xs">
               {/* Main specifications */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-slate-900 border border-slate-850 rounded">
-                  <span className="text-[8px] text-slate-500 uppercase tracking-widest block">TRẠNG THÁI CẢM BIẾN</span>
+                <div className="p-3 bg-muted/50 border border-border rounded-xl">
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">TRẠNG THÁI</span>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className={`h-2 w-2 rounded-full ${
-                      selectedSlot.status === "OCCUPIED" ? "bg-rose-500 shadow-[0_0_8px_#ef4444]" :
-                      (selectedSlot.status === "AVAILABLE" || selectedSlot.status === "FREE") ? "bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" :
-                      selectedSlot.status === "RESERVED" ? "bg-amber-500 shadow-[0_0_8px_#f59e0b]" :
-                      "bg-slate-700"
+                      selectedSlot.status === "OCCUPIED" ? "bg-rose-500" :
+                      (selectedSlot.status === "AVAILABLE" || selectedSlot.status === "FREE") ? "bg-emerald-500 animate-pulse" :
+                      selectedSlot.status === "RESERVED" ? "bg-amber-500" :
+                      "bg-slate-400"
                     }`} />
-                    <span className="font-bold text-white text-[11px] tracking-wide">
-                      {selectedSlot.status === "OCCUPIED" ? "CÓ PHƯƠNG TIỆN" :
+                    <span className="font-bold text-sm">
+                      {selectedSlot.status === "OCCUPIED" ? "ĐANG CÓ XE" :
                        (selectedSlot.status === "AVAILABLE" || selectedSlot.status === "FREE") ? "ĐANG TRỐNG" :
                        selectedSlot.status === "RESERVED" ? "ĐẶT TRƯỚC" : "BẢO TRÌ"}
                     </span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-900 border border-slate-850 rounded">
-                  <span className="text-[8px] text-slate-500 uppercase tracking-widest block">KHU VỰC QUẢN LÝ (ZONE)</span>
-                  <span className="font-bold text-cyan-400 block mt-1 tracking-wider">
-                    {selectedSlot.zoneId ? `ZONE_${selectedSlot.zoneId.slice(0, 8).toUpperCase()}` : "HỆ THỐNG CHUNG"}
+                <div className="p-3 bg-muted/50 border border-border rounded-xl">
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">KHU VỰC QUẢN LÝ</span>
+                  <span className="font-bold text-primary block mt-1">
+                    {selectedSlot.zoneId ? `Zone: ${selectedSlot.zoneId.slice(0, 8).toUpperCase()}` : "Chưa cấu hình"}
                   </span>
                 </div>
               </div>
 
               {/* Occupying Vehicle Data */}
-              <div className="p-3.5 bg-slate-900/60 border border-slate-850 rounded space-y-2">
-                <span className="text-[8px] text-slate-500 uppercase tracking-widest block">THÔNG TIN PHƯƠNG TIỆN HIỆN TẠI</span>
+              <div className="p-3.5 bg-muted/30 border border-border rounded-xl space-y-2">
+                <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">THÔNG TIN XE ĐANG ĐỖ</span>
                 {selectedSlot.status === "OCCUPIED" ? (
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Car className="h-4.5 w-4.5 text-rose-400 animate-bounce" />
-                        <span className="text-sm font-extrabold text-white tracking-widest bg-rose-950/30 px-2.5 py-0.5 rounded border border-rose-500/30 select-all">
+                        <Car className="h-4.5 w-4.5 text-rose-500" />
+                        <span className="text-sm font-extrabold tracking-widest bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2.5 py-0.5 rounded-lg border border-rose-500/20 select-all font-mono">
                           {selectedSlot.plate || "30F-111.11"}
                         </span>
                       </div>
-                      <span className="text-[9px] text-slate-500">IOT_RFID_ACTIVE</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Camera AI / Sensor</span>
                     </div>
 
-                    <div className="space-y-1 text-[10px] text-slate-400 uppercase pt-2 border-t border-slate-950">
+                    <div className="space-y-1 text-[11px] text-muted-foreground pt-2 border-t border-border">
                       <div className="flex justify-between">
-                        <span>Thời gian đỗ:</span>
-                        <span className="text-white">Hôm nay, {selectedSlot.lastSeenAt ? new Date(selectedSlot.lastSeenAt).toLocaleTimeString("vi-VN") : "vừa mới đây"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Tần số cảm biến:</span>
-                        <span className="text-emerald-400 font-bold">915 MHz (Chất lượng 98%)</span>
+                        <span>Thời gian phát hiện:</span>
+                        <span className="text-foreground font-semibold">Hôm nay, {selectedSlot.lastSeenAt ? new Date(selectedSlot.lastSeenAt).toLocaleTimeString("vi-VN") : "vừa mới đây"}</span>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-4 text-center text-slate-500">
-                    <Info className="h-5 w-5 text-slate-600 mb-1" />
-                    <span className="uppercase text-[9px] tracking-widest">Không có phương tiện tại vị trí này</span>
+                  <div className="flex flex-col items-center justify-center py-4 text-center text-muted-foreground">
+                    <Info className="h-5 w-5 text-muted-foreground/60 mb-1" />
+                    <span>Không có phương tiện tại vị trí này</span>
                   </div>
                 )}
               </div>
 
-              {/* Polygon Vertex SVG Preview (Extreme technology feel!) */}
+              {/* Polygon Vertex SVG Preview */}
               {selectedSlot.polygon && selectedSlot.polygon.length > 0 && (
-                <div className="p-3 bg-slate-900 border border-slate-850 rounded space-y-2">
-                  <span className="text-[8px] text-slate-500 uppercase tracking-widest block">TỌA ĐỘ VÙNG PHỦ SÓNG CAMERA (POLYGON)</span>
+                <div className="p-3 bg-muted/50 border border-border rounded-xl space-y-2">
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">VÙNG PHỦ SÓNG CAMERA (POLYGON)</span>
                   <div className="flex items-center gap-3">
-                    <div className="bg-slate-950 border border-slate-850 p-1.5 rounded">
-                      <svg width="100" height="60" viewBox="0 0 100 100" className="text-cyan-500">
+                    <div className="bg-background border border-border p-1.5 rounded-lg">
+                      <svg width="100" height="60" viewBox="0 0 100 100" className="text-primary">
                         <polygon
                           points={selectedSlot.polygon.map((p: any) => `${p.x / 10},${p.y / 10}`).join(" ")}
-                          fill="rgba(6,182,212,0.15)"
+                          fill="currentColor"
+                          fillOpacity="0.1"
                           stroke="currentColor"
                           strokeWidth="2"
                         />
                       </svg>
                     </div>
-                    <div className="space-y-1 text-[9px] text-slate-500 uppercase leading-relaxed font-mono">
-                      <div>Đỉnh điểm: <span className="text-cyan-400">{selectedSlot.polygon.length} VERTICES</span></div>
+                    <div className="space-y-1 text-[10px] text-muted-foreground leading-relaxed font-mono">
+                      <div>Tọa độ: <span className="text-primary font-bold">{selectedSlot.polygon.length} điểm đỉnh</span></div>
                       <div className="max-w-[200px] truncate" title={JSON.stringify(selectedSlot.polygon)}>
                         X, Y: {selectedSlot.polygon.slice(0, 2).map((p: any) => `(${Math.round(p.x)},${Math.round(p.y)})`).join(" ")}...
                       </div>
-                      <span className="text-emerald-500 flex items-center gap-1">
-                        <ShieldCheck className="h-3.5 w-3.5" /> HIỆU CHUẨN CHUẨN 2D
-                      </span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Interactive Override Actions for Admin console */}
-              <div className="border-t border-slate-900 pt-4 space-y-3">
-                <span className="text-[8px] text-slate-500 uppercase tracking-widest block font-bold">GHI ĐÈ TÍN HIỆU QUẢN TRỊ // COMMANDS</span>
+              {/* Interactive Override Actions */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-bold">GHI ĐÈ TRẠNG THÁI (GIẢ LẬP)</span>
                 
                 <div className="grid grid-cols-2 gap-2">
                   {selectedSlot.status === "OCCUPIED" ? (
                     <Button
                       onClick={() => handleSimulateCheckOut(selectedSlot.id)}
-                      className="w-full bg-rose-950 hover:bg-rose-900 text-rose-400 hover:text-rose-300 font-bold border border-rose-500/30 text-[10px] h-9 rounded uppercase"
+                      className="w-full bg-rose-50 hover:bg-rose-600 text-rose-foreground font-bold text-[10px] h-9 rounded-xl uppercase"
                     >
-                      MÔ PHỎNG XE RỜI ĐỖ
+                      Mô phỏng xe rời đi
                     </Button>
                   ) : (
                     <Button
@@ -938,18 +850,19 @@ export default function ParkingSlotsPage() {
                           lastSeenAt: new Date().toISOString()
                         }))
                       }}
-                      className="w-full bg-emerald-950 hover:bg-emerald-900 text-emerald-400 hover:text-emerald-300 font-bold border border-emerald-500/30 text-[10px] h-9 rounded uppercase"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] h-9 rounded-xl uppercase"
                     >
-                      MÔ PHỎNG ĐỖ XE
+                      Mô phỏng đỗ xe
                     </Button>
                   )}
 
                   <Button
                     onClick={() => handleAdminStatusOverride(selectedSlot.id, "DISABLED")}
                     disabled={selectedSlot.status === "DISABLED"}
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white font-bold border border-slate-800 text-[10px] h-9 rounded uppercase"
+                    variant="outline"
+                    className="w-full border-border bg-background hover:bg-muted font-bold text-[10px] h-9 rounded-xl uppercase"
                   >
-                    ĐẶT BẢO TRÌ/KHOÁ
+                    Bảo trì / Khóa ô
                   </Button>
                 </div>
 
@@ -957,29 +870,31 @@ export default function ParkingSlotsPage() {
                   <Button
                     onClick={() => handleAdminStatusOverride(selectedSlot.id, "AVAILABLE")}
                     disabled={selectedSlot.status === "AVAILABLE" || selectedSlot.status === "FREE"}
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white font-bold border border-slate-800 text-[10px] h-9 rounded uppercase"
+                    variant="outline"
+                    className="w-full border-border bg-background hover:bg-muted font-bold text-[10px] h-9 rounded-xl uppercase"
                   >
-                    MỞ KHÓA VÀ TRỐNG
+                    Mở khóa (Trống)
                   </Button>
 
                   <Button
                     onClick={() => handleAdminStatusOverride(selectedSlot.id, "RESERVED")}
                     disabled={selectedSlot.status === "RESERVED"}
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white font-bold border border-slate-800 text-[10px] h-9 rounded uppercase"
+                    variant="outline"
+                    className="w-full border-border bg-background hover:bg-muted font-bold text-[10px] h-9 rounded-xl uppercase"
                   >
-                    THIẾT LẬP ĐẶT TRƯỚC
+                    Thiết lập Đặt trước
                   </Button>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-900 text-right">
+            <div className="mt-4 pt-3 border-t border-border text-right">
               <Button
                 variant="outline"
                 onClick={() => setSelectedSlot(null)}
-                className="border-slate-800 bg-slate-950 text-slate-400 hover:text-white hover:bg-slate-900 h-9 px-4 rounded text-[10px] uppercase font-mono"
+                className="border-border bg-background text-muted-foreground hover:text-foreground h-9 px-4 rounded-xl text-[10px] uppercase font-semibold"
               >
-                ĐÓNG BẢNG
+                Đóng
               </Button>
             </div>
           </DialogContent>
