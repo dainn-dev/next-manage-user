@@ -3,7 +3,6 @@
 import * as React from "react"
 import { AlertCircle, Bell, Loader2, MapPin, Menu, RefreshCw, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ModeToggle } from "./mode-toggle"
 import { useAuth } from "@/lib/auth-context"
 import { isDashboardOperator, isPlatformAdmin } from "@/lib/types"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
@@ -112,7 +111,6 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
         >
           <Bell className="h-[1.2rem] w-[1.2rem]" />
         </Button>
-        <ModeToggle />
       </div>
     </header>
   )

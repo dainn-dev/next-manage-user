@@ -18,7 +18,6 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { ModeToggle } from "@/components/layout/mode-toggle"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -259,7 +258,6 @@ export function PlatformShell({ children }: PlatformShellProps) {
               <span className="size-1.5 rounded-full bg-[var(--color-success)]" aria-hidden="true" />
               Platform scope
             </span>
-            <ModeToggle />
           </div>
         </header>
 

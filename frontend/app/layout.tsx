@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning className={notoSans.variable}>
       <body className="antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light" disableTransitionOnChange>
           <AuthProvider>
             <DashboardScopeProvider>
               <DashboardDataProvider>
