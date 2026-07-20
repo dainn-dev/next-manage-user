@@ -162,6 +162,12 @@ deployment values through environment variables rather than committing secrets:
 Tenant and site values are local operational metadata only. Outbound events echo only the camera
 ID; the backend derives tenant/site from `X-Camera-Id` plus `X-Camera-Key`.
 
+The live `--run-camera` mode also sends a camera heartbeat immediately, then every
+`ingest.heartbeat_interval_seconds` (20 seconds by default), to
+`POST /api/cameras/{cameraId}/heartbeat`. It uses the same `X-Camera-Id` and `X-Camera-Key`
+credential headers as ingest, derives the endpoint from `ingest.url` while preserving any reverse
+proxy prefix before `/api`, stops with the camera runtime, and stays disabled in dry-run mode.
+
 ### Motion-gate diagnostic (DAI-289)
 
 The scaffold now contains a CPU-only OpenCV MOG2 gate before future expensive inference. It is

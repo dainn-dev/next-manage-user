@@ -195,6 +195,9 @@ def main(argv: list[str] | None = None) -> int:
             if args.reconnect_seconds < 0:
                 raise ConfigValidationError(["--reconnect-seconds cannot be negative"])
             service.validate_runtime()
+            start_heartbeat = getattr(service.ingest_client, "start_heartbeat", None)
+            if callable(start_heartbeat):
+                start_heartbeat()
             stop_event = threading.Event()
 
             def stop_runtime(_signum: int, _frame: object) -> None:

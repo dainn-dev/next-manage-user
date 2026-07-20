@@ -83,7 +83,7 @@ build_frontend() {
         -f frontend/Dockerfile \
         -t "$DOCKER_USERNAME/$FRONTEND_IMAGE:$VERSION" \
         -t "$DOCKER_USERNAME/$FRONTEND_IMAGE:latest" \
-        frontend
+        .
     
     print_success "Frontend image built successfully"
 }

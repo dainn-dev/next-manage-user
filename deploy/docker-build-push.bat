@@ -58,7 +58,7 @@ echo.
 REM Build frontend
 echo [STEP] Building frontend image...
 echo Building %DOCKER_USERNAME%/%FRONTEND_IMAGE%:%VERSION%
-docker build -f frontend/Dockerfile -t %DOCKER_USERNAME%/%FRONTEND_IMAGE%:%VERSION% -t %DOCKER_USERNAME%/%FRONTEND_IMAGE%:latest frontend
+docker build -f frontend/Dockerfile -t %DOCKER_USERNAME%/%FRONTEND_IMAGE%:%VERSION% -t %DOCKER_USERNAME%/%FRONTEND_IMAGE%:latest .
 if errorlevel 1 (
     echo [ERROR] Frontend build failed
     pause

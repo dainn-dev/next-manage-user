@@ -44,7 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { useToast } from "@/hooks/use-toast"
-import { cameraApi, type Camera, type CameraPanelType, type CameraRole, type CameraStatus, type CameraWriteRequest } from "@/lib/api/camera-api"
+import { cameraApi, type Camera, type CameraPanelType, type CameraRole, type CameraWriteRequest } from "@/lib/api/camera-api"
 import {
   archiveMap,
   captureStill,
@@ -87,6 +87,7 @@ const STEPS = [
 ] as const
 
 type StepKey = typeof STEPS[number]["key"]
+type CameraLifecycleAction = "unchanged" | "disable" | "enable"
 type SlotSnapshot = ParkingMapSlot[]
 
 const EMPTY_CAMERA: CameraWriteRequest = {
@@ -96,8 +97,9 @@ const EMPTY_CAMERA: CameraWriteRequest = {
   rtspUrl: "",
   role: "OVERVIEW",
   panelType: null,
-  status: "provisioned",
 }
+
+const CAMERA_REFRESH_INTERVAL_MS = 10_000
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Có lỗi không xác định"
@@ -133,6 +135,7 @@ export default function ParkingCommissioningPage() {
   const [cameraDialog, setCameraDialog] = useState(false)
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null)
   const [cameraForm, setCameraForm] = useState<CameraWriteRequest>(EMPTY_CAMERA)
+  const [cameraLifecycleAction, setCameraLifecycleAction] = useState<CameraLifecycleAction>("unchanged")
   const [busy, setBusy] = useState(false)
   const [credential, setCredential] = useState<{ cameraName: string; key: string; expiresAt?: string | null } | null>(null)
 
@@ -161,6 +164,8 @@ export default function ParkingCommissioningPage() {
   const [dragging, setDragging] = useState<{ slot: number; vertex: number } | null>(null)
   const autosaveRef = useRef(false)
   const importInputRef = useRef<HTMLInputElement>(null)
+  const scopeRequestRef = useRef(0)
+  const cameraRequestRef = useRef(0)
 
   const selectedCamera = cameras.find((camera) => camera.id === selectedCameraId) || null
   const overviewCameras = useMemo(() => cameras.filter((camera) => camera.role === "OVERVIEW"), [cameras])
@@ -168,31 +173,73 @@ export default function ParkingCommissioningPage() {
   const canIssueCredentials = user?.role === UserRole.ADMIN || user?.role === UserRole.SITE_MANAGER
 
   const loadScope = useCallback(async (siteId: string) => {
+    const scopeRequestId = ++scopeRequestRef.current
+    const cameraRequestId = ++cameraRequestRef.current
     setLoadingScope(true)
     try {
       const [nextZones, nextCameras] = await Promise.all([zoneApi.list(siteId), cameraApi.list(siteId)])
+      if (scopeRequestId !== scopeRequestRef.current) return
       setZones(nextZones)
-      setCameras(nextCameras)
       setSlotZoneId((current) => nextZones.some((zone) => zone.id === current) ? current : nextZones[0]?.id || "")
-      setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current)
-        ? current
-        : nextCameras.find((camera) => camera.role === "OVERVIEW")?.id || nextCameras[0]?.id || "")
+      if (cameraRequestId === cameraRequestRef.current) {
+        setCameras(nextCameras)
+        setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current)
+          ? current
+          : nextCameras.find((camera) => camera.role === "OVERVIEW")?.id || nextCameras[0]?.id || "")
+      }
     } catch (error) {
-      toast({ title: "Không tải được cấu hình site", description: errorMessage(error), variant: "destructive" })
+      if (scopeRequestId === scopeRequestRef.current) {
+        toast({ title: "Không tải được cấu hình site", description: errorMessage(error), variant: "destructive" })
+      }
     } finally {
-      setLoadingScope(false)
+      if (scopeRequestId === scopeRequestRef.current) setLoadingScope(false)
     }
   }, [toast])
 
   useEffect(() => {
     if (!selectedSiteId) {
+      ++scopeRequestRef.current
+      ++cameraRequestRef.current
       setZones([])
       setCameras([])
       setSelectedCameraId("")
+      setLoadingScope(false)
       return
     }
     void loadScope(selectedSiteId)
   }, [selectedSiteId, loadScope])
+
+  useEffect(() => {
+    if (step !== "cameras" || !selectedSiteId) return
+    let disposed = false
+    let requestInFlight = false
+
+    const refreshCameras = async () => {
+      if (requestInFlight) return
+      requestInFlight = true
+      const requestId = ++cameraRequestRef.current
+      try {
+        const nextCameras = await cameraApi.list(selectedSiteId)
+        if (disposed || requestId !== cameraRequestRef.current) return
+        setCameras(nextCameras)
+        setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current)
+          ? current
+          : nextCameras.find((camera) => camera.role === "OVERVIEW")?.id || nextCameras[0]?.id || "")
+      } catch {
+        // The initial site load already reports errors; polling retries silently.
+      } finally {
+        requestInFlight = false
+      }
+    }
+
+    void refreshCameras()
+    const intervalId = window.setInterval(() => void refreshCameras(), CAMERA_REFRESH_INTERVAL_MS)
+    return () => {
+      disposed = true
+      ++cameraRequestRef.current
+      window.clearInterval(intervalId)
+    }
+  }, [step, selectedSiteId])
 
   const loadHistory = useCallback(async () => {
     if (!selectedSiteId || !selectedCameraId) {
@@ -352,6 +399,7 @@ export default function ParkingCommissioningPage() {
 
   const openCamera = (camera?: Camera) => {
     setEditingCamera(camera || null)
+    setCameraLifecycleAction("unchanged")
     setCameraForm(camera ? {
       siteId: camera.siteId,
       zoneId: camera.zoneId,
@@ -359,7 +407,6 @@ export default function ParkingCommissioningPage() {
       rtspUrl: "",
       role: camera.role,
       panelType: camera.panelType,
-      status: camera.status,
     } : { ...EMPTY_CAMERA, siteId: selectedSiteId || "", zoneId: zones[0]?.id || null })
     setCameraDialog(true)
   }
@@ -368,12 +415,15 @@ export default function ParkingCommissioningPage() {
     if (!selectedSiteId || !cameraForm.name.trim()) return
     setBusy(true)
     const payload: CameraWriteRequest = {
-      ...cameraForm,
       siteId: selectedSiteId,
       name: cameraForm.name.trim(),
       zoneId: cameraForm.zoneId || null,
       rtspUrl: cameraForm.rtspUrl?.trim() || null,
+      role: cameraForm.role,
       panelType: cameraForm.role === "ANPR_GATE" ? cameraForm.panelType || "entry" : null,
+      status: cameraLifecycleAction === "disable"
+        ? "disabled"
+        : cameraLifecycleAction === "enable" ? "provisioned" : undefined,
     }
     try {
       const saved = editingCamera
@@ -1854,22 +1904,32 @@ export default function ParkingCommissioningPage() {
                 </Select>
               </Field>
             )}
-            <Field label="Trạng thái vật lý">
-              <Select
-                value={cameraForm.status || "provisioned"}
-                onValueChange={(value) => setCameraForm((form) => ({ ...form, status: value as CameraStatus }))}
-              >
-                <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-border text-foreground">
-                  <SelectItem value="provisioned" className="focus:bg-muted font-medium text-xs text-muted-foreground">PROVISIONED</SelectItem>
-                  <SelectItem value="online" className="focus:bg-muted font-medium text-xs text-emerald-600">ONLINE</SelectItem>
-                  <SelectItem value="offline" className="focus:bg-muted font-medium text-xs text-rose-600">OFFLINE</SelectItem>
-                  <SelectItem value="disabled" className="focus:bg-muted font-medium text-xs text-slate-600">DISABLED</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+            {editingCamera && (
+              <Field label="Trạng thái quản trị">
+                <Select
+                  value={cameraLifecycleAction}
+                  onValueChange={(value) => setCameraLifecycleAction(value as CameraLifecycleAction)}
+                >
+                  <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border text-foreground">
+                    <SelectItem value="unchanged" className="focus:bg-muted font-medium text-xs">
+                      Giữ nguyên ({editingCamera.status.toUpperCase()})
+                    </SelectItem>
+                    {editingCamera.status === "disabled" ? (
+                      <SelectItem value="enable" className="focus:bg-muted font-medium text-xs text-emerald-600">
+                        Kích hoạt lại (chờ heartbeat)
+                      </SelectItem>
+                    ) : (
+                      <SelectItem value="disable" className="focus:bg-muted font-medium text-xs text-slate-600">
+                        Vô hiệu hóa camera
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
             <div className="md:col-span-2">
               <Field label={editingCamera ? "Thay đổi RTSP URL mới (để trống nếu giữ nguyên)" : "Địa chỉ liên kết RTSP"}>
                 <Input

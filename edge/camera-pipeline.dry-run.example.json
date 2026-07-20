@@ -90,7 +90,8 @@
     "queue_enabled": true,
     "queue_path": "camera-event-queue.sqlite3",
     "queue_max_events": 5000,
-    "queue_retry_seconds": 5.0
+    "queue_retry_seconds": 5.0,
+    "heartbeat_interval_seconds": 20.0
   },
   "logging": {
     "level": "INFO",

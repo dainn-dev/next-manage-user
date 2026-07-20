@@ -6,10 +6,10 @@ FROM base AS deps
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@8.15.9
+RUN npm install -g pnpm@9.15.9
 
 # Copy package files
-COPY package.json pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
@@ -18,10 +18,11 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend/. .
+COPY tokens.css /tokens.css
 
 # Install pnpm
-RUN npm install -g pnpm@8.15.9
+RUN npm install -g pnpm@9.15.9
 
 # Build the application
 RUN pnpm build

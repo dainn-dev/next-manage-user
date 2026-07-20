@@ -135,6 +135,7 @@ class IngestConfig:
     queue_path: Path = Path("camera-event-queue.sqlite3")
     queue_max_events: int = 5000
     queue_retry_seconds: float = 5.0
+    heartbeat_interval_seconds: float = 20.0
 
 
 @dataclass(frozen=True)
@@ -347,6 +348,9 @@ def load_camera_pipeline_config(path: str | Path,
         queue_retry_seconds=_number_or_default(
             ingest, "queue_retry_seconds", "ingest.queue_retry_seconds", issues,
             5.0, minimum=0.1),
+        heartbeat_interval_seconds=_number_or_default(
+            ingest, "heartbeat_interval_seconds", "ingest.heartbeat_interval_seconds", issues,
+            20.0, minimum=0.1),
     )
     if ingest_config.snapshot_part != "snapshot":
         issues.append("ingest.snapshot_part must be 'snapshot'")

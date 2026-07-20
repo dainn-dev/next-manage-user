@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 import sys
 import tempfile
+import threading
 from uuid import UUID
 
 import numpy as np
@@ -204,6 +205,68 @@ def test_dry_run_returns_exact_payload_without_network() -> None:
     assert result.response == event.to_ingest_envelope()
 
 
+def test_heartbeat_posts_immediately_to_camera_endpoint_and_stops_cleanly() -> None:
+    called = threading.Event()
+
+    class HeartbeatBackend:
+        def __init__(self):
+            self.calls = []
+
+        def post(self, url, **kwargs):
+            self.calls.append({"url": url, **kwargs})
+            called.set()
+            return _Response(200)
+
+    backend = HeartbeatBackend()
+    config = replace(
+        _config(),
+        url="https://edge.example.test/reverse-proxy/api/v1/parking-events?source=edge",
+        heartbeat_interval_seconds=60.0,
+    )
+    client = CameraIngestClient(config, CAMERA_ID, post=backend.post)
+
+    client.start_heartbeat()
+    assert called.wait(1.0), "heartbeat was not sent immediately"
+    client.close()
+
+    assert backend.calls == [{
+        "url": (
+            "https://edge.example.test/reverse-proxy/api/cameras/"
+            f"{CAMERA_ID}/heartbeat"
+        ),
+        "headers": {
+            "Accept": "application/json",
+            "X-Camera-Id": CAMERA_ID,
+            "X-Camera-Key": "camera-secret",
+        },
+        "timeout": 4,
+    }]
+    assert client._heartbeat_thread is None
+
+
+def test_heartbeat_rejection_is_not_treated_as_success() -> None:
+    backend = _Backend([_Response(401, text="invalid camera credential")])
+    client = CameraIngestClient(_config(), CAMERA_ID, post=backend.post)
+
+    status, error = client._send_heartbeat()
+
+    assert status == 401
+    assert error is not None and "invalid camera credential" in error
+
+
+def test_heartbeat_respects_dry_run() -> None:
+    def fail_post(*_args, **_kwargs):
+        raise AssertionError("dry-run must not send heartbeat HTTP")
+
+    client = CameraIngestClient(
+        _config(dry_run=True), CAMERA_ID, post=fail_post)
+
+    client.start_heartbeat()
+    client.close()
+
+    assert client._heartbeat_thread is None
+
+
 class _RecordingIngest:
     def __init__(self):
         self.sent = []
@@ -346,6 +409,9 @@ def run() -> None:
         test_permanent_rejection_is_not_retried,
         test_snapshot_uses_multipart_event_and_binary_part,
         test_dry_run_returns_exact_payload_without_network,
+        test_heartbeat_posts_immediately_to_camera_endpoint_and_stops_cleanly,
+        test_heartbeat_rejection_is_not_treated_as_success,
+        test_heartbeat_respects_dry_run,
         test_pipeline_builds_vehicle_and_plate_contracts_with_snapshot_context,
         test_unexpected_transport_failure_logs_complete_event_context,
         test_retryable_failure_is_spooled_and_replayed_with_same_idempotency_key,
