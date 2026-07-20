@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, User as UserIcon, Mail, Lock, Shield, UserCheck, UserX, MapPinned } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -47,6 +47,7 @@ export function UserForm({
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState<Partial<Record<"username" | "email" | "password" | "confirmPassword" | "siteIds", string>>>({})
   const { toast } = useToast()
 
   useEffect(() => {
@@ -55,6 +56,7 @@ export function UserForm({
   }, [isOpen])
 
   useEffect(() => {
+    setErrors({})
     if (user && isEditing) {
       setFormData({
         username: user.username || "",
@@ -85,34 +87,22 @@ export function UserForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.username.trim()) {
-      toast({ title: "Lỗi", description: "Tên đăng nhập là bắt buộc", variant: "destructive" })
-      return
-    }
-    if (!formData.email.trim()) {
-      toast({ title: "Lỗi", description: "Email là bắt buộc", variant: "destructive" })
-      return
-    }
-    if (!isEditing && !formData.password.trim()) {
-      toast({ title: "Lỗi", description: "Mật khẩu là bắt buộc", variant: "destructive" })
-      return
-    }
-    if (!isEditing && formData.password !== formData.confirmPassword) {
-      toast({ title: "Lỗi", description: "Mật khẩu xác nhận không khớp", variant: "destructive" })
-      return
-    }
-    if (!isEditing && formData.password.length < 6) {
-      toast({ title: "Lỗi", description: "Mật khẩu phải có ít nhất 6 ký tự", variant: "destructive" })
-      return
-    }
+    const nextErrors: Partial<Record<"username" | "email" | "password" | "confirmPassword" | "siteIds", string>> = {}
+    if (!formData.username.trim()) nextErrors.username = "Nhập tên đăng nhập để tiếp tục."
+    if (!formData.email.trim()) nextErrors.email = "Nhập địa chỉ email để tiếp tục."
+    if (!isEditing && !formData.password.trim()) nextErrors.password = "Nhập mật khẩu cho tài khoản mới."
+    if (!isEditing && formData.password && formData.password.length < 6) nextErrors.password = "Mật khẩu cần có ít nhất 6 ký tự."
+    if (!isEditing && formData.password !== formData.confirmPassword) nextErrors.confirmPassword = "Mật khẩu xác nhận chưa khớp."
     if (isSiteScopedOperator(formData.role) && formData.siteIds.length === 0) {
-      toast({
-        title: "Lỗi",
-        description: "Vai trò vận hành theo site cần được gán ít nhất một khu vực (chi nhánh).",
-        variant: "destructive",
-      })
+      nextErrors.siteIds = "Chọn ít nhất một khu vực cho vai trò vận hành theo site."
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      const firstField = Object.keys(nextErrors)[0]
+      document.getElementById(firstField)?.focus()
       return
     }
+    setErrors({})
 
     try {
       setIsLoading(true)
@@ -149,6 +139,9 @@ export function UserForm({
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    if (field in errors) {
+      setErrors((current) => ({ ...current, [field]: undefined }))
+    }
   }
 
   const toggleSite = (siteId: string) => {
@@ -158,6 +151,7 @@ export function UserForm({
         ? prev.siteIds.filter((id) => id !== siteId)
         : [...prev.siteIds, siteId],
     }))
+    setErrors((current) => ({ ...current, siteIds: undefined }))
   }
 
   return (
@@ -166,7 +160,12 @@ export function UserForm({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Cập nhật người dùng" : "Tạo người dùng"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {Object.keys(errors).length > 0 && (
+            <div role="alert" className="rounded-[var(--radius-input)] border border-destructive/30 bg-[var(--color-critical-surface)] p-3 text-sm text-[var(--color-on-critical)]">
+              Kiểm tra các trường được đánh dấu trước khi lưu.
+            </div>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Thông tin tài khoản</CardTitle>
@@ -177,10 +176,14 @@ export function UserForm({
                   <Label htmlFor="username">Tên đăng nhập</Label>
                   <Input
                     id="username"
+                    autoComplete="username"
                     value={formData.username}
                     onChange={(e) => handleInputChange("username", e.target.value)}
+                    aria-invalid={!!errors.username}
+                    aria-describedby={errors.username ? "username-error" : undefined}
                     required
                   />
+                  {errors.username && <p id="username-error" className="text-xs font-medium text-destructive">{errors.username}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -189,12 +192,16 @@ export function UserForm({
                     <Input
                       id="email"
                       type="email"
+                      autoComplete="email"
                       className="pl-9"
                       value={formData.email}
                       onChange={(e) => handleInputChange("email", e.target.value)}
+                      aria-invalid={!!errors.email}
+                      aria-describedby={errors.email ? "email-error" : undefined}
                       required
                     />
                   </div>
+                  {errors.email && <p id="email-error" className="text-xs font-medium text-destructive">{errors.email}</p>}
                 </div>
               </div>
               <div className="space-y-2">
@@ -213,30 +220,50 @@ export function UserForm({
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      className="pl-9 pr-10"
+                      autoComplete={isEditing ? "new-password" : "new-password"}
+                      className="pl-9 pr-12"
                       value={formData.password}
                       onChange={(e) => handleInputChange("password", e.target.value)}
+                      aria-invalid={!!errors.password}
+                      aria-describedby={errors.password ? "password-error" : undefined}
                       required={!isEditing}
                     />
                     <button
                       type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-[var(--radius-input)] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </button>
                   </div>
+                  {errors.password && <p id="password-error" className="text-xs font-medium text-destructive">{errors.password}</p>}
                 </div>
                 {!isEditing && (
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={formData.confirmPassword}
-                      onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                      required
-                    />
+                    <div className="relative">
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        className="pr-12"
+                        value={formData.confirmPassword}
+                        onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                        aria-invalid={!!errors.confirmPassword}
+                        aria-describedby={errors.confirmPassword ? "confirm-password-error" : undefined}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-[var(--radius-input)] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        onClick={() => setShowConfirmPassword((value) => !value)}
+                        aria-label={showConfirmPassword ? "Ẩn mật khẩu xác nhận" : "Hiện mật khẩu xác nhận"}
+                      >
+                        {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && <p id="confirm-password-error" className="text-xs font-medium text-destructive">{errors.confirmPassword}</p>}
                   </div>
                 )}
               </div>
@@ -327,7 +354,13 @@ export function UserForm({
                       ? "Security guard chỉ quan sát vận hành trong các chi nhánh được chọn."
                       : "Site manager chỉ vận hành trong các chi nhánh được chọn."}
                   </p>
-                  <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-3">
+                  <div
+                    id="siteIds"
+                    tabIndex={-1}
+                    aria-invalid={!!errors.siteIds}
+                    aria-describedby={errors.siteIds ? "site-ids-error" : undefined}
+                    className={cn("max-h-40 space-y-2 overflow-y-auto rounded-[var(--radius-input)] border p-3 outline-none", errors.siteIds && "border-destructive ring-2 ring-destructive/20")}
+                  >
                     {sites.length === 0 && (
                       <p className="text-sm text-muted-foreground">Chưa có khu vực — tạo site trước.</p>
                     )}
@@ -348,6 +381,7 @@ export function UserForm({
                       </label>
                     ))}
                   </div>
+                  {errors.siteIds && <p id="site-ids-error" className="text-xs font-medium text-destructive">{errors.siteIds}</p>}
                 </div>
               )}
 
@@ -372,14 +406,14 @@ export function UserForm({
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
               Hủy
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} data-state={isLoading ? "loading" : undefined}>
               {isLoading ? "Đang lưu…" : isEditing ? "Cập nhật" : "Tạo"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

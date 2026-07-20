@@ -216,15 +216,16 @@ function roleLabel(role?: UserRole): string {
 interface SidebarProps {
   mobileOpen?: boolean
   onMobileClose?: () => void
+  variant?: "adaptive" | "desktop" | "mobile"
 }
 
-export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ mobileOpen = false, onMobileClose, variant = "adaptive" }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   // A mobile drawer must always expose labels, even when this user previously
   // chose the compact desktop rail.
-  const compact = collapsed && !mobileOpen
+  const compact = collapsed && variant !== "mobile" && !mobileOpen
   const { user, logout } = useAuth()
   const { toast } = useToast()
 
@@ -341,11 +342,16 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
   return (
     <aside
-      id="tenant-navigation"
+      id={variant === "mobile" ? "tenant-navigation-mobile" : "tenant-navigation"}
       className={cn(
-        "fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,calc(100%-2rem))] flex-col border-r border-sidebar-border bg-sidebar shadow-[var(--shadow-overlay)] transition-[transform,width] duration-[var(--dur-long)] ease-[var(--ease-out)] lg:relative lg:z-auto lg:translate-x-0 lg:shadow-sm",
-        mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "lg:w-[var(--shell-sidebar-collapsed)]" : "lg:w-[var(--shell-sidebar-width)]"
+        "min-w-0 flex-col text-sidebar-foreground",
+        variant === "desktop"
+          ? "hidden h-dvh border-r border-sidebar-border bg-sidebar lg:relative lg:flex lg:shadow-sm"
+          : variant === "mobile"
+            ? "flex h-full w-full bg-transparent"
+            : "fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,calc(100%-2rem))] border-r border-sidebar-border bg-sidebar shadow-[var(--shadow-overlay)] transition-[transform,width] duration-[var(--dur-long)] ease-[var(--ease-out)] lg:relative lg:z-auto lg:translate-x-0 lg:shadow-sm",
+        variant === "adaptive" && (mobileOpen ? "translate-x-0" : "-translate-x-full"),
+        variant !== "mobile" && (collapsed ? "lg:w-[var(--shell-sidebar-collapsed)]" : "lg:w-[var(--shell-sidebar-width)]")
       )}
       aria-label="Điều hướng chính"
     >

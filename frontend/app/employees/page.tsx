@@ -1,20 +1,35 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import type { Employee, Department } from "@/lib/types"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import type { Department, Employee } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
-import { EmployeeTable } from "@/components/employees/employee-table"
 import { EmployeeForm } from "@/components/employees/employee-form"
+import { EmployeeTable } from "@/components/employees/employee-table"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Search, Download, Plus, RefreshCw, Trash2, Users, TrendingUp, UserCheck, Edit, Shield, Crown, Briefcase, Filter } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { exportEmployeesToExcel } from "@/lib/utils/excel-export"
+import {
+  Briefcase,
+  Crown,
+  Download,
+  Filter,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  Shield,
+  Trash2,
+  TrendingUp,
+  UserCheck,
+  Users,
+} from "lucide-react"
 
 export default function EmployeesPage() {
   const searchParams = useSearchParams()
@@ -37,26 +52,17 @@ export default function EmployeesPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    loadData()
-  }, []) // Only load data once when component mounts
+    void loadData()
+  }, [])
 
-  // Handle URL parameters for filtering
   useEffect(() => {
-    const positionParam = searchParams.get('position')
-    const positionIdParam = searchParams.get('positionId')
-    const departmentParam = searchParams.get('department')
-    
-    if (positionParam) {
-      setPositionFilter(positionParam)
-    }
-    if (positionIdParam) {
-      // We need to find the position name from the ID
-      // For now, we'll handle this in the filterEmployees function
-      console.log('Position ID from URL:', positionIdParam)
-    }
-    if (departmentParam) {
-      setDepartmentFilter(departmentParam)
-    }
+    const positionParam = searchParams.get("position")
+    const positionIdParam = searchParams.get("positionId")
+    const departmentParam = searchParams.get("department")
+
+    if (positionParam) setPositionFilter(positionParam)
+    if (positionIdParam) console.log("Position ID from URL:", positionIdParam)
+    if (departmentParam) setDepartmentFilter(departmentParam)
   }, [searchParams])
 
   useEffect(() => {
@@ -68,33 +74,14 @@ export default function EmployeesPage() {
       setLoading(true)
       setError(null)
       const { employeeApi } = await import("@/lib/api/employee-api")
-      
-      // Always load all employees from the existing API endpoint
       const employeesData = await employeeApi.getAllEmployeesList()
-      const departmentsData = await Promise.resolve(dataService.getDepartments()) // Keep departments from mock for now
-      
-      // Log departments for debugging
-      console.log("Loaded departments:", departmentsData.map(d => d.name));
-      
-      // Log sample employee data to check if positionId is populated
-      if (employeesData.length > 0) {
-        console.log("Sample employee data:", {
-          name: employeesData[0].name,
-          position: employeesData[0].position,
-          positionId: employeesData[0].positionId
-        });
-      }
-      
+      const departmentsData = await Promise.resolve(dataService.getDepartments())
       setEmployees(employeesData)
       setDepartments(departmentsData)
     } catch (err) {
-      setError('Không thể tải dữ liệu nhân viên')
-      console.error('Error loading employees data:', err)
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải dữ liệu nhân viên",
-        variant: "destructive",
-      })
+      setError("Không thể tải dữ liệu nhân viên")
+      console.error("Error loading employees data:", err)
+      toast({ title: "Lỗi", description: "Không thể tải dữ liệu nhân viên", variant: "destructive" })
     } finally {
       setLoading(false)
     }
@@ -102,70 +89,38 @@ export default function EmployeesPage() {
 
   const filterEmployees = () => {
     let filtered = [...employees]
+    const positionParam = searchParams.get("position")
+    const positionIdParam = searchParams.get("positionId")
+    const departmentParam = searchParams.get("department")
 
-    // URL parameter filters (from sidebar dropdown)
-    const positionParam = searchParams.get('position')
-    const positionIdParam = searchParams.get('positionId')
-    const departmentParam = searchParams.get('department')
-    
     if (positionParam) {
-      filtered = filtered.filter(emp => 
-        emp.position === positionParam || emp.jobTitle === positionParam
-      )
+      filtered = filtered.filter((employee) => employee.position === positionParam || employee.jobTitle === positionParam)
     }
-    
+
     if (positionIdParam) {
-      // Filter by positionId - we need to match the positionId field in the employee data
-      console.log('Filtering by positionId:', positionIdParam)
-      console.log('Employees before positionId filter:', filtered.length)
-      filtered = filtered.filter(emp => {
-        const matches = emp.positionId === positionIdParam
-        if (matches) {
-          console.log('Found matching employee:', emp.name, 'positionId:', emp.positionId)
-        }
-        return matches
-      })
-      console.log('Employees after positionId filter:', filtered.length)
-    }
-    
-    if (departmentParam) {
-      filtered = filtered.filter(emp => emp.department === departmentParam)
+      filtered = filtered.filter((employee) => employee.positionId === positionIdParam)
     }
 
-    // Search filter
+    if (departmentParam) {
+      filtered = filtered.filter((employee) => employee.department === departmentParam)
+    }
+
     if (searchTerm) {
-      filtered = filtered.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.position.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter((employee) =>
+        employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.position.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
 
-    // Status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(emp => emp.status === statusFilter)
-    }
-
-    // Department filter
-    if (departmentFilter !== "all") {
-      filtered = filtered.filter(emp => emp.department === departmentFilter)
-    }
-
-    // Rank filter
-    if (rankFilter !== "all") {
-      filtered = filtered.filter(emp => emp.rank === rankFilter)
-    }
-
-    // Position filter
-    if (positionFilter !== "all") {
-      filtered = filtered.filter(emp => emp.position === positionFilter)
-    }
-
-    // Military/Civilian filter
+    if (statusFilter !== "all") filtered = filtered.filter((employee) => employee.status === statusFilter)
+    if (departmentFilter !== "all") filtered = filtered.filter((employee) => employee.department === departmentFilter)
+    if (rankFilter !== "all") filtered = filtered.filter((employee) => employee.rank === rankFilter)
+    if (positionFilter !== "all") filtered = filtered.filter((employee) => employee.position === positionFilter)
     if (militaryCivilianFilter !== "all") {
-      filtered = filtered.filter(emp => emp.militaryCivilian === militaryCivilianFilter)
+      filtered = filtered.filter((employee) => employee.militaryCivilian === militaryCivilianFilter)
     }
 
     setFilteredEmployees(filtered)
@@ -183,8 +138,8 @@ export default function EmployeesPage() {
         await employeeApi.deleteEmployee(employeeId)
         await loadData()
       } catch (err) {
-        setError('Không thể xóa nhân viên')
-        console.error('Error deleting employee:', err)
+        setError("Không thể xóa nhân viên")
+        console.error("Error deleting employee:", err)
       }
     }
   }
@@ -192,9 +147,6 @@ export default function EmployeesPage() {
   const handleSave = async (employeeData: Omit<Employee, "id" | "createdAt" | "updatedAt">): Promise<Employee> => {
     try {
       const { employeeApi } = await import("@/lib/api/employee-api")
-      let savedEmployee: Employee
-      
-      // Convert to API request format
       const apiEmployeeData = {
         employeeId: employeeData.employeeId,
         name: employeeData.name,
@@ -219,7 +171,8 @@ export default function EmployeesPage() {
         militaryCivilian: employeeData.militaryCivilian,
         vehicleType: employeeData.vehicleType,
       }
-      
+
+      let savedEmployee: Employee
       if (selectedEmployee) {
         savedEmployee = await employeeApi.updateEmployee(selectedEmployee.id, apiEmployeeData)
         toast({
@@ -235,25 +188,21 @@ export default function EmployeesPage() {
           description: "Nhân viên mới đã được thêm vào hệ thống.",
         })
       }
-      
+
       await loadData()
       setIsFormOpen(false)
       setSelectedEmployee(undefined)
       return savedEmployee
     } catch (err) {
-      setError('Không thể lưu nhân viên')
-      console.error('Error saving employee:', err)
-      
-      // Show error toast
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError("Không thể lưu nhân viên")
+      console.error("Error saving employee:", err)
       toast({
         variant: "destructive",
         title: "Lỗi lưu thông tin",
-        description: selectedEmployee 
+        description: selectedEmployee
           ? "Không thể cập nhật thông tin nhân viên. Vui lòng thử lại sau."
           : "Không thể tạo mới nhân viên. Vui lòng thử lại sau.",
       })
-      
       throw err
     }
   }
@@ -265,396 +214,281 @@ export default function EmployeesPage() {
 
   const handleBulkDelete = async () => {
     if (selectedEmployees.length === 0) {
-      toast({
-        title: "Cảnh báo",
-        description: "Vui lòng chọn ít nhất một nhân viên để xóa",
-        variant: "destructive",
-      })
+      toast({ title: "Cảnh báo", description: "Vui lòng chọn ít nhất một nhân viên để xóa", variant: "destructive" })
       return
     }
 
     if (confirm(`Bạn có chắc chắn muốn xóa ${selectedEmployees.length} nhân viên đã chọn?`)) {
       try {
         const { employeeApi } = await import("@/lib/api/employee-api")
-        await Promise.all(selectedEmployees.map(id => employeeApi.deleteEmployee(id)))
+        await Promise.all(selectedEmployees.map((id) => employeeApi.deleteEmployee(id)))
         setSelectedEmployees([])
         await loadData()
-        toast({
-          title: "Thành công",
-          description: `${selectedEmployees.length} nhân viên đã được xóa thành công!`,
-        })
+        toast({ title: "Thành công", description: `${selectedEmployees.length} nhân viên đã được xóa thành công!` })
       } catch (error) {
         console.error("Error bulk deleting employees:", error)
-        toast({
-          title: "Lỗi",
-          description: "Không thể xóa các nhân viên đã chọn",
-          variant: "destructive",
-        })
+        toast({ title: "Lỗi", description: "Không thể xóa các nhân viên đã chọn", variant: "destructive" })
       }
     }
   }
 
   const handleExport = () => {
     try {
-      const filename = `danh_sach_nhan_vien_${new Date().toISOString().split('T')[0]}`
+      const filename = `danh_sach_nhan_vien_${new Date().toISOString().split("T")[0]}`
       const success = exportEmployeesToExcel(employees, filename)
-      
-       if (success) {
-         toast({
-           title: "Xuất file thành công",
-           description: `Đã xuất ${employees.length} nhân viên ra file CSV (có thể mở bằng Excel)`,
-           variant: "default",
-         })
-       } else {
-         throw new Error('Export failed')
-       }
-     } catch (error) {
-       console.error('Export error:', error)
-       toast({
-         title: "Lỗi xuất file",
-         description: "Có lỗi xảy ra khi xuất dữ liệu. Vui lòng thử lại.",
-         variant: "destructive",
-       })
-     }
+      if (success) {
+        toast({
+          title: "Xuất file thành công",
+          description: `Đã xuất ${employees.length} nhân viên ra file CSV (có thể mở bằng Excel)`,
+          variant: "default",
+        })
+      } else {
+        throw new Error("Export failed")
+      }
+    } catch (error) {
+      console.error("Export error:", error)
+      toast({ title: "Lỗi xuất file", description: "Có lỗi xảy ra khi xuất dữ liệu. Vui lòng thử lại.", variant: "destructive" })
+    }
   }
 
-  const getStatistics = () => {
+  const stats = (() => {
     const total = employees.length
-    const active = employees.filter(emp => emp.status === "HOAT_DONG").length
-    const tranhThu = employees.filter(emp => emp.status === "TRANH_THU").length
-    const phep = employees.filter(emp => emp.status === "PHEP").length
-    const lyDoKhac = employees.filter(emp => emp.status === "LY_DO_KHAC").length
-    const avgAge = employees.length > 0 ? 
-      Math.round(employees.reduce((sum, emp) => {
-        if (emp.birthDate) {
-          const age = new Date().getFullYear() - new Date(emp.birthDate).getFullYear()
-          return sum + age
-        }
+    const active = employees.filter((employee) => employee.status === "HOAT_DONG").length
+    const tranhThu = employees.filter((employee) => employee.status === "TRANH_THU").length
+    const phep = employees.filter((employee) => employee.status === "PHEP").length
+    const lyDoKhac = employees.filter((employee) => employee.status === "LY_DO_KHAC").length
+    const averageAge = employees.length > 0
+      ? Math.round(employees.reduce((sum, employee) => {
+        if (employee.birthDate) return sum + new Date().getFullYear() - new Date(employee.birthDate).getFullYear()
         return sum
-      }, 0) / employees.filter(emp => emp.birthDate).length) : 0
-
-    return { total, active, tranhThu, phep, lyDoKhac, avgAge }
-  }
+      }, 0) / employees.filter((employee) => employee.birthDate).length)
+      : 0
+    return { total, active, tranhThu, phep, lyDoKhac, averageAge }
+  })()
 
   if (loading) {
     return (
-      <div className="admin-mobile-page min-h-dvh bg-background">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <p className="text-blue-600 font-medium">Đang tải dữ liệu nhân viên...</p>
-          </div>
-        </div>
-      </div>
+      <AdminPage>
+        <Card className="min-h-64 justify-center">
+          <CardContent className="flex flex-col items-center gap-3 text-center">
+            <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Đang tải dữ liệu quân nhân.</p>
+          </CardContent>
+        </Card>
+      </AdminPage>
     )
   }
 
   if (error) {
     return (
-      <div className="admin-mobile-page min-h-dvh bg-background">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
-              <span className="text-red-600 text-2xl">⚠️</span>
-            </div>
-            <div>
-              <p className="text-red-600 font-medium">{error}</p>
-              <button 
-                onClick={() => loadData()}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
-              >
-                Thử lại
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminPage>
+        <Card className="min-h-64 justify-center border-destructive/30">
+          <CardContent className="flex flex-col items-center gap-4 text-center">
+            <p className="font-medium text-destructive">{error}</p>
+            <Button variant="outline" onClick={() => void loadData()}>
+              <RefreshCw />
+              Thử lại
+            </Button>
+          </CardContent>
+        </Card>
+      </AdminPage>
     )
   }
 
-  const stats = getStatistics()
+  const urlPosition = searchParams.get("position")
+  const urlDepartment = searchParams.get("department")
+  const metricCards = [
+    { label: "Tổng quân nhân", value: stats.total, description: `${stats.active} đang hoạt động`, icon: Users },
+    { label: "Đang hoạt động", value: stats.active, description: "Quân nhân đang làm việc", icon: UserCheck },
+    {
+      label: "Tỷ lệ hoạt động",
+      value: `${stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%`,
+      description: "Tỷ trọng quân nhân đang hoạt động",
+      icon: TrendingUp,
+    },
+  ]
 
   return (
-    <div className="admin-mobile-page min-h-dvh bg-background">
-      {/* Header */}
-        <div className="admin-mobile-header mb-6 sm:mb-8">
-          <div>
-            <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-4xl">Quản lý Quân nhân</h1>
-            <p className="text-base text-muted-foreground sm:text-lg">Quản lý thông tin và hoạt động của quân nhân trong đơn vị</p>
-          {/* Show filter indicator */}
-          {(searchParams.get('position') || searchParams.get('department')) && (
-            <div className="mt-2 flex items-center gap-2">
-              {searchParams.get('position') && (
-                <Badge variant="secondary" className="text-sm">
-                  📋 Đang lọc theo chức vụ: {searchParams.get('position')}
-                </Badge>
-              )}
-              {searchParams.get('department') && (
-                <Badge variant="secondary" className="text-sm">
-                  🏢 Đang lọc theo đơn vị: {searchParams.get('department')}
-                </Badge>
-              )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => router.push('/employees')}
-                className="h-6 px-2 text-xs"
-              >
-                Xóa bộ lọc
-              </Button>
-            </div>
-          )}
-        </div>
-        <Button onClick={handleAddNew} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-2" />
-          Thêm quân nhân
-        </Button>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng quân nhân</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.active} đang hoạt động
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đang hoạt động</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.active}</div>
-            <p className="text-xs text-muted-foreground">
-              Quân nhân đang làm việc
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tỷ lệ hoạt động</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Quân nhân đang hoạt động
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-       {/* Search and Filter Bar */}
-       <div className="bg-white border rounded-lg mb-6 shadow-sm">
-         {/* Action Buttons - Inline */}
-         <div className="admin-mobile-actions border-b border-border bg-muted/40 p-4 sm:flex sm:flex-wrap sm:p-5">
-           <Button
-             variant={isFilterBarOpen ? "default" : "outline"}
-             size="sm"
-             onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
-             className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200"
-           >
-             <Filter className="h-4 w-4" />
-             {isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
-             {isFilterBarOpen ? (
-               <span className="ml-1 text-sm">▼</span>
-             ) : (
-               <span className="ml-1 text-sm">▶</span>
-             )}
-           </Button>
-           <Button 
-             variant="outline" 
-             size="sm" 
-             onClick={loadData} 
-             className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
-           >
-             <RefreshCw className="h-4 w-4" />
-             Làm mới dữ liệu
-           </Button>
-           <Button 
-             variant="outline" 
-             size="sm" 
-             onClick={handleExport} 
-             className="flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-200 hover:bg-green-50 hover:border-green-300"
-           >
-             <Download className="h-4 w-4" />
-             Xuất Excel
-           </Button>
-         </div>
-
-         {/* Collapsible Filter Content */}
-         {isFilterBarOpen && (
-           <div className="bg-card p-4 sm:p-5">
-             <div className="mb-4">
-               <h3 className="text-lg font-semibold text-gray-800 mb-2">Bộ lọc tìm kiếm</h3>
-               <p className="text-sm text-gray-600">Sử dụng các bộ lọc bên dưới để tìm kiếm quân nhân theo tiêu chí cụ thể</p>
-             </div>
-             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {/* Search Section */}
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Search className="h-4 w-4 text-blue-600" />
-              Tìm kiếm
-            </Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Nhập tên, mã, email, đơn vị..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm"
-              />
-            </div>
-          </div>
-
-          {/* Status Filter */}
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-green-600" />
-              Trạng thái
-            </Label>
-            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-              <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                <SelectValue placeholder="Chọn trạng thái" />
-              </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">🔄 Tất cả</SelectItem>
-                 <SelectItem value="HOAT_DONG">✅ Hoạt động</SelectItem>
-                 <SelectItem value="TRANH_THU">⏸️ Tranh thủ</SelectItem>
-                 <SelectItem value="PHEP">📅 Phép</SelectItem>
-                 <SelectItem value="LY_DO_KHAC">❌ Lý do khác</SelectItem>
-               </SelectContent>
-            </Select>
-          </div>
-
-          {/* Department Filter */}
-          <div className="space-y-3">
-            <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Users className="h-4 w-4 text-purple-600" />
-              Đơn vị
-            </Label>
-            <Select value={departmentFilter} onValueChange={(value) => setDepartmentFilter(value)}>
-              <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                <SelectValue placeholder="Chọn đơn vị" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">🏢 Tất cả đơn vị</SelectItem>
-                {departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.name}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-           </div>
-
-            {/* Rank Filter */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Crown className="h-4 w-4 text-yellow-600" />
-                Cấp bậc
-              </Label>
-              <Select value={rankFilter} onValueChange={(value) => setRankFilter(value)}>
-                <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                  <SelectValue placeholder="Chọn cấp bậc" />
-                </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">🎖️ Tất cả cấp bậc</SelectItem>
-                 {Array.from(new Set(employees.map(emp => emp.rank).filter(Boolean))).map((rank) => (
-                   <SelectItem key={rank} value={rank!}>
-                     {rank}
-                   </SelectItem>
-                 ))}
-               </SelectContent>
-             </Select>
-           </div>
-
-            {/* Position Filter */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-indigo-600" />
-                Chức vụ
-              </Label>
-              <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value)}>
-                <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                  <SelectValue placeholder="Chọn chức vụ" />
-                </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">💼 Tất cả chức vụ</SelectItem>
-                 {Array.from(new Set(employees.map(emp => emp.position).filter(Boolean))).map((position) => (
-                   <SelectItem key={position} value={position!}>
-                     {position}
-                   </SelectItem>
-                 ))}
-               </SelectContent>
-             </Select>
-           </div>
-
-            {/* Military/Civilian Filter */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <Shield className="h-4 w-4 text-red-600" />
-                SQ/QNCN
-              </Label>
-              <Select value={militaryCivilianFilter} onValueChange={(value) => setMilitaryCivilianFilter(value)}>
-                <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg shadow-sm">
-                  <SelectValue placeholder="Chọn loại" />
-                </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">👥 Tất cả</SelectItem>
-                 <SelectItem value="SQ">👥 Sĩ Quan</SelectItem>
-                 <SelectItem value="QNCN">👥 QNCN</SelectItem>
-               </SelectContent>
-             </Select>
-             </div>
-             </div>
-           </div>
-         )}
-       </div>
-
-      {/* Action Bar */}
-      {selectedEmployees.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-sm sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
-              {selectedEmployees.length} quân nhân đã chọn
-            </Badge>
-          </div>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            onClick={handleBulkDelete}
-            className="shadow-sm hover:shadow-md transition-all duration-200"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Xóa đã chọn
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Quản trị nhân sự"
+        title="Quản lý quân nhân"
+        description="Quản lý thông tin, trạng thái và phân công của quân nhân trong đơn vị."
+        actions={
+          <Button onClick={handleAddNew}>
+            <Plus />
+            Thêm quân nhân
           </Button>
-        </div>
+        }
+      />
+
+      {(urlPosition || urlDepartment) && (
+        <Card className="bg-primary-container/35">
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-foreground">Đang áp dụng bộ lọc từ điều hướng:</span>
+              {urlPosition && <Badge variant="secondary">Chức vụ: {urlPosition}</Badge>}
+              {urlDepartment && <Badge variant="secondary">Đơn vị: {urlDepartment}</Badge>}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => router.push("/employees")}>
+              Xóa bộ lọc
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Data Table */}
-      <div className="mb-6">
-        <EmployeeTable 
-          employees={filteredEmployees} 
-          onEdit={handleEdit} 
-          onDelete={handleDelete} 
-          onAdd={handleAddNew}
-          selectedEmployees={selectedEmployees}
-          onSelectionChange={setSelectedEmployees}
-        />
-      </div>
+      <section className="grid gap-4 md:grid-cols-3" aria-label="Tổng quan quân nhân">
+        {metricCards.map((item) => {
+          const Icon = item.icon
+          return (
+            <Card key={item.label}>
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-sm">{item.label}</CardTitle>
+                  <CardDescription className="mt-1">{item.description}</CardDescription>
+                </div>
+                <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tracking-tight text-foreground">{item.value}</p>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </section>
+
+      <Card>
+        <CardHeader className="border-b border-border">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Tìm kiếm và lọc</CardTitle>
+              <CardDescription className="mt-1">Lọc danh sách theo thông tin nhân sự và đơn vị công tác.</CardDescription>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:flex">
+              <Button
+                variant={isFilterBarOpen ? "tonal" : "outline"}
+                onClick={() => setIsFilterBarOpen((open) => !open)}
+              >
+                <Filter />
+                {isFilterBarOpen ? "Ẩn bộ lọc" : "Mở bộ lọc"}
+              </Button>
+              <Button variant="outline" onClick={() => void loadData()}>
+                <RefreshCw />
+                Làm mới
+              </Button>
+              <Button variant="outline" onClick={handleExport}>
+                <Download />
+                Xuất Excel
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        {isFilterBarOpen && (
+          <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-2">
+              <Label htmlFor="employee-search">Tìm kiếm</Label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  id="employee-search"
+                  placeholder="Tên, mã, email, đơn vị..."
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <FilterSelect label="Trạng thái" icon={UserCheck}>
+              <Select value={statusFilter} onValueChange={(value: typeof statusFilter) => setStatusFilter(value)}>
+                <SelectTrigger><SelectValue placeholder="Chọn trạng thái" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="HOAT_DONG">Hoạt động</SelectItem>
+                  <SelectItem value="TRANH_THU">Tranh thủ</SelectItem>
+                  <SelectItem value="PHEP">Phép</SelectItem>
+                  <SelectItem value="LY_DO_KHAC">Lý do khác</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+
+            <FilterSelect label="Đơn vị" icon={Users}>
+              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <SelectTrigger><SelectValue placeholder="Chọn đơn vị" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả đơn vị</SelectItem>
+                  {departments.map((department) => <SelectItem key={department.id} value={department.name}>{department.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+
+            <FilterSelect label="Cấp bậc" icon={Crown}>
+              <Select value={rankFilter} onValueChange={setRankFilter}>
+                <SelectTrigger><SelectValue placeholder="Chọn cấp bậc" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả cấp bậc</SelectItem>
+                  {Array.from(new Set(employees.map((employee) => employee.rank).filter(Boolean))).map((rank) => (
+                    <SelectItem key={rank} value={rank!}>{rank}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+
+            <FilterSelect label="Chức vụ" icon={Briefcase}>
+              <Select value={positionFilter} onValueChange={setPositionFilter}>
+                <SelectTrigger><SelectValue placeholder="Chọn chức vụ" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả chức vụ</SelectItem>
+                  {Array.from(new Set(employees.map((employee) => employee.position).filter(Boolean))).map((position) => (
+                    <SelectItem key={position} value={position!}>{position}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+
+            <FilterSelect label="SQ/QNCN" icon={Shield}>
+              <Select value={militaryCivilianFilter} onValueChange={setMilitaryCivilianFilter}>
+                <SelectTrigger><SelectValue placeholder="Chọn loại" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả</SelectItem>
+                  <SelectItem value="SQ">Sĩ quan</SelectItem>
+                  <SelectItem value="QNCN">QNCN</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterSelect>
+          </CardContent>
+        )}
+      </Card>
+
+      {selectedEmployees.length > 0 && (
+        <Card className="border-primary/25 bg-primary-container/35">
+          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Badge variant="secondary">{selectedEmployees.length} quân nhân đã chọn</Badge>
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              <Trash2 />
+              Xóa đã chọn
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Danh sách quân nhân</CardTitle>
+          <CardDescription>{filteredEmployees.length} kết quả theo bộ lọc hiện tại.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0 sm:px-0">
+          <EmployeeTable
+            employees={filteredEmployees}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onAdd={handleAddNew}
+            selectedEmployees={selectedEmployees}
+            onSelectionChange={setSelectedEmployees}
+          />
+        </CardContent>
+      </Card>
 
       <EmployeeForm
         employee={selectedEmployee}
@@ -666,6 +500,26 @@ export default function EmployeesPage() {
         }}
         onSave={handleSave}
       />
+    </AdminPage>
+  )
+}
+
+function FilterSelect({
+  label,
+  icon: Icon,
+  children,
+}: {
+  label: string
+  icon: typeof Users
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label className="flex items-center gap-2">
+        <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+        {label}
+      </Label>
+      {children}
     </div>
   )
 }

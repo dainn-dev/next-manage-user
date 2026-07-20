@@ -1,23 +1,27 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
 import Link from "next/link"
+import { useParams } from "next/navigation"
 import { memberApi, type MemberParkingSession } from "@/lib/api/member-api"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import {
   ArrowLeft,
-  MapPin,
   Building2,
   CalendarDays,
-  Cpu,
-  Layers,
+  Info,
   Loader2,
+  MapPin,
   Navigation,
-  Activity,
-  History
 } from "lucide-react"
 
 export default function MemberVisitDetailPage() {
@@ -50,168 +54,117 @@ export default function MemberVisitDetailPage() {
   }, [sessionId, toast])
 
   return (
-    <div className="space-y-6">
-      {/* Sci-Fi Navigation Back & Page Header */}
-      <div className="border-b border-slate-900 pb-5">
-        <div className="mb-3">
+    <div className="space-y-5 sm:space-y-6">
+      <Card className="gap-4 border-primary/15 bg-primary-container/45 py-5">
+        <CardHeader>
           <Link
             href="/me/visit"
-            className="inline-flex items-center gap-1.5 font-mono text-[10px] text-cyan-400 uppercase tracking-widest hover:text-cyan-300 transition-colors"
+            className="inline-flex min-h-10 w-fit items-center gap-2 rounded-[var(--radius-input)] px-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <ArrowLeft className="h-3 w-3 text-cyan-500" />
-            {"RETURN // GO_BACK_TO_GATEWAY"}
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Quay lại liên kết vé
           </Link>
-        </div>
-
-        <div className="space-y-1">
-          <span className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-            TELEMETRY // VEHICLE_LIVE_LOCATOR
-          </span>
-          <h1 className="text-2xl font-bold tracking-wider text-white font-mono uppercase">
-            {"XE ĐANG Ở ĐÂU?"}
-          </h1>
-          <p className="text-xs font-mono text-slate-400 uppercase leading-relaxed max-w-xl">
-            {"Hệ thống phân tích vị trí thực của phương tiện trong bãi đỗ dựa trên cảm biến hồng ngoại và luồng nhận diện camera AI."}
-          </p>
-        </div>
-      </div>
+          <p className="mt-3 text-xs font-semibold tracking-wide text-primary">Phiên gửi xe</p>
+          <CardTitle className="mt-1 text-2xl tracking-tight sm:text-3xl">Xe đang ở đâu?</CardTitle>
+          <CardDescription className="mt-2 max-w-2xl leading-6">
+            Xem thông tin phiên gửi xe và vị trí mà bãi đỗ đang cập nhật cho bạn.
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       {loading ? (
-        <div className="flex min-h-[35vh] items-center justify-center bg-slate-950/20 rounded-xl border border-slate-900">
-          <div className="flex flex-col items-center gap-2 font-mono text-xs text-cyan-400">
-            <Loader2 className="h-5 w-5 animate-spin text-cyan-500" />
-            <span className="animate-pulse tracking-widest text-[10px] uppercase mt-1">
-              {"SCANNING_AIRSPACE_FOR_VEHICLE..."}
-            </span>
-          </div>
-        </div>
+        <Card className="min-h-56 justify-center">
+          <CardContent className="flex flex-col items-center gap-3 text-center">
+            <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Đang tải thông tin phiên gửi xe...</p>
+          </CardContent>
+        </Card>
       ) : !session ? (
-        <div className="border border-slate-850 bg-slate-950/20 rounded-xl p-8 text-center relative overflow-hidden backdrop-blur-xl">
-          {/* Tech ticks */}
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-800" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-800" />
-          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-800" />
-          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-800" />
-          
-          <p className="font-mono text-xs text-rose-400 uppercase tracking-wider">
-            {"[!] ERROR_SESSION_NOT_FOUND"}
-          </p>
-          <p className="text-[11px] font-mono text-slate-500 uppercase mt-2 max-w-md mx-auto leading-relaxed">
-            {"Không tìm thấy thông tin phiên gửi xe này. Vui lòng kiểm tra lại ID hoặc liên hệ với bộ phận kỹ thuật."}
-          </p>
-        </div>
+        <Card className="min-h-56 justify-center border-dashed">
+          <CardContent className="mx-auto flex max-w-lg flex-col items-center gap-3 py-3 text-center">
+            <div className="grid size-12 place-items-center rounded-full bg-destructive/10 text-destructive">
+              <Info className="size-6" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-foreground">Không tìm thấy phiên gửi xe</h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Vui lòng kiểm tra lại mã vé hoặc liên hệ với bộ phận quản lý bãi đỗ.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-3 items-start">
-          {/* Main Visual Telemetry Block */}
-          <div className="border border-slate-800 bg-slate-950/40 text-slate-100 shadow-xl rounded-xl p-6 relative overflow-hidden backdrop-blur-xl md:col-span-2 group">
-            {/* Tech corner ticks */}
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-slate-850 group-hover:border-cyan-500/30 transition-colors" />
-
-            <div className="flex items-center justify-between gap-2 border-b border-slate-900/60 pb-3 mb-5">
-              <span className="font-mono text-[10px] tracking-widest text-slate-500 uppercase">
-                {"SESSION_METADATA_STREAM"}
-              </span>
-              <span className="flex items-center gap-1.5 font-mono text-[9px] text-emerald-400 uppercase">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {"TRANSCEIVER_ONLINE"}
-              </span>
-            </div>
-
-            <div className="space-y-6">
-              {/* Big license plate box */}
+        <div className="grid items-start gap-5 lg:grid-cols-3 lg:gap-6">
+          <Card className="gap-5 lg:col-span-2">
+            <CardHeader className="flex flex-col gap-3 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <span className="block font-mono text-[9px] tracking-widest text-slate-500 uppercase mb-1">
-                  {"TRACKED_TARGET_LICENSE // BIỂN SỐ PHƯƠNG TIỆN"}
-                </span>
-                <span className="font-mono text-3xl tracking-widest font-bold text-white bg-slate-950 border border-slate-900 py-2.5 px-6 rounded-xl inline-block shadow-[inset_0_1px_4px_rgba(0,0,0,0.6)]">
-                  {session.licensePlate}
-                </span>
+                <CardTitle className="text-lg">Thông tin phiên gửi xe</CardTitle>
+                <CardDescription className="mt-1">Cập nhật từ hệ thống bãi đỗ</CardDescription>
+              </div>
+              <Badge
+                variant={session.status === "active" || session.status === "ACTIVE" ? "secondary" : "outline"}
+                className={cn(
+                  "self-start",
+                  (session.status === "active" || session.status === "ACTIVE") && "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+                )}
+              >
+                <span className={cn("size-2 rounded-full", session.status === "active" || session.status === "ACTIVE" ? "bg-emerald-600" : "bg-muted-foreground")} aria-hidden="true" />
+                {session.status || "Chưa xác định"}
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="rounded-xl border border-border bg-muted/45 p-4 sm:p-5">
+                <p className="text-sm font-medium text-muted-foreground">Biển số phương tiện</p>
+                <p className="mt-1 text-3xl font-bold tracking-wide text-foreground sm:text-4xl">{session.licensePlate}</p>
               </div>
 
-              {/* High-Tech Row stats */}
-              <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t border-slate-900/40">
-                <div className="space-y-1">
-                  <span className="font-mono text-[9px] tracking-widest text-slate-500 uppercase block">
-                    {"LOCATION_NODE // BÃI / TỔ CHỨC"}
-                  </span>
-                  <div className="flex items-center gap-2 text-xs font-mono font-bold text-white uppercase">
-                    <Building2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                    <span>{session.tenantName || session.tenantId || "CHƯA XÁC ĐỊNH"}</span>
-                  </div>
+              <dl className="grid gap-5 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <dt className="text-sm text-muted-foreground">Bãi đỗ / tổ chức</dt>
+                  <dd className="mt-1 flex items-start gap-2 text-sm font-medium leading-6 text-foreground">
+                    <Building2 className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+                    <span>{session.tenantName || session.tenantId || "Chưa xác định"}</span>
+                  </dd>
                 </div>
-
-                <div className="space-y-1">
-                  <span className="font-mono text-[9px] tracking-widest text-slate-500 uppercase block">
-                    {"SESSION_STATUS // TRẠNG THÁI PHIÊN"}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "h-1.5 w-1.5 rounded-full animate-pulse",
-                      session.status === "active" || session.status === "ACTIVE" ? "bg-emerald-500" : "bg-slate-500"
-                    )} />
-                    <span className={cn(
-                      "text-xs font-mono font-bold uppercase",
-                      session.status === "active" || session.status === "ACTIVE" ? "text-emerald-400" : "text-slate-400"
-                    )}>
-                      {session.status || "UNKNOWN"}
-                    </span>
-                  </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">Thời gian vào bãi</dt>
+                  <dd className="mt-1 flex items-center gap-2 text-sm font-medium text-foreground">
+                    <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                    <span>{session.startedAt ? new Date(session.startedAt).toLocaleString("vi-VN") : "—"}</span>
+                  </dd>
                 </div>
+              </dl>
+            </CardContent>
+          </Card>
 
-                <div className="space-y-1 sm:col-span-2 pt-2">
-                  <span className="font-mono text-[9px] tracking-widest text-slate-500 uppercase block">
-                    {"TIMESTAMP_STARTED // THỜI GIAN VÀO BÃI"}
-                  </span>
-                  <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-                    <CalendarDays className="h-3.5 w-3.5 text-cyan-500/80 shrink-0" />
-                    <span>
-                      {session.startedAt ? new Date(session.startedAt).toLocaleString("vi-VN") : "—"}
-                    </span>
+          <Card className="min-h-64 gap-4 bg-muted/35">
+            <CardHeader className="grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1">
+              <div className="row-span-2 grid size-10 place-items-center rounded-full bg-primary-container text-primary">
+                <Navigation className="size-5" aria-hidden="true" />
+              </div>
+              <CardTitle className="text-base">Vị trí xe</CardTitle>
+              <CardDescription>Thông tin vị trí do bãi đỗ cung cấp</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col justify-between gap-5">
+              <div>
+                <p className="text-sm text-muted-foreground">Ô đỗ hiện tại</p>
+                {session.locationLabel ? (
+                  <div className="mt-2 flex items-start gap-2 rounded-xl border border-primary/20 bg-primary-container/55 p-3 text-sm font-semibold leading-6 text-on-primary-container">
+                    <MapPin className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+                    <span>{session.locationLabel}</span>
                   </div>
-                </div>
+                ) : (
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Xe đã vào bãi. Hệ thống đang xác định ô đỗ của bạn.
+                  </p>
+                )}
               </div>
-            </div>
-          </div>
-
-          {/* Location details card with compass map feeling */}
-          <div className="border border-slate-850 bg-slate-950/20 text-slate-100 shadow-xl rounded-xl p-5 relative overflow-hidden backdrop-blur-xl flex flex-col justify-between min-h-[220px]">
-            {/* Tech grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.003)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.003)_1px,transparent_1px)] bg-[size:15px_15px] pointer-events-none opacity-20" />
-
-            <div className="relative z-10 space-y-3">
-              <div className="flex items-center gap-1.5 text-cyan-400 border-b border-slate-900 pb-2">
-                <Navigation className="h-4 w-4 shrink-0 text-cyan-500 animate-pulse" />
-                <h3 className="font-mono text-[11px] font-bold uppercase tracking-wider">
-                  {"COORDINATE_RESOLVER"}
-                </h3>
+              <div className="flex items-center gap-2 border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
+                <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                Vị trí có thể thay đổi khi bãi đỗ cập nhật dữ liệu mới.
               </div>
-
-              <div className="space-y-1 pt-1">
-                <span className="font-mono text-[9px] tracking-widest text-slate-500 uppercase block">
-                  {"ASSIGNED_PARKING_SLOT // Ô ĐỖ XE HIỆN TẠI"}
-                </span>
-                <p className="text-sm font-mono font-bold text-white uppercase leading-relaxed">
-                  {session.locationLabel ? (
-                    <span className="text-cyan-400 bg-cyan-950/20 border border-cyan-500/30 py-1 px-2 rounded inline-block shadow-[0_0_10px_rgba(6,182,212,0.1)]">
-                      {session.locationLabel}
-                    </span>
-                  ) : (
-                    <span className="text-slate-400 text-xs italic">
-                      {"Đã vào bãi — đang định vị ô (camera bãi đang dò quét)"}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="relative z-10 border-t border-slate-950 pt-3 text-[9px] font-mono text-slate-500 uppercase tracking-wider">
-              {"LATITUDE / LONGITUDE RESOLVED BY CLOUD_GPS_AGENT"}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

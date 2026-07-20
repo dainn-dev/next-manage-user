@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
 import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
-import { cn } from "@/lib/utils"
 import { 
   Search, 
   Plus, 
@@ -37,52 +37,6 @@ interface PaginatedUsers {
   first: boolean
   last: boolean
   numberOfElements: number
-}
-
-interface MetricCardProps {
-  label: string
-  value: number | string
-  note: string
-  icon: any
-  color?: "blue" | "emerald" | "amber" | "rose" | "gray"
-}
-
-function MetricCard({
-  label,
-  value,
-  note,
-  icon: Icon,
-  color = "blue"
-}: MetricCardProps) {
-  const colorMap = {
-    blue: "text-blue-500 dark:text-blue-400 bg-blue-500/10 border-blue-500/20",
-    emerald: "text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    amber: "text-amber-500 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
-    rose: "text-rose-500 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
-    gray: "text-muted-foreground bg-muted border-border",
-  }
-
-  const colorClass = colorMap[color]
-
-  return (
-    <div className="border border-border bg-card text-foreground shadow-[var(--shadow-card)] rounded-xl p-5 transition-all duration-300 hover:scale-[1.01]">
-      <div className="flex items-center justify-between gap-2 pb-3 border-b border-border mb-3">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
-        </div>
-        <div className={cn("p-2 rounded-xl border", colorClass)}>
-          <Icon className="h-4.5 w-4.5" aria-hidden="true" />
-        </div>
-      </div>
-
-      <p className="text-2xl font-bold text-foreground font-mono">
-        {value}
-      </p>
-      <p className="text-[10px] text-muted-foreground mt-1 leading-normal uppercase font-medium">
-        {note}
-      </p>
-    </div>
-  )
 }
 
 export default function UsersPage() {
@@ -336,6 +290,36 @@ export default function UsersPage() {
   }
 
   const isAdmin = currentUser?.role === UserRole.ADMIN
+  const accountMetrics = [
+    {
+      label: "Tổng thành viên",
+      value: statistics.totalUsers.toLocaleString("vi-VN"),
+      note: "Tổng tài khoản đăng ký trong tổ chức",
+      icon: Users,
+      tone: "primary",
+    },
+    {
+      label: "Đang hoạt động",
+      value: statistics.activeUsers.toLocaleString("vi-VN"),
+      note: "Tài khoản sẵn sàng vận hành",
+      icon: UserCheck,
+      tone: "success",
+    },
+    {
+      label: "Quản trị viên",
+      value: statistics.adminUsers.toLocaleString("vi-VN"),
+      note: "Sở hữu toàn quyền quản trị",
+      icon: Shield,
+      tone: "serious",
+    },
+    {
+      label: "Tài khoản bị khóa",
+      value: statistics.lockedUsers.toLocaleString("vi-VN"),
+      note: "Truy cập bị đình chỉ bảo mật",
+      icon: UserX,
+      tone: "critical",
+    },
+  ] as const
 
   if (!isAdmin) {
     return (
@@ -390,37 +374,13 @@ export default function UsersPage() {
       />
 
       <div className="space-y-6">
-        {/* Dynamic Metrics Cards Strip */}
-        <section aria-label="Tổng quan thông số tài khoản" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Tổng thành viên"
-            value={statistics.totalUsers}
-            note="Tổng tài khoản đăng ký trong tổ chức"
-            icon={Users}
-            color="blue"
-          />
-          <MetricCard
-            label="Đang hoạt động"
-            value={statistics.activeUsers}
-            note="Tài khoản sẵn sàng vận hành"
-            icon={UserCheck}
-            color="emerald"
-          />
-          <MetricCard
-            label="Quản trị viên"
-            value={statistics.adminUsers}
-            note="Sở hữu toàn quyền quản trị"
-            icon={Shield}
-            color="blue"
-          />
-          <MetricCard
-            label="Tài khoản bị khóa"
-            value={statistics.lockedUsers}
-            note="Truy cập bị đình chỉ bảo mật"
-            icon={UserX}
-            color="rose"
-          />
-        </section>
+        <DashboardMetricsSection
+          id="user-account-overview"
+          title="Tổng quan thông số tài khoản"
+          description="Tổng hợp quy mô thành viên, quyền quản trị và trạng thái bảo mật tài khoản."
+          loading={loading}
+          metrics={accountMetrics}
+        />
 
         {/* Filters Toolbar */}
         <section aria-label="Bộ lọc tài khoản" className="border border-border bg-card p-4 rounded-xl flex flex-col md:flex-row items-center gap-4 shadow-sm">

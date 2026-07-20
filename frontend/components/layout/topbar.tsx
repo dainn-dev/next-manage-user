@@ -41,7 +41,7 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
           size="icon"
           className="lg:hidden"
           onClick={onMobileMenuClick}
-          aria-controls="tenant-navigation"
+          aria-controls="tenant-navigation-mobile"
           aria-expanded={mobileMenuOpen}
           aria-label="Mở điều hướng"
         >

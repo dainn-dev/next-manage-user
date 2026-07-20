@@ -32,6 +32,7 @@ import {
 
 import { useDashboardData } from "@/lib/dashboard-data-context"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
+import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
 import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -252,6 +253,43 @@ export default function ParkingSlotsPage() {
     const matched = zones.find(z => z.id === selectedZoneId)
     return matched ? matched.name.toUpperCase() : "ZONE_NODE"
   }, [selectedZoneId, zones])
+  const parkingMetrics = [
+    {
+      label: "Tổng số ô đỗ",
+      value: stats.total.toLocaleString("vi-VN"),
+      note: `Phạm vi ${activeZoneName}`,
+      icon: LayoutGrid,
+      tone: "primary",
+    },
+    {
+      label: "Ô trống",
+      value: stats.available.toLocaleString("vi-VN"),
+      note: "Sẵn sàng tiếp nhận xe",
+      icon: CheckCircle,
+      tone: "success",
+    },
+    {
+      label: "Có xe",
+      value: stats.occupied.toLocaleString("vi-VN"),
+      note: "Ô đang được sử dụng",
+      icon: Car,
+      tone: "critical",
+    },
+    {
+      label: "Đặt trước",
+      value: stats.reserved.toLocaleString("vi-VN"),
+      note: "Đã được giữ chỗ",
+      icon: Sliders,
+      tone: "warning",
+    },
+    {
+      label: "Bảo trì",
+      value: stats.disabled.toLocaleString("vi-VN"),
+      note: "Tạm ngưng sử dụng",
+      icon: Ban,
+      tone: "serious",
+    },
+  ] as const
 
   return (
     <AdminPage className="space-y-6">
@@ -263,8 +301,8 @@ export default function ParkingSlotsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-3">
             {/* Live real-time clock */}
-            <div className="flex flex-col items-end px-3 py-1 rounded-xl border border-border bg-card font-mono text-xs shadow-sm min-w-[120px]">
-              <span className="text-muted-foreground text-[8px] uppercase tracking-wider font-semibold">Giờ hệ thống</span>
+            <div className="flex flex-col items-end px-3 py-1 rounded-2xl border border-border bg-card font-medium text-xs shadow-sm min-w-[120px]">
+              <span className="text-muted-foreground text-xs tracking-wider font-semibold">Giờ hệ thống</span>
               <span className="text-primary font-bold tabular-nums">
                 {currentTime || "00:00:00"}
               </span>
@@ -275,7 +313,7 @@ export default function ParkingSlotsPage() {
               size="sm"
               onClick={() => void refresh()}
               disabled={loading}
-              className="h-10 px-3.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-1.5"
+              className="h-11 px-3.5 rounded-2xl border border-border bg-card hover:bg-muted text-foreground transition-all flex items-center gap-1.5"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-primary" : ""}`} />
               <span>Nạp lại API</span>
@@ -286,99 +324,57 @@ export default function ParkingSlotsPage() {
 
       {/* Connection status bar */}
       {realtime !== "live" && (
-        <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-primary sm:flex-row sm:items-center shadow-sm">
+        <div className="flex flex-col gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-primary sm:flex-row sm:items-center shadow-sm">
           <div className="flex min-w-0 items-start gap-2">
             <Activity className="mt-0.5 size-4 shrink-0 text-primary animate-pulse" />
-            <span className="min-w-0 uppercase text-[10px] tracking-wide leading-relaxed font-semibold">
+            <span className="min-w-0 text-xs tracking-wide leading-relaxed font-semibold">
               Đồng bộ cảm biến định kỳ: Bảng thông tin tự động đồng bộ cảm biến định kỳ từ Gateway.
             </span>
           </div>
           {lastUpdatedAt && (
-            <span className="shrink-0 text-[10px] text-primary/80 sm:ml-auto">
+            <span className="shrink-0 text-xs text-primary/80 sm:ml-auto">
               ĐỒNG BỘ CUỐI: {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
             </span>
           )}
         </div>
       )}
 
-      {/* Stats cards */}
-      <section className="grid min-w-0 grid-cols-2 lg:grid-cols-5 gap-3" aria-label="Thông số bãi xe">
-        {[
-          {
-            label: "TỔNG SỐ Ô ĐỖ",
-            value: loading && slots.length === 0 ? "..." : stats.total,
-            icon: LayoutGrid,
-            color: "text-blue-500 dark:text-blue-400 bg-blue-500/10 border-blue-500/20",
-          },
-          {
-            label: "Ô TRỐNG (AVAILABLE)",
-            value: loading && slots.length === 0 ? "..." : stats.available,
-            icon: CheckCircle,
-            color: "text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-            pulse: true,
-          },
-          {
-            label: "CÓ XE (OCCUPIED)",
-            value: loading && slots.length === 0 ? "..." : stats.occupied,
-            icon: Car,
-            color: "text-rose-500 dark:text-rose-400 bg-rose-500/10 border-rose-500/20",
-          },
-          {
-            label: "ĐẶT TRƯỚC (RESERVED)",
-            value: loading && slots.length === 0 ? "..." : stats.reserved,
-            icon: Sliders,
-            color: "text-amber-500 dark:text-amber-400 bg-amber-500/10 border-amber-500/20",
-          },
-          {
-            label: "BẢO TRÌ (DISABLED)",
-            value: loading && slots.length === 0 ? "..." : stats.disabled,
-            icon: Ban,
-            color: "text-slate-500 dark:text-slate-400 bg-slate-500/10 border-slate-500/20",
-          },
-        ].map(({ label, value, icon: Icon, color, pulse }) => (
-          <div
-            key={label}
-            className="relative overflow-hidden rounded-xl border border-border bg-card p-4 transition-all duration-300 hover:scale-[1.02] shadow-[var(--shadow-card)]"
+      <DashboardMetricsSection
+        id="parking-slot-metrics-title"
+        title="Thông số bãi xe"
+        description={`Tổng quan trạng thái các ô đỗ trong ${activeZoneName.toLowerCase()}.`}
+        badge={(
+          <Badge
+            variant="outline"
+            className={realtime === "live"
+              ? "gap-1.5 border-[var(--color-success)]/25 bg-[var(--color-success-surface)] text-[var(--color-success)]"
+              : "gap-1.5 border-[var(--color-warning)]/25 bg-[var(--color-warning-surface)] text-[var(--color-serious)]"}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-              {pulse && (
-                <span className="flex h-1.5 w-1.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-3 mt-3">
-              <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl border ${color}`}>
-                <Icon className="size-5" />
-              </span>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono">
-                  {value}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </section>
+            <Activity className={`size-3 ${realtime === "live" ? "animate-pulse" : ""}`} aria-hidden="true" />
+            {realtime === "live" ? "Đang nhận realtime" : "Đồng bộ định kỳ"}
+          </Badge>
+        )}
+        loading={loading && slots.length === 0}
+        metricGridClassName="sm:grid-cols-3 xl:grid-cols-5"
+        metrics={parkingMetrics}
+      />
 
       {/* Main Grid controls and IoT simulation console */}
       <div className="grid gap-6 lg:grid-cols-4 items-start">
         {/* Left column: Controls, search filters and IoT terminal */}
         <div className="lg:col-span-1 space-y-6">
           {/* Filters card */}
-          <div className="border border-border bg-card rounded-xl p-5 relative overflow-hidden shadow-[var(--shadow-card)]">
+          <div className="border border-border bg-card rounded-2xl p-5 relative overflow-hidden shadow-sm">
             <div className="flex items-center gap-1.5 text-primary border-b border-border pb-3 mb-4">
               <Search className="h-4 w-4" />
-              <h3 className="text-xs font-bold uppercase tracking-wider">
-                BỘ LỌC TÌM KIẾM
+              <h3 className="text-xs font-bold tracking-wider">
+                Bộ lọc tìm kiếm
               </h3>
             </div>
 
             <div className="space-y-4 text-xs">
               <div className="space-y-2">
-                <Label htmlFor="search-input" className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold">Tìm ô đỗ / biển số</Label>
+                <Label htmlFor="search-input" className="text-muted-foreground text-xs tracking-widest font-bold">Tìm ô đỗ / biển số</Label>
                 <div className="relative">
                   <Input
                     id="search-input"
@@ -386,7 +382,7 @@ export default function ParkingSlotsPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Mã: A01, Xe: 30F..."
-                    className="bg-background border-border text-foreground h-9 pl-8 text-xs rounded-xl focus-visible:ring-primary/20"
+                    className="bg-background border-border text-foreground h-11 pl-8 text-xs rounded-2xl focus-visible:ring-primary/20"
                   />
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   {searchQuery && (
@@ -401,7 +397,7 @@ export default function ParkingSlotsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold">Lọc trạng thái</Label>
+                <Label className="text-muted-foreground text-xs tracking-widest font-bold">Lọc trạng thái</Label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {[
                     { key: "ALL", name: "TẤT CẢ" },
@@ -414,7 +410,7 @@ export default function ParkingSlotsPage() {
                       key={f.key}
                       variant={statusFilter === f.key ? "default" : "outline"}
                       onClick={() => setStatusFilter(f.key)}
-                      className={`h-8 text-[9px] tracking-wide rounded-lg font-mono uppercase border ${
+                      className={`h-11 text-xs tracking-wide rounded-xl font-medium border ${
                         statusFilter === f.key
                           ? "bg-primary hover:bg-primary/90 text-primary-foreground border-primary"
                           : "border-border hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -429,37 +425,37 @@ export default function ParkingSlotsPage() {
           </div>
 
           {/* IoT Active Simulation Panel */}
-          <div className="border border-border bg-card rounded-xl p-5 relative overflow-hidden shadow-[var(--shadow-card)]">
+          <div className="border border-border bg-card rounded-2xl p-5 relative overflow-hidden shadow-sm">
             <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
               <div className="flex items-center gap-1.5 text-primary">
                 <Terminal className="h-4 w-4 text-primary" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">
-                  MÔ PHỎNG CẢM BIẾN IOT
+                <h3 className="text-xs font-bold tracking-wider">
+                  Mô phỏng cảm biến
                 </h3>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleResetSimulations}
-                className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
+                className="size-11 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
                 title="Khôi phục trạng thái thật"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             </div>
 
-            <p className="text-[10px] text-muted-foreground uppercase mb-4 leading-relaxed">
+            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
               Chọn ô đỗ và nhập biển số để mô phỏng xe đỗ vào một ô trống trong bãi xe và kích hoạt tín hiệu gửi về máy chủ.
             </p>
 
             <form onSubmit={handleSimulateCheckIn} className="space-y-4 text-xs">
               <div className="space-y-1.5">
-                <Label htmlFor="sim-slot" className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold">Chọn ô đỗ trống</Label>
+                <Label htmlFor="sim-slot" className="text-muted-foreground text-xs tracking-widest font-bold">Chọn ô đỗ trống</Label>
                 <select
                   id="sim-slot"
                   value={selectedSimulationSlotId}
                   onChange={(e) => setSelectedSimulationSlotId(e.target.value)}
-                  className="w-full bg-background border border-border text-foreground h-9 px-2 text-xs rounded-xl focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
+                  className="w-full bg-background border border-border text-foreground h-11 px-2 text-xs rounded-2xl focus:ring-1 focus:ring-primary focus:border-primary focus:outline-none"
                 >
                   <option value="">-- CHỌN Ô ĐỖ TRỐNG --</option>
                   {slots
@@ -471,12 +467,12 @@ export default function ParkingSlotsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="sim-plate" className="text-muted-foreground uppercase text-[9px] tracking-widest font-bold flex justify-between items-center">
+                <Label htmlFor="sim-plate" className="text-muted-foreground text-xs tracking-widest font-bold flex justify-between items-center">
                   <span>Biển số xe giả lập</span>
                   <button
                     type="button"
                     onClick={handleRandomPlateGen}
-                    className="text-[8px] text-primary hover:text-primary/80 flex items-center gap-0.5 uppercase border-b border-primary/40"
+                    className="text-xs text-primary hover:text-primary/80 flex items-center gap-0.5 border-b border-primary/40"
                   >
                     <Zap className="h-2 w-2" /> Ngẫu nhiên
                   </button>
@@ -488,14 +484,14 @@ export default function ParkingSlotsPage() {
                   placeholder="Ví dụ: 30F-123.45"
                   value={customPlate}
                   onChange={(e) => setCustomPlate(e.target.value)}
-                  className="bg-background border-border text-foreground h-9 px-3 text-xs rounded-xl focus-visible:ring-primary/20 font-bold tracking-wide uppercase font-mono"
+                  className="bg-background border-border text-foreground h-11 px-3 text-xs rounded-2xl focus-visible:ring-primary/20 font-bold tracking-wide font-medium"
                 />
               </div>
 
               <Button
                 type="submit"
                 disabled={!selectedSimulationSlotId}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold uppercase tracking-wider text-[10px] h-9 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold tracking-wider text-xs h-11 rounded-2xl flex items-center justify-center gap-1.5 transition-all shadow-md"
               >
                 <Play className="h-3.5 w-3.5" />
                 MÔ PHỎNG ĐỖ XE
@@ -504,20 +500,20 @@ export default function ParkingSlotsPage() {
           </div>
 
           {/* Real-time Logger Terminal */}
-          <div className="border border-border bg-card rounded-xl p-4 shadow-[var(--shadow-card)]">
-            <span className="block font-mono text-[8px] text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1 font-bold">
+          <div className="border border-border bg-card rounded-2xl p-4 shadow-sm">
+            <span className="block font-medium text-xs text-muted-foreground tracking-widest mb-2 flex items-center gap-1 font-bold">
               <span className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" />
               Nhật ký hoạt động cảm biến
             </span>
-            <div className="bg-slate-950 dark:bg-slate-900 border border-border p-2.5 rounded-lg font-mono text-[9px] h-44 overflow-y-auto space-y-2 select-all text-slate-300">
+            <div className="bg-muted/60 border border-border p-3 rounded-2xl text-xs h-44 overflow-y-auto space-y-2 select-all text-foreground">
               {simulationLogs.map((log, index) => (
-                <div key={index} className="leading-normal border-b border-slate-900 dark:border-slate-800 pb-1 flex items-start gap-1">
+                <div key={index} className="leading-normal border-b border-border/70 pb-1 flex items-start gap-1">
                   <span className="text-slate-500 shrink-0">[{log.time}]</span>
                   <span className={
-                    log.type === "success" ? "text-emerald-400" :
-                    log.type === "warn" ? "text-amber-400" :
-                    log.type === "error" ? "text-rose-400" :
-                    "text-cyan-400"
+                    log.type === "success" ? "text-emerald-700" :
+                    log.type === "warn" ? "text-amber-700" :
+                    log.type === "error" ? "text-rose-700" :
+                    "text-primary"
                   }>
                     {log.msg}
                   </span>
@@ -529,14 +525,14 @@ export default function ParkingSlotsPage() {
 
         {/* Right column: Grid visualizer & Data table */}
         <div className="lg:col-span-3 space-y-6">
-          <div className="flex items-center justify-between bg-card p-2.5 rounded-xl border border-border shadow-sm">
+          <div className="flex items-center justify-between bg-card p-2.5 rounded-2xl border border-border shadow-sm">
             {/* Tab selection */}
-            <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-xl">
               <Button
                 size="sm"
                 variant={activeTab === "grid" ? "default" : "ghost"}
                 onClick={() => setActiveTab("grid")}
-                className={`h-8 text-xs rounded-lg px-4 flex items-center gap-1.5 ${
+                className={`h-11 text-xs rounded-xl px-4 flex items-center gap-1.5 ${
                   activeTab === "grid"
                     ? "bg-primary text-primary-foreground font-semibold shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -549,7 +545,7 @@ export default function ParkingSlotsPage() {
                 size="sm"
                 variant={activeTab === "table" ? "default" : "ghost"}
                 onClick={() => setActiveTab("table")}
-                className={`h-8 text-xs rounded-lg px-4 flex items-center gap-1.5 ${
+                className={`h-11 text-xs rounded-xl px-4 flex items-center gap-1.5 ${
                   activeTab === "table"
                     ? "bg-primary text-primary-foreground font-semibold shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -567,14 +563,14 @@ export default function ParkingSlotsPage() {
 
           {loading && slots.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-border rounded-2xl bg-card p-10 text-center text-muted-foreground">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-              <p className="text-xs uppercase tracking-wider font-semibold">Đang kết nối tới API bãi xe...</p>
+              <Loader2 className="size-11 animate-spin text-primary mb-3" />
+              <p className="text-xs tracking-wider font-semibold">Đang kết nối tới API bãi xe...</p>
             </div>
           ) : filteredSlots.length === 0 ? (
             <div className="flex flex-col items-center justify-center min-h-[300px] border border-dashed border-border rounded-2xl bg-card p-10 text-center">
-              <AlertTriangle className="h-8 w-8 text-amber-500 mb-3 animate-bounce" />
+              <AlertTriangle className="size-11 text-amber-500 mb-3 animate-bounce" />
               <p className="text-xs font-bold text-foreground">Không tìm thấy ô đỗ phù hợp</p>
-              <p className="text-[11px] text-muted-foreground mt-1">Vui lòng thay đổi cấu hình bộ lọc hoặc từ khóa tìm kiếm</p>
+              <p className="text-sm text-muted-foreground mt-1">Vui lòng thay đổi cấu hình bộ lọc hoặc từ khóa tìm kiếm</p>
             </div>
           ) : activeTab === "grid" ? (
             /* Tab 1: Grid visualizer */
@@ -588,43 +584,43 @@ export default function ParkingSlotsPage() {
                   <div
                     key={slot.id}
                     onClick={() => setSelectedSlot(slot)}
-                    className={`relative cursor-pointer select-none rounded-xl border p-4 transition-all duration-350 bg-card hover:scale-[1.03] group shadow-sm hover:shadow-md ${
+                    className={`relative cursor-pointer select-none rounded-2xl border p-4 transition-all  bg-card  group shadow-sm hover:shadow-md ${
                       isOccupied
-                        ? "border-rose-500/20 hover:border-rose-500 dark:border-rose-500/30"
+                        ? "border-rose-500/20 hover:border-rose-500"
                         : isAvailable
-                        ? "border-emerald-500/20 hover:border-emerald-500 dark:border-emerald-500/30"
+                        ? "border-emerald-500/20 hover:border-emerald-500"
                         : isReserved
-                        ? "border-amber-500/20 hover:border-amber-500 dark:border-amber-500/30"
+                        ? "border-amber-500/20 hover:border-amber-500"
                         : "border-border hover:border-foreground/50"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-muted-foreground font-mono">ID: {slot.id.slice(0, 4)}</span>
+                      <span className="text-xs text-muted-foreground font-medium">ID: {slot.id.slice(0, 4)}</span>
                       {/* Status Indicator LED */}
                       <span className={`h-2.5 w-2.5 rounded-full flex ${
-                        isOccupied ? "bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
-                        isAvailable ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" :
-                        isReserved ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" :
-                        "bg-slate-400 dark:bg-slate-600"
+                        isOccupied ? "bg-rose-500 " :
+                        isAvailable ? "bg-emerald-500  animate-pulse" :
+                        isReserved ? "bg-amber-500 " :
+                        "bg-slate-400"
                       }`} />
                     </div>
 
                     <div className="mt-3 text-center space-y-1">
-                      <div className="font-bold text-lg tracking-widest text-foreground uppercase group-hover:text-primary transition-colors font-mono">
+                      <div className="font-bold text-lg tracking-widest text-foreground group-hover:text-primary transition-colors font-medium">
                         {slot.code}
                       </div>
-                      <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                      <div className="text-xs text-muted-foreground font-medium tracking-wider">
                         {isOccupied ? "CÓ XE" : isAvailable ? "TRỐNG" : isReserved ? "ĐẶT TRƯỚC" : "BẢO TRÌ"}
                       </div>
                     </div>
 
                     <div className="mt-4 pt-2 border-t border-border min-h-[34px] flex items-center justify-center">
                       {isOccupied && slot.plate ? (
-                        <div className="font-mono text-[10px] font-bold text-rose-600 dark:text-rose-400 border border-rose-500/20 bg-rose-500/5 px-2 py-0.5 rounded-lg tracking-wide uppercase shadow-sm select-all">
+                        <div className="font-medium text-xs font-bold text-rose-600 border border-rose-500/20 bg-rose-500/5 px-2 py-0.5 rounded-xl tracking-wide shadow-sm select-all">
                           {slot.plate}
                         </div>
                       ) : (
-                        <div className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">
+                        <div className="text-xs text-muted-foreground tracking-wider font-semibold">
                           {isAvailable ? "SẴN SÀNG" : isReserved ? "ĐÃ ĐẶT" : "BẢO TRÌ"}
                         </div>
                       )}
@@ -635,11 +631,11 @@ export default function ParkingSlotsPage() {
             </div>
           ) : (
             /* Tab 2: Data table */
-            <div className="border border-border bg-card rounded-xl overflow-hidden shadow-sm">
+            <div className="border border-border bg-card rounded-2xl overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-muted/50 border-b border-border text-muted-foreground uppercase text-[9px] tracking-wider font-bold">
+                    <tr className="bg-muted/50 border-b border-border text-muted-foreground text-xs tracking-wider font-bold">
                       <th className="p-4">Ô ĐỖ</th>
                       <th className="p-4">MÃ ĐỊNH DANH</th>
                       <th className="p-4">KHU VỰC</th>
@@ -657,7 +653,7 @@ export default function ParkingSlotsPage() {
 
                       return (
                         <tr key={slot.id} className="hover:bg-muted/35 transition-colors group">
-                          <td className="p-4 font-bold text-foreground text-sm tracking-wide font-mono">
+                          <td className="p-4 font-bold text-foreground text-sm tracking-wide font-medium">
                             <span className="flex items-center gap-1.5">
                               <span className={`h-1.5 w-1.5 rounded-full ${
                                 isOccupied ? "bg-rose-500" :
@@ -668,30 +664,30 @@ export default function ParkingSlotsPage() {
                               {slot.code}
                             </span>
                           </td>
-                          <td className="p-4 text-muted-foreground text-[10px] tracking-wider select-all font-mono">
+                          <td className="p-4 text-muted-foreground text-xs tracking-wider select-all font-medium">
                             {slot.id}
                           </td>
                           <td className="p-4 text-muted-foreground font-medium">
                             {slot.zoneId ? `Zone: ${slot.zoneId.slice(0, 8).toUpperCase()}` : "—"}
                           </td>
                           <td className="p-4">
-                            <Badge className={`text-[9px] tracking-widest uppercase px-2 py-0.5 border ${
-                              isOccupied ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" :
-                              isAvailable ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" :
-                              isReserved ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" :
+                            <Badge className={`text-xs tracking-widest px-2 py-0.5 border ${
+                              isOccupied ? "bg-rose-500/10 text-rose-600 border-rose-500/20" :
+                              isAvailable ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                              isReserved ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
                               "bg-slate-500/10 text-slate-500 border-slate-500/20"
                             }`}>
                               {isOccupied ? "CÓ XE" : isAvailable ? "TRỐNG" : isReserved ? "ĐẶT TRƯỚC" : "BẢO TRÌ"}
                             </Badge>
                           </td>
-                          <td className="p-4 font-bold font-mono">
+                          <td className="p-4 font-bold font-medium">
                             {isOccupied && slot.plate ? (
-                              <span className="text-rose-600 dark:text-rose-400 select-all tracking-wider uppercase">{slot.plate}</span>
+                              <span className="text-rose-600 select-all tracking-wider">{slot.plate}</span>
                             ) : (
                               <span className="text-muted-foreground font-normal">—</span>
                             )}
                           </td>
-                          <td className="p-4 text-muted-foreground text-[10px] tracking-wider font-mono">
+                          <td className="p-4 text-muted-foreground text-xs tracking-wider font-medium">
                             {slot.lastSeenAt ? new Date(slot.lastSeenAt).toLocaleString("vi-VN") : "CHƯA NHẬN TÍN HIỆU"}
                           </td>
                           <td className="p-4 text-right">
@@ -699,7 +695,7 @@ export default function ParkingSlotsPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => setSelectedSlot(slot)}
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
+                              className="size-11 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
                             >
                               <Eye className="h-4.5 w-4.5 text-primary" />
                             </Button>
@@ -720,11 +716,11 @@ export default function ParkingSlotsPage() {
         {selectedSlot && (
           <DialogContent className="max-w-md bg-card border border-border text-foreground">
             <DialogHeader className="border-b border-border pb-3 mb-4">
-              <DialogTitle className="text-base font-bold uppercase tracking-wide flex items-center gap-1.5 text-primary">
+              <DialogTitle className="text-base font-bold tracking-wide flex items-center gap-1.5 text-primary">
                 <Settings className="h-4.5 w-4.5 text-primary" />
                 <span>Chi tiết ô đỗ {selectedSlot.code}</span>
               </DialogTitle>
-              <DialogDescription className="text-[11px] text-muted-foreground uppercase font-mono">
+              <DialogDescription className="text-sm text-muted-foreground font-medium">
                 MÃ ĐỊNH DANH: {selectedSlot.id}
               </DialogDescription>
             </DialogHeader>
@@ -732,8 +728,8 @@ export default function ParkingSlotsPage() {
             <div className="space-y-4 text-xs">
               {/* Main specifications */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-muted/50 border border-border rounded-xl">
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">TRẠNG THÁI</span>
+                <div className="p-3 bg-muted/50 border border-border rounded-2xl">
+                  <span className="text-xs text-muted-foreground tracking-wider block font-semibold">TRẠNG THÁI</span>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className={`h-2 w-2 rounded-full ${
                       selectedSlot.status === "OCCUPIED" ? "bg-rose-500" :
@@ -749,8 +745,8 @@ export default function ParkingSlotsPage() {
                   </div>
                 </div>
 
-                <div className="p-3 bg-muted/50 border border-border rounded-xl">
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">KHU VỰC QUẢN LÝ</span>
+                <div className="p-3 bg-muted/50 border border-border rounded-2xl">
+                  <span className="text-xs text-muted-foreground tracking-wider block font-semibold">KHU VỰC QUẢN LÝ</span>
                   <span className="font-bold text-primary block mt-1">
                     {selectedSlot.zoneId ? `Zone: ${selectedSlot.zoneId.slice(0, 8).toUpperCase()}` : "Chưa cấu hình"}
                   </span>
@@ -758,21 +754,21 @@ export default function ParkingSlotsPage() {
               </div>
 
               {/* Occupying Vehicle Data */}
-              <div className="p-3.5 bg-muted/30 border border-border rounded-xl space-y-2">
-                <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">THÔNG TIN XE ĐANG ĐỖ</span>
+              <div className="p-3.5 bg-muted/30 border border-border rounded-2xl space-y-2">
+                <span className="text-xs text-muted-foreground tracking-wider block font-semibold">THÔNG TIN XE ĐANG ĐỖ</span>
                 {selectedSlot.status === "OCCUPIED" ? (
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Car className="h-4.5 w-4.5 text-rose-500" />
-                        <span className="text-sm font-extrabold tracking-widest bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2.5 py-0.5 rounded-lg border border-rose-500/20 select-all font-mono">
+                        <span className="text-sm font-extrabold tracking-widest bg-rose-500/10 text-rose-600 px-2.5 py-0.5 rounded-xl border border-rose-500/20 select-all font-medium">
                           {selectedSlot.plate || "30F-111.11"}
                         </span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground font-mono">Camera AI / Sensor</span>
+                      <span className="text-xs text-muted-foreground font-medium">Camera AI / Sensor</span>
                     </div>
 
-                    <div className="space-y-1 text-[11px] text-muted-foreground pt-2 border-t border-border">
+                    <div className="space-y-1 text-sm text-muted-foreground pt-2 border-t border-border">
                       <div className="flex justify-between">
                         <span>Thời gian phát hiện:</span>
                         <span className="text-foreground font-semibold">Hôm nay, {selectedSlot.lastSeenAt ? new Date(selectedSlot.lastSeenAt).toLocaleTimeString("vi-VN") : "vừa mới đây"}</span>
@@ -789,10 +785,10 @@ export default function ParkingSlotsPage() {
 
               {/* Polygon Vertex SVG Preview */}
               {selectedSlot.polygon && selectedSlot.polygon.length > 0 && (
-                <div className="p-3 bg-muted/50 border border-border rounded-xl space-y-2">
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-semibold">VÙNG PHỦ SÓNG CAMERA (POLYGON)</span>
+                <div className="p-3 bg-muted/50 border border-border rounded-2xl space-y-2">
+                  <span className="text-xs text-muted-foreground tracking-wider block font-semibold">VÙNG PHỦ SÓNG CAMERA (POLYGON)</span>
                   <div className="flex items-center gap-3">
-                    <div className="bg-background border border-border p-1.5 rounded-lg">
+                    <div className="bg-background border border-border p-1.5 rounded-xl">
                       <svg width="100" height="60" viewBox="0 0 100 100" className="text-primary">
                         <polygon
                           points={selectedSlot.polygon.map((p: any) => `${p.x / 10},${p.y / 10}`).join(" ")}
@@ -803,7 +799,7 @@ export default function ParkingSlotsPage() {
                         />
                       </svg>
                     </div>
-                    <div className="space-y-1 text-[10px] text-muted-foreground leading-relaxed font-mono">
+                    <div className="space-y-1 text-xs text-muted-foreground leading-relaxed font-medium">
                       <div>Tọa độ: <span className="text-primary font-bold">{selectedSlot.polygon.length} điểm đỉnh</span></div>
                       <div className="max-w-[200px] truncate" title={JSON.stringify(selectedSlot.polygon)}>
                         X, Y: {selectedSlot.polygon.slice(0, 2).map((p: any) => `(${Math.round(p.x)},${Math.round(p.y)})`).join(" ")}...
@@ -815,13 +811,13 @@ export default function ParkingSlotsPage() {
 
               {/* Interactive Override Actions */}
               <div className="border-t border-border pt-4 space-y-3">
-                <span className="text-[9px] text-muted-foreground uppercase tracking-wider block font-bold">GHI ĐÈ TRẠNG THÁI (GIẢ LẬP)</span>
+                <span className="text-xs text-muted-foreground tracking-wider block font-bold">GHI ĐÈ TRẠNG THÁI (GIẢ LẬP)</span>
                 
                 <div className="grid grid-cols-2 gap-2">
                   {selectedSlot.status === "OCCUPIED" ? (
                     <Button
                       onClick={() => handleSimulateCheckOut(selectedSlot.id)}
-                      className="w-full bg-rose-50 hover:bg-rose-600 text-rose-foreground font-bold text-[10px] h-9 rounded-xl uppercase"
+                      className="w-full bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold text-xs h-11 rounded-2xl"
                     >
                       Mô phỏng xe rời đi
                     </Button>
@@ -850,7 +846,7 @@ export default function ParkingSlotsPage() {
                           lastSeenAt: new Date().toISOString()
                         }))
                       }}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] h-9 rounded-xl uppercase"
+                      className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-11 rounded-2xl"
                     >
                       Mô phỏng đỗ xe
                     </Button>
@@ -860,7 +856,7 @@ export default function ParkingSlotsPage() {
                     onClick={() => handleAdminStatusOverride(selectedSlot.id, "DISABLED")}
                     disabled={selectedSlot.status === "DISABLED"}
                     variant="outline"
-                    className="w-full border-border bg-background hover:bg-muted font-bold text-[10px] h-9 rounded-xl uppercase"
+                    className="w-full border-border bg-background hover:bg-muted font-bold text-xs h-11 rounded-2xl"
                   >
                     Bảo trì / Khóa ô
                   </Button>
@@ -871,7 +867,7 @@ export default function ParkingSlotsPage() {
                     onClick={() => handleAdminStatusOverride(selectedSlot.id, "AVAILABLE")}
                     disabled={selectedSlot.status === "AVAILABLE" || selectedSlot.status === "FREE"}
                     variant="outline"
-                    className="w-full border-border bg-background hover:bg-muted font-bold text-[10px] h-9 rounded-xl uppercase"
+                    className="w-full border-border bg-background hover:bg-muted font-bold text-xs h-11 rounded-2xl"
                   >
                     Mở khóa (Trống)
                   </Button>
@@ -880,7 +876,7 @@ export default function ParkingSlotsPage() {
                     onClick={() => handleAdminStatusOverride(selectedSlot.id, "RESERVED")}
                     disabled={selectedSlot.status === "RESERVED"}
                     variant="outline"
-                    className="w-full border-border bg-background hover:bg-muted font-bold text-[10px] h-9 rounded-xl uppercase"
+                    className="w-full border-border bg-background hover:bg-muted font-bold text-xs h-11 rounded-2xl"
                   >
                     Thiết lập Đặt trước
                   </Button>
@@ -892,7 +888,7 @@ export default function ParkingSlotsPage() {
               <Button
                 variant="outline"
                 onClick={() => setSelectedSlot(null)}
-                className="border-border bg-background text-muted-foreground hover:text-foreground h-9 px-4 rounded-xl text-[10px] uppercase font-semibold"
+                className="border-border bg-background text-muted-foreground hover:text-foreground h-11 px-4 rounded-2xl text-xs font-semibold"
               >
                 Đóng
               </Button>

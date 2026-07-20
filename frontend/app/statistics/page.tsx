@@ -8,138 +8,65 @@ import {
   CarFront,
   Clock3,
   Gauge,
+  Loader2,
   ParkingSquare,
   RefreshCw,
   TriangleAlert,
   Video,
-  Activity,
-  Cpu,
-  Server,
-  Database
 } from "lucide-react"
+import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useDashboardData } from "@/lib/dashboard-data-context"
 import { calculateOccupancyMetrics, formatDuration } from "@/lib/dashboard-metrics.mjs"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
-import { cn } from "@/lib/utils"
 
 interface MetricCardProps {
   label: string
-  code: string
   value: string
   description: string
   icon: LucideIcon
   loading?: boolean
   progress?: number
-  color?: "cyan" | "emerald" | "amber" | "slate"
 }
 
-function MetricCard({
-  label,
-  code,
-  value,
-  description,
-  icon: Icon,
-  loading = false,
-  progress,
-  color = "cyan"
-}: MetricCardProps) {
-  const colorMap = {
-    cyan: {
-      text: "text-cyan-600",
-      border: "border-cyan-200 hover:border-cyan-300",
-      bg: "bg-cyan-50",
-      bar: "bg-cyan-500",
-      pulse: "bg-cyan-500",
-      glow: "shadow-sm"
-    },
-    emerald: {
-      text: "text-emerald-700",
-      border: "border-emerald-200 hover:border-emerald-300",
-      bg: "bg-emerald-50",
-      bar: "bg-emerald-500",
-      pulse: "bg-emerald-500",
-      glow: "shadow-sm"
-    },
-    amber: {
-      text: "text-amber-700",
-      border: "border-amber-200 hover:border-amber-300",
-      bg: "bg-amber-50",
-      bar: "bg-amber-500",
-      pulse: "bg-amber-500",
-      glow: "shadow-sm"
-    },
-    slate: {
-      text: "text-muted-foreground",
-      border: "border-border hover:border-slate-700",
-      bg: "bg-background/10",
-      bar: "bg-slate-600",
-      pulse: "bg-slate-500",
-      glow: ""
-    }
-  }
-
-  const activeColor = colorMap[color]
+function MetricCard({ label, value, description, icon: Icon, loading = false, progress }: MetricCardProps) {
+  const safeProgress = progress === undefined ? undefined : Math.min(100, Math.max(0, progress))
 
   return (
-    <Card
-      aria-label={label}
-      className={cn(
-        "border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl transition-all duration-300 group",
-        activeColor.border
-      )}
-    >
-      {/* Sci-fi tech corner ticks */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-border group-hover:border-slate-500 transition-colors" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-border group-hover:border-slate-500 transition-colors" />
-      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-border group-hover:border-slate-500 transition-colors" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-border group-hover:border-slate-500 transition-colors" />
-
-      {/* Cyber grid overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none opacity-20" />
-
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-border">
-        <div className="space-y-0.5">
-          <p className="font-mono text-[9px] tracking-widest text-slate-500 uppercase">{code}</p>
-          <CardTitle className="text-xs font-mono tracking-wide text-slate-700 uppercase">{label}</CardTitle>
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4">
+        <div className="min-w-0">
+          <CardTitle className="text-sm">{label}</CardTitle>
+          <CardDescription className="mt-1 leading-5">{description}</CardDescription>
         </div>
-        <div className={cn("p-2 rounded-lg bg-muted border border-border", activeColor.text, activeColor.glow)}>
-          <Icon className="h-4 w-4" aria-hidden="true" />
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-container text-on-primary-container">
+          <Icon className="size-5" aria-hidden="true" />
         </div>
       </CardHeader>
-      
-      <CardContent className="pt-5 space-y-3 p-5">
+      <CardContent className="space-y-3">
         {loading ? (
-          <div className="space-y-2.5">
-            <div className="h-8 w-28 animate-pulse rounded bg-muted" aria-label="Đang tải" />
-            <div className="h-3 w-40 animate-pulse rounded bg-muted" />
+          <div className="space-y-2" aria-label="Đang tải">
+            <div className="h-7 w-24 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-full max-w-48 animate-pulse rounded bg-muted" />
           </div>
         ) : (
-          <div className="space-y-3">
-            <p className="text-2xl font-mono font-bold tracking-tight text-foreground select-all">{value}</p>
-            
-            {progress !== undefined && (
-              <div className="space-y-1">
-                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+          <>
+            <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+            {safeProgress !== undefined && (
+              <div className="space-y-1.5" aria-label={`${label}: ${safeProgress.toFixed(1)}%`}>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
-                    className={cn("h-full rounded-full transition-all duration-500", activeColor.bar)}
-                    style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                    className="h-full rounded-full bg-primary transition-[width] duration-500"
+                    style={{ width: `${safeProgress}%` }}
                   />
                 </div>
-                <div className="flex justify-between items-center text-[9px] font-mono text-slate-500">
-                  <span>RATIO_CAPACITY</span>
-                  <span>{progress.toFixed(1)}%</span>
-                </div>
+                <p className="text-right text-xs text-muted-foreground">{safeProgress.toFixed(1)}%</p>
               </div>
             )}
-
-            <p className="text-[10px] font-mono text-muted-foreground uppercase leading-relaxed tracking-wider">
-              {description}
-            </p>
-          </div>
+          </>
         )}
       </CardContent>
     </Card>
@@ -178,39 +105,26 @@ export default function StatisticsPage() {
 
   if (!scopeLoading && !selectedSiteId) {
     return (
-      <AdminPage size="narrow" className="justify-center min-h-dvh flex items-center">
-        <Card className="mx-auto max-w-lg border border-border bg-card text-foreground shadow-sm relative overflow-hidden backdrop-blur-xl">
-          {/* Cyber ticks */}
-          <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-200" />
-          <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-200" />
-          <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-200" />
-          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-200" />
-
-          <CardContent className="flex flex-col items-center gap-5 p-8 text-center relative z-10">
-            <div className="p-4 rounded-full bg-muted/80 border border-border text-cyan-600 shadow-[0_0_20px_rgba(6,182,212,0.15)] animate-pulse">
-              <ParkingSquare className="h-8 w-8" aria-hidden="true" />
+      <AdminPage size="narrow" className="justify-center">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <div className="grid size-14 place-items-center rounded-full bg-primary-container text-on-primary-container">
+              <ParkingSquare className="size-7" aria-hidden="true" />
             </div>
-            <div className="space-y-2">
-              <h1 className="text-sm font-mono tracking-widest text-cyan-600 uppercase">
-                NO_ACTIVE_SITE_SELECTED // CHƯA CHỌN PHÂN KHU
-              </h1>
-              <p className="text-xs font-mono text-muted-foreground uppercase leading-relaxed max-w-sm">
-                Vui lòng cấu hình phân khu bãi đỗ xe hoặc yêu cầu quyền truy cập hệ thống trước khi bắt đầu xem thông số thống kê chi tiết.
+            <div>
+              <h1 className="font-semibold text-foreground">Chưa chọn khu vực</h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Vui lòng chọn khu vực bãi đỗ hoặc yêu cầu quyền truy cập trước khi xem thông số vận hành.
               </p>
             </div>
             {scopeError && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3.5 text-left font-mono text-[10px] text-rose-700 w-full mb-2">
-                <span className="font-bold uppercase block mb-1">[SYS_ERROR_LOG]</span>
+              <p className="w-full rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-left text-sm text-destructive">
                 {scopeError}
-              </div>
+              </p>
             )}
-            <Button
-              variant="outline"
-              onClick={retry}
-              className="border-border bg-background/60 hover:bg-muted text-slate-700 hover:text-foreground font-mono text-xs uppercase h-10 px-5 rounded-lg transition-all"
-            >
-              <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-              RETRY_SYSTEM_INITIALIZE
+            <Button variant="outline" onClick={retry}>
+              <RefreshCw />
+              Thử lại
             </Button>
           </CardContent>
         </Card>
@@ -220,217 +134,179 @@ export default function StatisticsPage() {
 
   const trafficValue = (value: number | undefined) =>
     analyticsAvailable && value !== undefined ? value.toLocaleString("vi-VN") : "—"
+  const occupancyMetrics = [
+    {
+      label: "Xe đang trong bãi",
+      value: metrics.currentVehicles.toLocaleString("vi-VN"),
+      note: `${metrics.occupiedSlots.toLocaleString("vi-VN")} ô đang có xe nhận diện`,
+      icon: CarFront,
+      tone: "primary",
+    },
+    {
+      label: "Tỷ lệ lấp đầy",
+      value: `${(metrics.fillRate * 100).toFixed(1)}%`,
+      note: `${metrics.occupiedSlots}/${metrics.usableSlots} ô khả dụng đang vận hành`,
+      icon: Gauge,
+      tone: metrics.fillRate >= 0.9 ? "critical" : metrics.fillRate >= 0.75 ? "serious" : "warning",
+    },
+    {
+      label: "Ô còn trống",
+      value: metrics.availableSlots.toLocaleString("vi-VN"),
+      note: `${metrics.reservedSlots} ô đặt trước · ${metrics.unknownSlots} chưa xác định`,
+      icon: ParkingSquare,
+      tone: "success",
+    },
+    {
+      label: "Tổng công suất",
+      value: metrics.usableSlots.toLocaleString("vi-VN"),
+      note: `${metrics.totalSlots} ô cấu hình · ${metrics.disabledSlots} ô tạm ngưng`,
+      icon: ParkingSquare,
+      tone: "primary",
+    },
+  ] as const
+  const trafficMetrics = [
+    {
+      label: "Lượt xe vào",
+      value: trafficValue(analytics?.entries),
+      note: "Số lượt xe qua cổng vào trong ngày hôm nay.",
+      icon: ArrowDownToLine,
+      tone: "success",
+    },
+    {
+      label: "Lượt xe ra",
+      value: trafficValue(analytics?.exits),
+      note: "Số lượt xe qua cổng ra trong ngày hôm nay.",
+      icon: ArrowUpFromLine,
+      tone: "critical",
+    },
+    {
+      label: "Xe duy nhất",
+      value: trafficValue(analytics?.uniqueVehicles),
+      note: "Biển số xe khác nhau được ghi nhận hôm nay.",
+      icon: CarFront,
+      tone: "primary",
+    },
+  ] as const
+
+  const scopeDescription = (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span>{selectedSite?.name || "Khu vực đang chọn"}</span>
+      <span aria-hidden="true">·</span>
+      <span>{selectedZone ? selectedZone.name : "Tất cả khu vực con"}</span>
+      {lastUpdatedAt && (
+        <>
+          <span aria-hidden="true">·</span>
+          <time dateTime={lastUpdatedAt}>Cập nhật {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}</time>
+        </>
+      )}
+    </span>
+  )
 
   return (
-    <AdminPage className="min-h-dvh">
+    <AdminPage>
       <AdminPageHeader
-        eyebrow="MODULE // PHÂN TÍCH"
-        title="THỐNG KÊ VẬN HÀNH"
-        className="grid-cols-[minmax(0,1fr)_auto] items-start"
-        description={
-          <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-1.5 flex-wrap">
-            <span className="text-slate-500">[SITE]</span>
-            <span className="text-cyan-600 font-bold">{selectedSite?.name || "Khu vực đang chọn"}</span>
-            <span className="text-slate-600">·</span>
-            <span className="text-slate-500">[ZONE]</span>
-            <span className="text-slate-700">{selectedZone ? selectedZone.name : "Tất cả zone"}</span>
-            {lastUpdatedAt && (
-              <>
-                <span className="text-slate-600">·</span>
-                <span className="text-slate-500">[LAST_SYNC]</span>
-                <time className="text-muted-foreground font-bold" dateTime={lastUpdatedAt}>
-                  {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
-                </time>
-              </>
-            )}
-          </span>
-        }
+        eyebrow="Phân tích vận hành"
+        title="Thống kê bãi đỗ"
+        description={scopeDescription}
         actions={
-          <div className="flex shrink-0 items-start justify-end gap-2.5">
-            <Badge
-              variant="outline"
-              className="inline-flex h-9 sm:h-10 border-border bg-background/50 text-cyan-600 font-mono text-[10px] uppercase font-bold tracking-wider px-3.5 rounded-xl gap-2"
-              aria-label={realtime === "live" ? "Realtime" : "Đang đồng bộ"}
-              title={realtime === "live" ? "Realtime" : "Đang đồng bộ"}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-ping shrink-0" />
-              <span>{realtime === "live" ? "LIVE_STATE" : "SYNCING"}</span>
+          <>
+            <Badge variant={realtime === "live" ? "default" : "secondary"} className="h-10 px-3">
+              <span className="size-2 rounded-full bg-current" aria-hidden="true" />
+              {realtime === "live" ? "Đang cập nhật" : "Đang đồng bộ"}
             </Badge>
             <Button
               variant="outline"
               size="icon"
               onClick={() => void refresh()}
               disabled={loading || !selectedSiteId}
-              className="h-9 w-9 sm:h-10 sm:w-10 border-border bg-card text-slate-700 hover:text-foreground hover:bg-muted rounded-xl p-0 transition-all shadow-none shrink-0"
               aria-label="Làm mới"
               title="Làm mới"
             >
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} aria-hidden="true" />
+              <RefreshCw className={loading ? "animate-spin" : undefined} />
             </Button>
-          </div>
+          </>
         }
       />
 
-      <div className="space-y-8 mt-4">
-        {partialError && (
-          <div
-            className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-500/5 p-4 font-mono text-xs text-amber-300"
-            role="status"
-          >
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 animate-pulse" aria-hidden="true" />
-            <div className="space-y-1">
-              <p className="font-bold uppercase">[WARNING] MỘT SỐ CHỈ SỐ CHƯA THỂ ĐỒNG BỘ</p>
-              <p className="text-[11px] text-amber-700/80 leading-relaxed uppercase">{partialError}</p>
+      {partialError && (
+        <Card className="border-destructive/30 bg-destructive/10">
+          <CardContent className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden="true" />
+            <div>
+              <p className="font-medium text-foreground">Một số chỉ số chưa thể đồng bộ</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{partialError}</p>
             </div>
-          </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <DashboardMetricsSection
+        id="occupancy-statistics"
+        title="Công suất hiện tại"
+        description="Khả năng đáp ứng của khu vực đang được chọn."
+        badge={(
+          <Badge
+            variant="outline"
+            className={realtime === "live"
+              ? "gap-1.5 border-[var(--color-success)]/25 bg-[var(--color-success-surface)] text-[var(--color-success)]"
+              : "gap-1.5 border-[var(--color-warning)]/25 bg-[var(--color-warning-surface)] text-[var(--color-serious)]"}
+          >
+            <span className={`size-1.5 rounded-full bg-current ${realtime === "live" ? "animate-pulse" : ""}`} aria-hidden="true" />
+            {realtime === "live" ? "Đang nhận realtime" : "Đồng bộ định kỳ"}
+          </Badge>
         )}
+        meta={lastUpdatedAt ? (
+          <time className="text-xs text-muted-foreground" dateTime={lastUpdatedAt}>
+            Cập nhật {new Date(lastUpdatedAt).toLocaleTimeString("vi-VN")}
+          </time>
+        ) : undefined}
+        loading={loading}
+        metrics={occupancyMetrics}
+      />
 
-        {/* Section 1: Current Occupancy Rate */}
-        <section aria-labelledby="occupancy-statistics" className="space-y-4">
-          <div className="flex items-center gap-3 border-b border-border pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
-              01 // CÔNG SUẤT HIỆN TẠI (CURRENT OCCUPANCY)
-            </span>
-            <div className="h-[1px] flex-1 bg-muted" />
-            <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
-              {selectedZone ? "ZONE_SPECIFIC_OCCUPANCY" : "SITE_WIDE_OCCUPANCY"}
-            </span>
-          </div>
+      <DashboardMetricsSection
+        id="traffic-statistics"
+        title="Lưu lượng hôm nay"
+        description="Dữ liệu qua cổng kiểm soát trong ngày hiện tại."
+        badge={<Badge variant="outline" className="border-primary/30 bg-primary-container text-on-primary-container">Theo dữ liệu cổng</Badge>}
+        loading={loading}
+        metricGridClassName="sm:grid-cols-3"
+        metrics={trafficMetrics}
+      />
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="Xe đang trong bãi"
-              code="SYS_ACTIVE_VEHICLES"
-              value={metrics.currentVehicles.toLocaleString("vi-VN")}
-              description={`${metrics.occupiedSlots} ô đang được lấp đầy bởi xe nhận diện`}
-              icon={CarFront}
-              loading={loading}
-              progress={metrics.usableSlots > 0 ? (metrics.occupiedSlots / metrics.usableSlots) * 100 : 0}
-              color="cyan"
-            />
-            <MetricCard
-              label="Tỷ lệ lấp đầy"
-              code="OCCUPANCY_RATE"
-              value={`${(metrics.fillRate * 100).toFixed(1)}%`}
-              description={`${metrics.occupiedSlots}/${metrics.usableSlots} ô khả dụng đang vận hành`}
-              icon={Gauge}
-              loading={loading}
-              progress={metrics.fillRate * 100}
-              color={metrics.fillRate > 0.85 ? "amber" : "emerald"}
-            />
-            <MetricCard
-              label="Ô còn trống"
-              code="AVAILABLE_SLOTS"
-              value={metrics.availableSlots.toLocaleString("vi-VN")}
-              description={`${metrics.reservedSlots} ô đặt trước · ${metrics.unknownSlots} chưa xác định`}
-              icon={ParkingSquare}
-              loading={loading}
-              progress={metrics.usableSlots > 0 ? (metrics.availableSlots / metrics.usableSlots) * 100 : 0}
-              color="emerald"
-            />
-            <MetricCard
-              label="Tổng công suất"
-              code="TOTAL_CAPACITY"
-              value={metrics.usableSlots.toLocaleString("vi-VN")}
-              description={`${metrics.totalSlots} ô cấu hình · ${metrics.disabledSlots} ô đang tạm ngưng`}
-              icon={ParkingSquare}
-              loading={loading}
-              color="slate"
-            />
-          </div>
-        </section>
-
-        {/* Section 2: Traffic Statistics */}
-        <section aria-labelledby="traffic-statistics" className="space-y-4">
-          <div className="flex items-center gap-3 border-b border-border pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
-              02 // LƯU LƯỢNG HÔM NAY (DAILY TRAFFIC LOGS)
-            </span>
-            <div className="h-[1px] flex-1 bg-muted" />
-            <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
-              GATEWAY_INTEGRATED_METRICS
-            </span>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard
-              label="Lượt xe vào"
-              code="VEHICLES_ENTRY_STREAM"
-              value={trafficValue(analytics?.entries)}
-              description="Số lượt xe qua cổng kiểm soát vào trong ngày hôm nay"
-              icon={ArrowDownToLine}
-              loading={loading}
-              color="cyan"
-            />
-            <MetricCard
-              label="Lượt xe ra"
-              code="VEHICLES_EXIT_STREAM"
-              value={trafficValue(analytics?.exits)}
-              description="Số lượt xe qua cổng kiểm soát ra ngoài trong ngày hôm nay"
-              icon={ArrowUpFromLine}
-              loading={loading}
-              color="emerald"
-            />
-            <MetricCard
-              label="Xe duy nhất"
-              code="UNIQUE_TARGETS_LOGGED"
-              value={trafficValue(analytics?.uniqueVehicles)}
-              description="Biển số xe khác nhau được hệ thống lưu vết hôm nay"
-              icon={CarFront}
-              loading={loading}
-              color="amber"
-            />
-          </div>
-        </section>
-
-        {/* Section 3: Hardware & Performance */}
-        <section aria-labelledby="system-statistics" className="space-y-4">
-          <div className="flex items-center gap-3 border-b border-border pb-2">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-cyan-600 uppercase tracking-widest">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shrink-0" />
-              03 // ĐỒNG BỘ THIẾT BỊ & THỜI GIAN ĐỖ (SYSTEM HEALTH)
-            </span>
-            <div className="h-[1px] flex-1 bg-muted" />
-            <span className="font-mono text-[9px] text-slate-500 uppercase tracking-wider hidden sm:inline">
-              HARDWARE_AND_DWELL_METRIC
-            </span>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <MetricCard
-              label="Camera trực tuyến"
-              code="DEVICE_ONLINE_RATIO"
-              value={`${onlineCameras}/${cameras.length}`}
-              description="Số lượng camera đang live trên tổng số camera trong phạm vi lựa chọn"
-              icon={Video}
-              loading={loading}
-              progress={cameras.length > 0 ? (onlineCameras / cameras.length) * 100 : 0}
-              color="emerald"
-            />
-            <MetricCard
-              label="Thời gian đỗ trung bình"
-              code="AVERAGE_DWELL_TIME"
-              value={
-                analyticsAvailable
-                  ? analytics.completedDwellSessions
-                    ? formatDuration(analytics.averageDwellSeconds)
-                    : "Chưa đủ dữ liệu"
-                  : "—"
-              }
-              description={
-                analyticsAvailable
-                  ? `${analytics.completedDwellSessions} lượt đỗ hoàn thành trong chu kỳ mẫu 7 ngày`
-                  : "Không thể trích xuất dữ liệu trung bình lúc này"
-              }
-              icon={Clock3}
-              loading={loading}
-              color="cyan"
-            />
-          </div>
-        </section>
-      </div>
+      <section className="space-y-4" aria-labelledby="system-statistics">
+        <div>
+          <h2 className="text-base font-semibold text-foreground" id="system-statistics">Thiết bị và thời gian đỗ</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Thông tin sức khỏe thiết bị và hành vi đỗ xe.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <MetricCard
+            label="Camera trực tuyến"
+            value={`${onlineCameras}/${cameras.length}`}
+            description="Số camera đang hoạt động trong phạm vi lựa chọn."
+            icon={Video}
+            loading={loading}
+            progress={cameras.length > 0 ? (onlineCameras / cameras.length) * 100 : 0}
+          />
+          <MetricCard
+            label="Thời gian đỗ trung bình"
+            value={
+              analyticsAvailable
+                ? analytics.completedDwellSessions
+                  ? formatDuration(analytics.averageDwellSeconds)
+                  : "Chưa đủ dữ liệu"
+                : "—"
+            }
+            description={
+              analyticsAvailable
+                ? `${analytics.completedDwellSessions} lượt đỗ hoàn thành trong chu kỳ mẫu 7 ngày.`
+                : "Không thể trích xuất dữ liệu trung bình lúc này."
+            }
+            icon={Clock3}
+            loading={loading}
+          />
+        </div>
+      </section>
     </AdminPage>
   )
 }

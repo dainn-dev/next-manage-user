@@ -7,6 +7,7 @@ import { Topbar } from "./topbar"
 import { useAuth } from "@/lib/auth-context"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { PlatformShell } from "@/components/platform/platform-shell"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { isPlatformAdmin, isMember } from "@/lib/types"
 import { canAccessOperatorRoute, operatorLandingPath } from "@/lib/dashboard-access"
 
@@ -151,15 +152,12 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
       >
         Bỏ qua điều hướng
       </a>
-      {mobileSidebarOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-[var(--color-overlay)] lg:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-          aria-label="Đóng điều hướng"
-        />
-      )}
-      <Sidebar mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
+      <Sidebar variant="desktop" />
+      <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+        <SheetContent side="left" className="p-0 lg:hidden">
+          <Sidebar variant="mobile" mobileOpen onMobileClose={() => setMobileSidebarOpen(false)} />
+        </SheetContent>
+      </Sheet>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar
           onMobileMenuClick={() => setMobileSidebarOpen(true)}

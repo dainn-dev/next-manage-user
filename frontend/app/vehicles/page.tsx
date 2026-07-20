@@ -14,13 +14,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Search, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings, Filter, FileSpreadsheet, RotateCcw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
 import { useAuth } from "@/lib/auth-context"
 import { resolvePreferredSiteId } from "@/lib/site-selection"
+import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
 import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 
 export default function VehiclesPage() {
@@ -533,10 +533,10 @@ export default function VehiclesPage() {
       <div className="admin-mobile-page min-h-dvh bg-background">
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <p className="text-blue-600 font-medium">Đang tải dữ liệu xe...</p>
+            <p className="text-primary font-medium">Đang tải dữ liệu xe...</p>
           </div>
         </div>
       </div>
@@ -549,13 +549,13 @@ export default function VehiclesPage() {
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
-              <span className="text-red-600 text-2xl">⚠️</span>
+              <span className="text-2xl font-semibold text-destructive">!</span>
             </div>
             <div>
               <p className="text-red-600 font-medium">{error}</p>
               <button 
                 onClick={() => loadData()}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                className="mt-2 text-sm text-primary hover:text-primary/80 underline"
               >
                 Thử lại
               </button>
@@ -568,43 +568,39 @@ export default function VehiclesPage() {
 
   const stats = getStatistics()
   const approvalRate = stats.total > 0 ? Math.round((stats.approved / stats.total) * 100) : 0
-  const mobileStats = [
+  const vehicleMetrics = [
     {
-      label: "Tổng xe",
-      value: stats.total,
-      description: `${stats.approved} đã duyệt`,
+      label: "Tổng số xe",
+      value: stats.total.toLocaleString("vi-VN"),
+      note: `${stats.approved.toLocaleString("vi-VN")} đã được duyệt`,
       icon: Car,
-      tone: "text-muted-foreground",
-      surface: "bg-muted/70",
+      tone: "primary",
     },
     {
       label: "Đã duyệt",
-      value: stats.approved,
-      description: "Hoạt động",
+      value: stats.approved.toLocaleString("vi-VN"),
+      note: "Xe được phép hoạt động",
       icon: CheckCircle,
-      tone: "text-green-600",
-      surface: "bg-green-50",
+      tone: "success",
     },
     {
       label: "Đã ra",
-      value: stats.exited,
-      description: "Rời khu vực",
+      value: stats.exited.toLocaleString("vi-VN"),
+      note: "Xe đã rời khỏi khu vực",
       icon: TrendingUp,
-      tone: "text-blue-600",
-      surface: "bg-blue-50",
+      tone: "serious",
     },
     {
       label: "Tỷ lệ duyệt",
       value: `${approvalRate}%`,
-      description: "Được phép",
+      note: "Xe được phép hoạt động",
       icon: Settings,
-      tone: "text-purple-600",
-      surface: "bg-purple-50",
+      tone: "warning",
     },
-  ]
+  ] as const
 
   return (
-    <AdminPage className="min-h-dvh">
+    <AdminPage className="min-h-dvh space-y-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <AdminPageHeader
         eyebrow="Phương tiện"
         title="Quản lý xe"
@@ -612,7 +608,7 @@ export default function VehiclesPage() {
         actions={
         <Button
           onClick={handleAddNew}
-          className="w-full shadow-sm transition-all duration-200 hover:shadow-md sm:w-auto"
+          className="min-h-11 w-full rounded-xl shadow-sm transition-shadow hover:shadow-md sm:w-auto"
           disabled={!userCanManage}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -621,86 +617,20 @@ export default function VehiclesPage() {
         }
       />
 
-      {/* Statistics Cards */}
-      <div className="mb-5 grid grid-cols-2 gap-2 md:hidden">
-        {mobileStats.map((item) => {
-          const Icon = item.icon
-          return (
-            <Card key={item.label} className="overflow-hidden rounded-xl border-border/75 bg-card/90 py-0 shadow-[var(--shadow-card)]">
-              <CardContent className="relative min-h-[5.25rem] p-2.5 sm:p-2.5">
-                <span className={`absolute right-2.5 top-2.5 grid size-7 place-items-center rounded-lg ${item.surface}`}>
-                  <Icon className={`h-3.5 w-3.5 ${item.tone}`} />
-                </span>
-                <p className="pr-8 text-xs font-semibold leading-4 text-foreground">{item.label}</p>
-                <p className={`mt-2 font-[family:var(--font-display)] text-[1.65rem] font-bold leading-none tracking-[-0.04em] ${item.tone}`}>
-                  {item.value}
-                </p>
-                <p className="mt-0.5 truncate text-xs leading-4 text-muted-foreground">{item.description}</p>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      <div className="mb-6 hidden gap-4 md:grid md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng số xe</CardTitle>
-            <Car className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.approved} đã được duyệt
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đã duyệt</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
-            <p className="text-xs text-muted-foreground">
-              Xe được phép hoạt động
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đã ra</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.exited}</div>
-            <p className="text-xs text-muted-foreground">
-              Xe đã rời khỏi khu vực
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tỷ lệ duyệt</CardTitle>
-            <Settings className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {approvalRate}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Xe được phép hoạt động
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <DashboardMetricsSection
+        id="vehicle-overview-title"
+        title="Tổng quan phương tiện"
+        description="Thống kê các phương tiện trong danh sách xe đang hiển thị."
+        metricGridClassName="md:grid-cols-4"
+        metrics={vehicleMetrics}
+      />
 
       {/* Action Bar */}
       {selectedVehicles.length > 0 && userCanManage && (
-        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 shadow-sm">
+        <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+            <div className="size-2 rounded-full bg-primary"></div>
+            <Badge variant="secondary" className="border-primary/20 bg-primary/10 text-primary">
               {selectedVehicles.length} xe đã chọn
             </Badge>
           </div>
@@ -708,7 +638,7 @@ export default function VehiclesPage() {
             variant="destructive" 
             size="sm" 
             onClick={handleBulkDelete}
-            className="shadow-sm hover:shadow-md transition-all duration-200"
+            className="min-h-11 rounded-xl shadow-sm transition-shadow hover:shadow-md"
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Xóa đã chọn
@@ -777,7 +707,7 @@ export default function VehiclesPage() {
               </>
             }
             filterPanel={isFilterBarOpen ? (
-              <div id="vehicle-filter-panel" className="rounded-xl border bg-card p-3 shadow-sm sm:p-5">
+              <div id="vehicle-filter-panel" className="rounded-2xl border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">Bộ lọc</h3>
@@ -803,7 +733,7 @@ export default function VehiclesPage() {
                         placeholder="Nhập biển số, chủ xe, loại xe..."
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
-                        className="h-11 rounded-lg border-border pl-10 shadow-sm"
+                        className="min-h-11 rounded-xl border-border bg-background pl-10 shadow-sm focus-visible:ring-primary/20"
                       />
                     </div>
                   </div>
@@ -813,15 +743,15 @@ export default function VehiclesPage() {
                       Trạng thái
                     </Label>
                     <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-                      <SelectTrigger id="vehicle-status-filter" className="h-11 w-full rounded-lg border-border shadow-sm">
+                      <SelectTrigger id="vehicle-status-filter" className="min-h-11 w-full rounded-xl border-border bg-background shadow-sm focus:ring-primary/20">
                         <SelectValue placeholder="Chọn trạng thái" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">🚗 Tất cả</SelectItem>
-                        <SelectItem value="approved">✅ Duyệt</SelectItem>
-                        <SelectItem value="rejected">❌ Không được phép</SelectItem>
-                        <SelectItem value="exited">🚪 Đã ra</SelectItem>
-                        <SelectItem value="entered">🏠 Đã vào</SelectItem>
+                        <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                        <SelectItem value="approved">Đã duyệt</SelectItem>
+                        <SelectItem value="rejected">Không được phép</SelectItem>
+                        <SelectItem value="exited">Đã ra</SelectItem>
+                        <SelectItem value="entered">Đã vào</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -831,15 +761,15 @@ export default function VehiclesPage() {
                       Loại xe
                     </Label>
                     <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)}>
-                      <SelectTrigger id="vehicle-type-filter" className="h-11 w-full rounded-lg border-border shadow-sm">
+                      <SelectTrigger id="vehicle-type-filter" className="min-h-11 w-full rounded-xl border-border bg-background shadow-sm focus:ring-primary/20">
                         <SelectValue placeholder="Chọn loại xe" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">🚗 Tất cả</SelectItem>
-                        <SelectItem value="car">🚗 Ô tô</SelectItem>
-                        <SelectItem value="motorbike">🏍️ Xe máy</SelectItem>
-                        <SelectItem value="truck">🚛 Xe tải</SelectItem>
-                        <SelectItem value="bus">🚌 Xe bus</SelectItem>
+                        <SelectItem value="all">Tất cả loại xe</SelectItem>
+                        <SelectItem value="car">Ô tô</SelectItem>
+                        <SelectItem value="motorbike">Xe máy</SelectItem>
+                        <SelectItem value="truck">Xe tải</SelectItem>
+                        <SelectItem value="bus">Xe buýt</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

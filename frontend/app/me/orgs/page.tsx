@@ -3,21 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { memberApi, type MemberVehicleGarageItem } from "@/lib/api/member-api"
 import { useToast } from "@/hooks/use-toast"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import {
-  Building2,
-  RefreshCw,
-  Cpu,
-  Layers,
-  ShieldCheck,
-  Loader2,
-  BookmarkCheck,
-  Info,
-  QrCode,
-  Network
-} from "lucide-react"
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { cn } from "@/lib/utils"
+import { Building2, Car, Loader2, RefreshCw } from "lucide-react"
 
 export default function MemberOrgsPage() {
   const [items, setItems] = useState<MemberVehicleGarageItem[]>([])
@@ -46,126 +42,99 @@ export default function MemberOrgsPage() {
 
   const byOrg = useMemo(() => {
     const map = new Map<string, { name: string; plates: string[] }>()
-    for (const v of items) {
-      for (const org of v.registeredAt || []) {
-        const key = org.tenantId
-        const entry = map.get(key) || { name: org.tenantName || key, plates: [] }
-        entry.plates.push(v.licensePlate)
+    for (const vehicle of items) {
+      for (const organization of vehicle.registeredAt || []) {
+        const key = organization.tenantId
+        const entry = map.get(key) || {
+          name: organization.tenantName || key,
+          plates: [],
+        }
+        entry.plates.push(vehicle.licensePlate)
         map.set(key, entry)
       }
     }
-    return Array.from(map.entries()).map(([id, v]) => ({ id, ...v }))
+    return Array.from(map.entries()).map(([id, value]) => ({ id, ...value }))
   }, [items])
 
   return (
-    <div className="space-y-6">
-      {/* Sci-Fi Page Header */}
-      <div className="border-b border-border pb-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <span className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-cyan-600 uppercase tracking-widest">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-              MEMBER // ORG_CONNECTIONS
-            </span>
-            <h1 className="text-2xl font-bold tracking-wider text-foreground font-mono uppercase">
-              {"ĐĂNG KÝ TẠI TỔ CHỨC"}
-            </h1>
-            <p className="text-xs font-mono text-muted-foreground uppercase leading-relaxed max-w-xl">
-              {"Tra cứu các tổ chức (chung cư, cơ quan, trường học...) nơi phương tiện của bạn được cấp quyền ra vào bãi đỗ xe nội bộ."}
-            </p>
+    <div className="space-y-5 sm:space-y-6">
+      <Card className="gap-4 border-primary/15 bg-primary-container/45 py-5">
+        <CardHeader className="gap-4 sm:flex sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold tracking-wide text-primary">Khu vực thành viên</p>
+            <CardTitle className="mt-1 text-2xl tracking-tight sm:text-3xl">Đăng ký tại tổ chức</CardTitle>
+            <CardDescription className="mt-2 max-w-2xl leading-6">
+              Tra cứu các tổ chức nơi phương tiện của bạn được cấp quyền ra vào bãi đỗ xe.
+            </CardDescription>
           </div>
           <Button
             variant="outline"
             size="icon"
             onClick={() => void load()}
             disabled={loading}
-            className="h-10 w-10 border-border bg-card text-slate-700 hover:text-foreground hover:bg-muted rounded-xl transition-all shadow-none self-start sm:self-center"
-            aria-label="Làm mới"
-            title="Làm mới"
+            aria-label="Làm mới danh sách tổ chức"
+            title="Làm mới danh sách tổ chức"
+            className="shrink-0 self-start sm:self-center"
           >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
           </Button>
-        </div>
-      </div>
+        </CardHeader>
+      </Card>
 
       {loading ? (
-        <div className="flex min-h-[35vh] items-center justify-center bg-muted/10 rounded-xl border border-border">
-          <div className="flex flex-col items-center gap-2 font-mono text-xs text-cyan-600">
-            <Loader2 className="h-5 w-5 animate-spin text-cyan-600" />
-            <span className="animate-pulse tracking-widest text-[10px] uppercase mt-1">
-              {"FETCHING_ORGANIZATIONS..."}
-            </span>
-          </div>
-        </div>
+        <Card className="min-h-56 justify-center">
+          <CardContent className="flex flex-col items-center gap-3 text-center">
+            <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Đang tải các tổ chức đã liên kết...</p>
+          </CardContent>
+        </Card>
       ) : byOrg.length === 0 ? (
-        <div className="border border-border bg-muted/10 rounded-xl p-8 text-center relative overflow-hidden backdrop-blur-xl">
-          {/* Tech ticks */}
-          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-border" />
-          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-border" />
-          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-border" />
-          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-border" />
-          
-          <div className="mx-auto p-3 max-w-fit rounded-lg bg-muted/80 border border-border text-slate-500 mb-3 shadow-sm">
-            <Building2 className="h-5 w-5" />
-          </div>
-          <p className="font-mono text-xs text-muted-foreground uppercase tracking-wider">
-            {"[!] CHƯA PHÁT HIỆN LIÊN KẾT TỔ CHỨC"}
-          </p>
-          <p className="text-[11px] font-mono text-slate-500 uppercase mt-2 max-w-md mx-auto leading-relaxed">
-            {"Tài khoản của bạn hiện chưa được ghi nhận trong danh sách thành viên của bất kỳ tổ chức nào trên hệ thống."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {byOrg.map((org) => (
-            <div
-              key={org.id}
-              className="border border-border bg-card text-foreground shadow-xl rounded-xl p-5 relative overflow-hidden backdrop-blur-xl transition-all duration-300 hover:border-slate-700/60 group"
-            >
-              {/* Tech corner ticks */}
-              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-border group-hover:border-cyan-200 transition-colors" />
-              <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-border group-hover:border-cyan-200 transition-colors" />
-              <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-border group-hover:border-cyan-200 transition-colors" />
-              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-border group-hover:border-cyan-200 transition-colors" />
-
-              <div className="flex items-start justify-between gap-3 border-b border-border pb-3 mb-3">
-                <div className="space-y-0.5">
-                  <p className="font-mono text-[9px] tracking-widest text-slate-500 uppercase">
-                    {"TENANT_NODE_ID // "}{org.id.toUpperCase()}
-                  </p>
-                  <p className="text-sm font-mono font-bold text-foreground tracking-wide uppercase">
-                    {org.name}
-                  </p>
-                </div>
-                <div className="p-2 rounded-lg bg-muted/80 border border-border text-cyan-600 shadow-sm">
-                  <Building2 className="h-4 w-4" />
-                </div>
-              </div>
-
-              <div>
-                <span className="block font-mono text-[9px] tracking-widest text-slate-500 uppercase mb-2">
-                  {"AUTHORIZED_LICENSE_PLATES // BIỂN SỐ CHO PHÉP"}
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {org.plates.map((plate) => (
-                    <span
-                      key={plate}
-                      className="font-mono text-[11px] font-bold text-cyan-600 bg-background border border-border py-1 px-2.5 rounded-md shadow-sm"
-                    >
-                      {plate}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-[10px] font-mono text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Network className="h-3 w-3 text-emerald-500" />
-                  {"CONNECTION_ACTIVE"}
-                </span>
-                <span>{"ROUTER: PORT_8080"}</span>
-              </div>
+        <Card className="min-h-56 justify-center border-dashed">
+          <CardContent className="mx-auto flex max-w-lg flex-col items-center gap-3 py-3 text-center">
+            <div className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground">
+              <Building2 className="size-6" aria-hidden="true" />
             </div>
+            <div>
+              <h2 className="font-semibold text-foreground">Chưa có tổ chức liên kết</h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Tài khoản của bạn chưa được ghi nhận trong danh sách thành viên của tổ chức nào.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {byOrg.map((organization) => (
+            <Card key={organization.id} className="gap-4 transition-shadow hover:shadow-md">
+              <CardHeader className="grid-cols-[minmax(0,1fr)_auto] gap-3">
+                <div className="min-w-0">
+                  <CardTitle className="text-base leading-6">{organization.name}</CardTitle>
+                  <CardDescription className="mt-1 truncate">Mã tổ chức: {organization.id}</CardDescription>
+                </div>
+                <div className="grid size-11 place-items-center rounded-full bg-primary-container text-primary">
+                  <Building2 className="size-5" aria-hidden="true" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Car className="size-4 text-muted-foreground" aria-hidden="true" />
+                    <span>Biển số được phép</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {organization.plates.map((plate) => (
+                      <Badge key={plate} variant="secondary" className="bg-primary-container text-on-primary-container">
+                        {plate}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 border-t border-border pt-4 text-sm text-emerald-800">
+                  <span className="size-2 rounded-full bg-emerald-600" aria-hidden="true" />
+                  <span>Liên kết đang hoạt động</span>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

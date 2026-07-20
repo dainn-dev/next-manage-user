@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react"
+import { Fragment, type ComponentPropsWithoutRef, type ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -11,7 +11,7 @@ const pageSizes: Record<AdminPageSize, string> = {
   full: "max-w-none",
 }
 
-interface AdminPageProps extends ComponentPropsWithoutRef<"div"> {
+export interface AdminPageProps extends ComponentPropsWithoutRef<"div"> {
   size?: AdminPageSize
 }
 
@@ -36,46 +36,96 @@ export function AdminPage({
   )
 }
 
-interface AdminPageHeaderProps {
+export interface AdminPageHeaderAction {
+  /** A stable key when the actions are generated from data. */
+  key: string
+  content: ReactNode
+}
+
+export interface AdminPageHeaderMetaProps extends ComponentPropsWithoutRef<"div"> {
+  label: ReactNode
+  value: ReactNode
+}
+
+/** A compact, consistent read-only value for a page-header action row. */
+export function AdminPageHeaderMeta({
+  className,
+  label,
+  value,
+  ...props
+}: AdminPageHeaderMetaProps) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-11 min-w-36 flex-col justify-center rounded-[var(--radius-input)] border border-border bg-muted/60 px-3 text-sm shadow-xs",
+        className,
+      )}
+      {...props}
+    >
+      <span className="text-xs font-medium leading-4 text-muted-foreground">{label}</span>
+      <span className="mt-0.5 text-sm font-semibold leading-5 text-foreground">{value}</span>
+    </div>
+  )
+}
+
+/**
+ * The shared page heading for admin views. Prefer `actionList` for a list of
+ * independent controls; `actions` remains available for composed layouts.
+ */
+export interface AdminPageHeaderProps
+  extends Omit<ComponentPropsWithoutRef<"header">, "children" | "title"> {
+  /** Independent controls rendered in the responsive page action row. */
+  actionList?: readonly AdminPageHeaderAction[]
   actions?: ReactNode
-  className?: string
   description?: ReactNode
   eyebrow?: ReactNode
   title: ReactNode
 }
 
 export function AdminPageHeader({
+  actionList,
   actions,
   className,
   description,
   eyebrow,
   title,
+  ...props
 }: AdminPageHeaderProps) {
+  const hasActions = Boolean(actions) || Boolean(actionList?.length)
+
   return (
     <header
       className={cn(
-        "grid min-w-0 gap-4 rounded-2xl border border-border/75 bg-card/85 p-4 shadow-[var(--shadow-card)] sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center",
+        "grid min-w-0 gap-4 rounded-[var(--radius-sheet)] border border-border bg-card p-4 text-card-foreground shadow-[var(--shadow-card)] sm:gap-5 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center",
         className,
       )}
+      {...props}
     >
       <div className="min-w-0">
         {eyebrow && (
-          <p className="text-xs font-semibold uppercase leading-5 tracking-[0.12em] text-primary">
+          <p className="text-xs font-semibold uppercase leading-4 tracking-[0.12em] text-primary">
             {eyebrow}
           </p>
         )}
-        <h1 className="mt-1 text-balance font-[family:var(--font-display)] text-[1.125rem] font-bold leading-[1.14] tracking-[-0.025em] text-foreground sm:text-[1.75rem] sm:leading-[1.12] sm:tracking-[-0.035em]">
+        <h1 className="mt-1 text-balance font-[family:var(--font-display)] text-[1.375rem] font-bold leading-7 tracking-[-0.025em] text-foreground sm:text-[1.75rem] sm:leading-8 sm:tracking-[-0.035em]">
           {title}
         </h1>
         {description && (
-          <p className="mt-1.5 max-w-3xl text-pretty text-xs leading-5 text-muted-foreground sm:mt-2 sm:text-[0.9375rem] sm:leading-6">
+          <p className="mt-1.5 max-w-3xl text-pretty text-sm leading-5 text-muted-foreground sm:mt-2 sm:text-[0.9375rem] sm:leading-6">
             {description}
           </p>
         )}
       </div>
-      {actions && (
-        <div className="admin-action-row grid min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end [&_[data-slot=button]]:w-full sm:[&_[data-slot=button]]:w-auto">
+      {hasActions && (
+        <div
+          className="admin-action-row grid min-w-0 grid-cols-1 gap-2 text-sm sm:flex sm:flex-wrap sm:items-center sm:justify-end [&_[data-slot=button]]:!min-h-11 [&_[data-slot=button]]:!min-w-11 [&_[data-slot=button]]:!rounded-[var(--radius-input)] [&_[data-slot=button]]:w-full sm:[&_[data-slot=button]]:w-auto md:[&_[data-slot=button]]:!min-h-10 md:[&_[data-slot=button]]:!min-w-10"
+          aria-label="Thao tác trang"
+          role="group"
+        >
           {actions}
+          {actionList?.map((action) => (
+            <Fragment key={action.key}>{action.content}</Fragment>
+          ))}
         </div>
       )}
     </header>

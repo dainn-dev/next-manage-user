@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -34,36 +35,11 @@ interface PlatformNavigationItem {
 }
 
 const platformNavigation: PlatformNavigationItem[] = [
-  {
-    href: "/platform/overview",
-    label: "Overview",
-    description: "Platform state",
-    icon: LayoutDashboard,
-  },
-  {
-    href: "/platform/tenants",
-    label: "Tenants",
-    description: "Registry and lifecycle",
-    icon: Building2,
-  },
-  {
-    href: "/platform/billing",
-    label: "Billing",
-    description: "Cross-tenant subscriptions",
-    icon: CreditCard,
-  },
-  {
-    href: "/platform/admins",
-    label: "Admins",
-    description: "Control-plane access",
-    icon: Shield,
-  },
-  {
-    href: "/platform/audit",
-    label: "Audit",
-    description: "Operator activity",
-    icon: ScrollText,
-  },
+  { href: "/platform/overview", label: "Overview", description: "Platform state", icon: LayoutDashboard },
+  { href: "/platform/tenants", label: "Tenants", description: "Registry and lifecycle", icon: Building2 },
+  { href: "/platform/billing", label: "Billing", description: "Cross-tenant subscriptions", icon: CreditCard },
+  { href: "/platform/admins", label: "Admins", description: "Control-plane access", icon: Shield },
+  { href: "/platform/audit", label: "Audit", description: "Operator activity", icon: ScrollText },
 ]
 
 function userInitials(fullName?: string, username?: string): string {
@@ -99,16 +75,8 @@ export function PlatformShell({ children }: PlatformShellProps) {
     }
   }
 
-  const sidebar = (
-    <aside
-      id="platform-navigation"
-      aria-label="Platform navigation"
-      className={cn(
-        "fixed inset-y-0 left-0 z-50 flex w-[min(20rem,calc(100%-2rem))] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[var(--shadow-overlay)] transition-transform duration-[var(--dur-long)] ease-[var(--ease-out)] lg:relative lg:z-auto lg:translate-x-0 lg:shadow-none",
-        mobileOpen ? "translate-x-0" : "-translate-x-full",
-        collapsed ? "lg:w-[var(--shell-sidebar-collapsed)]" : "lg:w-[var(--shell-sidebar-width)]",
-      )}
-    >
+  const renderSidebarContent = (compact: boolean, mobile: boolean) => (
+    <>
       <div className="flex h-[var(--shell-topbar-height)] shrink-0 items-center gap-3 border-b border-sidebar-border px-4">
         <Image
           src="/logo.jpg"
@@ -118,26 +86,28 @@ export function PlatformShell({ children }: PlatformShellProps) {
           className="size-8 rounded-[var(--radius-input)] object-contain"
           priority
         />
-        {!collapsed && (
+        {!compact && (
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold tracking-[-0.02em]">ParkVision</p>
             <p className="truncate text-xs text-muted-foreground">Platform control</p>
           </div>
         )}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="ml-auto lg:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-label="Đóng điều hướng"
-        >
-          <X />
-        </Button>
+        {mobile ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="ml-auto"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Đóng điều hướng"
+          >
+            <X />
+          </Button>
+        ) : null}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Platform sections">
-        <p className={cn("mb-2 px-3 text-[0.6875rem] font-semibold uppercase tracking-[var(--tracking-label)] text-muted-foreground", collapsed && "lg:sr-only")}>
+        <p className={cn("mb-2 px-3 text-xs font-semibold uppercase tracking-[var(--tracking-label)] text-muted-foreground", compact && "sr-only")}>
           Control plane
         </p>
         <ul className="space-y-1">
@@ -148,19 +118,22 @@ export function PlatformShell({ children }: PlatformShellProps) {
               <li key={item.href}>
                 <button
                   type="button"
-                  onClick={() => router.push(item.href)}
+                  onClick={() => {
+                    setMobileOpen(false)
+                    router.push(item.href)
+                  }}
                   aria-current={active ? "page" : undefined}
-                  title={collapsed ? item.label : undefined}
+                  title={compact ? item.label : undefined}
                   className={cn(
                     "group flex min-h-11 w-full items-center gap-3 rounded-[var(--radius-input)] px-3 text-left text-sm font-medium whitespace-nowrap transition-[background-color,color,transform] duration-[var(--dur-short)] ease-[var(--ease-out)] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                     active
                       ? "bg-primary text-primary-foreground"
                       : "text-sidebar-foreground hover:bg-accent hover:text-accent-foreground",
-                    collapsed && "lg:justify-center lg:px-0",
+                    compact && "justify-center px-0",
                   )}
                 >
                   <Icon className="size-4 shrink-0" aria-hidden="true" />
-                  {!collapsed && (
+                  {!compact && (
                     <span className="min-w-0">
                       <span className="block truncate">{item.label}</span>
                       <span className={cn("block truncate text-xs font-normal", active ? "text-primary-foreground/80" : "text-muted-foreground")}>
@@ -176,41 +149,43 @@ export function PlatformShell({ children }: PlatformShellProps) {
       </nav>
 
       <div className="border-t border-sidebar-border p-3">
-        <div className={cn("flex items-center gap-3 rounded-[var(--radius-input)] px-2 py-2", collapsed && "lg:justify-center lg:px-0")}>
-          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+        <div className={cn("flex items-center gap-3 rounded-[var(--radius-input)] px-2 py-2", compact && "justify-center px-0")}>
+          <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
             {userInitials(user?.fullName, user?.username)}
           </div>
-          {!collapsed && (
+          {!compact && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{user?.fullName || user?.username || "Platform admin"}</p>
-              <p className="truncate font-mono text-[0.6875rem] text-muted-foreground">PLATFORM_ADMIN</p>
+              <p className="truncate font-mono text-xs text-muted-foreground">PLATFORM_ADMIN</p>
             </div>
           )}
         </div>
-        <div className={cn("mt-2 flex gap-2", collapsed && "lg:flex-col")}>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="hidden lg:inline-flex"
-            onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? "Mở rộng điều hướng" : "Thu gọn điều hướng"}
-          >
-            {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-          </Button>
+        <div className={cn("mt-2 flex gap-2", compact && "lg:flex-col")}>
+          {!mobile && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="hidden lg:inline-flex"
+              onClick={() => setCollapsed((value) => !value)}
+              aria-label={collapsed ? "Mở rộng điều hướng" : "Thu gọn điều hướng"}
+            >
+              {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
-            className={cn("flex-1 justify-start", collapsed && "lg:size-9 lg:flex-none lg:px-0")}
+            className={cn("flex-1 justify-start", compact && !mobile && "lg:size-11 lg:flex-none lg:px-0")}
             onClick={() => void handleLogout()}
             aria-label="Đăng xuất"
           >
             <LogOut />
-            {!collapsed && <span>Đăng xuất</span>}
+            {!compact && <span>Đăng xuất</span>}
           </Button>
         </div>
       </div>
-    </aside>
+    </>
   )
 
   return (
@@ -222,26 +197,34 @@ export function PlatformShell({ children }: PlatformShellProps) {
         Đi đến nội dung chính
       </a>
 
-      {mobileOpen && (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-[var(--color-overlay)] lg:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-label="Đóng điều hướng"
-        />
-      )}
+      <aside
+        id="platform-navigation"
+        aria-label="Platform navigation"
+        className={cn(
+          "hidden h-dvh flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:relative lg:flex lg:shadow-sm",
+          collapsed ? "lg:w-[var(--shell-sidebar-collapsed)]" : "lg:w-[var(--shell-sidebar-width)]",
+        )}
+      >
+        {renderSidebarContent(collapsed, false)}
+      </aside>
 
-      {sidebar}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="p-0 lg:hidden">
+          <div id="platform-navigation-mobile" aria-label="Platform navigation" className="flex h-full min-w-0 flex-col">
+            {renderSidebarContent(false, true)}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[var(--shell-topbar-height)] shrink-0 items-center gap-3 border-b border-border bg-background px-4 sm:px-6">
+        <header className="relative z-[var(--z-sticky)] flex h-[var(--shell-topbar-height)] shrink-0 items-center gap-3 border-b border-border bg-card/90 px-4 shadow-[var(--shadow-card)] backdrop-blur supports-[backdrop-filter]:bg-card/75 sm:px-6">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="icon"
             className="lg:hidden"
             onClick={() => setMobileOpen(true)}
-            aria-controls="platform-navigation"
+            aria-controls="platform-navigation-mobile"
             aria-expanded={mobileOpen}
             aria-label="Mở điều hướng"
           >

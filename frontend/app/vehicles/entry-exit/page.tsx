@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -40,7 +39,8 @@ import { downloadBlob } from "@/lib/utils/download-blob"
 import { ExportDialog } from "@/components/reports/export-dialog"
 import { useAuth } from "@/lib/auth-context"
 import { canViewAllLogs } from "@/lib/types"
-import { AdminPage } from "@/components/layout/admin-page"
+import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
+import { AdminPage, AdminPageHeader, AdminPageHeaderMeta } from "@/components/layout/admin-page"
 
 export default function VehicleEntryExitPage() {
   const { user } = useAuth()
@@ -307,121 +307,65 @@ export default function VehicleEntryExitPage() {
   // Computed page stats for technical metrics
   const pageInCount = visibleLogs.filter(l => l.type === 'entry').length
   const pageOutCount = visibleLogs.filter(l => l.type === 'exit').length
+  const recordOverviewMetrics = [
+    {
+      label: "Khoảng thời gian",
+      value: getPeriodLabel(),
+      note: "Theo bộ lọc đang chọn",
+      icon: Calendar,
+      tone: "primary",
+    },
+    {
+      label: "Lượt vào trang này",
+      value: pageInCount.toLocaleString("vi-VN"),
+      note: "Trong danh sách hiện tại",
+      icon: ArrowDownToLine,
+      tone: "success",
+    },
+    {
+      label: "Lượt ra trang này",
+      value: pageOutCount.toLocaleString("vi-VN"),
+      note: "Trong danh sách hiện tại",
+      icon: ArrowUpFromLine,
+      tone: "critical",
+    },
+  ] as const
 
   return (
-    <AdminPage className="space-y-6 bg-background text-foreground p-4 sm:p-6 lg:p-8 rounded-2xl relative min-h-screen overflow-hidden">
-      {/* Visual background decorations matching Monitoring Page */}
-      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
-        <div
-          className="absolute inset-0 opacity-[0.01]"
-          style={{
-            backgroundImage: "radial-gradient(circle, #06b6d4 1.2px, transparent 1.2px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="absolute top-1/4 right-1/4 w-[350px] h-[350px] rounded-full bg-cyan-500/5 blur-[120px]" />
-        <div className="absolute bottom-1/3 left-10 w-[300px] h-[300px] rounded-full bg-emerald-500/5 blur-[100px]" />
-      </div>
-
-      {/* High-Tech custom page header with operations glow */}
-      <header className="relative overflow-hidden rounded-xl border border-border bg-card p-5 sm:p-6 shadow-[var(--shadow-card)]">
-        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-500/20" />
-        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-500/20" />
-        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-500/20" />
-        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-500/20" />
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-0.5 text-[9px] font-mono font-medium text-cyan-700">
-                <span className="size-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                {"DATABASE_REGISTRY // ENTRANCE_LOGS"}
-              </span>
-              <span className="text-slate-300 font-mono text-[10px]">|</span>
-              <span className="text-slate-500 font-mono text-[9px] tracking-wider uppercase">ARCHIVE_ACCESS: ALL_EVENTS</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground font-mono uppercase">
-              THÔNG TIN RA VÀO <span className="text-cyan-600">{"// RECORDS"}</span>
-            </h1>
-            <p className="text-xs text-muted-foreground max-w-2xl">
-              Danh sách chi tiết lịch sử đóng mở cổng, định danh phương tiện nội bộ và khách vãng lai thông qua AI Camera.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 self-start md:self-center">
-            {/* Live digital clock */}
-            <div className="hidden sm:flex flex-col items-end px-3 py-1 rounded-lg border border-border bg-muted/50 font-mono text-xs">
-              <span className="text-muted-foreground text-[8px] uppercase tracking-wider">Hệ thống thời gian</span>
-              <span className="text-cyan-600 font-bold tabular-nums">
-                {currentTime || "00:00:00"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Mini Diagnostic Grid */}
-      <section className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Thông số phân đoạn">
-        {[
-          { 
-            label: "Bộ lọc thời gian", 
-            value: getPeriodLabel(), 
-            icon: Calendar, 
-            id: "FILTER_PERIOD", 
-            color: "text-cyan-600", 
-            glow: "rgba(6,182,212,0.04)", 
-            border: "border-cyan-100",
-            bg: "bg-cyan-50/20"
+    <AdminPage className="min-h-dvh space-y-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+      <AdminPageHeader
+        eyebrow="Dữ liệu vận hành"
+        title="Thông tin ra vào"
+        description="Theo dõi lịch sử cổng, thông tin phương tiện và ảnh nhận diện theo từng lượt ra vào."
+        actionList={[
+          {
+            key: "current-time",
+            content: <AdminPageHeaderMeta
+              label="Thời gian hệ thống"
+              value={<time className="tabular-nums">{currentTime || "00:00:00"}</time>}
+            />,
           },
-          { 
-            label: "Lượt vào trang này", 
-            value: loading ? "..." : pageInCount, 
-            icon: ArrowDownToLine, 
-            id: "PAGE_IN_COUNT", 
-            color: "text-emerald-600", 
-            glow: "rgba(16,185,129,0.04)", 
-            border: "border-emerald-100",
-            bg: "bg-emerald-50/20"
-          },
-          { 
-            label: "Lượt ra trang này", 
-            value: loading ? "..." : pageOutCount, 
-            icon: ArrowUpFromLine, 
-            id: "PAGE_OUT_COUNT", 
-            color: "text-rose-600", 
-            glow: "rgba(244,63,94,0.04)", 
-            border: "border-rose-100",
-            bg: "bg-rose-50/20",
-            className: "col-span-2 sm:col-span-1" 
-          },
-        ].map(({ label, value, icon: Icon, id, color, glow, border, bg, className }) => (
-          <div
-            key={label}
-            className={`relative overflow-hidden rounded-xl border ${border} ${bg || "bg-card"} p-4 transition-all duration-300 hover:scale-[1.01] hover:bg-muted/10 ${className ?? ""}`}
-            style={{
-              boxShadow: `inset 0 0 12px ${glow}`,
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[8px] font-mono text-muted-foreground/80">[{id}]</span>
-              <span className="text-[8px] font-mono text-muted-foreground/60">STATE_OK</span>
-            </div>
-            <div className="flex items-center gap-3 mt-2">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background border border-border">
-                <Icon className={`size-4.5 ${color}`} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-mono text-slate-400 uppercase tracking-wide truncate">
-                  {label}
-                </p>
-                <p className={`font-mono text-sm sm:text-lg font-black leading-none tracking-tight mt-1 ${color}`}>
-                  {value}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </section>
+        ]}
+      />
+
+      <DashboardMetricsSection
+        id="vehicle-entry-exit-summary"
+        title="Tổng quan bản ghi"
+        description="Tóm tắt khoảng thời gian và lưu lượng của danh sách đang hiển thị."
+        badge={(
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+            <Radio className="size-3" aria-hidden="true" />
+            Dữ liệu theo bộ lọc
+          </span>
+        )}
+        meta={!loading ? (
+          <span className="text-xs text-muted-foreground">
+            {totalElements.toLocaleString("vi-VN")} bản ghi
+          </span>
+        ) : undefined}
+        loading={loading}
+        metrics={recordOverviewMetrics}
+      />
 
       {/* Control Actions / Period Select & Filter Triggers */}
       <Tabs value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)} className="w-full">
@@ -429,13 +373,13 @@ export default function VehicleEntryExitPage() {
           <div className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 md:flex md:justify-between md:gap-3 ${isFilterBarOpen ? "border-b border-border pb-2 mb-2" : ""}`}>
             
             {/* Mobile Period Dropdown */}
-            <div className="relative h-10 min-w-0 md:hidden">
-              <Calendar className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-cyan-600" aria-hidden="true" />
+            <div className="relative min-h-11 min-w-0 md:hidden">
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-primary" aria-hidden="true" />
               <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
-                <SelectTrigger aria-label="Chọn khoảng thời gian" className="h-10 min-h-10 w-full rounded-lg border-border bg-background text-xs font-mono text-foreground pl-9 pr-2 focus:border-cyan-500/30">
+                <SelectTrigger aria-label="Chọn khoảng thời gian" className="min-h-11 min-h-11 w-full rounded-xl border-border bg-background text-xs text-foreground pl-9 pr-2 focus:border-primary/30">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-border bg-card text-foreground font-mono text-xs">
+                <SelectContent className="border-border bg-card text-foreground text-xs">
                   <SelectItem value="daily">Hôm nay</SelectItem>
                   <SelectItem value="weekly">Tuần này</SelectItem>
                   <SelectItem value="monthly">Tháng này</SelectItem>
@@ -444,27 +388,27 @@ export default function VehicleEntryExitPage() {
             </div>
 
             {/* Desktop Tabs List in High Tech Style */}
-            <TabsList className="hidden h-10 w-full grid-cols-3 rounded-lg bg-muted p-1 md:grid md:w-auto md:min-w-[24rem] border border-border">
+            <TabsList className="hidden min-h-11 w-full grid-cols-3 rounded-xl bg-muted p-1 md:grid md:w-auto md:min-w-[24rem] border border-border">
               <TabsTrigger 
                 value="daily" 
-                className="h-8 gap-2 rounded-md px-3 text-xs font-mono tracking-wider transition-all data-[state=active]:bg-background data-[state=active]:text-cyan-600 data-[state=active]:border data-[state=active]:border-cyan-100 hover:text-foreground text-muted-foreground shadow-sm"
+                className="min-h-11 gap-2 rounded-md px-3 text-xs tracking-wider transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/20 hover:text-foreground text-muted-foreground shadow-sm"
               >
                 <Calendar className="size-3.5" />
-                HÔM_NAY
+                Hôm nay
               </TabsTrigger>
               <TabsTrigger 
                 value="weekly" 
-                className="h-8 gap-2 rounded-md px-3 text-xs font-mono tracking-wider transition-all data-[state=active]:bg-background data-[state=active]:text-cyan-600 data-[state=active]:border data-[state=active]:border-cyan-100 hover:text-foreground text-muted-foreground shadow-sm"
+                className="min-h-11 gap-2 rounded-md px-3 text-xs tracking-wider transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/20 hover:text-foreground text-muted-foreground shadow-sm"
               >
                 <Calendar className="size-3.5" />
-                TUẦN_NÀY
+                Tuần này
               </TabsTrigger>
               <TabsTrigger 
                 value="monthly" 
-                className="h-8 gap-2 rounded-md px-3 text-xs font-mono tracking-wider transition-all data-[state=active]:bg-background data-[state=active]:text-cyan-600 data-[state=active]:border data-[state=active]:border-cyan-100 hover:text-foreground text-muted-foreground shadow-sm"
+                className="min-h-11 gap-2 rounded-md px-3 text-xs tracking-wider transition-all data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/20 hover:text-foreground text-muted-foreground shadow-sm"
               >
                 <Calendar className="size-3.5" />
-                THÁNG_NÀY
+                Tháng này
               </TabsTrigger>
             </TabsList>
 
@@ -474,26 +418,26 @@ export default function VehicleEntryExitPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
-                className={`h-10 px-3 rounded-lg font-mono text-xs transition-all duration-200 border ${
+                className={`min-h-11 px-3 rounded-xl text-xs transition-all duration-200 border ${
                   isFilterBarOpen
-                    ? "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
-                    : "border-border bg-background hover:bg-muted text-foreground hover:border-cyan-500/20"
+                    ? "border-primary/20 bg-primary/10 text-primary hover:bg-primary/20"
+                    : "border-border bg-background hover:bg-muted text-foreground hover:border-primary/30"
                 }`}
                 aria-label={isFilterBarOpen ? "Đóng bộ lọc" : "Mở bộ lọc"}
               >
                 <Filter className="size-3.5 mr-1.5" />
-                <span>{isFilterBarOpen ? "ĐÓNG_LỌC" : "BỘ_LỌC"}</span>
+                <span>{isFilterBarOpen ? "Đóng bộ lọc" : "Bộ lọc"}</span>
               </Button>
 
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={loadData} 
-                className="h-10 px-3 rounded-lg border border-border bg-background hover:bg-muted text-foreground font-mono text-xs hover:border-cyan-500/20"
+                className="min-h-11 px-3 rounded-xl border border-border bg-background hover:bg-muted text-foreground text-xs hover:border-primary/30"
                 aria-label="Làm mới dữ liệu"
               >
                 <RefreshCw className={`size-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-                <span>NẠP_LẠI</span>
+                <span>Làm mới</span>
               </Button>
 
               {viewAllLogs && (
@@ -501,11 +445,11 @@ export default function VehicleEntryExitPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleExport}
-                  className="h-10 px-3 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-mono text-xs hover:border-emerald-500/20"
+                  className="min-h-11 px-3 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs hover:border-emerald-500/20"
                   aria-label="Xuất báo cáo"
                 >
                   <Download className="size-3.5 mr-1.5" />
-                  <span>XUẤT_EXCEL</span>
+                  <span>Xuất Excel</span>
                 </Button>
               )}
             </div>
@@ -513,13 +457,11 @@ export default function VehicleEntryExitPage() {
 
           {/* High-Tech Collapsible Filter Panel */}
           {isFilterBarOpen && (
-            <div className="bg-card border border-border rounded-lg p-4 mt-2 relative shadow-sm">
-              <div className="absolute top-0 left-4 w-10 h-[1px] bg-cyan-500/50" />
-              
-              <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
+            <div className="bg-card border border-border rounded-xl p-4 mt-2 relative shadow-sm">
+                            <div className="mb-4 flex min-w-0 items-start justify-between gap-3">
                 <div>
-                  <span className="text-[8px] font-mono text-cyan-600">{"QUERY_FILTER // ENGINE"}</span>
-                  <h3 className="text-xs font-bold text-foreground font-mono uppercase mt-0.5">Tham số truy vấn</h3>
+                  <span className="text-xs text-primary">{"Bộ lọc bản ghi"}</span>
+                  <h3 className="text-xs font-bold text-foreground mt-0.5">Bộ lọc</h3>
                 </div>
                 {activeFilterCount > 0 && (
                   <Button
@@ -527,17 +469,17 @@ export default function VehicleEntryExitPage() {
                     variant="ghost"
                     size="sm"
                     onClick={handleClearFilters}
-                    className="h-7 px-2.5 rounded text-[10px] font-mono text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                    className="h-7 px-2.5 rounded text-sm text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                   >
-                    XÓA_BỘ_LỌC
+                    Xóa bộ lọc
                   </Button>
                 )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-500">
-                    <Search className="size-3 text-cyan-600" />
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-slate-500">
+                    <Search className="size-3 text-primary" />
                     Biển số xe
                   </Label>
                   <div className="relative">
@@ -546,70 +488,70 @@ export default function VehicleEntryExitPage() {
                       placeholder="Nhập mã biển số..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="h-10 rounded-lg border-border bg-background pl-9 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:border-cyan-500/30 focus:ring-cyan-500/10"
+                      className="min-h-11 rounded-xl border-border bg-background pl-9 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/30 focus:ring-primary/20"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-500">
-                    <Filter className="size-3 text-cyan-600" />
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-slate-500">
+                    <Filter className="size-3 text-primary" />
                     Chiều di chuyển
                   </Label>
                   <Select value={typeFilter} onValueChange={(value: any) => setTypeFilter(value)}>
-                    <SelectTrigger className="h-10 w-full rounded-lg border-border bg-background text-xs font-mono text-muted-foreground focus:border-cyan-500/30">
+                    <SelectTrigger className="min-h-11 w-full rounded-xl border-border bg-background text-xs text-muted-foreground focus:border-primary/30">
                       <SelectValue placeholder="Chiều di chuyển" />
                     </SelectTrigger>
-                    <SelectContent className="border-border bg-card text-foreground font-mono text-xs">
-                      <SelectItem value="all">TẤT CẢ CHIỀU</SelectItem>
-                      <SelectItem value="entry">VÀO CỔNG</SelectItem>
-                      <SelectItem value="exit">RA CỔNG</SelectItem>
+                    <SelectContent className="border-border bg-card text-foreground text-xs">
+                      <SelectItem value="all">Tất cả chiều</SelectItem>
+                      <SelectItem value="entry">Vào cổng</SelectItem>
+                      <SelectItem value="exit">Ra cổng</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-500">
-                    <Car className="size-3 text-cyan-600" />
+                  <Label className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-slate-500">
+                    <Car className="size-3 text-primary" />
                     Phân loại xe
                   </Label>
                   <Select value={vehicleTypeFilter} onValueChange={(value: any) => setVehicleTypeFilter(value)}>
-                    <SelectTrigger className="h-10 w-full rounded-lg border-border bg-background text-xs font-mono text-muted-foreground focus:border-cyan-500/30">
+                    <SelectTrigger className="min-h-11 w-full rounded-xl border-border bg-background text-xs text-muted-foreground focus:border-primary/30">
                       <SelectValue placeholder="Phân loại xe" />
                     </SelectTrigger>
-                    <SelectContent className="border-border bg-card text-foreground font-mono text-xs">
-                      <SelectItem value="all">TẤT CẢ PHÂN LOẠI</SelectItem>
-                      <SelectItem value="internal">XE NỘI BỘ</SelectItem>
-                      <SelectItem value="external">XE BÊN NGOÀI</SelectItem>
+                    <SelectContent className="border-border bg-card text-foreground text-xs">
+                      <SelectItem value="all">Tất cả loại xe</SelectItem>
+                      <SelectItem value="internal">Xe nội bộ</SelectItem>
+                      <SelectItem value="external">Xe bên ngoài</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="rounded-xl border border-border bg-muted/30 p-3 mt-4">
-                <div className="mb-2 flex items-center gap-1.5 text-[9px] font-mono font-semibold uppercase tracking-wider text-slate-500">
-                  <Calendar className="size-3 text-cyan-600" />
-                  KHOẢNG THỜI GIAN TUỲ CHỈNH
+                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-wider text-slate-500">
+                  <Calendar className="size-3 text-primary" />
+                  Khoảng thời gian tùy chỉnh
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="min-w-0 space-y-1">
-                    <Label className="text-[9px] font-mono text-slate-500">MỐC BẮT ĐẦU (TỪ)</Label>
+                    <Label className="text-[9px] text-slate-500">Từ thời điểm</Label>
                     <Input
                       aria-label="Từ ngày"
                       type="datetime-local"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="h-10 w-full rounded-lg border-border bg-background text-xs font-mono text-foreground focus:border-cyan-500/30"
+                      className="min-h-11 w-full rounded-xl border-border bg-background text-xs text-foreground focus:border-primary/30"
                     />
                   </div>
                   <div className="min-w-0 space-y-1">
-                    <Label className="text-[9px] font-mono text-slate-500">MỐC KẾT THÚC (ĐẾN)</Label>
+                    <Label className="text-[9px] text-slate-500">Đến thời điểm</Label>
                     <Input
                       aria-label="Đến ngày"
                       type="datetime-local"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="h-10 w-full rounded-lg border-border bg-background text-xs font-mono text-foreground focus:border-cyan-500/30"
+                      className="min-h-11 w-full rounded-xl border-border bg-background text-xs text-foreground focus:border-primary/30"
                     />
                   </div>
                 </div>
@@ -624,17 +566,17 @@ export default function VehicleEntryExitPage() {
         <div className="border-b border-border p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
             <div className="min-w-0">
-              <span className="text-[8px] font-mono text-cyan-600">{"LOG_HISTORY // STREAMS"}</span>
-              <h2 className="text-base sm:text-lg font-black text-foreground font-mono uppercase mt-0.5">
+              <span className="text-xs text-primary">{"Lịch sử hoạt động"}</span>
+              <h2 className="text-base sm:text-lg font-black text-foreground mt-0.5">
                 Nhật ký vận hành cổng
               </h2>
-              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-mono text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-cyan-500"></span>
+              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="size-1.5 rounded-full bg-primary/100"></span>
                 <span>Phạm vi: {getPeriodLabel()}</span>
                 <span>·</span>
-                <span>Kết quả: <span className="text-cyan-600 font-bold">{totalElements}</span> logs</span>
+                <span>Kết quả: <span className="text-primary font-bold">{totalElements}</span> logs</span>
                 {!viewAllLogs && (
-                  <span className="rounded bg-cyan-50 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-700 border border-cyan-200 uppercase">
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
                     Mã nhân viên nội bộ
                   </span>
                 )}
@@ -642,12 +584,12 @@ export default function VehicleEntryExitPage() {
             </div>
             
             <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-              <Label className="hidden text-[10px] font-mono text-slate-500 uppercase sm:inline">Kích thước trang:</Label>
+              <Label className="hidden text-sm text-slate-500 sm:inline">Kích thước trang:</Label>
               <Select value={pageSize.toString()} onValueChange={(value) => handlePageSizeChange(parseInt(value))}>
-                <SelectTrigger aria-label="Số bản ghi hiển thị" className="h-9 w-24 rounded-lg border-border bg-background text-xs font-mono text-foreground focus:border-cyan-500/30">
+                <SelectTrigger aria-label="Số bản ghi hiển thị" className="min-h-11 w-24 rounded-xl border-border bg-background text-xs text-foreground focus:border-primary/30">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-border bg-card text-foreground font-mono text-xs">
+                <SelectContent className="border-border bg-card text-foreground text-xs">
                   <SelectItem value="10">10 dòng</SelectItem>
                   <SelectItem value="25">25 dòng</SelectItem>
                   <SelectItem value="50">50 dòng</SelectItem>
@@ -660,9 +602,9 @@ export default function VehicleEntryExitPage() {
 
         {/* Loading shimmer and skeleton spinner */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 font-mono text-xs text-muted-foreground">
-            <RefreshCw className="h-8 w-8 animate-spin text-cyan-600" />
-            <span className="animate-pulse">DECRYPTING_SECURITY_LOGS...</span>
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-xs text-muted-foreground">
+            <RefreshCw className="min-h-11 w-8 animate-spin text-primary" />
+            <span className="animate-pulse">Đang tải bản ghi...</span>
           </div>
         ) : (
           <>
@@ -677,55 +619,55 @@ export default function VehicleEntryExitPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <span className="text-[8px] font-mono text-slate-400">[LICENSE_PLATE_ID]</span>
-                        <p className="font-mono text-base font-black text-foreground tracking-wider">{log.licensePlateNumber}</p>
-                        <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{formatDateTime(log.entryExitTime)}</p>
+                        <span className="text-xs text-slate-400">Biển số xe</span>
+                        <p className="text-base font-black text-foreground tracking-wider">{log.licensePlateNumber}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(log.entryExitTime)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase border ${
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-bold border ${
                           isEntry 
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
                             : "bg-rose-50 text-rose-700 border-rose-200"
                         }`}>
                           {isEntry ? <ArrowDownToLine className="size-2.5" /> : <ArrowUpFromLine className="size-2.5" />}
-                          {isEntry ? "VÀO" : "RA"}
+                          {isEntry ? "Vào" : "Ra"}
                         </span>
                       </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs font-mono border-t border-border/40 pt-2.5">
+                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs border-t border-border/40 pt-2.5">
                       <div>
-                        <p className="text-[8px] text-slate-500 uppercase">Loại xe</p>
-                        <span className={`inline-flex items-center mt-1 text-[9px] px-1.5 py-0.5 rounded border font-bold ${
+                        <p className="text-xs text-slate-500">Loại xe</p>
+                        <span className={`inline-flex items-center mt-1 text-xs px-1.5 py-0.5 rounded border font-bold ${
                           log.vehicleType === 'internal'
-                            ? "bg-cyan-50 text-cyan-700 border-cyan-200"
+                            ? "bg-primary/10 text-primary border-primary/20"
                             : "bg-amber-50 text-amber-700 border-amber-200"
                         }`}>
-                          {log.vehicleType === 'internal' ? 'NỘI BỘ' : 'BÊN NGOÀI'}
+                          {log.vehicleType === 'internal' ? 'Nội bộ' : 'Bên ngoài'}
                         </span>
                       </div>
                       <div>
-                        <p className="text-[8px] text-slate-500 uppercase">Cổng vị trí</p>
-                        <p className="mt-1 truncate text-[11px] font-bold text-slate-700">{log.gateLocation || 'GATE_CENTRAL'}</p>
+                        <p className="text-xs text-slate-500">Cổng vị trí</p>
+                        <p className="mt-1 truncate text-sm font-bold text-slate-700">{log.gateLocation || 'Cổng chính'}</p>
                       </div>
                       <div>
-                        <p className="text-[8px] text-slate-500 uppercase">Người điều khiển</p>
-                        <p className="mt-1 truncate text-[11px] font-bold text-slate-700">{log.driverName || 'CHƯA XÁC ĐỊNH'}</p>
+                        <p className="text-xs text-slate-500">Người điều khiển</p>
+                        <p className="mt-1 truncate text-sm font-bold text-slate-700">{log.driverName || 'Chưa xác định'}</p>
                       </div>
                       <div>
-                        <p className="text-[8px] text-slate-500 uppercase">Chủ xe</p>
-                        <p className="mt-1 truncate text-[11px] font-bold text-slate-700">{log.employeeName || 'CHƯA XÁC ĐỊNH'}</p>
+                        <p className="text-xs text-slate-500">Chủ xe</p>
+                        <p className="mt-1 truncate text-sm font-bold text-slate-700">{log.employeeName || 'Chưa xác định'}</p>
                       </div>
                     </div>
 
                     {log.imagePath && (
                       <div className="mt-3 border-t border-border/40 pt-2.5">
-                        <span className="text-[8px] font-mono text-slate-400 block mb-1">[IMAGE_CAPTURED]</span>
+                        <span className="text-xs text-slate-400 block mb-1">Ảnh nhận diện</span>
                         <a
                           href={getImageUrl(log.imagePath) || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="relative flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-2 hover:bg-muted transition-all duration-200"
+                          className="relative flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-2 hover:bg-muted transition-all duration-200"
                         >
                           <div className="relative size-12 shrink-0 overflow-hidden rounded border border-border">
                             <img
@@ -733,11 +675,11 @@ export default function VehicleEntryExitPage() {
                               alt={`Ảnh biển số ${log.licensePlateNumber}`}
                               className="h-full w-full object-cover"
                             />
-                            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-cyan-500/50 animate-[pulse_1.5s_infinite]" />
+                            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-primary/50 animate-[pulse_1.5s_infinite]" />
                           </div>
-                          <div className="min-w-0 font-mono text-[10px]">
-                            <p className="text-cyan-700 font-bold uppercase tracking-wider">PHÂN TÍCH THỊ GIÁC</p>
-                            <p className="text-muted-foreground truncate mt-0.5">Click để xem ảnh độ phân giải cao</p>
+                          <div className="min-w-0 text-sm">
+                            <p className="text-primary font-bold tracking-wider">Ảnh nhận diện</p>
+                            <p className="text-muted-foreground truncate mt-0.5">Chọn để xem ảnh độ phân giải cao</p>
                           </div>
                         </a>
                       </div>
@@ -746,30 +688,30 @@ export default function VehicleEntryExitPage() {
                 )
               })}
               {visibleLogs.length === 0 && (
-                <div className="px-4 py-12 text-center font-mono text-muted-foreground">
+                <div className="px-4 py-12 text-center text-muted-foreground">
                   <span className="mx-auto grid size-12 place-items-center rounded-xl bg-muted border border-border text-muted-foreground mb-3">
                     <CarFront className="size-6" />
                   </span>
-                  <p className="text-xs font-bold text-slate-500 uppercase">Không tìm thấy dữ liệu</p>
-                  <p className="text-[10px] mt-1 text-slate-400">Thử thay đổi tham số lọc hoặc nạp lại trang.</p>
+                  <p className="text-xs font-bold text-slate-500">Không tìm thấy dữ liệu</p>
+                  <p className="text-xs mt-1 text-slate-400">Thử thay đổi tham số lọc hoặc nạp lại trang.</p>
                 </div>
               )}
             </div>
 
             {/* Desktop Table View */}
             <div className="hidden overflow-x-auto md:block">
-              <Table className="min-w-[54rem] border-collapse font-mono text-xs">
+              <Table className="min-w-[54rem] border-collapse text-xs">
                 <TableHeader className="bg-muted/30 border-b border-border">
                   <TableRow className="border-b border-border hover:bg-transparent">
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Thời gian</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Biển số</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Hoạt động</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Loại xe</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Tài xế</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Chủ xe</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Mục đích</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Cổng</TableHead>
-                    <TableHead className="text-slate-500 font-bold uppercase tracking-wider py-4">Ảnh Captured</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Thời gian</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Biển số</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Hoạt động</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Loại xe</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Tài xế</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Chủ xe</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Mục đích</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Cổng</TableHead>
+                    <TableHead className="text-slate-500 font-bold tracking-wider py-4">Ảnh nhận diện</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -787,35 +729,35 @@ export default function VehicleEntryExitPage() {
                           {log.licensePlateNumber}
                         </TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold uppercase border ${
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold border ${
                             isEntry 
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
                               : "bg-rose-50 text-rose-700 border-rose-200"
                           }`}>
                             {isEntry ? <ArrowDownToLine className="size-3" /> : <ArrowUpFromLine className="size-3" />}
-                            {isEntry ? "VÀO" : "RA"}
+                            {isEntry ? "Vào" : "Ra"}
                           </span>
                         </TableCell>
                         <TableCell>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded border font-bold ${
                             log.vehicleType === 'internal'
-                              ? "bg-cyan-50 text-cyan-700 border-cyan-200"
+                              ? "bg-primary/10 text-primary border-primary/20"
                               : "bg-amber-50 text-amber-700 border-amber-200"
                           }`}>
-                            {log.vehicleType === 'internal' ? 'NỘI BỘ' : 'BÊN NGOÀI'}
+                            {log.vehicleType === 'internal' ? 'Nội bộ' : 'Bên ngoài'}
                           </span>
                         </TableCell>
                         <TableCell className="text-slate-700 font-medium">
-                          {log.driverName || 'CHƯA CÓ'}
+                          {log.driverName || 'Chưa có'}
                         </TableCell>
                         <TableCell className="text-slate-700 font-medium">
-                          {log.employeeName || 'CHƯA CÓ'}
+                          {log.employeeName || 'Chưa có'}
                         </TableCell>
                         <TableCell className="text-slate-500 max-w-[12rem] truncate">
                           {log.purpose || '—'}
                         </TableCell>
                         <TableCell className="text-slate-700 font-bold">
-                          {log.gateLocation || 'GATE_CENTRAL'}
+                          {log.gateLocation || 'Cổng chính'}
                         </TableCell>
                         <TableCell>
                           {log.imagePath ? (
@@ -823,7 +765,7 @@ export default function VehicleEntryExitPage() {
                               href={getImageUrl(log.imagePath) || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="relative inline-block size-10 overflow-hidden rounded border border-border hover:border-cyan-500 transition-all duration-200"
+                              className="relative inline-block size-10 overflow-hidden rounded border border-border hover:border-primary/30 transition-all duration-200"
                               title="Xem ảnh biển số chất lượng cao"
                             >
                               <img
@@ -831,10 +773,10 @@ export default function VehicleEntryExitPage() {
                                 alt={`Ảnh biển số ${log.licensePlateNumber}`}
                                 className="h-full w-full object-cover opacity-80 hover:opacity-100 transition-opacity"
                               />
-                              <div className="absolute top-0 left-0 right-0 h-[1px] bg-cyan-500/50 animate-[pulse_2s_infinite]" />
+                              <div className="absolute top-0 left-0 right-0 h-[1px] bg-primary/50 animate-[pulse_2s_infinite]" />
                             </a>
                           ) : (
-                            <span className="text-[10px] text-slate-400">[NO_IMAGE]</span>
+                            <span className="text-xs text-slate-400">Chưa có ảnh</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -847,7 +789,7 @@ export default function VehicleEntryExitPage() {
                           <span className="grid size-12 place-items-center rounded-xl bg-muted border border-border text-muted-foreground" aria-hidden="true">
                             <CarFront className="size-6" />
                           </span>
-                          <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Không tìm thấy dữ liệu ra vào</span>
+                          <span className="text-sm font-bold text-slate-500 tracking-wider">Không tìm thấy dữ liệu ra vào</span>
                           <span className="text-xs text-slate-400">Điều chỉnh các bộ lọc để tìm kiếm bản ghi khác.</span>
                         </div>
                       </TableCell>
@@ -860,9 +802,8 @@ export default function VehicleEntryExitPage() {
             {/* Pagination Controls in High-Tech style */}
             {totalPages > 1 && (
               <div className="flex flex-col gap-4 border-t border-border bg-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                <div className="flex w-full items-center justify-center gap-2 text-center font-mono text-[10px] text-muted-foreground sm:w-auto sm:justify-start sm:text-left">
-                  <span className="size-2 bg-cyan-500/50 rounded-full animate-pulse"></span>
-                  <span>HIỂN THỊ <span className="font-bold text-slate-700">{currentPage * pageSize + 1}</span> - <span className="font-bold text-slate-700">{Math.min((currentPage + 1) * pageSize, totalElements)}</span> / TỔNG <span className="font-bold text-slate-700">{totalElements}</span> RECORDS</span>
+                <div className="flex w-full items-center justify-center gap-2 text-center text-sm text-muted-foreground sm:w-auto sm:justify-start sm:text-left">
+                  <span>Hiển thị <span className="font-bold text-slate-700">{currentPage * pageSize + 1}</span> - <span className="font-bold text-slate-700">{Math.min((currentPage + 1) * pageSize, totalElements)}</span> / Tổng <span className="font-bold text-slate-700">{totalElements}</span> bản ghi</span>
                 </div>
                 
                 <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
@@ -871,12 +812,12 @@ export default function VehicleEntryExitPage() {
                     size="sm"
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 0}
-                    className="h-8 border-border bg-background text-foreground font-mono text-xs hover:bg-muted disabled:opacity-30"
+                    className="min-h-11 border-border bg-background text-foreground text-xs hover:bg-muted disabled:opacity-30"
                   >
-                    <span>&lt; PREV</span>
+                    <span>&lt; Trước</span>
                   </Button>
 
-                  <div className="flex items-center gap-1 font-mono text-xs">
+                  <div className="flex items-center gap-1 text-xs">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       const page = currentPage < 3 ? i : currentPage - 2 + i
                       if (page >= totalPages) return null
@@ -887,9 +828,9 @@ export default function VehicleEntryExitPage() {
                           variant={active ? "default" : "outline"}
                           size="sm"
                           onClick={() => handlePageChange(page)}
-                          className={`size-8 p-0 text-xs font-bold font-mono transition-all duration-150 ${
+                          className={`size-8 p-0 text-xs font-bold transition-all duration-150 ${
                             active 
-                              ? "bg-cyan-50 text-cyan-700 border-cyan-200 font-bold shadow-sm hover:bg-cyan-100" 
+                              ? "bg-primary/10 text-primary border-primary/20 font-bold shadow-sm hover:bg-primary/20"
                               : "border-border bg-background text-muted-foreground hover:text-foreground"
                           }`}
                         >
@@ -904,9 +845,9 @@ export default function VehicleEntryExitPage() {
                     size="sm"
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage >= totalPages - 1}
-                    className="h-8 border-border bg-background text-foreground font-mono text-xs hover:bg-muted disabled:opacity-30"
+                    className="min-h-11 border-border bg-background text-foreground text-xs hover:bg-muted disabled:opacity-30"
                   >
-                    <span>NEXT &gt;</span>
+                    <span>Sau &gt;</span>
                   </Button>
                 </div>
               </div>

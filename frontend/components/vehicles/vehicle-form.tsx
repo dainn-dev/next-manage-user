@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { getImageUrl } from "@/lib/api/config"
-import { Upload, X, Image } from "lucide-react"
+import { Upload, X, Image as ImageIcon } from "lucide-react"
 import { vehicleApi } from "@/lib/api/vehicle-api"
 import { siteApi, type Site } from "@/lib/api/site-api"
 import { resolvePreferredSiteId } from "@/lib/site-selection"
@@ -417,7 +417,7 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
                   </div>
                 ) : (
                   <div className="text-center">
-                    <Image className="mx-auto h-12 w-12 text-gray-400" />
+                    <ImageIcon className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
                     <div className="mt-2">
                       <label htmlFor="image-upload" className="cursor-pointer">
                         <span className="mt-2 block text-sm font-medium text-gray-900">

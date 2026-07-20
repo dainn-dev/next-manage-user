@@ -25,5 +25,9 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
     )
   }
 
-  return <div className="mx-auto w-full max-w-3xl px-4 py-8">{children}</div>
+  return (
+    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-5 px-4 py-5 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 md:gap-6">
+      {children}
+    </div>
+  )
 }

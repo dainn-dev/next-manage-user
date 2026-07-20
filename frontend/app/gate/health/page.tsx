@@ -1,29 +1,21 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Card, CardContent } from "@/components/ui/card"
+import { useCallback, useEffect, useState } from "react"
+import { ArrowLeft, Clock, MapPin, Radio, RefreshCw } from "lucide-react"
+
+import { ErrorBoundary } from "@/components/error-boundary"
+import { AdminEmptyState, AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Activity,
-  ArrowLeft,
-  Clock,
-  MapPin,
-  Radio,
-  RefreshCw,
-} from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { gateApi, type GateHealth } from "@/lib/api/gate-api"
-import { ErrorBoundary } from "@/components/error-boundary"
-import { AdminEmptyState, AdminPage } from "@/components/layout/admin-page"
 
-// Poll a little faster than the gate list: this is a live health board and the
-// backend's own scheduler re-evaluates staleness every ~30s.
 const REFRESH_INTERVAL_MS = 15000
 
 function formatAgo(seconds?: number | null): string {
   if (seconds === null || seconds === undefined) return "Chưa nhận nhịp tim"
-  if (seconds < 60) return `${seconds}s trước`
+  if (seconds < 60) return `${seconds} giây trước`
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes} phút trước`
   const hours = Math.floor(minutes / 60)
@@ -38,18 +30,19 @@ function HealthBadge({ gate }: { gate: GateHealth }) {
       ? "Vô hiệu"
       : "Ngoại tuyến"
   const className = gate.online
-    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
     : gate.status === "disabled"
-      ? "border-slate-300 bg-slate-50 text-slate-500"
-      : "border-red-300 bg-red-50 text-red-600"
+      ? "border-slate-200 bg-slate-50 text-slate-600"
+      : "border-rose-200 bg-rose-50 text-rose-700"
   const dot = gate.online
-    ? "bg-emerald-500 animate-pulse"
+    ? "bg-emerald-500"
     : gate.status === "disabled"
       ? "bg-slate-400"
-      : "bg-red-500"
+      : "bg-rose-500"
+
   return (
     <Badge variant="outline" className={className}>
-      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${dot}`} />
+      <span className={`mr-1.5 size-1.5 rounded-full ${dot}`} />
       {label}
     </Badge>
   )
@@ -83,109 +76,96 @@ function GateHealthDashboard() {
     return () => clearInterval(id)
   }, [load])
 
-  const onlineCount = gates.filter((g) => g.online).length
+  const onlineCount = gates.filter((gate) => gate.online).length
 
   return (
-    <AdminPage size="default" className="min-h-dvh">
-      <header className="rounded-2xl border border-border/75 bg-card/90 p-3 shadow-[var(--shadow-card)] sm:p-5">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <Link
-              href="/gate"
-              className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:text-sm"
+    <AdminPage size="default" className="min-h-dvh space-y-5">
+      <AdminPageHeader
+        eyebrow="Vận hành bãi xe"
+        title="Sức khỏe cổng"
+        description="Theo dõi kết nối và nhịp tim gần nhất của các kiosk theo thời gian thực."
+        actionList={[
+          {
+            key: "refresh",
+            content: <Button
+              variant="outline"
+              size="icon"
+              onClick={load}
+              disabled={loading}
+              className="size-11 shrink-0 rounded-xl"
+              aria-label="Làm mới trạng thái cổng"
+              title="Làm mới"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Danh sách cổng
-            </Link>
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600 sm:size-10">
-                <Activity className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-              </span>
-              <h1 className="truncate font-[family:var(--font-display)] text-[1.35rem] font-bold leading-[1.12] tracking-[-0.035em] text-foreground sm:text-[1.85rem]">
-                Sức khỏe cổng
-              </h1>
-            </div>
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5 text-muted-foreground sm:text-sm">
-              {gates.length > 0 && (
-                <span>
-                  <span className="font-semibold text-foreground">
-                    {onlineCount}/{gates.length}
-                  </span>{" "}
-                  cổng trực tuyến
-                </span>
-              )}
-              {updatedAt && (
-                <span className="rounded-full bg-muted/70 px-2 py-0.5">
-                  Cập nhật lúc {updatedAt}
-                </span>
-              )}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={load}
-            disabled={loading}
-            className="!h-9 !min-h-9 !w-9 shrink-0 rounded-xl border-border/70 bg-background/80 !p-0 shadow-none hover:border-blue-300 hover:bg-blue-50 sm:!h-10 sm:!min-h-10 sm:!w-10"
-            aria-label="Làm mới trạng thái cổng"
-            title="Làm mới"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-            />
-          </Button>
+              <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>,
+          },
+        ]}
+      />
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-[var(--radius-sheet)] border border-border bg-card px-5 py-3 text-sm text-muted-foreground shadow-[var(--shadow-card)] sm:px-6">
+        <Link
+          href="/gate"
+          className="inline-flex min-h-11 items-center gap-2 font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Danh sách cổng
+        </Link>
+        {gates.length > 0 && <span aria-hidden="true">•</span>}
+        {gates.length > 0 && (
+          <span>
+            <strong className="font-semibold text-foreground">{onlineCount}/{gates.length}</strong> cổng trực tuyến
+          </span>
+        )}
+        {gates.length > 0 && updatedAt && <span aria-hidden="true">•</span>}
+        {updatedAt && <span>Cập nhật lúc {updatedAt}</span>}
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-6 text-rose-800" role="alert">
+          {error}
         </div>
-      </header>
+      )}
 
-        {error && (
-          <div className="mb-6 p-4 rounded-lg border border-red-300 bg-red-50 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
+      {loading && gates.length === 0 && !error && (
+        <AdminEmptyState
+          className="min-h-[18rem] rounded-[var(--radius-sheet)] bg-card"
+          icon={<RefreshCw className="size-5 animate-spin" />}
+          title="Đang tải trạng thái cổng"
+          description="Hệ thống đang lấy dữ liệu mới nhất từ các kiosk."
+        />
+      )}
 
-        {loading && gates.length === 0 && !error && (
-          <AdminEmptyState
-            className="min-h-[18rem] rounded-2xl bg-card/70"
-            icon={<RefreshCw className="h-5 w-5 animate-spin" />}
-            title="Đang tải trạng thái cổng"
-            description="Hệ thống đang lấy dữ liệu realtime từ các kiosk."
-          />
-        )}
+      {!loading && gates.length === 0 && !error && (
+        <AdminEmptyState
+          className="min-h-[18rem] rounded-[var(--radius-sheet)] bg-card"
+          icon={<Radio className="size-6" />}
+          title="Chưa có cổng nào được đăng ký"
+          description="Khi có cổng kiosk, trạng thái trực tuyến và nhịp tim sẽ hiển thị tại đây."
+        />
+      )}
 
-        {!loading && gates.length === 0 && !error && (
-          <AdminEmptyState
-            className="min-h-[18rem] rounded-2xl bg-card/70"
-            icon={<Radio className="h-6 w-6" />}
-            title="Chưa có cổng nào được đăng ký"
-            description="Khi có cổng kiosk, trạng thái online và nhịp tim realtime sẽ hiển thị tại đây."
-          />
-        )}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Trạng thái từng cổng">
+        {gates.map((gate) => {
+          const iconTone = gate.online
+            ? "bg-emerald-100 text-emerald-700"
+            : gate.status === "disabled"
+              ? "bg-slate-100 text-slate-600"
+              : "bg-rose-100 text-rose-700"
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {gates.map((gate) => (
-            <Card key={gate.id} className="transition-shadow hover:shadow-md">
-              <CardContent className="p-5">
-                <div className="flex min-w-0 items-start justify-between gap-3 mb-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <div
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        gate.online ? "bg-emerald-100" : "bg-slate-100"
-                      }`}
-                    >
-                      <Radio
-                        className={`h-5 w-5 ${
-                          gate.online ? "text-emerald-600" : "text-slate-400"
-                        }`}
-                      />
-                    </div>
+          return (
+            <Card key={gate.id} className="border-border bg-card shadow-none transition-shadow hover:shadow-[var(--shadow-card)]">
+              <CardContent className="flex h-full flex-col gap-5 p-5">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconTone}`}>
+                      <Radio className={`size-5 ${gate.online ? "animate-pulse" : ""}`} aria-hidden="true" />
+                    </span>
                     <div className="min-w-0">
-                      <h3 className="truncate font-semibold text-foreground">
-                        {gate.name}
-                      </h3>
+                      <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">{gate.name}</h2>
                       {gate.location && (
-                        <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {gate.location}
+                        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <MapPin className="size-4 shrink-0" aria-hidden="true" />
+                          <span className="truncate">{gate.location}</span>
                         </p>
                       )}
                     </div>
@@ -193,19 +173,25 @@ function GateHealthDashboard() {
                   <HealthBadge gate={gate} />
                 </div>
 
-                <div className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>Nhịp cuối: {formatAgo(gate.secondsSinceHeartbeat)}</span>
-                </div>
-                {gate.lastHeartbeatAt && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {new Date(gate.lastHeartbeatAt).toLocaleString("vi-VN")}
+                <div className="rounded-xl border border-border bg-muted/50 p-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Clock className="size-4 text-primary" aria-hidden="true" />
+                    Nhịp tim gần nhất
                   </div>
-                )}
+                  <p className="mt-1.5 text-base font-medium text-foreground">
+                    {formatAgo(gate.secondsSinceHeartbeat)}
+                  </p>
+                  {gate.lastHeartbeatAt && (
+                    <time className="mt-1 block text-xs leading-5 text-muted-foreground" dateTime={gate.lastHeartbeatAt}>
+                      {new Date(gate.lastHeartbeatAt).toLocaleString("vi-VN")}
+                    </time>
+                  )}
+                </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+          )
+        })}
+      </section>
     </AdminPage>
   )
 }

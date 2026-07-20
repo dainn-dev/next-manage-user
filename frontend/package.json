@@ -6,7 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "test:dashboard": "node --test tests/dashboard-foundation.test.mjs tests/parking-commissioning.test.mjs tests/dai-340-prototype.test.mjs tests/vehicle-search-camera.test.mjs",
+    "test:dashboard": "node --test tests/dashboard-foundation.test.mjs tests/parking-commissioning.test.mjs tests/dai-340-prototype.test.mjs tests/vehicle-search-camera.test.mjs tests/member-visit-camera.test.mjs",
     "start": "next start"
   },
   "dependencies": {

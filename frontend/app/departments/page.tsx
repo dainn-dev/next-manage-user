@@ -1,16 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import type { Department, Employee } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
-import { useToast } from "@/hooks/use-toast"
 import { DepartmentTable } from "@/components/departments/department-table"
 import { DepartmentForm } from "@/components/departments/department-form"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Users, Building2, TrendingUp } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
+import { Building2, Loader2, Plus, RefreshCw, TrendingUp, Users } from "lucide-react"
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([])
@@ -24,35 +23,33 @@ export default function DepartmentsPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    loadData()
+    void loadData()
   }, [])
 
   const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
-      
       const [departmentsData, employeesData] = await Promise.all([
         dataService.getDepartments(),
-        dataService.getEmployees()
+        dataService.getEmployees(),
       ])
-      
+
       setDepartments(departmentsData)
       setEmployees(employeesData)
-      
-      // Auto-select first department to show its employees
+
       if (departmentsData.length > 0) {
         setSelectedDepartmentForView(departmentsData[0])
         setShowEmployeeList(true)
       }
-      
+
       toast({
         title: "Thành công",
         description: `Đã tải ${departmentsData.length} đơn vị và ${employeesData.length} nhân viên`,
       })
     } catch (error) {
-      console.error('Error loading data:', error)
-      setError('Không thể tải dữ liệu đơn vị')
+      console.error("Error loading data:", error)
+      setError("Không thể tải dữ liệu đơn vị")
       toast({
         title: "Lỗi",
         description: "Không thể tải dữ liệu đơn vị",
@@ -73,14 +70,11 @@ export default function DepartmentsPage() {
       try {
         const success = await dataService.deleteDepartment(departmentId)
         if (success) {
-          toast({
-            title: "Thành công",
-            description: "Đơn vị đã được xóa thành công",
-          })
-          await loadData() // Reload all data
+          toast({ title: "Thành công", description: "Đơn vị đã được xóa thành công" })
+          await loadData()
         }
       } catch (error) {
-        console.error('Error deleting department:', error)
+        console.error("Error deleting department:", error)
         toast({
           title: "Lỗi",
           description: "Không thể xóa đơn vị. Có thể đơn vị đang có nhân viên hoặc đơn vị con.",
@@ -95,23 +89,17 @@ export default function DepartmentsPage() {
       if (selectedDepartment) {
         const updatedDepartment = await dataService.updateDepartment(selectedDepartment.id, departmentData)
         if (updatedDepartment) {
-          toast({
-            title: "Thành công",
-            description: "Đơn vị đã được cập nhật thành công",
-          })
+          toast({ title: "Thành công", description: "Đơn vị đã được cập nhật thành công" })
         }
       } else {
-        const newDepartment = await dataService.createDepartment(departmentData)
-        toast({
-          title: "Thành công",
-          description: "Đơn vị mới đã được tạo thành công",
-        })
+        await dataService.createDepartment(departmentData)
+        toast({ title: "Thành công", description: "Đơn vị mới đã được tạo thành công" })
       }
-      await loadData() // Reload all data
+      await loadData()
       setIsFormOpen(false)
       setSelectedDepartment(undefined)
     } catch (error) {
-      console.error('Error saving department:', error)
+      console.error("Error saving department:", error)
       toast({
         title: "Lỗi",
         description: selectedDepartment ? "Không thể cập nhật đơn vị" : "Không thể tạo đơn vị mới",
@@ -130,145 +118,111 @@ export default function DepartmentsPage() {
     setShowEmployeeList(true)
   }
 
-  const getStatusBadge = (status: Employee["status"]) => {
-    switch (status) {
-      case "active":
-        return <Badge variant="default" className="bg-green-100 text-green-800">Hoạt động</Badge>
-      case "inactive":
-        return <Badge variant="secondary">Không hoạt động</Badge>
-      case "terminated":
-        return <Badge variant="destructive">Đã nghỉ việc</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
-
-  const getDepartmentStatistics = () => {
+  const stats = (() => {
     const total = departments.length
-    const totalEmployees = departments.reduce((sum, dept) => sum + dept.employeeCount, 0)
+    const totalEmployees = departments.reduce((sum, department) => sum + department.employeeCount, 0)
     const avgEmployeesPerDept = total > 0 ? Math.round(totalEmployees / total) : 0
-    const largestDept = departments.reduce((max, dept) => dept.employeeCount > max.employeeCount ? dept : max, departments[0] || { employeeCount: 0 })
-
+    const largestDept = departments.reduce(
+      (largest, department) => department.employeeCount > largest.employeeCount ? department : largest,
+      departments[0] || { employeeCount: 0 },
+    )
     return { total, totalEmployees, avgEmployeesPerDept, largestDept }
-  }
-
-  const stats = getDepartmentStatistics()
+  })()
 
   if (loading) {
     return (
-      <div className="admin-mobile-page min-h-dvh bg-background">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <p className="text-blue-600 font-medium">Đang tải dữ liệu đơn vị...</p>
-          </div>
-        </div>
-      </div>
+      <AdminPage>
+        <Card className="min-h-64 justify-center">
+          <CardContent className="flex flex-col items-center gap-3 text-center">
+            <Loader2 className="size-6 animate-spin text-primary" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Đang tải dữ liệu đơn vị.</p>
+          </CardContent>
+        </Card>
+      </AdminPage>
     )
   }
 
   if (error) {
     return (
-      <div className="admin-mobile-page min-h-dvh bg-background">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center">
-              <span className="text-red-600 text-2xl">⚠️</span>
-            </div>
-            <div>
-              <p className="text-red-600 font-medium">{error}</p>
-              <button 
-                onClick={() => loadData()}
-                className="mt-2 text-sm text-blue-600 hover:text-blue-700 underline"
-              >
-                Thử lại
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AdminPage>
+        <Card className="min-h-64 justify-center border-destructive/30">
+          <CardContent className="flex flex-col items-center gap-4 text-center">
+            <p className="font-medium text-destructive">{error}</p>
+            <Button variant="outline" onClick={() => void loadData()}>
+              <RefreshCw />
+              Thử lại
+            </Button>
+          </CardContent>
+        </Card>
+      </AdminPage>
     )
   }
 
+  const metricCards = [
+    { label: "Tổng đơn vị", value: stats.total, description: "Cơ quan và đơn vị", icon: Building2 },
+    { label: "Tổng nhân viên", value: stats.totalEmployees, description: "Nhân viên toàn đơn vị", icon: Users },
+    { label: "Trung bình mỗi đơn vị", value: stats.avgEmployeesPerDept, description: "Nhân viên trên một đơn vị", icon: TrendingUp },
+    {
+      label: "Đơn vị lớn nhất",
+      value: stats.largestDept?.employeeCount || 0,
+      description: stats.largestDept?.name || "Chưa có đơn vị",
+      icon: Building2,
+    },
+  ]
+
   return (
-    <div className="admin-mobile-page min-h-dvh bg-background">
-      {/* Header */}
-      <div className="admin-mobile-header mb-6 sm:mb-8">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Quản lý Cơ quan, Đơn vị</h1>
-          <p className="text-base text-muted-foreground sm:text-lg">Quản lý cơ cấu tổ chức và nhân sự các đơn vị</p>
-        </div>
-        <Button onClick={handleAddNew} className="w-full sm:w-auto">
-          <Plus className="h-4 w-4 mr-2" />
-          Thêm đơn vị
-        </Button>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng đơn vị</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              Cơ quan, đơn vị
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng nhân viên</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalEmployees}</div>
-            <p className="text-xs text-muted-foreground">
-              Nhân viên toàn đơn vị
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">TB mỗi đơn vị</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgEmployeesPerDept}</div>
-            <p className="text-xs text-muted-foreground">
-              Nhân viên/đơn vị
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đơn vị lớn nhất</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.largestDept?.employeeCount || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.largestDept?.name || "Chưa có"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <DepartmentTable 
-        departments={departments} 
-        employees={employees}
-        selectedDepartmentForView={selectedDepartmentForView}
-        showEmployeeList={showEmployeeList}
-        onEdit={handleEdit} 
-        onDelete={handleDelete} 
-        onAddNew={handleAddNew}
-        onViewEmployees={handleViewEmployees}
-        onBackToDepartments={() => setShowEmployeeList(false)}
+    <AdminPage>
+      <AdminPageHeader
+        eyebrow="Quản trị nhân sự"
+        title="Cơ quan và đơn vị"
+        description="Quản lý cơ cấu tổ chức, đơn vị trực thuộc và nhân sự của từng đơn vị."
+        actions={
+          <Button onClick={handleAddNew}>
+            <Plus />
+            Thêm đơn vị
+          </Button>
+        }
       />
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Tổng quan đơn vị">
+        {metricCards.map((item) => {
+          const Icon = item.icon
+          return (
+            <Card key={item.label}>
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-sm">{item.label}</CardTitle>
+                  <CardDescription className="mt-1">{item.description}</CardDescription>
+                </div>
+                <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tracking-tight text-foreground">{item.value}</p>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Danh sách đơn vị</CardTitle>
+          <CardDescription>Chọn một đơn vị để xem nhân sự và quản lý thông tin liên quan.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0 sm:px-0">
+          <DepartmentTable
+            departments={departments}
+            employees={employees}
+            selectedDepartmentForView={selectedDepartmentForView}
+            showEmployeeList={showEmployeeList}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onAddNew={handleAddNew}
+            onViewEmployees={handleViewEmployees}
+            onBackToDepartments={() => setShowEmployeeList(false)}
+          />
+        </CardContent>
+      </Card>
 
       <DepartmentForm
         department={selectedDepartment}
@@ -280,7 +234,6 @@ export default function DepartmentsPage() {
         }}
         onSave={handleSave}
       />
-
-    </div>
+    </AdminPage>
   )
 }

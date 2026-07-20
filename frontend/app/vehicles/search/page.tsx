@@ -44,34 +44,34 @@ function cameraAccessErrorMessage(error: unknown): string {
   switch (name) {
     case 'NotAllowedError':
     case 'SecurityError':
-      return 'TRÌNH DUYỆT ĐANG CHẶN QUYỀN CAMERA. VUI LÒNG ĐỔI SANG CHO PHÉP ĐỂ KHỞI CHẠY QUÉT QR.'
+      return 'Trình duyệt đang chặn quyền camera. Hãy cho phép camera để quét mã QR.'
     case 'NotFoundError':
     case 'OverconstrainedError':
-      return 'KHÔNG TÌM THẤY THIẾT BỊ CAMERA PHÙ HỢP. VUI LÒNG NHẬP BIỂN SỐ THỦ CÔNG.'
+      return 'Không tìm thấy camera phù hợp. Bạn vẫn có thể nhập biển số thủ công.'
     case 'NotReadableError':
     case 'AbortError':
-      return 'THIẾT BỊ CAMERA ĐANG BẬN HOẶC BỊ CHIẾM QUYỀN BỞI ỨNG DỤNG KHÁC.'
+      return 'Camera đang được một ứng dụng khác sử dụng. Vui lòng thử lại sau.'
     default:
-      return 'LỖI KHÔNG XÁC ĐỊNH KHI TRUY CẬP CAMERA. HÃY KIỂM TRA QUYỀN THIẾT BỊ.'
+      return 'Không thể truy cập camera. Hãy kiểm tra quyền của thiết bị rồi thử lại.'
   }
 }
 
 function scannerStatusMessage(status: ScannerStatus): string {
   switch (status) {
     case 'requesting':
-      return 'REQS_CAMERA_ACCESS // ĐANG YÊU CẦU QUYỀN TRUY CẬP...'
+      return 'Đang yêu cầu quyền truy cập camera...'
     case 'granted':
-      return 'CONN_ESTABLISHED // ĐÃ KẾT NỐI, KHỞI ĐỘNG CỔNG QUÉT...'
+      return 'Đã kết nối camera, đang chuẩn bị quét...'
     case 'scanning':
-      return 'MATRIX_DECODER_RUNNING // ĐANG GIẢI MÃ KHUNG HÌNH...'
+      return 'Đang quét mã QR...'
     case 'denied':
-      return 'ACCESS_DENIED // CAMERA BỊ CHẶN BỞI TRÌNH DUYỆT'
+      return 'Trình duyệt đã chặn quyền truy cập camera.'
     case 'unavailable':
-      return 'SYSTEM_UNSUPPORTED // THIẾT BỊ KHÔNG HỖ TRỢ CAMERA'
+      return 'Thiết bị này không hỗ trợ camera.'
     case 'error':
-      return 'HARDWARE_FAILURE // KHÔNG THỂ KHỞI CHẠY KHUNG QUÉT'
+      return 'Không thể khởi động máy quét.'
     default:
-      return 'READY_TO_CONNECT // SẴN SÀNG KẾT NỐI CAMERA'
+      return 'Sẵn sàng kết nối camera.'
   }
 }
 
@@ -131,13 +131,13 @@ export default function VehiclePlateSearchPage() {
 
     if (!window.isSecureContext) {
       setScannerStatus('unavailable')
-      setScannerError('CAMERA_REQUIRE_SECURE_CONTEXT // YÊU CẦU KẾT NỐI BẢO MẬT HTTPS HOẶC LOCALHOST.')
+      setScannerError('Camera chỉ hoạt động trên kết nối bảo mật HTTPS hoặc localhost.')
       return
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
       setScannerStatus('unavailable')
-      setScannerError('API_NOT_SUPPORTED // TRÌNH DUYỆT KHÔNG HỖ TRỢ TRUY CẬP THIẾT BỊ ẢNH.')
+      setScannerError('Trình duyệt này không hỗ trợ truy cập camera.')
       return
     }
 
@@ -195,7 +195,7 @@ export default function VehiclePlateSearchPage() {
         void searchVehiclesRef.current(nextQuery)
       } else {
         scanned = false
-        setScannerError('INVALID_PLATE_FORMAT // MÃ QR KHÔNG CHỨA BIỂN SỐ HỢP LỆ.')
+        setScannerError('Mã QR không chứa biển số hợp lệ.')
       }
     }
 
@@ -262,49 +262,29 @@ export default function VehiclePlateSearchPage() {
 
   return (
     <AdminPage>
-      {/* Dynamic CSS styles injection for high-tech custom lasers and frame loops */}
-      <style>{`
-        @keyframes techScan {
-          0% { transform: translateY(0); opacity: 0.8; }
-          50% { transform: translateY(220px); opacity: 1; }
-          100% { transform: translateY(0); opacity: 0.8; }
-        }
-        .tech-laser-line {
-          animation: techScan 2.5s ease-in-out infinite;
-        }
-      `}</style>
-
       <AdminPageHeader
-        eyebrow="MODULE // PHƯƠNG TIỆN"
-        title="TÌM PHƯƠNG TIỆN THEO BIỂN SỐ"
-        description={`Quét QR thiết bị hoặc truy vấn mã biển số. Cấu hình định vị site-local và phân giải luồng cập nhật dạng: ${realtime === 'live' ? 'AUTO_REALTIME' : 'POLLING_STATE'}.`}
+        eyebrow="Phương tiện"
+        title="Tra cứu phương tiện"
+        description={`Quét mã QR hoặc nhập biển số để tra cứu phương tiện. Dữ liệu được cập nhật ${realtime === 'live' ? 'trực tiếp' : 'định kỳ'}.`}
       />
 
       <div className="space-y-6">
-        {/* Main Terminal Shell Card */}
-        <Card className="border border-border bg-card text-foreground shadow-sm relative overflow-hidden backdrop-blur-xl">
-          {/* Cyan High-Tech Brackets */}
-          <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-cyan-200" />
-          <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-cyan-200" />
-          <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-cyan-200" />
-          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-cyan-200" />
-
-          <CardHeader className="border-b border-border pb-4">
-            <CardTitle className="text-xs font-mono tracking-wider text-cyan-600 uppercase flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-              01 // SYS_VEHICLE_REG_SEARCH // CỦA NGÕ DỮ LIỆU
+        <Card className="rounded-2xl border-border bg-card text-foreground shadow-[var(--shadow-card)]">
+                    <CardHeader className="border-b border-border pb-4">
+            <CardTitle className="text-base font-semibold text-foreground">
+              Tra cứu phương tiện
             </CardTitle>
           </CardHeader>
 
           <CardContent className="pt-6">
             <form onSubmit={submit} className="grid gap-3 sm:flex">
               <div className="relative flex-1">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-mono text-cyan-600 text-xs font-bold select-none">▶</span>
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value.toUpperCase())}
-                  placeholder="MÃ BIỂN SỐ (VÍ DỤ: 51A-123.45)..."
-                  className="pl-8 bg-background border-border text-foreground placeholder-slate-400 font-mono uppercase h-11 rounded-lg focus-visible:ring-cyan-500/20 focus-visible:border-cyan-200 tracking-wider text-sm shadow-inner"
+                  placeholder="Nhập biển số, ví dụ 51A-123.45"
+                  className="min-h-11 rounded-xl border-border bg-background pl-10 text-foreground placeholder:text-muted-foreground text-sm focus-visible:ring-primary/20"
                   aria-label="Biển số xe"
                 />
               </div>
@@ -314,68 +294,60 @@ export default function VehiclePlateSearchPage() {
                   variant="outline"
                   onClick={handleScannerToggle}
                   disabled={!selectedSiteId || scannerStatus === 'requesting'}
-                  className="border-border bg-card hover:bg-muted text-slate-700 hover:text-foreground font-mono text-xs uppercase h-11 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+                  className="min-h-11 rounded-xl px-4 text-sm"
                   aria-expanded={scannerOpen}
                   aria-controls="vehicle-qr-scanner"
                 >
                   {scannerStatus === 'requesting' ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-600" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                   ) : scannerOpen ? (
                     <X className="h-3.5 w-3.5 text-rose-700" />
                   ) : (
-                    <ScanLine className="h-3.5 w-3.5 text-cyan-600" />
+                    <ScanLine className="h-3.5 w-3.5 text-primary" />
                   )}
-                  <span>{scannerStatus === 'requesting' ? 'BUSY...' : scannerOpen ? 'CLOSE_SCAN' : 'SCAN_QR'}</span>
+                  <span>{scannerStatus === 'requesting' ? 'Đang mở...' : scannerOpen ? 'Đóng máy quét' : 'Quét mã QR'}</span>
                 </Button>
 
                 <Button
                   type="submit"
                   disabled={!selectedSiteId || !validPlateQuery(query) || searchStatus === 'loading'}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white font-mono font-bold uppercase tracking-wider text-xs h-11 px-5 rounded-lg transition-all shadow-lg hover:shadow-cyan-500/20 flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="min-h-11 rounded-xl px-5 text-sm font-semibold disabled:opacity-40"
                 >
                   {searchStatus === 'loading' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     <Search className="h-3.5 w-3.5" />
                   )}
-                  <span>QUERY_EXEC</span>
+                  <span>Tra cứu</span>
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
 
-        {/* High-Tech QR Scanner Surface */}
         {scannerOpen && (
           <section
             id="vehicle-qr-scanner"
-            className="border border-cyan-200 bg-muted/20 text-foreground rounded-xl p-4 sm:p-5 relative overflow-hidden shadow-sm backdrop-blur-md transition-all duration-300"
+            className="rounded-2xl border-border bg-card p-4 shadow-[var(--shadow-card)] sm:p-5"
             aria-labelledby="vehicle-qr-scanner-title"
           >
-            {/* Tech Corners */}
-            <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t border-l border-cyan-500" />
-            <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t border-r border-cyan-500" />
-            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b border-l border-cyan-500" />
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b border-r border-cyan-500" />
-
             <div className="mb-4 flex items-start gap-3.5 border-b border-border pb-3">
-              <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-cyan-100/50 border border-cyan-200 text-cyan-600 shadow-sm animate-pulse">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
                 <QrCode className="size-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <h2 id="vehicle-qr-scanner-title" className="font-mono text-xs font-bold text-cyan-600 uppercase tracking-widest flex items-center gap-1.5">
-                  <span className="size-1 bg-cyan-500 rounded-full animate-ping" />
-                  QR_MATRIX_DECODER // QUÉT QR TỰ ĐỘNG
+                <h2 id="vehicle-qr-scanner-title" className="text-base font-semibold text-foreground">
+                  Quét mã QR
                 </h2>
-                <p className="mt-1 font-mono text-[10px] text-muted-foreground leading-relaxed uppercase">
-                  Đưa mã QR định danh xe vào vùng quét. Luồng dữ liệu sẽ giải mã và điền kết quả vào hệ thống ngay lập tức.
+                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                  Đưa mã QR định danh xe vào khung hình. Kết quả hợp lệ sẽ được điền và tra cứu tự động.
                 </p>
               </div>
             </div>
 
-            <div className="relative aspect-video max-w-2xl mx-auto overflow-hidden rounded-xl border border-border bg-muted/80 p-1.5 shadow-inner">
+            <div className="relative mx-auto aspect-video max-w-2xl overflow-hidden rounded-xl border border-border bg-muted/40">
               {scannerStream ? (
-                <div className="relative w-full h-full overflow-hidden rounded-lg bg-slate-100">
+                <div className="relative h-full w-full overflow-hidden rounded-xl bg-muted">
                   <video
                     ref={videoRef}
                     className="h-full w-full object-cover"
@@ -384,44 +356,25 @@ export default function VehiclePlateSearchPage() {
                     aria-label="Khung xem trước camera quét QR"
                   />
                   
-                  {/* High Tech Reticle Viewfinder */}
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
-                    <div className="w-[50%] h-[55%] border border-cyan-200 rounded relative">
-                      {/* Viewfinder corners */}
-                      <div className="absolute -top-[1.5px] -left-[1.5px] w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-400" />
-                      <div className="absolute -top-[1.5px] -right-[1.5px] w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-400" />
-                      <div className="absolute -bottom-[1.5px] -left-[1.5px] w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-400" />
-                      <div className="absolute -bottom-[1.5px] -right-[1.5px] w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-400" />
-                      
-                      {/* Reticle center dot */}
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                      </div>
-
-                      {/* Moving tech scanning laser */}
-                      <div className="absolute top-0 left-0 right-0 h-0.5 bg-cyan-400 shadow-[0_0_8px_#22d3ee] tech-laser-line" />
-                    </div>
-                  </div>
-
                   {/* Camera overlay metadata */}
-                  <div className="absolute bottom-3 left-3 bg-muted/80 border border-border px-2 py-0.5 rounded font-mono text-[9px] text-cyan-600 tracking-wider">
-                    FEED_STATUS // ARMED
+                  <div className="absolute bottom-3 left-3 rounded-full bg-background/95 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm">
+                    Camera đang hoạt động
                   </div>
                 </div>
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-slate-700">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-foreground">
                   <span className="grid size-14 place-items-center rounded-full bg-background border border-border text-muted-foreground shadow-inner">
                     {scannerStatus === 'requesting' ? (
-                      <Loader2 className="size-6 animate-spin text-cyan-600" />
+                      <Loader2 className="size-6 animate-spin text-primary" />
                     ) : (
-                      <Camera className="size-6 text-slate-500" />
+                      <Camera className="size-6 text-muted-foreground" />
                     )}
                   </span>
                   <div>
-                    <p className="font-mono text-xs font-bold text-slate-700 uppercase tracking-widest">
-                      {scannerStatus === 'requesting' ? 'CAMERA_CONNECTING...' : 'CAMERA_SIGNAL_OFFLINE'}
+                    <p className="text-xs font-bold text-foreground">
+                      {scannerStatus === 'requesting' ? 'Đang kết nối camera...' : 'Camera chưa sẵn sàng'}
                     </p>
-                    <p className="mt-1.5 max-w-xs font-mono text-[10px] text-slate-500 leading-relaxed uppercase">
+                    <p className="mt-1.5 max-w-xs text-sm text-muted-foreground leading-relaxed">
                       Vui lòng ấn &quot;Cho phép&quot; trong trình duyệt khi được yêu cầu để kích hoạt ống kính camera.
                     </p>
                   </div>
@@ -430,29 +383,29 @@ export default function VehiclePlateSearchPage() {
             </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-3.5">
-              <div className="flex items-center gap-2 font-mono text-xs">
+              <div className="flex items-center gap-2 text-xs">
                 <span className={cn(
                   "h-2 w-2 rounded-full shrink-0",
-                  scannerError ? "bg-rose-500 animate-pulse" : "bg-cyan-500 animate-ping"
+                  scannerError ? "bg-rose-500" : "bg-primary"
                 )} />
                 <p className={cn(
-                  "font-mono text-xs tracking-wide uppercase",
-                  scannerError ? 'text-rose-700' : 'text-cyan-600'
+                  "text-xs tracking-wide",
+                  scannerError ? 'text-rose-700' : 'text-muted-foreground'
                 )} aria-live="polite">
-                  {scannerError ? `[SYS_ERROR] ${scannerError}` : `[TELEMETRY] ${scannerStatusMessage(scannerStatus)}`}
+                  {scannerError || scannerStatusMessage(scannerStatus)}
                 </p>
               </div>
               
               {(scannerStatus === 'denied' || scannerStatus === 'unavailable' || scannerStatus === 'error') && (
                 <Button
-                  className="w-full sm:w-auto border-border bg-background hover:bg-muted text-slate-700 hover:text-foreground font-mono text-[10px] uppercase tracking-wider h-8"
+                  className="w-full sm:w-auto border-border bg-background hover:bg-muted text-foreground hover:text-foreground text-sm tracking-wider min-h-11"
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => void requestCameraAccess()}
                 >
-                  <Camera className="h-3.5 w-3.5 mr-1.5 text-cyan-600" />
-                  RECONNECT_CAMERA
+                  <Camera className="h-3.5 w-3.5 mr-1.5 text-primary" />
+                  Cấp quyền lại cho camera
                 </Button>
               )}
             </div>
@@ -463,7 +416,7 @@ export default function VehiclePlateSearchPage() {
         {!selectedSiteId && (
           <StatePanel
             icon={MapPin}
-            title="NO_ACTIVE_SITE // CHƯA CHỌN SITE"
+            title="Chưa chọn khu vực"
             description="Vui lòng lựa chọn một phân khu bãi đỗ (site) từ menu điều hướng trên cùng để bắt đầu thực hiện truy vấn."
           />
         )}
@@ -471,7 +424,7 @@ export default function VehiclePlateSearchPage() {
         {selectedSiteId && searchStatus === 'idle' && (
           <StatePanel
             icon={Car}
-            title="SYSTEM_AWAITING_QUERY // ĐANG CHỜ PHƯƠNG TIỆN"
+            title="Sẵn sàng tra cứu"
             description="Nhập mã biển số xe thủ công hoặc khởi động quét mã QR định vị để bắt đầu khai thác thông tin từ cơ sở dữ liệu."
           />
         )}
@@ -481,10 +434,8 @@ export default function VehiclePlateSearchPage() {
             {[0, 1].map((item) => (
               <div
                 key={item}
-                className="h-80 animate-pulse rounded-xl border border-border bg-muted/20 relative overflow-hidden"
+                className="relative min-h-80 animate-pulse overflow-hidden rounded-2xl border border-border bg-muted/20"
               >
-                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/10" />
-                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/10" />
                 <div className="h-44 bg-muted/80 border-b border-border" />
                 <div className="p-5 space-y-3">
                   <div className="h-5 bg-muted rounded w-1/3" />
@@ -498,7 +449,7 @@ export default function VehiclePlateSearchPage() {
         {searchStatus === 'empty' && (
           <StatePanel
             icon={Search}
-            title="TARGET_NOT_FOUND // KHÔNG TÌM THẤY PHƯƠNG TIỆN"
+            title="Không tìm thấy phương tiện"
             description={`Hệ thống không ghi nhận bất kỳ dấu vết nào của phương tiện mang mã biển số “${searchQuery}” trong site hiện hành.`}
           />
         )}
@@ -506,15 +457,15 @@ export default function VehiclePlateSearchPage() {
         {searchStatus === 'error' && (
           <StatePanel
             icon={AlertCircle}
-            title="API_CONNECTION_ERROR // TRUY VẤN THẤT BẠI"
+            title="Tra cứu chưa thành công"
             description={searchError || 'Hệ thống Gateway API đang quá tải hoặc gặp lỗi đồng bộ hóa. Vui lòng thử lại.'}
             action={
               <Button
                 variant="outline"
-                className="border-border bg-background/60 hover:bg-muted text-slate-700 font-mono text-xs uppercase"
+                className="border-border bg-background/60 hover:bg-muted text-foreground text-xs"
                 onClick={() => void searchVehicles(query || searchQuery)}
               >
-                RETRY_TRANSMISSION
+                Thử lại
               </Button>
             }
           />
@@ -539,15 +490,9 @@ function VehicleResult({ vehicle }: { vehicle: ReturnType<typeof useDashboardDat
   const inSlot = !!vehicle.currentSlotId
 
   return (
-    <Card className="border border-border bg-card text-foreground shadow-xl relative overflow-hidden backdrop-blur-xl group hover:border-cyan-200 transition-all duration-300">
-      {/* Sci-fi tech corner ticks */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-200 group-hover:border-cyan-500/50 transition-colors" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-200 group-hover:border-cyan-500/50 transition-colors" />
-      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-200 group-hover:border-cyan-500/50 transition-colors" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-200 group-hover:border-cyan-500/50 transition-colors" />
-
+    <Card className="group overflow-hidden rounded-2xl border-border bg-card text-foreground transition-shadow hover:shadow-[var(--shadow-card)]">
       {/* Snapshot target camera box */}
-      <div className="relative aspect-video overflow-hidden bg-slate-100 border-b border-border">
+      <div className="relative aspect-video overflow-hidden bg-muted border-b border-border">
         {snapshot ? (
           <>
             <img
@@ -556,36 +501,27 @@ function VehicleResult({ vehicle }: { vehicle: ReturnType<typeof useDashboardDat
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               onError={() => setSnapshotFailed(true)}
             />
-            {/* Visual tech target overlay on hover */}
-            <div className="pointer-events-none absolute inset-0 bg-background/15 mix-blend-overlay" />
-            <div className="pointer-events-none absolute inset-4 border border-cyan-500/10 rounded transition-opacity duration-300 group-hover:border-cyan-500/25">
-              <div className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-cyan-400" />
-              <div className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-cyan-400" />
-              <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-cyan-400" />
-              <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-cyan-400" />
-            </div>
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-500 font-mono text-[10px] uppercase">
-            <Camera className="h-6 w-6 text-slate-700" />
-            <span>SNAPSHOT_NOT_FOUND</span>
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground text-sm">
+            <Camera className="h-6 w-6 text-foreground" />
+            <span>Chưa có ảnh camera</span>
           </div>
         )}
 
-        {/* Diagnostic tag overlay */}
-        <div className="absolute top-3 left-3 bg-muted border border-border px-2.5 py-0.5 rounded font-mono text-[9px] text-cyan-600 uppercase tracking-widest">
-          CAM_FEED_SNAPSHOT
+        <div className="absolute top-3 left-3 bg-muted border border-border px-2.5 py-0.5 rounded text-xs text-primary tracking-widest">
+          Ảnh từ camera
         </div>
       </div>
 
       <CardHeader className="border-b border-border py-4 px-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <CardTitle className="font-mono text-base font-bold text-foreground tracking-widest uppercase select-all">
+          <CardTitle className="text-base font-bold text-foreground tracking-widest select-all">
             {vehicle.licensePlateNumber}
           </CardTitle>
           <Badge
             className={cn(
-              "font-mono text-[10px] tracking-wide uppercase font-bold px-2 py-0.5 rounded border transition-colors",
+              "text-xs tracking-wide font-bold px-2 py-0.5 rounded border transition-colors",
               inSlot
                 ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                 : vehicle.lastEventType === 'exit'
@@ -598,31 +534,31 @@ function VehicleResult({ vehicle }: { vehicle: ReturnType<typeof useDashboardDat
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3.5 p-5 font-mono text-xs text-slate-700">
-        <div className="flex items-center gap-3.5 bg-muted/20 border border-border px-3.5 py-2 rounded-lg">
-          <MapPin className="h-4 w-4 shrink-0 text-cyan-600" />
+      <CardContent className="space-y-3.5 p-5 text-xs text-foreground">
+        <div className="flex items-center gap-3.5 bg-muted/20 border border-border px-3.5 py-2 rounded-xl">
+          <MapPin className="h-4 w-4 shrink-0 text-primary" />
           <div className="min-w-0">
-            <p className="text-[9px] text-slate-500 uppercase tracking-wider">MÃ_PHÂN_VÙNG_Ô_ĐỖ:</p>
-            <p className="text-slate-800 mt-0.5 font-bold">
-              {vehicle.currentSlotCode ? `Ô SỐ ${vehicle.currentSlotCode}` : vehicle.lastEventType === 'exit' ? 'ĐÃ RỜI BÃI' : 'CHƯA ĐỊNH VỊ VÙNG'}
+            <p className="text-xs text-muted-foreground tracking-wider">Vị trí đỗ</p>
+            <p className="text-foreground mt-0.5 font-bold">
+              {vehicle.currentSlotCode ? `Ô SỐ ${vehicle.currentSlotCode}` : vehicle.lastEventType === 'exit' ? 'Đã rời bãi' : 'Chưa xác định vị trí'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3.5 bg-muted/20 border border-border px-3.5 py-2 rounded-lg">
-          <Clock className="h-4 w-4 shrink-0 text-cyan-600" />
+        <div className="flex items-center gap-3.5 bg-muted/20 border border-border px-3.5 py-2 rounded-xl">
+          <Clock className="h-4 w-4 shrink-0 text-primary" />
           <div className="min-w-0">
-            <p className="text-[9px] text-slate-500 uppercase tracking-wider">LẦN_CUỐI_GHI_NHẬN:</p>
-            <p className="text-slate-800 mt-0.5">
+            <p className="text-xs text-muted-foreground tracking-wider">Lần ghi nhận gần nhất</p>
+            <p className="text-foreground mt-0.5">
               {vehicle.lastSeenAt ? new Date(vehicle.lastSeenAt).toLocaleString('vi-VN') : 'N/A'}
             </p>
           </div>
         </div>
 
         {!inSlot && !snapshot && (
-          <div className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/10 p-3 text-[10px] text-muted-foreground leading-relaxed uppercase">
+          <div className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/10 p-3 text-sm text-muted-foreground leading-relaxed">
             <WifiOff className="h-4 w-4 shrink-0 text-slate-600" />
-            <span>Mất liên kết Occupancy hiện tại hoặc Snapshot gần nhất.</span>
+            <span>Chưa có vị trí hiện tại hoặc ảnh ghi nhận gần nhất.</span>
           </div>
         )}
       </CardContent>
@@ -642,19 +578,13 @@ function StatePanel({
   action?: React.ReactNode
 }) {
   return (
-    <div className="border border-border bg-background/15 rounded-xl p-8 text-center max-w-xl mx-auto flex flex-col items-center justify-center relative overflow-hidden backdrop-blur-sm min-h-[260px] my-4 shadow-inner">
-      {/* Visual corners */}
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-border" />
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-border" />
-      <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-border" />
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-border" />
-
-      <div className="p-4 rounded-full bg-muted/80 border border-border text-cyan-600/70 shadow-[0_0_15px_rgba(6,182,212,0.05)] mb-4">
+    <div className="mx-auto my-4 flex min-h-[260px] max-w-xl flex-col items-center justify-center rounded-2xl border-border bg-card p-8 text-center shadow-[var(--shadow-card)]">
+      <div className="p-4 rounded-full bg-muted/80 border border-border text-primary mb-4">
         <Icon className="size-6" />
       </div>
 
-      <h3 className="font-mono text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5">{title}</h3>
-      <p className="text-[10px] font-mono text-slate-500 max-w-sm leading-relaxed uppercase mb-4">{description}</p>
+      <h3 className="text-xs font-bold text-foreground mb-1.5">{title}</h3>
+      <p className="text-xs text-muted-foreground max-w-sm leading-relaxed mb-4">{description}</p>
       
       {action && <div className="mt-2">{action}</div>}
     </div>
