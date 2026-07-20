@@ -14,8 +14,6 @@ export interface PublicRegistrationResponse {
   tenantName: string
   managementModel: string
   areaCount: number
-  siteId: string
-  siteName: string
   userId: string
   username: string
   email: string

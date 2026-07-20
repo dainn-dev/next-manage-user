@@ -28,7 +28,6 @@ function isTenantOpsPath(pathname: string | null): boolean {
     "/statistics",
     "/users",
     "/employees",
-    "/sites",
     "/billing",
     "/settings",
   ]

@@ -54,7 +54,7 @@ function MetricCard({ label, value, description, icon: Icon, loading = false, pr
           </div>
         ) : (
           <>
-            <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+            <p className="text-xl font-semibold tracking-tight text-foreground">{value}</p>
             {safeProgress !== undefined && (
               <div className="space-y-1.5" aria-label={`${label}: ${safeProgress.toFixed(1)}%`}>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">

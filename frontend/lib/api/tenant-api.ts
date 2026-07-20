@@ -50,8 +50,8 @@ export interface TenantDetail {
 export interface TenantOnboardingRequest {
   tenantName: string
   tenantSlug?: string
-  siteName: string
-  siteLocation?: string
+  facilityName: string
+  facilityLocation?: string
   managementModel: string
   areaCount: number
   adminUsername: string
@@ -65,8 +65,6 @@ export interface TenantOnboardingResponse {
   tenantId: string
   tenantName: string
   tenantSlug: string
-  siteId: string
-  siteName: string
   adminUserId: string
   adminUsername: string
   adminEmail: string

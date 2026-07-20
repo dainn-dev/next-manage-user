@@ -55,8 +55,8 @@ function statusVariant(status: TenantStatus): "default" | "secondary" | "destruc
 const emptyCreate: TenantOnboardingRequest = {
   tenantName: "",
   tenantSlug: "",
-  siteName: "",
-  siteLocation: "",
+  facilityName: "",
+  facilityLocation: "",
   managementModel: "other",
   areaCount: 1,
   adminUsername: "",
@@ -173,7 +173,7 @@ export default function PlatformTenantsPage() {
       const payload: TenantOnboardingRequest = {
         ...createForm,
         tenantSlug: createForm.tenantSlug?.trim() || undefined,
-        siteLocation: createForm.siteLocation?.trim() || undefined,
+        facilityLocation: createForm.facilityLocation?.trim() || undefined,
         adminFirstName: createForm.adminFirstName?.trim() || undefined,
         adminLastName: createForm.adminLastName?.trim() || undefined,
         managementModel: createForm.managementModel,
@@ -340,7 +340,7 @@ export default function PlatformTenantsPage() {
                     {managementModelLabel(tenant.managementModel)}
                   </td>
                   <td className="px-4 py-3">{tenant.areaCount ?? "—"}</td>
-                  <td className="px-4 py-3">{tenant.siteCount}</td>
+                  <td className="px-4 py-3">1</td>
                   <td className="px-4 py-3">{tenant.tenantAdminCount}</td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {tenant.updatedAt ? new Date(tenant.updatedAt).toLocaleString("vi-VN") : "—"}
@@ -419,7 +419,7 @@ export default function PlatformTenantsPage() {
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Sites</dt>
-                  <dd className="mt-1 font-medium">{tenant.siteCount}</dd>
+                  <dd className="mt-1 font-medium">1</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Areas</dt>
@@ -556,8 +556,8 @@ export default function PlatformTenantsPage() {
               [
                 ["tenantName", "Tên tenant *"],
                 ["tenantSlug", "Slug (tuỳ chọn)"],
-                ["siteName", "Site đầu tiên *"],
-                ["siteLocation", "Địa điểm site"],
+                ["facilityName", "Tên bãi xe vận hành *"],
+                ["facilityLocation", "Địa điểm bãi xe"],
                 ["adminUsername", "Admin username *"],
                 ["adminEmail", "Admin email *"],
                 ["adminPassword", "Admin password *"],
@@ -611,7 +611,7 @@ export default function PlatformTenantsPage() {
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Intent only — vẫn chỉ tạo 1 site từ tên site ở trên.
+                Mỗi tenant chỉ có một bãi xe vận hành; các khu vực được cấu hình sau khi tạo.
               </p>
             </div>
           </div>
@@ -624,7 +624,7 @@ export default function PlatformTenantsPage() {
               disabled={
                 saving ||
                 !createForm.tenantName.trim() ||
-                !createForm.siteName.trim() ||
+                !createForm.facilityName.trim() ||
                 !createForm.managementModel ||
                 !createForm.areaCount ||
                 !createForm.adminUsername.trim() ||

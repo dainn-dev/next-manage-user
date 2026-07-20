@@ -8,8 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.util.List;
-import java.util.UUID;
 
 
 @Data
@@ -34,6 +32,4 @@ public class CreateUserRequest {
     private User.Role role = User.Role.MEMBER;
     private User.UserStatus status = User.UserStatus.ACTIVE;
 
-    /** Required for SITE_MANAGER and SECURITY_GUARD — one or more branch ids. */
-    private List<UUID> siteIds;
 }

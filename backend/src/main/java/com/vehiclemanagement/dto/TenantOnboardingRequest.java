@@ -20,12 +20,12 @@ public class TenantOnboardingRequest {
     @Size(max = 100, message = "Tenant slug must be at most 100 characters")
     private String tenantSlug;
 
-    @NotBlank(message = "Site name is required")
-    @Size(max = 150, message = "Site name must be at most 150 characters")
-    private String siteName;
+    @NotBlank(message = "Operating facility name is required")
+    @Size(max = 150, message = "Operating facility name must be at most 150 characters")
+    private String facilityName;
 
-    @Size(max = 255, message = "Site location must be at most 255 characters")
-    private String siteLocation;
+    @Size(max = 255, message = "Operating facility location must be at most 255 characters")
+    private String facilityLocation;
 
     @NotBlank(message = "Management model is required")
     @Pattern(

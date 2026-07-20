@@ -8,12 +8,9 @@ import com.vehiclemanagement.billing.EntitlementGuard;
 import com.vehiclemanagement.config.AuthDataSourceContext;
 import com.vehiclemanagement.entity.MemberAffiliation;
 import com.vehiclemanagement.entity.User;
-import com.vehiclemanagement.entity.UserSite;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.MemberAffiliationRepository;
-import com.vehiclemanagement.repository.SiteRepository;
 import com.vehiclemanagement.repository.UserRepository;
-import com.vehiclemanagement.repository.UserSiteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -49,16 +45,10 @@ public class UserService implements UserDetailsService {
     private EntitlementGuard entitlementGuard;
 
     @Autowired
-    private UserSiteRepository userSiteRepository;
-
-    @Autowired
     private MemberAffiliationRepository memberAffiliationRepository;
 
     @Autowired
     private PlatformMemberUserService platformMemberUserService;
-
-    @Autowired
-    private SiteRepository siteRepository;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -152,9 +142,7 @@ public class UserService implements UserDetailsService {
                 .status(request.getStatus())
                 .build();
 
-        User savedUser = userRepository.saveAndFlush(user);
-        replaceSiteAssignments(savedUser, role, request.getSiteIds());
-        return toDto(savedUser);
+        return toDto(userRepository.saveAndFlush(user));
     }
 
     private boolean usernameExistsGlobally(String username) {
@@ -218,11 +206,6 @@ public class UserService implements UserDetailsService {
         }
 
         User updatedUser = userRepository.saveAndFlush(existingUser);
-        User.Role effectiveRole = updatedUser.getRole();
-        if (request.getRole() != null || request.getSiteIds() != null) {
-            replaceSiteAssignments(updatedUser, effectiveRole,
-                    request.getSiteIds() != null ? request.getSiteIds() : userSiteRepository.findSiteIdsByUserId(id));
-        }
         ensureMemberAffiliation(updatedUser);
         return toDto(updatedUser);
     }
@@ -231,7 +214,6 @@ public class UserService implements UserDetailsService {
         if (!userRepository.existsById(id)) {
             throw new ResourceNotFoundException("User not found with id: " + id);
         }
-        userSiteRepository.deleteByUserId(id);
         userRepository.deleteById(id);
     }
 
@@ -263,16 +245,11 @@ public class UserService implements UserDetailsService {
         if (role == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN via tenant user API");
         }
-        if (isSiteScopedRole(role)) {
-            throw new IllegalArgumentException("Assign site-scoped roles via user update with siteIds");
-        }
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
         user.setRole(role);
-        User updated = userRepository.save(user);
-        userSiteRepository.deleteByUserId(id);
-        return toDto(updated);
+        return toDto(userRepository.save(user));
     }
 
     public void updateLastLogin(String username) {
@@ -281,31 +258,6 @@ public class UserService implements UserDetailsService {
             User user = userOpt.get();
             user.setLastLogin(LocalDateTime.now());
             userRepository.save(user);
-        }
-    }
-
-    /**
-     * Load site membership for JWT issuance. Tenant GUC must be bound
-     * <em>before</em> the transaction begins (RLS on {@code user_site}).
-     */
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public List<UUID> findSiteIdsForUser(User user) {
-        if (!isSiteScopedRole(user.getRole()) || user.getId() == null || user.getTenantId() == null) {
-            return Collections.emptyList();
-        }
-        UUID previous = TenantContext.getTenantId();
-        TenantContext.setTenantId(user.getTenantId());
-        try {
-            TransactionTemplate tx = new TransactionTemplate(transactionManager);
-            tx.setReadOnly(true);
-            List<UUID> ids = tx.execute(status -> userSiteRepository.findSiteIdsByUserId(user.getId()));
-            return ids != null ? ids : Collections.emptyList();
-        } finally {
-            if (previous == null) {
-                TenantContext.clear();
-            } else {
-                TenantContext.setTenantId(previous);
-            }
         }
     }
 
@@ -362,7 +314,6 @@ public class UserService implements UserDetailsService {
     public void bulkDeleteUsers(List<UUID> userIds) {
         for (UUID id : userIds) {
             if (userRepository.existsById(id)) {
-                userSiteRepository.deleteByUserId(id);
                 userRepository.deleteById(id);
             }
         }
@@ -380,42 +331,15 @@ public class UserService implements UserDetailsService {
         if (role == User.Role.PLATFORM_ADMIN) {
             throw new IllegalArgumentException("Cannot assign PLATFORM_ADMIN via tenant user API");
         }
-        if (isSiteScopedRole(role)) {
-            throw new IllegalArgumentException("Assign site-scoped roles via user update with siteIds");
-        }
         List<User> users = userRepository.findAllById(userIds);
         for (User user : users) {
             user.setRole(role);
-            userSiteRepository.deleteByUserId(user.getId());
         }
         return userRepository.saveAll(users).stream().map(this::toDto).collect(Collectors.toList());
     }
 
-    private void replaceSiteAssignments(User user, User.Role role, List<UUID> siteIds) {
-        userSiteRepository.deleteByUserId(user.getId());
-        if (!isSiteScopedRole(role)) {
-            return;
-        }
-        if (siteIds == null || siteIds.isEmpty()) {
-            throw new IllegalArgumentException(role + " requires at least one site assignment");
-        }
-        List<UserSite> rows = new ArrayList<>();
-        for (UUID siteId : siteIds.stream().distinct().toList()) {
-            if (!siteRepository.existsById(siteId)) {
-                throw new IllegalArgumentException("Site not found: " + siteId);
-            }
-            rows.add(UserSite.builder().userId(user.getId()).siteId(siteId).build());
-        }
-        userSiteRepository.saveAll(rows);
-    }
-
     private UserDto toDto(User user) {
         UserDto dto = new UserDto(user);
-        if (isSiteScopedRole(user.getRole())) {
-            dto.setSiteIds(userSiteRepository.findSiteIdsByUserId(user.getId()));
-        } else {
-            dto.setSiteIds(Collections.emptyList());
-        }
         if (user.getRole() == User.Role.MEMBER) {
             dto.setAffiliationTenantIds(findAffiliationTenantIdsForUser(user));
         } else {
@@ -424,7 +348,4 @@ public class UserService implements UserDetailsService {
         return dto;
     }
 
-    private boolean isSiteScopedRole(User.Role role) {
-        return role == User.Role.SITE_MANAGER || role == User.Role.SECURITY_GUARD;
-    }
 }

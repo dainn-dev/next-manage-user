@@ -141,7 +141,7 @@ export default function PlatformTenantDetailPage() {
           </div>
           <p className="platform-page-description platform-mono mt-2 break-all">{tenant.slug}</p>
           <p className="platform-page-description mt-2">
-            {managementModelLabel(tenant.managementModel)} · khai báo {tenant.areaCount ?? "—"} khu vực · {tenant.sites.length} site
+            {managementModelLabel(tenant.managementModel)} · khai báo {tenant.areaCount ?? "—"} khu vực · 1 bãi xe vận hành
           </p>
         </div>
 
@@ -187,7 +187,7 @@ export default function PlatformTenantDetailPage() {
         <div className="pb-1">
           <TabsList className="grid h-auto w-full min-w-0 grid-cols-2 justify-start rounded-[var(--radius-card)] border border-border bg-card p-1 [&_[data-slot=tabs-trigger]]:min-w-0 [&_[data-slot=tabs-trigger]]:px-2 [&_[data-slot=tabs-trigger]]:text-xs [&_[data-slot=tabs-trigger]:last-child]:col-span-2 sm:grid-cols-5 sm:[&_[data-slot=tabs-trigger]]:px-2 sm:[&_[data-slot=tabs-trigger]]:text-sm sm:[&_[data-slot=tabs-trigger]:last-child]:col-span-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="sites">Sites / usage</TabsTrigger>
+            <TabsTrigger value="sites">Bãi xe vận hành</TabsTrigger>
             <TabsTrigger value="subscription">Subscription</TabsTrigger>
             <TabsTrigger value="admins">Admin contacts</TabsTrigger>
             <TabsTrigger value="audit">Audit</TabsTrigger>
@@ -215,17 +215,17 @@ export default function PlatformTenantDetailPage() {
             </div>
           </dl>
           <p className="mt-6 max-w-3xl border-t border-border pt-4 text-sm text-muted-foreground">
-            Area count mô tả quy mô lúc đăng ký; site và gate vẫn là các tài nguyên riêng biệt.
+            Area count mô tả quy mô lúc đăng ký; mỗi tenant được giới hạn một bãi xe vận hành.
           </p>
         </TabsContent>
 
         <TabsContent value="sites" className="platform-data-surface">
           <div className="border-b border-border px-4 py-4 sm:px-6">
-            <h2 className="text-lg font-bold tracking-[-0.02em]">Sites ({tenant.sites.length})</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Danh sách site thuộc tenant và vị trí đã khai báo.</p>
+            <h2 className="text-lg font-bold tracking-[-0.02em]">Bãi xe vận hành</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Tenant chỉ có một bãi xe vận hành và không thể thêm chi nhánh khác.</p>
           </div>
           {tenant.sites.length === 0 ? (
-            <div className="platform-empty-state">Chưa có site trong tenant này.</div>
+            <div className="platform-empty-state">Chưa có bãi xe vận hành trong tenant này.</div>
           ) : (
             <div className="platform-mobile-list">
               {tenant.sites.map((site) => (

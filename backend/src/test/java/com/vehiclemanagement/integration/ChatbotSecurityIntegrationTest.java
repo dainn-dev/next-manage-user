@@ -26,7 +26,7 @@ class ChatbotSecurityIntegrationTest extends AbstractPostgresIntegrationTest {
   jdbc.update("INSERT INTO tenant(id,name,slug,status,plan_id) VALUES (?,?,?,'active','10000000-0000-0000-0000-000000000002'),(?,?,?,'active','10000000-0000-0000-0000-000000000002')",tenant,"Chatbot "+tenant,"chatbot-"+tenant,otherTenant,"Other "+otherTenant,"other-"+otherTenant);
   jdbc.update("INSERT INTO site(id,tenant_id,name) VALUES (?,?,?),(?,?,?)",site,tenant,"Allowed site",otherSite,otherTenant,"Other site");
   TenantContext.setTenantId(tenant);String name="chat-"+UUID.randomUUID();User user=users.save(User.builder().username(name).email(name+"@example.com").password(encoder.encode("SecurePass123!")).role(User.Role.TENANT_ADMIN).status(User.UserStatus.ACTIVE).build());
-  token=jwt.generateToken(user,Map.of("role",user.getRole().name(),"email",user.getEmail(),"tenant_id",tenant.toString(),"site_ids",List.of()));TenantContext.clear();
+  token=jwt.generateToken(user,Map.of("role",user.getRole().name(),"email",user.getEmail(),"tenant_id",tenant.toString()));TenantContext.clear();
  }
  @AfterEach void clear(){TenantContext.clear();}
 

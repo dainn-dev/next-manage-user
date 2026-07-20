@@ -42,7 +42,6 @@ public class AuthService {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         User user = (User) userDetails;
 
-        List<UUID> siteIds = userService.findSiteIdsForUser(user);
         List<UUID> affiliationTenantIds = userService.findAffiliationTenantIdsForUser(user);
         
         Map<String, Object> extraClaims = new HashMap<>();
@@ -53,7 +52,6 @@ public class AuthService {
         if (user.getRole() != User.Role.MEMBER && user.getTenantId() != null) {
             extraClaims.put("tenant_id", user.getTenantId().toString());
         }
-        extraClaims.put("site_ids", siteIds.stream().map(UUID::toString).toList());
         if (user.getRole() == User.Role.MEMBER) {
             extraClaims.put("affiliation_tenant_ids",
                     affiliationTenantIds.stream().map(UUID::toString).toList());
@@ -64,7 +62,6 @@ public class AuthService {
         userService.updateLastLogin(user.getUsername());
 
         UserDto userDto = new UserDto(user);
-        userDto.setSiteIds(siteIds);
         userDto.setAffiliationTenantIds(affiliationTenantIds);
         
         return LoginResponse.builder()

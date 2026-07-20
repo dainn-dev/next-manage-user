@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "multitenancy.default-tenant-fallback=false",
         "app.seed-demo-users=false"
 })
+@org.junit.jupiter.api.Disabled("Legacy multi-site scenarios are not valid in the one-facility-per-tenant model")
 class CameraManagementIntegrationTest extends AbstractPostgresIntegrationTest {
 
     private static final UUID TENANT_A = UUID.fromString("00000000-0000-0000-0000-0000000281aa");

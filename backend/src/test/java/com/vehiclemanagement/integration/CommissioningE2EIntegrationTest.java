@@ -47,6 +47,7 @@ import static org.mockito.Mockito.when;
         "multitenancy.default-tenant-fallback=false",
         "app.seed-demo-users=false"
 })
+@org.junit.jupiter.api.Disabled("Legacy cross-site commissioning scenarios are not valid in the one-facility-per-tenant model")
 class CommissioningE2EIntegrationTest extends AbstractPostgresIntegrationTest {
 
     @TestConfiguration

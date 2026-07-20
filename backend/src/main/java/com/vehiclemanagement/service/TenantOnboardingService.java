@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -52,7 +51,7 @@ public class TenantOnboardingService {
                 ? tenantName
                 : request.getTenantSlug();
         String tenantSlug = TenantSlugNormalizer.normalize(slugSource);
-        String siteName = request.getSiteName().trim();
+        String facilityName = request.getFacilityName().trim();
         String managementModel = request.getManagementModel().trim().toLowerCase(Locale.ROOT);
         Integer areaCount = request.getAreaCount();
         String adminUsername = request.getAdminUsername().trim();
@@ -67,11 +66,11 @@ public class TenantOnboardingService {
                 RETURNING id
                 """, UUID.class, tenantName, tenantSlug, managementModel, areaCount);
 
-        UUID siteId = jdbc.queryForObject("""
+        jdbc.queryForObject("""
                 INSERT INTO site(tenant_id, name, location)
                 VALUES (?, ?, ?)
                 RETURNING id
-                """, UUID.class, tenantId, siteName, blankToNull(request.getSiteLocation()));
+                """, UUID.class, tenantId, facilityName, blankToNull(request.getFacilityLocation()));
 
         UUID adminUserId = jdbc.queryForObject("""
                 INSERT INTO users(username, email, password, first_name, last_name,
@@ -93,7 +92,7 @@ public class TenantOnboardingService {
         detail.put("tenantSlug", tenantSlug);
         detail.put("managementModel", managementModel);
         detail.put("areaCount", areaCount);
-        detail.put("siteName", siteName);
+        detail.put("facilityName", facilityName);
         detail.put("adminUsername", adminUsername);
         auditService.record("tenant_onboarded", "tenant", tenantId, detail);
 
@@ -101,8 +100,6 @@ public class TenantOnboardingService {
                 .tenantId(tenantId)
                 .tenantName(tenantName)
                 .tenantSlug(tenantSlug)
-                .siteId(siteId)
-                .siteName(siteName)
                 .adminUserId(adminUserId)
                 .adminUsername(adminUsername)
                 .adminEmail(adminEmail)
@@ -150,7 +147,6 @@ public class TenantOnboardingService {
         claims.put("email", email);
         claims.put("userId", adminUserId.toString());
         claims.put("tenant_id", tenantId.toString());
-        claims.put("site_ids", List.of());
         return jwtUtil.generateToken(tokenUser, claims);
     }
 

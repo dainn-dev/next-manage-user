@@ -131,22 +131,6 @@ public class JwtUtil {
     }
 
     /**
-     * The sites the token grants access to (empty for a legacy token, or for a
-     * tenant-wide role such as TENANT_ADMIN/PLATFORM_ADMIN that is not
-     * site-restricted). Used by the app-layer site-scoping check, not by RLS.
-     */
-    public List<UUID> extractSiteIds(String token) {
-        List<?> raw = extractClaim(token, claims -> claims.get("site_ids", List.class));
-        if (raw == null) {
-            return Collections.emptyList();
-        }
-        return raw.stream()
-                .map(Object::toString)
-                .map(UUID::fromString)
-                .collect(Collectors.toList());
-    }
-
-    /**
      * Active tenant affiliations for a platform {@code MEMBER} (ADR-0603 Phase B).
      * Empty for ops roles / legacy tokens.
      */

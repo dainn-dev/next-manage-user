@@ -4,9 +4,7 @@ import { calculateOccupancyMetrics, formatDuration } from '../lib/dashboard-metr
 import { canonicalPlate, validPlateQuery } from '../lib/plate-search.mjs'
 import {
   canAccessOperatorRouteValue,
-  canSelectDashboardSite,
-  filterScopedSites,
-  resolveDashboardSiteId,
+  resolveTenantFacilityId,
 } from '../lib/dashboard-policy.mjs'
 
 test('role-scoped routes enforce security guard operational subset', () => {
@@ -24,25 +22,10 @@ test('role-scoped routes enforce security guard operational subset', () => {
   assert.equal(canAccessOperatorRouteValue('MEMBER', '/dashboard'), false)
 })
 
-test('site manager and security guard receive only assigned sites', () => {
-  const sites = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
-  assert.deepEqual(filterScopedSites('ADMIN', [], sites), sites)
-  assert.deepEqual(filterScopedSites('SITE_MANAGER', ['b'], sites), [{ id: 'b' }])
-  assert.deepEqual(filterScopedSites('SECURITY_GUARD', ['a', 'c'], sites), [{ id: 'a' }, { id: 'c' }])
-})
-
-test('only tenant admins and site managers can change dashboard site', () => {
-  assert.equal(canSelectDashboardSite('ADMIN'), true)
-  assert.equal(canSelectDashboardSite('SITE_MANAGER'), true)
-  assert.equal(canSelectDashboardSite('SECURITY_GUARD'), false)
-  assert.equal(canSelectDashboardSite('MEMBER'), false)
-})
-
-test('site selection restores a valid preference and rejects stale scope', () => {
-  const sites = [{ id: 'a' }, { id: 'b' }]
-  assert.equal(resolveDashboardSiteId('b', sites), 'b')
-  assert.equal(resolveDashboardSiteId('outside-scope', sites), 'a')
-  assert.equal(resolveDashboardSiteId(null, []), null)
+test('tenant scope uses one operating facility without a stored preference', () => {
+  const facilities = [{ id: 'a' }]
+  assert.equal(resolveTenantFacilityId(facilities), 'a')
+  assert.equal(resolveTenantFacilityId([]), null)
 })
 
 test('occupancy metrics react to slot state changes', () => {

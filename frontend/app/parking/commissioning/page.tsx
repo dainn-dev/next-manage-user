@@ -78,7 +78,7 @@ import { UserRole } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const STEPS = [
-  { key: "site", label: "Site", icon: MapPinned },
+  { key: "site", label: "Bãi xe", icon: MapPinned },
   { key: "zones", label: "Zones", icon: ShieldCheck },
   { key: "cameras", label: "Cameras", icon: Video },
   { key: "calibration", label: "Calibration", icon: Eye },
@@ -119,7 +119,7 @@ function statusTone(status: string): "default" | "secondary" | "destructive" | "
 
 export default function ParkingCommissioningPage() {
   const { user } = useAuth()
-  const { sites, selectedSiteId, selectSite, isLoading: sitesLoading } = useDashboardScope()
+  const { sites, selectedSiteId, isLoading: sitesLoading } = useDashboardScope()
   const { toast } = useToast()
   const [step, setStep] = useState<StepKey>("site")
   const [zones, setZones] = useState<Zone[]>([])
@@ -626,9 +626,9 @@ export default function ParkingCommissioningPage() {
         title="Thiết lập bãi đỗ"
         description={
           <>
-            <span>Cấu hình site, khu vực, camera, hiệu chỉnh và sơ đồ bãi đỗ theo từng bước rõ ràng.</span>
+            <span>Cấu hình bãi xe, khu vực, camera, hiệu chỉnh và sơ đồ bãi đỗ theo từng bước rõ ràng.</span>
             <span className="mt-2 block">
-              {selectedSiteId ? `Site đang chọn: ${sites.find((site) => site.id === selectedSiteId)?.name || selectedSiteId.slice(0, 8)}` : "Chưa chọn site"}
+              {selectedSiteId ? `Bãi xe của tổ chức: ${sites[0]?.name || "Đã sẵn sàng"}` : "Chưa có bãi xe vận hành"}
             </span>
           </>
         }
@@ -637,7 +637,7 @@ export default function ParkingCommissioningPage() {
             key: "role",
             content: <Badge variant="secondary" className="w-fit rounded-full px-3 py-1.5 text-sm">
               <ShieldCheck className="mr-1.5 size-4" />
-              {user?.role === UserRole.ADMIN ? "Quản trị viên" : "Quản lý site"}
+              {user?.role === UserRole.ADMIN ? "Quản trị viên" : "Quản lý vận hành"}
             </Badge>,
           },
         ]}
@@ -679,10 +679,10 @@ export default function ParkingCommissioningPage() {
           <CardHeader className="border-b border-border pb-4">
             <CardTitle className="text-sm font-medium tracking-wider text-primary flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              01 // CHỌN SITE
+              01 // BÃI XE VẬN HÀNH
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Mọi zone, camera, calibration và bản đồ bên dưới đều bị giới hạn trong site này.
+              Tenant chỉ có một bãi xe; mọi khu vực, camera và sơ đồ bên dưới thuộc bãi xe này.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
@@ -692,45 +692,19 @@ export default function ParkingCommissioningPage() {
               </div>
             ) : sites.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground font-medium">
-                {"[NO_ACTIVE_SITES]"} Chưa có site nào trong phạm vi được phân quyền.
+                {"[NO_OPERATING_FACILITY]"} Chưa có bãi xe vận hành cho tenant này.
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-3">
-                {sites.map((site) => {
-                  const active = site.id === selectedSiteId
-                  return (
-                    <button
-                      key={site.id}
-                      onClick={() => selectSite(site.id)}
-                      className={cn(
-                        "rounded-2xl border p-5 text-left transition-all duration-200 relative group overflow-hidden",
-                        active
-                          ? "border-primary/20 bg-primary/20 text-foreground shadow-sm"
-                          : "border-border bg-muted/20 text-foreground hover:border-primary/30 hover:bg-muted/30"
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className={cn(
-                          "p-2 rounded-xl border",
-                          active ? "border-primary/20 bg-primary/10 text-primary" : "border-border bg-muted/50 text-muted-foreground"
-                        )}>
-                          <MapPinned className="h-5 w-5" />
-                        </div>
-                        {active && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary font-bold">
-                            <Check className="h-3 w-3" /> ACTIVE
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-4 font-medium font-bold tracking-tight text-sm text-foreground group-hover:text-primary transition-colors">
-                        {site.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1 font-medium truncate">
-                        {site.location || "Chưa khai báo địa chỉ"}
-                      </p>
-                    </button>
-                  )
-                })}
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl border border-primary/20 bg-primary/10 p-2 text-primary">
+                    <MapPinned className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground">{sites[0]?.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{sites[0]?.location || "Chưa khai báo địa chỉ"}</p>
+                  </div>
+                </div>
               </div>
             )}
           </CardContent>

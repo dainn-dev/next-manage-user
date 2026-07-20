@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import type { Vehicle, Employee } from "@/lib/types"
-import { UserRole, canApprove, canManageVehicles, isSiteManager } from "@/lib/types"
+import { UserRole, canApprove, canManageVehicles } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
 import { VehicleTable } from "@/components/vehicles/vehicle-table"
 import { VehicleForm } from "@/components/vehicles/vehicle-form"
@@ -19,7 +19,6 @@ import { Search, Plus, RefreshCw, Trash2, Car, TrendingUp, CheckCircle, Settings
 import { useToast } from "@/hooks/use-toast"
 import { exportVehiclesToExcel } from "@/lib/utils/excel-export"
 import { useAuth } from "@/lib/auth-context"
-import { resolvePreferredSiteId } from "@/lib/site-selection"
 import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
 import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 
@@ -57,14 +56,6 @@ export default function VehiclesPage() {
   const { user } = useAuth()
   const userCanManage = canManageVehicles(user?.role)
   const userCanApprove = canApprove(user?.role)
-  const [siteFilterTick, setSiteFilterTick] = useState(0)
-
-  useEffect(() => {
-    const onSite = () => setSiteFilterTick((n) => n + 1)
-    window.addEventListener("pv-site-selection", onSite)
-    return () => window.removeEventListener("pv-site-selection", onSite)
-  }, [])
-
   const notifyPermissionDenied = useCallback(() => {
     toast({
       variant: "destructive",
@@ -114,14 +105,10 @@ export default function VehiclesPage() {
   }, [searchParams, vehicles, router, toast])
 
   // Filter vehicles based on search and filter criteria
-  const preferredSite = isSiteManager(user?.role)
-    ? resolvePreferredSiteId(user?.siteIds)
-    : null
   const normalizedSearch = searchTerm.trim().toLowerCase()
   const hasActiveFilters = Boolean(normalizedSearch || statusFilter !== "all" || typeFilter !== "all")
   const filterSource = hasActiveFilters && filterVehicles ? filterVehicles : vehicles
   const matchingVehicles = filterSource.filter((vehicle) => {
-    void siteFilterTick
     const matchesSearch = !normalizedSearch ||
       vehicle.licensePlate.toLowerCase().includes(normalizedSearch) ||
       vehicle.employeeName?.toLowerCase().includes(normalizedSearch) ||
@@ -130,9 +117,7 @@ export default function VehiclesPage() {
     
     const matchesStatus = statusFilter === "all" || vehicle.status === statusFilter
     const matchesType = typeFilter === "all" || vehicle.vehicleType === typeFilter
-    const matchesSite = !preferredSite || vehicle.currentSiteId === preferredSite
-
-    return matchesSearch && matchesStatus && matchesType && matchesSite
+    return matchesSearch && matchesStatus && matchesType
   })
   const filteredTotalElements = hasActiveFilters && filterVehicles ? matchingVehicles.length : totalElements
   const filteredTotalPages = hasActiveFilters && filterVehicles ? Math.ceil(matchingVehicles.length / pageSize) : totalPages

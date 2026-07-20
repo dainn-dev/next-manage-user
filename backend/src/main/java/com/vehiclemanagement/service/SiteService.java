@@ -53,6 +53,9 @@ public class SiteService {
     }
 
     public SiteDto create(SiteDto request) {
+        if (siteRepository.count() > 0) {
+            throw new ConflictException("Each organization is limited to one operating facility");
+        }
         if (siteRepository.existsByName(request.getName())) {
             throw new ConflictException("Site with name '" + request.getName() + "' already exists");
         }
@@ -81,8 +84,8 @@ public class SiteService {
     }
 
     public void delete(UUID id) {
-        Site site = findOrThrow(id);
-        siteRepository.delete(site);
+        findOrThrow(id);
+        throw new ConflictException("The operating facility is part of the organization and cannot be deleted");
     }
 
     private Site findOrThrow(UUID id) {

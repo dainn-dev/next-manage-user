@@ -11,7 +11,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -33,7 +32,6 @@ import java.util.UUID;
 public class TenantContextFilter extends OncePerRequestFilter {
 
     private static final String PLATFORM_ADMIN = "PLATFORM_ADMIN";
-    private static final String TENANT_ADMIN = "TENANT_ADMIN";
     /** Platform consumer (ADR-0603): JWT omits tenant_id; affiliations in claim. */
     private static final String MEMBER = "MEMBER";
 
@@ -75,15 +73,10 @@ public class TenantContextFilter extends OncePerRequestFilter {
                         response.getWriter().write("{\"error\":\"Token is missing tenant_id\"}");
                         return;
                     }
-                    List<UUID> siteIds = TENANT_ADMIN.equals(effectiveRole)
-                            ? List.of()
-                            : jwtUtil.extractSiteIds(jwt);
-                    SiteContext.setSiteIds(siteIds);
                 }
             }
             filterChain.doFilter(request, response);
         } finally {
-            SiteContext.clear();
             TenantContext.clear();
         }
     }

@@ -4,9 +4,8 @@ import * as React from 'react'
 import { useAuth } from './auth-context'
 import { siteApi, type Site } from './api/site-api'
 import { zoneApi, type Zone } from './api/zone-api'
-import { getSelectedSiteId, setSelectedSiteId } from './site-selection'
 import { isDashboardOperator } from './types'
-import { filterScopedSites, resolveDashboardSiteId } from './dashboard-policy.mjs'
+import { resolveTenantFacilityId } from './dashboard-policy.mjs'
 
 interface DashboardScopeContextValue {
   sites: Site[]
@@ -15,7 +14,6 @@ interface DashboardScopeContextValue {
   selectedZoneId: string | null
   isLoading: boolean
   error: string | null
-  selectSite: (siteId: string) => void
   selectZone: (zoneId: string | null) => void
   retry: () => void
 }
@@ -43,23 +41,21 @@ export function DashboardScopeProvider({ children }: { children: React.ReactNode
     setError(null)
     siteApi.list().then((allSites) => {
       if (cancelled) return
-      const scoped = filterScopedSites(user?.role, user?.siteIds || [], allSites) as Site[]
-      setSites(scoped)
-      const next = resolveDashboardSiteId(getSelectedSiteId(), scoped)
+      const facility = allSites.slice(0, 1)
+      setSites(facility)
+      const next = resolveTenantFacilityId(facility)
       setSiteId(next)
-      setSelectedSiteId(next)
     }).catch((reason) => {
       if (!cancelled) {
         setSites([])
         setSiteId(null)
-        setSelectedSiteId(null)
         setError(reason instanceof Error ? reason.message : 'Không thể tải phạm vi vận hành')
       }
     }).finally(() => {
       if (!cancelled) setIsLoading(false)
     })
     return () => { cancelled = true }
-  }, [isAuthenticated, user?.id, user?.role, user?.siteIds?.join(','), reload])
+  }, [isAuthenticated, user?.id, user?.role, reload])
 
   React.useEffect(() => {
     if (!selectedSiteId) {
@@ -79,17 +75,10 @@ export function DashboardScopeProvider({ children }: { children: React.ReactNode
     return () => { cancelled = true }
   }, [selectedSiteId])
 
-  const selectSite = React.useCallback((siteId: string) => {
-    if (!sites.some((site) => site.id === siteId)) return
-    setSiteId(siteId)
-    setZoneId(null)
-    setSelectedSiteId(siteId)
-  }, [sites])
-
   const value = React.useMemo(() => ({
     sites, zones, selectedSiteId, selectedZoneId, isLoading, error,
-    selectSite, selectZone: setZoneId, retry: () => setReload((value) => value + 1),
-  }), [sites, zones, selectedSiteId, selectedZoneId, isLoading, error, selectSite])
+    selectZone: setZoneId, retry: () => setReload((value) => value + 1),
+  }), [sites, zones, selectedSiteId, selectedZoneId, isLoading, error])
 
   return <DashboardScopeContext.Provider value={value}>{children}</DashboardScopeContext.Provider>
 }

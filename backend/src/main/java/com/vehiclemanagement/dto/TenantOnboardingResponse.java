@@ -13,8 +13,6 @@ public class TenantOnboardingResponse {
     private UUID tenantId;
     private String tenantName;
     private String tenantSlug;
-    private UUID siteId;
-    private String siteName;
     private UUID adminUserId;
     private String adminUsername;
     private String adminEmail;

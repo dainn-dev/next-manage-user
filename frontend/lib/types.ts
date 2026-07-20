@@ -233,8 +233,6 @@ export interface User {
   lastLogin?: string
   employeeId?: string
   employeeName?: string
-  /** Assigned branch ids for site-scoped operator roles. */
-  siteIds?: string[]
   createdAt: string
   updatedAt: string
 }
@@ -247,7 +245,6 @@ export interface CreateUserRequest {
   role: UserRole
   status: UserStatus
   employeeId?: string
-  siteIds?: string[]
 }
 
 export interface UpdateUserRequest {
@@ -258,7 +255,6 @@ export interface UpdateUserRequest {
   role?: UserRole
   status?: UserStatus
   employeeId?: string
-  siteIds?: string[]
 }
 
 export enum UserRole {
@@ -266,9 +262,9 @@ export enum UserRole {
   PLATFORM_ADMIN = 'PLATFORM_ADMIN',
   /** Tenant operator — maps from backend `TENANT_ADMIN`. */
   ADMIN = 'ADMIN',
-  /** Branch / site operator — maps from backend `SITE_MANAGER`. */
+  /** Operations manager within the tenant's single facility. */
   SITE_MANAGER = 'SITE_MANAGER',
-  /** Site-scoped operational observer. */
+  /** Operational observer within the tenant's single facility. */
   SECURITY_GUARD = 'SECURITY_GUARD',
   /** Tenant member — maps from backend `MEMBER`. */
   USER = 'USER',
@@ -282,16 +278,8 @@ export function isTenantAdmin(role?: UserRole): boolean {
   return role === UserRole.ADMIN
 }
 
-export function isSiteManager(role?: UserRole): boolean {
-  return role === UserRole.SITE_MANAGER
-}
-
 export function isSecurityGuard(role?: UserRole): boolean {
   return role === UserRole.SECURITY_GUARD
-}
-
-export function isSiteScopedOperator(role?: UserRole): boolean {
-  return role === UserRole.SITE_MANAGER || role === UserRole.SECURITY_GUARD
 }
 
 export function isDashboardOperator(role?: UserRole): boolean {

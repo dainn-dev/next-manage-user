@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { isDashboardOperator, isPlatformAdmin } from "@/lib/types"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
-import { canSelectDashboardSite } from "@/lib/dashboard-policy.mjs"
 import {
   Select,
   SelectContent,
@@ -16,8 +15,8 @@ import {
 } from "@/components/ui/select"
 
 /**
- * Operations topbar. Tenant admins can switch across tenant sites and site
- * managers across their assigned sites. Other operators get a fixed scope.
+ * Operations topbar. Every tenant operates one facility; users can narrow the
+ * dashboard by zone but cannot switch organizations or branches.
  */
 interface TopbarProps {
   onMobileMenuClick?: () => void
@@ -28,9 +27,7 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
   const { user } = useAuth()
   const platform = isPlatformAdmin(user?.role)
   const operator = isDashboardOperator(user?.role)
-  const canSelectSite = canSelectDashboardSite(user?.role)
   const scope = useDashboardScope()
-  const selectedSite = scope.sites.find((site) => site.id === scope.selectedSiteId)
 
   return (
     <header className="relative z-[var(--z-sticky)] flex min-h-16 shrink-0 items-center gap-2 border-b border-sidebar-border bg-card/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur supports-[backdrop-filter]:bg-card/75 sm:gap-3 sm:px-4">
@@ -66,22 +63,11 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
               <Button variant="ghost" size="sm" onClick={scope.retry} className="text-destructive">
                 <AlertCircle className="mr-1 h-4 w-4" />Không thể tải <RefreshCw className="ml-1 h-3 w-3" />
               </Button>
-            ) : scope.sites.length === 0 ? (
-              <span className="text-muted-foreground">Chưa được gán site</span>
+            ) : !scope.selectedSiteId ? (
+              <span className="text-muted-foreground">Chưa có bãi xe vận hành</span>
             ) : (
               <>
-                {canSelectSite ? (
-                  <Select value={scope.selectedSiteId || undefined} onValueChange={scope.selectSite}>
-                    <SelectTrigger aria-label="Chọn site vận hành" className="h-10 w-[min(12rem,42vw)] border-none bg-transparent px-1 text-sm shadow-none focus:ring-0 md:h-9 md:w-[min(220px,48vw)]">
-                      <SelectValue placeholder="Chọn site" />
-                    </SelectTrigger>
-                    <SelectContent>{scope.sites.map((site) => <SelectItem key={site.id} value={site.id}>{site.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                ) : (
-                  <span className="max-w-[min(12rem,42vw)] truncate font-medium text-sidebar-foreground md:max-w-[min(220px,40vw)]">
-                    {selectedSite?.name || "Site được phân công"}
-                  </span>
-                )}
+                <span className="max-w-[min(12rem,42vw)] truncate font-medium text-sidebar-foreground md:max-w-[min(220px,40vw)]">Bãi xe của tổ chức</span>
                 <Select value={scope.selectedZoneId || "all"} onValueChange={(value) => scope.selectZone(value === "all" ? null : value)}>
                   <SelectTrigger aria-label="Chọn zone vận hành" className="hidden h-9 w-[min(180px,30vw)] bg-background/80 md:flex"><SelectValue placeholder="Tất cả zone" /></SelectTrigger>
                   <SelectContent>

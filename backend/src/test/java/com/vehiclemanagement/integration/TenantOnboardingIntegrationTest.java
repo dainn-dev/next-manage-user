@@ -82,8 +82,8 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         String unique = UUID.randomUUID().toString().substring(0, 8);
         Map<String, Object> body = Map.of(
                 "tenantName", "Acme Parking " + unique,
-                "siteName", "Main Garage " + unique,
-                "siteLocation", "District 1",
+                "facilityName", "Main Garage " + unique,
+                "facilityLocation", "District 1",
                 "managementModel", "retail",
                 "areaCount", 2,
                 "adminUsername", "tenant-admin-" + unique,
@@ -97,14 +97,12 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         assertThat(response.getBody()).isNotNull();
 
         UUID tenantId = UUID.fromString((String) response.getBody().get("tenantId"));
-        UUID siteId = UUID.fromString((String) response.getBody().get("siteId"));
         UUID adminUserId = UUID.fromString((String) response.getBody().get("adminUserId"));
         String token = (String) response.getBody().get("token");
 
         assertThat(response.getBody().get("role")).isEqualTo("TENANT_ADMIN");
         assertThat(response.getBody().get("tenantSlug")).isEqualTo("acme-parking-" + unique);
         assertThat(jwtUtil.extractTenantId(token)).isEqualTo(tenantId);
-        assertThat(jwtUtil.extractSiteIds(token)).isEmpty();
         assertThat(jwtUtil.extractRole(token)).isEqualTo("TENANT_ADMIN");
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM tenant WHERE id = ?", Long.class, tenantId))
@@ -116,7 +114,7 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
                 "SELECT area_count FROM tenant WHERE id = ?", Integer.class, tenantId))
                 .isEqualTo(2);
         assertThat(jdbc.queryForObject(
-                "SELECT count(*) FROM site WHERE id = ? AND tenant_id = ?", Long.class, siteId, tenantId))
+                "SELECT count(*) FROM site WHERE tenant_id = ?", Long.class, tenantId))
                 .isEqualTo(1L);
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM users
@@ -145,7 +143,7 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         String unique = UUID.randomUUID().toString().substring(0, 8);
         Map<String, Object> first = Map.of(
                 "tenantName", "Duplicate Tenant " + unique,
-                "siteName", "Duplicate Site " + unique,
+                "facilityName", "Duplicate Site " + unique,
                 "managementModel", "other",
                 "areaCount", 1,
                 "adminUsername", "dup-admin-" + unique,
@@ -158,7 +156,7 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
 
         Map<String, Object> duplicateTenant = Map.of(
                 "tenantName", "Duplicate Tenant " + unique,
-                "siteName", "Other Site " + unique,
+                "facilityName", "Other Site " + unique,
                 "managementModel", "other",
                 "areaCount", 1,
                 "adminUsername", "dup-admin-other-" + unique,
@@ -170,7 +168,7 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
 
         Map<String, Object> duplicateEmail = Map.of(
                 "tenantName", "Other Tenant " + unique,
-                "siteName", "Other Site " + unique,
+                "facilityName", "Other Site " + unique,
                 "managementModel", "school",
                 "areaCount", 1,
                 "adminUsername", "dup-admin-email-" + unique,
@@ -186,7 +184,7 @@ class TenantOnboardingIntegrationTest extends AbstractPostgresIntegrationTest {
         String unique = UUID.randomUUID().toString().substring(0, 8);
         Map<String, Object> body = Map.of(
                 "tenantName", "Role Tenant " + unique,
-                "siteName", "Role Site " + unique,
+                "facilityName", "Role Site " + unique,
                 "managementModel", "hospital",
                 "areaCount", 1,
                 "adminUsername", "role-admin-" + unique,

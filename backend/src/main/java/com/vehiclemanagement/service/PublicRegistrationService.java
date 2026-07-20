@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -55,7 +54,7 @@ public class PublicRegistrationService {
                     RETURNING id
                     """, UUID.class, tenantName, tenantSlug, managementModel, request.getAreaCount());
 
-            UUID siteId = jdbc.queryForObject("""
+            jdbc.queryForObject("""
                     INSERT INTO site(tenant_id, name, location)
                     VALUES (?, ?, NULL)
                     RETURNING id
@@ -78,8 +77,6 @@ public class PublicRegistrationService {
                     .tenantName(tenantName)
                     .managementModel(managementModel)
                     .areaCount(request.getAreaCount())
-                    .siteId(siteId)
-                    .siteName(DEFAULT_SITE_NAME)
                     .userId(userId)
                     .username(username)
                     .email(email)
@@ -130,7 +127,6 @@ public class PublicRegistrationService {
         claims.put("email", email);
         claims.put("userId", userId.toString());
         claims.put("tenant_id", tenantId.toString());
-        claims.put("site_ids", List.of());
         return jwtUtil.generateToken(tokenUser, claims);
     }
 }

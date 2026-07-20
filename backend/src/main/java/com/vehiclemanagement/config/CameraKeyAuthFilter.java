@@ -9,7 +9,6 @@ import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -70,12 +69,10 @@ public class CameraKeyAuthFilter extends OncePerRequestFilter {
 
         var camera = authenticated.get();
         TenantContext.setTenantId(camera.tenantId());
-        SiteContext.setSiteIds(List.of(camera.siteId()));
         request.setAttribute(AUTHENTICATED_CAMERA_ATTRIBUTE, camera.cameraId());
         try {
             filterChain.doFilter(request, response);
         } finally {
-            SiteContext.clear();
             TenantContext.clear();
         }
     }

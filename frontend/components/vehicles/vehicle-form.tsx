@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react"
 import type { Vehicle, Employee } from "@/lib/types"
-import { canManageVehicles } from "@/lib/types"
-import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,8 +11,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { getImageUrl } from "@/lib/api/config"
 import { Upload, X, Image as ImageIcon } from "lucide-react"
 import { vehicleApi } from "@/lib/api/vehicle-api"
-import { siteApi, type Site } from "@/lib/api/site-api"
-import { resolvePreferredSiteId } from "@/lib/site-selection"
 
 interface VehicleFormProps {
   vehicle?: Vehicle
@@ -27,9 +23,6 @@ interface VehicleFormProps {
 }
 
 export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onImageUpload, onAfterSave }: VehicleFormProps) {
-  const { user } = useAuth()
-  const showSiteField = canManageVehicles(user?.role)
-  const [sites, setSites] = useState<Site[]>([])
   const [formData, setFormData] = useState<Partial<Vehicle>>({
     employeeId: vehicle?.employeeId || "",
     employeeName: vehicle?.employeeName || "",
@@ -43,7 +36,6 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
     status: vehicle?.status || "rejected",
     notes: vehicle?.notes || "",
     imagePath: vehicle?.imagePath || "",
-    currentSiteId: vehicle?.currentSiteId || "",
   })
   
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -70,14 +62,12 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
         status: vehicle.status || "rejected",
         notes: vehicle.notes || "",
         imagePath: vehicle.imagePath || "",
-        currentSiteId: vehicle.currentSiteId || "",
       })
       
       const imageUrl = vehicle.imagePath ? getImageUrl(vehicle.imagePath) : null
       setImagePreview(imageUrl)
       setSelectedImage(null)
     } else {
-      const preferred = resolvePreferredSiteId(user?.siteIds)
       setFormData({
         employeeId: "",
         employeeName: "",
@@ -91,17 +81,11 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
         status: "rejected",
         notes: "",
         imagePath: "",
-        currentSiteId: preferred || "",
       })
       setImagePreview(null)
       setSelectedImage(null)
     }
-  }, [vehicle, user?.siteIds])
-
-  useEffect(() => {
-    if (!isOpen || !showSiteField) return
-    siteApi.list().then(setSites).catch(() => setSites([]))
-  }, [isOpen, showSiteField])
+  }, [vehicle])
 
   // Blur license plate input when dialog opens
   useEffect(() => {
@@ -280,27 +264,6 @@ export function VehicleForm({ vehicle, employees, isOpen, onClose, onSave, onIma
                 </Select>
               </div>
             </div>
-
-            {showSiteField && (
-              <div className="space-y-2">
-                <Label htmlFor="currentSiteId">Chi nhánh</Label>
-                <Select
-                  value={formData.currentSiteId || undefined}
-                  onValueChange={(value) => handleInputChange("currentSiteId", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn chi nhánh" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sites.map((site) => (
-                      <SelectItem key={site.id} value={site.id}>
-                        {site.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

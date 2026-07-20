@@ -7,8 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.util.List;
-import java.util.UUID;
 
 
 @Data
@@ -30,6 +28,4 @@ public class UpdateUserRequest {
     private User.Role role;
     private User.UserStatus status;
 
-    /** For SITE_MANAGER and SECURITY_GUARD, replace membership with these site ids. */
-    private List<UUID> siteIds;
 }

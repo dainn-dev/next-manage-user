@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Authenticates STOMP CONNECT and authorizes subscriptions to site dashboard topics. */
+/** Authenticates STOMP CONNECT and authorizes subscriptions to the tenant facility dashboard topics. */
 @Component
 public class DashboardWebSocketAuthorizationInterceptor implements ChannelInterceptor {
     private static final Pattern SITE_TOPIC = Pattern.compile("^/topic/site/([0-9a-fA-F-]{36})/(slots|events)$");
@@ -77,9 +77,6 @@ public class DashboardWebSocketAuthorizationInterceptor implements ChannelInterc
         String role = jwtUtil.extractRole(token);
         if (tenantId == null || !List.of("TENANT_ADMIN", "SITE_MANAGER", "SECURITY_GUARD").contains(role)) {
             throw new AccessDeniedException("Role cannot subscribe to site topic");
-        }
-        if (!"TENANT_ADMIN".equals(role) && !jwtUtil.extractSiteIds(token).contains(siteId)) {
-            throw new AccessDeniedException("Site is outside token scope");
         }
         if (!siteBelongsToTenant(siteId, tenantId)) {
             throw new AccessDeniedException("Site is outside tenant scope");

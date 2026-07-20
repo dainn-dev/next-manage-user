@@ -18,7 +18,6 @@ import {
   ListTree,
   LogOut,
   Map as MapIcon,
-  MapPinned,
   PanelLeftClose,
   PanelLeftOpen,
   ScanLine,
@@ -138,12 +137,6 @@ const tenantNavigationGroups: NavigationGroup[] = [
         key: "/settings/organization",
         label: "Tổ chức",
         icon: Settings,
-        roles: TENANT_ADMIN_ONLY,
-      },
-      {
-        key: "/sites",
-        label: "Khu vực (Sites)",
-        icon: MapPinned,
         roles: TENANT_ADMIN_ONLY,
       },
       {

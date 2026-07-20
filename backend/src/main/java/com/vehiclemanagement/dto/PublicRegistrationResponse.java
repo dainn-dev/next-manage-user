@@ -14,8 +14,6 @@ public class PublicRegistrationResponse {
     private String tenantName;
     private String managementModel;
     private Integer areaCount;
-    private UUID siteId;
-    private String siteName;
     private UUID userId;
     private String username;
     private String email;

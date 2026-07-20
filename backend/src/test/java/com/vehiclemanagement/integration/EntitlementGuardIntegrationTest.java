@@ -5,6 +5,7 @@ import com.vehiclemanagement.billing.EntitlementCheckUnavailableException;
 import com.vehiclemanagement.billing.StripeBillingClient;
 import com.vehiclemanagement.billing.BillingService;
 import com.vehiclemanagement.config.TenantContext;
+import com.vehiclemanagement.exception.ConflictException;
 import com.vehiclemanagement.dto.CameraCreateRequest;
 import com.vehiclemanagement.dto.CameraDto;
 import com.vehiclemanagement.dto.CreateUserRequest;
@@ -114,7 +115,8 @@ class EntitlementGuardIntegrationTest extends AbstractPostgresIntegrationTest {
         request.setName("Overflow Site");
 
         assertThatThrownBy(() -> siteService.create(request))
-                .isInstanceOf(EntitlementExceededException.class);
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("limited to one operating facility");
     }
 
     @Test

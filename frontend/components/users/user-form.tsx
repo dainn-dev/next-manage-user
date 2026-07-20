@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from "react"
 import type { User, CreateUserRequest, UpdateUserRequest, Employee } from "@/lib/types"
-import { UserRole, UserStatus, isSiteScopedOperator } from "@/lib/types"
-import { siteApi, type Site } from "@/lib/api/site-api"
+import { UserRole, UserStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, User as UserIcon, Mail, Lock, Shield, UserCheck, UserX, MapPinned } from "lucide-react"
+import { Eye, EyeOff, User as UserIcon, Mail, Lock, Shield, UserCheck, UserX } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
 
 interface UserFormProps {
   isOpen: boolean
@@ -40,20 +38,13 @@ export function UserForm({
     role: UserRole.USER,
     status: UserStatus.ACTIVE,
     employeeId: "",
-    siteIds: [] as string[],
   })
 
-  const [sites, setSites] = useState<Site[]>([])
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [errors, setErrors] = useState<Partial<Record<"username" | "email" | "password" | "confirmPassword" | "siteIds", string>>>({})
+  const [errors, setErrors] = useState<Partial<Record<"username" | "email" | "password" | "confirmPassword", string>>>({})
   const { toast } = useToast()
-
-  useEffect(() => {
-    if (!isOpen) return
-    void siteApi.list().then(setSites).catch(() => setSites([]))
-  }, [isOpen])
 
   useEffect(() => {
     setErrors({})
@@ -67,7 +58,6 @@ export function UserForm({
         role: user.role || UserRole.USER,
         status: user.status || UserStatus.ACTIVE,
         employeeId: user.employeeId || "none",
-        siteIds: user.siteIds || [],
       })
     } else {
       setFormData({
@@ -79,7 +69,6 @@ export function UserForm({
         role: UserRole.USER,
         status: UserStatus.ACTIVE,
         employeeId: "none",
-        siteIds: [],
       })
     }
   }, [user, isEditing, isOpen])
@@ -87,15 +76,12 @@ export function UserForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const nextErrors: Partial<Record<"username" | "email" | "password" | "confirmPassword" | "siteIds", string>> = {}
+    const nextErrors: Partial<Record<"username" | "email" | "password" | "confirmPassword", string>> = {}
     if (!formData.username.trim()) nextErrors.username = "Nhập tên đăng nhập để tiếp tục."
     if (!formData.email.trim()) nextErrors.email = "Nhập địa chỉ email để tiếp tục."
     if (!isEditing && !formData.password.trim()) nextErrors.password = "Nhập mật khẩu cho tài khoản mới."
     if (!isEditing && formData.password && formData.password.length < 6) nextErrors.password = "Mật khẩu cần có ít nhất 6 ký tự."
     if (!isEditing && formData.password !== formData.confirmPassword) nextErrors.confirmPassword = "Mật khẩu xác nhận chưa khớp."
-    if (isSiteScopedOperator(formData.role) && formData.siteIds.length === 0) {
-      nextErrors.siteIds = "Chọn ít nhất một khu vực cho vai trò vận hành theo site."
-    }
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors)
       const firstField = Object.keys(nextErrors)[0]
@@ -113,7 +99,6 @@ export function UserForm({
         role: formData.role,
         status: formData.status,
         employeeId: formData.employeeId === "none" ? undefined : formData.employeeId || undefined,
-        siteIds: isSiteScopedOperator(formData.role) ? formData.siteIds : [],
       }
       if (!isEditing) {
         ;(userData as CreateUserRequest).password = formData.password
@@ -142,16 +127,6 @@ export function UserForm({
     if (field in errors) {
       setErrors((current) => ({ ...current, [field]: undefined }))
     }
-  }
-
-  const toggleSite = (siteId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      siteIds: prev.siteIds.includes(siteId)
-        ? prev.siteIds.filter((id) => id !== siteId)
-        : [...prev.siteIds, siteId],
-    }))
-    setErrors((current) => ({ ...current, siteIds: undefined }))
   }
 
   return (
@@ -291,8 +266,8 @@ export function UserForm({
                       </SelectItem>
                       <SelectItem value={UserRole.SITE_MANAGER}>
                         <div className="flex items-center space-x-2">
-                          <MapPinned className="h-4 w-4" />
-                          <span>Quản lý chi nhánh</span>
+                          <Shield className="h-4 w-4" />
+                          <span>Quản lý vận hành</span>
                         </div>
                       </SelectItem>
                       <SelectItem value={UserRole.SECURITY_GUARD}>
@@ -345,45 +320,6 @@ export function UserForm({
                   </Select>
                 </div>
               </div>
-
-              {isSiteScopedOperator(formData.role) && (
-                <div className="space-y-2">
-                  <Label>Khu vực được gán *</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {formData.role === UserRole.SECURITY_GUARD
-                      ? "Security guard chỉ quan sát vận hành trong các chi nhánh được chọn."
-                      : "Site manager chỉ vận hành trong các chi nhánh được chọn."}
-                  </p>
-                  <div
-                    id="siteIds"
-                    tabIndex={-1}
-                    aria-invalid={!!errors.siteIds}
-                    aria-describedby={errors.siteIds ? "site-ids-error" : undefined}
-                    className={cn("max-h-40 space-y-2 overflow-y-auto rounded-[var(--radius-input)] border p-3 outline-none", errors.siteIds && "border-destructive ring-2 ring-destructive/20")}
-                  >
-                    {sites.length === 0 && (
-                      <p className="text-sm text-muted-foreground">Chưa có khu vực — tạo site trước.</p>
-                    )}
-                    {sites.map((site) => (
-                      <label
-                        key={site.id}
-                        className={cn(
-                          "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/50",
-                          formData.siteIds.includes(site.id) && "bg-muted"
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.siteIds.includes(site.id)}
-                          onChange={() => toggleSite(site.id)}
-                        />
-                        <span>{site.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {errors.siteIds && <p id="site-ids-error" className="text-xs font-medium text-destructive">{errors.siteIds}</p>}
-                </div>
-              )}
 
               {employees.length > 0 && (
                 <div className="space-y-2">
