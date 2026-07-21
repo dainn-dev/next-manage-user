@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+dist/
+build/
+
+# Tauri
+src-tauri/target/
+src-tauri/WixTools/
+
+# Misc
+.DS_Store
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Credentials (sensitive)
+.agent_credentials.json
+
+# OS
+Thumbs.db

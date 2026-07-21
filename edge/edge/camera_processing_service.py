@@ -58,6 +58,7 @@ from edge.vehicle_tracker import (
 )
 from edge.tracker_state_store import TrackerStateStore
 from edge.prometheus_metrics import EdgeMetrics
+from edge.ipc_protocol import FrameEvents, QueueEvents, WorkerEvents
 
 
 STAGES = (
@@ -188,6 +189,15 @@ class CameraProcessingService:
             captured_at or datetime.now(timezone.utc),
             pixels,
         )
+
+        # Emit frame health event every 150 frames (~10 seconds at 15 FPS)
+        if self._frame_number % 150 == 0:
+            FrameEvents.observed(
+                self.config.camera.camera_id,
+                self._frame_number,
+                retained.metadata.captured_at
+            )
+
         decision = self.motion_gate.process(retained)
         self._log(
             "motion",

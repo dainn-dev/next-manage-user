@@ -4,6 +4,7 @@ import com.vehiclemanagement.billing.TenantAccessStatusResolver;
 import com.vehiclemanagement.billing.TenantBillingAccessFilter;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,9 +29,12 @@ import com.vehiclemanagement.util.JwtUtil;
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
-    
+
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private ApplicationContext applicationContext;
 
     // Deploy 2 = RLS enforced = default-tenant fallback off. When off, a validated
     // non-PLATFORM_ADMIN token with no tenant_id is rejected 401 by TenantContextFilter.
@@ -42,7 +46,9 @@ public class SecurityConfig {
             HttpSecurity http,
             UserDetailsService userDetailsService,
             CameraCredentialResolver credentialResolver,
-            TenantAccessStatusResolver tenantAccessStatusResolver) throws Exception {
+            TenantAccessStatusResolver tenantAccessStatusResolver,
+            com.vehiclemanagement.agent.AgentAuthenticationService agentAuthService,
+            com.vehiclemanagement.agent.SiteAgentRepository agentRepository) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
@@ -59,6 +65,10 @@ public class SecurityConfig {
                 // requires X-Camera-Id/X-Camera-Key and binds the camera tenant context.
                 .requestMatchers(HttpMethod.POST, "/api/cameras/*/heartbeat").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/parking-events").permitAll()
+                // Agent endpoints - permitAll for enroll/refresh, authenticated for others
+                .requestMatchers(HttpMethod.POST, "/api/agent/enroll").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/agent/token/refresh").permitAll()
+                .requestMatchers("/api/agent/**").permitAll() // AgentTokenAuthenticationFilter handles auth
                 .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                 .requestMatchers("/actuator/**").hasRole("PLATFORM_ADMIN")
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
@@ -116,7 +126,8 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthenticationFilter(userDetailsService), UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(tenantContextFilter(), JwtAuthenticationFilter.class)
             .addFilterAfter(cameraKeyAuthFilter(credentialResolver), TenantContextFilter.class)
-            .addFilterAfter(new TenantBillingAccessFilter(tenantAccessStatusResolver), CameraKeyAuthFilter.class)
+            .addFilterAfter(agentTokenAuthenticationFilter(agentAuthService, agentRepository), CameraKeyAuthFilter.class)
+            .addFilterAfter(new TenantBillingAccessFilter(tenantAccessStatusResolver), com.vehiclemanagement.agent.AgentTokenAuthenticationFilter.class)
             .addFilterBefore(gateApiKeyAuthFilter(), JwtAuthenticationFilter.class)
             .addFilterBefore(registrationRateLimitFilter(), JwtAuthenticationFilter.class);
 
@@ -131,6 +142,14 @@ public class SecurityConfig {
     @Bean
     public CameraKeyAuthFilter cameraKeyAuthFilter(CameraCredentialResolver credentialResolver) {
         return new CameraKeyAuthFilter(credentialResolver);
+    }
+
+    @Bean
+    public com.vehiclemanagement.agent.AgentTokenAuthenticationFilter agentTokenAuthenticationFilter(
+        com.vehiclemanagement.agent.AgentAuthenticationService authService,
+        com.vehiclemanagement.agent.SiteAgentRepository agentRepository
+    ) {
+        return new com.vehiclemanagement.agent.AgentTokenAuthenticationFilter(authService, agentRepository);
     }
 
     @Bean

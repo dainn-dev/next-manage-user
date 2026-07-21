@@ -12,6 +12,8 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import cv2
 
 from edge.camera_config import CameraSourceConfig, ConfigValidationError
+from edge.ipc_protocol import StreamEvents
+from edge.error_codes import CameraErrorCode, classify_opencv_error, redact_url
 
 
 class Capture(Protocol):
@@ -66,12 +68,33 @@ def run_camera_source(service: object, source: CameraSourceConfig, *,
             if not is_rtsp:
                 raise ConfigValidationError([
                     f"camera source '{source.location}' is not a readable video"])
-            service._log("capture", "reconnecting", "RTSP source could not be opened",
+
+            # Emit RTSP connection error via IPC
+            error_msg = "RTSP source could not be opened"
+            if hasattr(service, 'config') and hasattr(service.config, 'camera'):
+                StreamEvents.error(
+                    service.config.camera.camera_id,
+                    CameraErrorCode.RTSP_CONNECT_TIMEOUT,
+                    error_msg
+                )
+
+            service._log("capture", "reconnecting", error_msg,
                          reconnect_seconds=reconnect_seconds)
             service.flush_ingest_queue()
             if stop.wait(reconnect_seconds):
                 break
             continue
+
+        # Successfully connected - emit stream connected event
+        if is_rtsp and hasattr(service, 'config') and hasattr(service.config, 'camera'):
+            width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = capture.get(cv2.CAP_PROP_FPS) or 15.0
+            StreamEvents.connected(
+                service.config.camera.camera_id,
+                width, height, fps, "h264"
+            )
+
         service._log("capture", "connected", "camera source opened",
                      source_type=source.source_type)
         try:

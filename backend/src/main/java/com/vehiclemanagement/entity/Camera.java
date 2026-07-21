@@ -90,6 +90,10 @@ public class Camera {
     @Column(name = "last_heartbeat_at")
     private LocalDateTime lastHeartbeatAt;
 
+    @Column(name = "config_version", nullable = false)
+    @Builder.Default
+    private Integer configVersion = 1;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

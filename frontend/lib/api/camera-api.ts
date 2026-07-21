@@ -6,6 +6,25 @@ const API_BASE_URL = getApiUrl()
 export type CameraRole = 'ANPR_GATE' | 'OVERVIEW'
 export type CameraPanelType = 'entry' | 'exit'
 export type CameraStatus = 'provisioned' | 'online' | 'offline' | 'disabled'
+export type CameraConnectionState = 'assigned' | 'connecting' | 'streaming' | 'online' | 'error' | 'stopped' | 'agent_offline'
+
+export interface CameraRuntimeHealth {
+  cameraId: string
+  agentId?: string
+  connectionState: CameraConnectionState
+  lastHeartbeatAt?: string
+  lastFrameAt?: string
+  fps?: number
+  width?: number
+  height?: number
+  codec?: string
+  reconnectCount?: number
+  queueDepth?: number
+  errorCode?: string
+  errorMessageSafe?: string
+  configVersion?: number
+  updatedAt?: string
+}
 
 export interface Camera {
   id: string
@@ -20,6 +39,9 @@ export interface Camera {
   lastHeartbeatAt?: string | null
   createdAt?: string
   updatedAt?: string
+  // Runtime health from agent
+  runtimeHealth?: CameraRuntimeHealth
+  agentName?: string
 }
 
 export interface CameraWriteRequest {
