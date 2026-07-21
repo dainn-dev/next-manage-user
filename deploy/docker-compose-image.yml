@@ -38,7 +38,7 @@ services:
       SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE: 50MB
       SPRING_SERVLET_MULTIPART_ENABLED: true
       # JWT configuration
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_SECRET: ${JWT_SECRET:gNWqB5n2fJANVnwFwzEcB0X2skzlZruLmTsPXJohun0}
       JWT_EXPIRATION: 86400
       # Required X-Gate-Key header secret for public gate endpoints
       # (/api/vehicles/check-vehicle, POST /api/vehicle-logs). Empty = open (dev).

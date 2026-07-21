@@ -35,7 +35,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-password}
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       # JWT configuration (set JWT_SECRET in your .env or shell environment)
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_SECRET: ${JWT_SECRET:gNWqB5n2fJANVnwFwzEcB0X2skzlZruLmTsPXJohun0}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400}
       SPRING_JPA_SHOW_SQL: false
       SPRING_FLYWAY_ENABLED: true

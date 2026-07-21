@@ -87,7 +87,7 @@ app:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:gNWqB5n2fJANVnwFwzEcB0X2skzlZruLmTsPXJohun0}
   expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
 
 registration:

@@ -203,6 +203,14 @@ export async function rollbackMap(
   })))
 }
 
+export async function removeMap(siteId: string, cameraId: string, map: ParkingMapDraft): Promise<void> {
+  const response = await fetch(`${base(siteId, cameraId)}/maps/${map.id}`, {
+    method: 'DELETE',
+    headers: jsonHeaders({ 'If-Match': `\"${map.id}:${map.lockVersion}\"` }),
+  })
+  if (!response.ok) await parse(response)
+}
+
 export async function getUnifiedPreview(siteId: string): Promise<UnifiedMapPreview> {
   return parse(fetch(`${getApiUrl()}/v1/sites/${siteId}/maps/preview`, { headers: jsonHeaders() }))
 }

@@ -107,7 +107,7 @@ public class ParkingMapRepository {
 
     public boolean overlaps(String first, String second) {
         Boolean overlaps = jdbc.queryForObject("""
-                SELECT ST_Overlaps(ST_GeomFromText(:first, 0), ST_GeomFromText(:second, 0))
+                SELECT ST_Area(ST_Intersection(ST_MakeValid(ST_GeomFromText(:first, 0)), ST_MakeValid(ST_GeomFromText(:second, 0)))) > 0.000001
                 """, new MapSqlParameterSource().addValue("first", first).addValue("second", second), Boolean.class);
         return Boolean.TRUE.equals(overlaps);
     }

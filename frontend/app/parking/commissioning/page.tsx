@@ -10,15 +10,20 @@ import {
   Camera as CameraIcon,
   Check,
   CheckCircle2,
+  CheckSquare,
   ClipboardCopy,
   CloudUpload,
   Copy,
   Download,
   Eye,
+  EyeOff,
   FileClock,
+  Grid3x3,
+  Hand,
   KeyRound,
   Loader2,
   MapPinned,
+  MousePointer2,
   Pencil,
   Plus,
   Redo2,
@@ -56,6 +61,7 @@ import {
   importMap,
   listMaps,
   publishMap,
+  removeMap,
   rollbackMap,
   updateMap,
   uploadStill,
@@ -70,6 +76,7 @@ import {
   type SourceImage,
   type UnifiedMapPreview,
 } from "@/lib/api/parking-commissioning-api"
+import { generateGridSlots, validateGridConfig, type Point, type GridConfig } from "@/lib/parking-grid-generator"
 import { zoneApi, type Zone } from "@/lib/api/zone-api"
 import { useAuth } from "@/lib/auth-context"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
@@ -89,6 +96,44 @@ const STEPS = [
 type StepKey = typeof STEPS[number]["key"]
 type CameraLifecycleAction = "unchanged" | "disable" | "enable"
 type SlotSnapshot = ParkingMapSlot[]
+
+const RTSP_TEMPLATES: Record<string, { name: string; url: (u: string, p: string, ip: string, port: string, ch: string, st: string) => string; description: string }> = {
+  hikvision: {
+    name: "Hikvision",
+    url: (u, p, ip, port, ch, st) => `rtsp://${u}:${p}@${ip}:${port}/Streaming/Channels/${ch}0${st === 'sub' ? '2' : '1'}`,
+    description: "Main: channel 01, Sub: channel 02"
+  },
+  dahua: {
+    name: "Dahua",
+    url: (u, p, ip, port, ch, st) => `rtsp://${u}:${p}@${ip}:${port}/cam/realmonitor?channel=${ch}&subtype=${st === 'sub' ? '1' : '0'}`,
+    description: "Main: subtype=0, Sub: subtype=1"
+  },
+  axis: {
+    name: "Axis",
+    url: (u, p, ip, port) => `rtsp://${u}:${p}@${ip}:${port}/axis-media/media.amp`,
+    description: "Standard Axis stream"
+  },
+  bosch: {
+    name: "Bosch",
+    url: (u, p, ip, port) => `rtsp://${u}:${p}@${ip}:${port}/rtsp_tunnel`,
+    description: "Standard Bosch stream"
+  },
+  hanwha: {
+    name: "Hanwha (Samsung)",
+    url: (u, p, ip, port, ch, st) => `rtsp://${u}:${p}@${ip}:${port}/profile${st === 'sub' ? '2' : '1'}_${ch}`,
+    description: "Profile1: main, Profile2: sub"
+  },
+  uniview: {
+    name: "Uniview",
+    url: (u, p, ip, port, ch, st) => `rtsp://${u}:${p}@${ip}:${port}/unicast/c${ch}/s${st === 'sub' ? '1' : '0'}/live`,
+    description: "s0: main, s1: sub"
+  },
+  generic: {
+    name: "Generic/Other",
+    url: (u, p, ip, port) => `rtsp://${u}:${p}@${ip}:${port}/stream1`,
+    description: "Common generic path"
+  }
+}
 
 const EMPTY_CAMERA: CameraWriteRequest = {
   siteId: "",
@@ -136,6 +181,15 @@ export default function ParkingCommissioningPage() {
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null)
   const [cameraForm, setCameraForm] = useState<CameraWriteRequest>(EMPTY_CAMERA)
   const [cameraLifecycleAction, setCameraLifecycleAction] = useState<CameraLifecycleAction>("unchanged")
+  const [showRtspUrl, setShowRtspUrl] = useState(false)
+  const [showRtspBuilder, setShowRtspBuilder] = useState(false)
+  const [rtspBrand, setRtspBrand] = useState("")
+  const [rtspUsername, setRtspUsername] = useState("admin")
+  const [rtspPassword, setRtspPassword] = useState("")
+  const [rtspIp, setRtspIp] = useState("")
+  const [rtspPort, setRtspPort] = useState("554")
+  const [rtspChannel, setRtspChannel] = useState("1")
+  const [rtspStream, setRtspStream] = useState("main")
   const [busy, setBusy] = useState(false)
   const [credential, setCredential] = useState<{ cameraName: string; key: string; expiresAt?: string | null } | null>(null)
 
@@ -152,7 +206,7 @@ export default function ParkingCommissioningPage() {
   const [slotCode, setSlotCode] = useState("")
   const [slotZoneId, setSlotZoneId] = useState("")
   const [slotStatus, setSlotStatus] = useState<ParkingMapSlot["adminStatus"]>("ACTIVE")
-  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
+  const [selectedSlots, setSelectedSlots] = useState<Set<number>>(new Set())
   const [undoStack, setUndoStack] = useState<SlotSnapshot[]>([])
   const [redoStack, setRedoStack] = useState<SlotSnapshot[]>([])
   const [dirty, setDirty] = useState(false)
@@ -162,6 +216,13 @@ export default function ParkingCommissioningPage() {
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState<{ slot: number; vertex: number } | null>(null)
+  const [drawMode, setDrawMode] = useState<'manual' | 'grid'>('manual')
+  const [interactionMode, setInteractionMode] = useState<'select' | 'pan'>('select')
+  const [isPanning, setIsPanning] = useState(false)
+  const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null)
+  const [gridCorners, setGridCorners] = useState<Point[]>([])
+  const [gridConfig, setGridConfig] = useState<GridConfig>({ rows: 5, cols: 10, prefix: 'A-', zoneId: '', status: 'ACTIVE' })
+  const [gridPreview, setGridPreview] = useState<ParkingMapSlot[] | null>(null)
   const autosaveRef = useRef(false)
   const importInputRef = useRef<HTMLInputElement>(null)
   const scopeRequestRef = useRef(0)
@@ -180,7 +241,9 @@ export default function ParkingCommissioningPage() {
       const [nextZones, nextCameras] = await Promise.all([zoneApi.list(siteId), cameraApi.list(siteId)])
       if (scopeRequestId !== scopeRequestRef.current) return
       setZones(nextZones)
-      setSlotZoneId((current) => nextZones.some((zone) => zone.id === current) ? current : nextZones[0]?.id || "")
+      const defaultZoneId = nextZones[0]?.id || ""
+      setSlotZoneId((current) => nextZones.some((zone) => zone.id === current) ? current : defaultZoneId)
+      setGridConfig((current) => ({ ...current, zoneId: nextZones.some((zone) => zone.id === current.zoneId) ? current.zoneId : defaultZoneId }))
       if (cameraRequestId === cameraRequestRef.current) {
         setCameras(nextCameras)
         setSelectedCameraId((current) => nextCameras.some((camera) => camera.id === current)
@@ -293,12 +356,48 @@ export default function ParkingCommissioningPage() {
   const mapPayload = useCallback(() => {
     const width = sourceImage?.nativeWidth || 1
     const height = sourceImage?.nativeHeight || 1
+
+    // Calculate coverage from slots bounding box with 20% margin
+    let coveragePixelVertices = draft?.coveragePixelVertices
+    if (!coveragePixelVertices?.length && slots.length > 0) {
+      // Find bounding box of all slots
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const slot of slots) {
+        for (const v of slot.pixelVertices) {
+          minX = Math.min(minX, v.x)
+          minY = Math.min(minY, v.y)
+          maxX = Math.max(maxX, v.x)
+          maxY = Math.max(maxY, v.y)
+        }
+      }
+      // Add 20% margin to account for homography transformation artifacts
+      const marginX = (maxX - minX) * 0.20
+      const marginY = (maxY - minY) * 0.20
+      minX = Math.max(0, minX - marginX)
+      minY = Math.max(0, minY - marginY)
+      maxX = Math.min(width, maxX + marginX)
+      maxY = Math.min(height, maxY + marginY)
+
+      coveragePixelVertices = [
+        { x: minX, y: minY },
+        { x: maxX, y: minY },
+        { x: maxX, y: maxY },
+        { x: minX, y: maxY }
+      ]
+    } else if (!coveragePixelVertices?.length) {
+      // Fallback to full image if no slots
+      coveragePixelVertices = [
+        { x: 0, y: 0 },
+        { x: width, y: 0 },
+        { x: width, y: height },
+        { x: 0, y: height }
+      ]
+    }
+
     return {
       sourceImageId: sourceImage?.id || draft?.sourceImageId || "",
       calibrationVersionId: calibration?.id || draft?.calibrationVersionId || "",
-      coveragePixelVertices: draft?.coveragePixelVertices?.length
-        ? draft.coveragePixelVertices
-        : [{ x: 0, y: 0 }, { x: width, y: 0 }, { x: width, y: height }, { x: 0, y: height }],
+      coveragePixelVertices,
       slots,
     }
   }, [sourceImage, calibration, draft, slots])
@@ -400,6 +499,15 @@ export default function ParkingCommissioningPage() {
   const openCamera = (camera?: Camera) => {
     setEditingCamera(camera || null)
     setCameraLifecycleAction("unchanged")
+    setShowRtspUrl(false)
+    setShowRtspBuilder(false)
+    setRtspBrand("")
+    setRtspUsername("admin")
+    setRtspPassword("")
+    setRtspIp("")
+    setRtspPort("554")
+    setRtspChannel("1")
+    setRtspStream("main")
     setCameraForm(camera ? {
       siteId: camera.siteId,
       zoneId: camera.zoneId,
@@ -409,6 +517,16 @@ export default function ParkingCommissioningPage() {
       panelType: camera.panelType,
     } : { ...EMPTY_CAMERA, siteId: selectedSiteId || "", zoneId: zones[0]?.id || null })
     setCameraDialog(true)
+  }
+
+  const buildRtspUrl = () => {
+    if (!rtspBrand || !rtspUsername || !rtspPassword || !rtspIp) return
+    const template = RTSP_TEMPLATES[rtspBrand]
+    if (!template) return
+    const url = template.url(rtspUsername, rtspPassword, rtspIp, rtspPort, rtspChannel, rtspStream)
+    setCameraForm((form) => ({ ...form, rtspUrl: url }))
+    setShowRtspBuilder(false)
+    toast({ title: "RTSP URL đã được tạo", description: "Kiểm tra và chỉnh sửa nếu cần" })
   }
 
   const saveCamera = async () => {
@@ -463,8 +581,31 @@ export default function ParkingCommissioningPage() {
 
   const handleImageUpload = async (file?: File) => {
     if (!file || !selectedSiteId || !selectedCameraId) return
+
+    // Confirm if there is existing setup data that will be lost
+    if (calibration || draft) {
+      const confirmed = window.confirm(
+        'Tải ảnh mới sẽ xóa toàn bộ dữ liệu Calibration và Parking Map hiện tại. Bạn có chắc chắn muốn tiếp tục?'
+      )
+      if (!confirmed) return
+    }
+
     setBusy(true)
     try {
+      // Delete existing drafts first
+      if (selectedSiteId && selectedCameraId) {
+        try {
+          const existingMaps = await listMaps(selectedSiteId, selectedCameraId)
+          const existingDrafts = existingMaps.filter(m => m.status === 'draft')
+          for (const draft of existingDrafts) {
+            await deleteMap(selectedSiteId, selectedCameraId, draft)
+          }
+        } catch (error) {
+          // Ignore errors when deleting drafts - they might not exist
+          console.warn('Could not delete existing drafts:', error)
+        }
+      }
+
       const image = await uploadStill(selectedSiteId, selectedCameraId, file)
       setSourceImage(image)
       setControlPoints([])
@@ -475,6 +616,46 @@ export default function ParkingCommissioningPage() {
       toast({ title: "Đã tải ảnh nền", description: `${image.nativeWidth} × ${image.nativeHeight}px` })
     } catch (error) {
       toast({ title: "Tải ảnh thất bại", description: errorMessage(error), variant: "destructive" })
+    } finally { setBusy(false) }
+  }
+
+  const handleCaptureStill = async () => {
+    if (!selectedSiteId || !selectedCameraId) return
+
+    // Confirm if there is existing setup data that will be lost
+    if (calibration || draft) {
+      const confirmed = window.confirm(
+        'Chụp ảnh mới sẽ xóa toàn bộ dữ liệu Calibration và Parking Map hiện tại. Bạn có chắc chắn muốn tiếp tục?'
+      )
+      if (!confirmed) return
+    }
+
+    setBusy(true)
+    try {
+      // Delete existing drafts first
+      if (selectedSiteId && selectedCameraId) {
+        try {
+          const existingMaps = await listMaps(selectedSiteId, selectedCameraId)
+          const existingDrafts = existingMaps.filter(m => m.status === 'draft')
+          for (const draft of existingDrafts) {
+            await deleteMap(selectedSiteId, selectedCameraId, draft)
+          }
+        } catch (error) {
+          // Ignore errors when deleting drafts - they might not exist
+          console.warn('Could not delete existing drafts:', error)
+        }
+      }
+
+      const image = await captureStill(selectedSiteId, selectedCameraId)
+      setSourceImage(image)
+      setControlPoints([])
+      setCalibrationPreview(null)
+      setCalibration(null)
+      setDraft(null)
+      setSlots([])
+      toast({ title: "Đã chụp ảnh nền", description: `${image.nativeWidth} × ${image.nativeHeight}px` })
+    } catch (error) {
+      toast({ title: "Camera chưa hỗ trợ chụp trực tiếp", description: errorMessage(error), variant: "destructive" })
     } finally { setBusy(false) }
   }
 
@@ -517,6 +698,13 @@ export default function ParkingCommissioningPage() {
     if (!selectedSiteId || !selectedCameraId || !sourceImage || !calibration) return
     setBusy(true)
     try {
+      // Delete any existing drafts before creating a new one
+      const existingMaps = await listMaps(selectedSiteId, selectedCameraId)
+      const existingDrafts = existingMaps.filter(m => m.status === 'draft')
+      for (const draft of existingDrafts) {
+        await deleteMap(selectedSiteId, selectedCameraId, draft)
+      }
+
       const created = await createMap(selectedSiteId, selectedCameraId, {
         sourceImageId: sourceImage.id,
         calibrationVersionId: calibration.id,
@@ -538,19 +726,45 @@ export default function ParkingCommissioningPage() {
   }
 
   const editorPoint = (event: React.PointerEvent<SVGSVGElement>): PixelPoint => {
-    const rect = event.currentTarget.getBoundingClientRect()
+    const svg = event.currentTarget
+    const ctm = svg.getScreenCTM()
+    if (!ctm) {
+      // Fallback if CTM is not available
+      const rect = svg.getBoundingClientRect()
+      const width = sourceImage?.nativeWidth || 1
+      const height = sourceImage?.nativeHeight || 1
+      return {
+        x: Math.max(0, Math.min(width, pan.x + (event.clientX - rect.left) / rect.width * width / zoom)),
+        y: Math.max(0, Math.min(height, pan.y + (event.clientY - rect.top) / rect.height * height / zoom)),
+      }
+    }
+
+    // Use inverse CTM to transform screen coordinates to SVG coordinates
+    const pt = svg.createSVGPoint()
+    pt.x = event.clientX
+    pt.y = event.clientY
+    const transformed = pt.matrixTransform(ctm.inverse())
+
     const width = sourceImage?.nativeWidth || 1
     const height = sourceImage?.nativeHeight || 1
     return {
-      x: Math.max(0, Math.min(width, pan.x + (event.clientX - rect.left) / rect.width * width / zoom)),
-      y: Math.max(0, Math.min(height, pan.y + (event.clientY - rect.top) / rect.height * height / zoom)),
+      x: Math.max(0, Math.min(width, transformed.x)),
+      y: Math.max(0, Math.min(height, transformed.y)),
     }
   }
 
   const editorClick = (event: React.MouseEvent<SVGSVGElement>) => {
-    if (dragging || !draft || draft.status !== "DRAFT") return
+    if (dragging || isPanning || !draft || draft.status !== "DRAFT") return
+    if (interactionMode === 'pan') return // Don't draw in pan mode
     const point = editorPoint(event as unknown as React.PointerEvent<SVGSVGElement>)
-    setCurrentPolygon((points) => [...points, point])
+
+    if (drawMode === 'grid') {
+      if (gridCorners.length < 4) {
+        setGridCorners((prev) => [...prev, point])
+      }
+    } else {
+      setCurrentPolygon((points) => [...points, point])
+    }
   }
 
   const finishPolygon = () => {
@@ -575,12 +789,76 @@ export default function ParkingCommissioningPage() {
     setDirty(true)
   }
 
+  const handleCanvasPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (interactionMode === 'pan' && !dragging) {
+      setIsPanning(true)
+      setPanStart({ x: event.clientX, y: event.clientY })
+    }
+  }
+
+  const handleCanvasPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (isPanning && panStart && interactionMode === 'pan') {
+      const dx = event.clientX - panStart.x
+      const dy = event.clientY - panStart.y
+      const svg = event.currentTarget
+      const rect = svg.getBoundingClientRect()
+      const width = sourceImage?.nativeWidth || 1
+      const height = sourceImage?.nativeHeight || 1
+
+      setPan(prev => ({
+        x: Math.max(0, Math.min(width * (1 - 1/zoom), prev.x - (dx / rect.width * width / zoom))),
+        y: Math.max(0, Math.min(height * (1 - 1/zoom), prev.y - (dy / rect.height * height / zoom)))
+      }))
+      setPanStart({ x: event.clientX, y: event.clientY })
+    } else if (dragging) {
+      dragVertex(event)
+    }
+  }
+
+  const handleCanvasPointerUp = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (isPanning) {
+      setIsPanning(false)
+      setPanStart(null)
+    }
+    setDragging(null)
+  }
+
   const copySlot = (index: number) => {
     const original = slots[index]
     if (!original) return
     const copy = offsetSlotCopy(original) as ParkingMapSlot
     changeSlots([...slots, copy])
-    setSelectedSlot(slots.length)
+    setSelectedSlots(new Set([slots.length]))
+  }
+
+  const generateGridPreview = () => {
+    if (gridCorners.length !== 4) return
+
+    const configWithZone = { ...gridConfig, zoneId: gridConfig.zoneId || zones[0]?.id || '' }
+    const validation = validateGridConfig(gridCorners, configWithZone)
+
+    if (!validation.valid) {
+      toast({ title: "Cấu hình không hợp lệ", description: validation.error, variant: "destructive" })
+      return
+    }
+
+    const preview = generateGridSlots(
+      gridCorners as [Point, Point, Point, Point],
+      configWithZone
+    )
+    setGridPreview(preview)
+  }
+
+  const commitGridSlots = () => {
+    if (!gridPreview) return
+
+    changeSlots([...slots, ...gridPreview])
+    toast({ title: "Đã tạo lưới", description: `${gridPreview.length} ô đỗ đã được thêm` })
+
+    // Reset grid state and switch back to manual mode
+    setGridCorners([])
+    setGridPreview(null)
+    setDrawMode('manual')
   }
 
   const updateSlot = (index: number, patch: Partial<Pick<ParkingMapSlot, "code" | "zoneId" | "adminStatus">>) => {
@@ -1047,7 +1325,7 @@ export default function ParkingCommissioningPage() {
                     <Button
                       variant="outline"
                       disabled={!selectedCameraId || busy}
-                      onClick={() => selectedSiteId && selectedCameraId && void captureStill(selectedSiteId, selectedCameraId).catch((error) => toast({ title: "Camera chưa hỗ trợ chụp trực tiếp", description: errorMessage(error), variant: "destructive" }))}
+                      onClick={() => void handleCaptureStill()}
                       className="border-border bg-card hover:bg-muted text-foreground hover:text-foreground h-11 font-medium text-xs"
                     >
                       <CameraIcon className="mr-1.5 h-4 w-4 text-primary" /> Chụp trực tiếp
@@ -1335,6 +1613,49 @@ export default function ParkingCommissioningPage() {
                     {/* SVG Interactive Editor Container */}
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-2.5 rounded-2xl">
+                        {/* Draw Mode Toggle */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-muted-foreground mr-1">Chế độ:</span>
+                          <Button
+                            variant={drawMode === 'manual' ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-9 px-3 gap-1.5"
+                            onClick={() => {
+                              setDrawMode('manual')
+                              setGridCorners([])
+                              setGridPreview(null)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            <span className="text-xs font-medium">Vẽ tay</span>
+                          </Button>
+                          <Button
+                            variant={drawMode === 'grid' ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-9 px-3 gap-1.5"
+                            onClick={() => {
+                              setDrawMode('grid')
+                              setCurrentPolygon([])
+                            }}
+                          >
+                            <Grid3x3 className="h-4 w-4" />
+                            <span className="text-xs font-medium">Lưới tự động</span>
+                          </Button>
+                        </div>
+
+                        {/* Select All Button - appears when slots are selected */}
+                        {selectedSlots.size > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 gap-1.5 border-primary/50 text-primary hover:bg-primary/10"
+                            onClick={() => setSelectedSlots(new Set(slots.map((_, i) => i)))}
+                          >
+                            <CheckSquare className="h-4 w-4" />
+                            <span className="text-xs font-medium">Chọn tất cả ({slots.length})</span>
+                          </Button>
+                        )}
+
                         {/* Zoom Controls */}
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-muted-foreground mr-1">Tỷ lệ:</span>
@@ -1359,42 +1680,43 @@ export default function ParkingCommissioningPage() {
                           </Button>
                         </div>
 
-                        {/* Navigation / Pan Controls */}
+                        {/* Interaction Mode: Select vs Pan */}
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-medium text-muted-foreground mr-1">Di chuyển:</span>
                           <Button
-                            variant="ghost"
+                            variant={interactionMode === 'select' ? 'default' : 'outline'}
                             size="sm"
-                            className="size-11 p-0 font-medium text-muted-foreground hover:text-foreground"
-                            onClick={() => setPan((value) => ({ ...value, y: Math.max(0, value.y - 30) }))}
+                            className="size-9 p-0"
+                            onClick={() => setInteractionMode('select')}
+                            title="Chọn / Vẽ (S)"
                           >
-                            ↑
+                            <MousePointer2 className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant={interactionMode === 'pan' ? 'default' : 'outline'}
                             size="sm"
-                            className="size-11 p-0 font-medium text-muted-foreground hover:text-foreground"
-                            onClick={() => setPan((value) => ({ ...value, x: Math.max(0, value.x - 30) }))}
+                            className="size-9 p-0"
+                            onClick={() => setInteractionMode('pan')}
+                            title="Di chuyển ảnh (H)"
                           >
-                            ←
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="size-11 p-0 font-medium text-muted-foreground hover:text-foreground"
-                            onClick={() => setPan((value) => ({ ...value, x: value.x + 30 }))}
-                          >
-                            →
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="size-11 p-0 font-medium text-muted-foreground hover:text-foreground"
-                            onClick={() => setPan((value) => ({ ...value, y: value.y + 30 }))}
-                          >
-                            ↓
+                            <Hand className="h-4 w-4" />
                           </Button>
                         </div>
+
+                        {/* Delete Selected Slots */}
+                        {selectedSlots.size > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-3 gap-1.5 border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                            onClick={() => {
+                              changeSlots(slots.filter((_, index) => !selectedSlots.has(index)))
+                              setSelectedSlots(new Set())
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="text-xs font-medium">Xóa {selectedSlots.size > 1 ? `${selectedSlots.size} ô` : 'ô'}</span>
+                          </Button>
+                        )}
                       </div>
 
                       {/* SVG Canvas Board */}
@@ -1402,12 +1724,18 @@ export default function ParkingCommissioningPage() {
                         <svg
                           role="img"
                           aria-label="Trình vẽ ô đỗ"
+                          style={{
+                            cursor: interactionMode === 'pan'
+                              ? (isPanning ? 'grabbing' : 'grab')
+                              : 'crosshair'
+                          }}
                           className="block aspect-video w-full touch-none select-none"
                           viewBox={`${pan.x} ${pan.y} ${(sourceImage.nativeWidth || 1) / zoom} ${(sourceImage.nativeHeight || 1) / zoom}`}
                           onClick={editorClick}
-                          onPointerMove={dragVertex}
-                          onPointerUp={() => setDragging(null)}
-                          onPointerLeave={() => setDragging(null)}
+                          onPointerDown={handleCanvasPointerDown}
+                          onPointerMove={handleCanvasPointerMove}
+                          onPointerUp={handleCanvasPointerUp}
+                          onPointerLeave={handleCanvasPointerUp}
                         >
                           <image href={sourceImage.readUrl} x="0" y="0" width={sourceImage.nativeWidth} height={sourceImage.nativeHeight} preserveAspectRatio="none" />
                           {slots.map((slot, slotIndex) => (
@@ -1415,15 +1743,31 @@ export default function ParkingCommissioningPage() {
                               key={`${slot.code}-${slotIndex}`}
                               onClick={(event) => {
                                 event.stopPropagation()
-                                setSelectedSlot(slotIndex)
+                                const isMultiSelect = event.ctrlKey || event.metaKey
+
+                                if (isMultiSelect) {
+                                  // Toggle in/out of selection
+                                  setSelectedSlots(prev => {
+                                    const next = new Set(prev)
+                                    if (next.has(slotIndex)) {
+                                      next.delete(slotIndex)
+                                    } else {
+                                      next.add(slotIndex)
+                                    }
+                                    return next
+                                  })
+                                } else {
+                                  // Single select (clear previous)
+                                  setSelectedSlots(new Set([slotIndex]))
+                                }
                               }}
                               className="cursor-pointer group/slot"
                             >
                               <polygon
                                 points={slot.pixelVertices.map((point) => `${point.x},${point.y}`).join(" ")}
-                                fill={selectedSlot === slotIndex ? "rgba(6,182,212,0.45)" : "rgba(16,185,129,0.25)"}
-                                stroke={selectedSlot === slotIndex ? "#06b6d4" : "#10b981"}
-                                strokeWidth={selectedSlot === slotIndex ? 4 / zoom : 2.5 / zoom}
+                                fill={selectedSlots.has(slotIndex) ? "rgba(6,182,212,0.45)" : "rgba(16,185,129,0.25)"}
+                                stroke={selectedSlots.has(slotIndex) ? "#06b6d4" : "#10b981"}
+                                strokeWidth={selectedSlots.has(slotIndex) ? 4 / zoom : 2.5 / zoom}
                                 className="transition-colors group-hover/slot:fill-cyan-500/30"
                               />
                               {slot.pixelVertices.map((point, vertexIndex) => (
@@ -1431,14 +1775,16 @@ export default function ParkingCommissioningPage() {
                                   key={vertexIndex}
                                   cx={point.x}
                                   cy={point.y}
-                                  r={selectedSlot === slotIndex ? 8 / zoom : 6 / zoom}
-                                  fill={selectedSlot === slotIndex ? "#22d3ee" : "#fff"}
-                                  stroke={selectedSlot === slotIndex ? "#0891b2" : "#10b981"}
+                                  r={selectedSlots.has(slotIndex) ? 8 / zoom : 6 / zoom}
+                                  fill={selectedSlots.has(slotIndex) ? "#22d3ee" : "#fff"}
+                                  stroke={selectedSlots.has(slotIndex) ? "#0891b2" : "#10b981"}
                                   strokeWidth={2 / zoom}
                                   onPointerDown={(event) => {
                                     event.stopPropagation()
-                                    setUndoStack((stack) => [...stack.slice(-29), cloneSlots(slots)])
-                                    setDragging({ slot: slotIndex, vertex: vertexIndex })
+                                    if (selectedSlots.has(slotIndex)) {
+                                      setUndoStack((stack) => [...stack.slice(-29), cloneSlots(slots)])
+                                      setDragging({ slot: slotIndex, vertex: vertexIndex })
+                                    }
                                   }}
                                   className="cursor-move hover:scale-125 transition-transform"
                                 />
@@ -1464,81 +1810,264 @@ export default function ParkingCommissioningPage() {
                               strokeWidth={3 / zoom}
                             />
                           )}
+                          {drawMode === 'grid' && gridCorners.length > 0 && (
+                            <>
+                              {/* Grid corner markers */}
+                              {gridCorners.map((corner, idx) => (
+                                <circle
+                                  key={idx}
+                                  cx={corner.x}
+                                  cy={corner.y}
+                                  r={10 / zoom}
+                                  fill="#f59e0b"
+                                  stroke="#fff"
+                                  strokeWidth={3 / zoom}
+                                />
+                              ))}
+                              {/* Grid boundary */}
+                              {gridCorners.length === 4 && (
+                                <polygon
+                                  points={gridCorners.map((point) => `${point.x},${point.y}`).join(" ")}
+                                  fill="rgba(245,158,11,0.1)"
+                                  stroke="#f59e0b"
+                                  strokeWidth={3 / zoom}
+                                  strokeDasharray={`${10 / zoom},${5 / zoom}`}
+                                />
+                              )}
+                            </>
+                          )}
+                          {/* Grid preview overlay */}
+                          {gridPreview && gridPreview.map((slot, idx) => (
+                            <g key={`preview-${idx}`}>
+                              <polygon
+                                points={slot.pixelVertices.map((point) => `${point.x},${point.y}`).join(" ")}
+                                fill="rgba(59,130,246,0.15)"
+                                stroke="#3b82f6"
+                                strokeWidth={2 / zoom}
+                              />
+                              <text
+                                x={slot.pixelVertices[0]?.x}
+                                y={(slot.pixelVertices[0]?.y || 0) - 8 / zoom}
+                                fill="#1e40af"
+                                fontSize={16 / zoom}
+                                stroke="white"
+                                strokeWidth={0.6}
+                                className="font-medium select-none"
+                              >
+                                {slot.code}
+                              </text>
+                            </g>
+                          ))}
                         </svg>
                       </div>
                     </div>
 
                     {/* Editor Action sidebar panels */}
                     <div className="space-y-4">
-                      {/* Active Slot Form */}
-                      <Card className="border border-border bg-muted/10 rounded-2xl p-4 space-y-4">
-                        <div className="border-b border-border pb-2">
-                          <p className="font-medium text-xs font-bold text-primary flex items-center gap-1.5">
-                            <span className="size-1 rounded-full bg-primary animate-ping" />
-                            Ô ĐANG VẼ
-                          </p>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <Field label="Mã ô đỗ">
-                            <Input
-                              value={slotCode}
-                              onChange={(event) => setSlotCode(event.target.value)}
-                              placeholder="Ví dụ: A-01"
-                              className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl"
-                            />
-                          </Field>
-                          
-                          <Field label="Vùng Zone">
-                            <Select value={slotZoneId} onValueChange={setSlotZoneId}>
-                              <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
-                                <SelectValue placeholder="Chọn zone" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-background border-border text-foreground">
-                                {zones.map((zone) => (
-                                  <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted focus:text-foreground font-medium text-xs">
-                                    {zone.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </Field>
-
-                          <Field label="Trạng thái quản trị">
-                            <Select value={slotStatus} onValueChange={(value) => setSlotStatus(value as ParkingMapSlot["adminStatus"])}>
-                              <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-background border-border text-foreground">
-                                <SelectItem value="ACTIVE" className="focus:bg-muted font-medium text-xs text-emerald-600">ACTIVE</SelectItem>
-                                <SelectItem value="RESERVED" className="focus:bg-muted font-medium text-xs text-amber-600">RESERVED</SelectItem>
-                                <SelectItem value="DISABLED" className="focus:bg-muted font-medium text-xs text-rose-600">DISABLED</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </Field>
-
-                          <div className="flex gap-2 pt-2">
-                            <Button
-                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium font-bold text-sm tracking-wide h-11 rounded-xl"
-                              disabled={currentPolygon.length < 3 || !slotCode.trim() || !slotZoneId}
-                              onClick={finishPolygon}
-                            >
-                              <Check className="mr-1 h-3.5 w-3.5" /> Hoàn tất ô đỗ
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => setCurrentPolygon([])}
-                              className="border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground size-11 p-0"
-                              title="Hủy nét vẽ hiện tại"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
+                      {/* Active Slot Form (Manual Mode) */}
+                      {drawMode === 'manual' && (
+                        <Card className="border border-border bg-muted/10 rounded-2xl p-4 space-y-4">
+                          <div className="border-b border-border pb-2">
+                            <p className="font-medium text-xs font-bold text-primary flex items-center gap-1.5">
+                              <span className="size-1 rounded-full bg-primary animate-ping" />
+                              Ô ĐANG VẼ
+                            </p>
                           </div>
-                        </div>
-                      </Card>
+
+                          <div className="space-y-3">
+                            <Field label="Mã ô đỗ">
+                              <Input
+                                value={slotCode}
+                                onChange={(event) => setSlotCode(event.target.value)}
+                                placeholder="Ví dụ: A-01"
+                                className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl"
+                              />
+                            </Field>
+
+                            <Field label="Vùng Zone">
+                              <Select value={slotZoneId} onValueChange={setSlotZoneId}>
+                                <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
+                                  <SelectValue placeholder="Chọn zone" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-background border-border text-foreground">
+                                  {zones.map((zone) => (
+                                    <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted focus:text-foreground font-medium text-xs">
+                                      {zone.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </Field>
+
+                            <Field label="Trạng thái quản trị">
+                              <Select value={slotStatus} onValueChange={(value) => setSlotStatus(value as ParkingMapSlot["adminStatus"])}>
+                                <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-background border-border text-foreground">
+                                  <SelectItem value="ACTIVE" className="focus:bg-muted font-medium text-xs text-emerald-600">ACTIVE</SelectItem>
+                                  <SelectItem value="RESERVED" className="focus:bg-muted font-medium text-xs text-amber-600">RESERVED</SelectItem>
+                                  <SelectItem value="DISABLED" className="focus:bg-muted font-medium text-xs text-rose-600">DISABLED</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </Field>
+
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium font-bold text-sm tracking-wide h-11 rounded-xl"
+                                disabled={currentPolygon.length < 3 || !slotCode.trim() || !slotZoneId}
+                                onClick={finishPolygon}
+                              >
+                                <Check className="mr-1 h-3.5 w-3.5" /> Hoàn tất ô đỗ
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setCurrentPolygon([])
+                                  setGridCorners([])
+                                  setGridPreview(null)
+                                }}
+                                className="border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground size-11 p-0"
+                                title="Hủy nét vẽ hiện tại"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+
+                      {/* Grid Configuration Form (Grid Mode) */}
+                      {drawMode === 'grid' && (
+                        <Card className="border border-border bg-muted/10 rounded-2xl p-4 space-y-4">
+                          <div className="border-b border-border pb-2">
+                            <p className="font-medium text-xs font-bold text-primary flex items-center gap-1.5">
+                              <Grid3x3 className="h-3.5 w-3.5" />
+                              CẤU HÌNH LƯỚI TỰ ĐỘNG
+                            </p>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3">
+                              <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">
+                                📍 Nhấp 4 góc lưới trên ảnh ({gridCorners.length}/4)
+                              </p>
+                              <p className="text-xs text-blue-600/80 dark:text-blue-400/70">
+                                Chọn theo thứ tự: trái-trên → phải-trên → phải-dưới → trái-dưới
+                              </p>
+                            </div>
+
+                            {gridCorners.length === 4 && (
+                              <>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Field label="Số hàng">
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="50"
+                                      value={gridConfig.rows}
+                                      onChange={(e) => setGridConfig({ ...gridConfig, rows: parseInt(e.target.value) || 1 })}
+                                      className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl"
+                                    />
+                                  </Field>
+                                  <Field label="Số cột">
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="50"
+                                      value={gridConfig.cols}
+                                      onChange={(e) => setGridConfig({ ...gridConfig, cols: parseInt(e.target.value) || 1 })}
+                                      className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl"
+                                    />
+                                  </Field>
+                                </div>
+
+                                <Field label="Tiền tố mã">
+                                  <Input
+                                    value={gridConfig.prefix}
+                                    onChange={(e) => setGridConfig({ ...gridConfig, prefix: e.target.value })}
+                                    placeholder="Ví dụ: A-, B1-"
+                                    className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl"
+                                  />
+                                </Field>
+
+                                <Field label="Vùng Zone">
+                                  <Select value={gridConfig.zoneId} onValueChange={(value) => setGridConfig({ ...gridConfig, zoneId: value })}>
+                                    <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
+                                      <SelectValue placeholder="Chọn zone" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background border-border text-foreground">
+                                      {zones.map((zone) => (
+                                        <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted focus:text-foreground font-medium text-xs">
+                                          {zone.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </Field>
+
+                                <Field label="Trạng thái">
+                                  <Select value={gridConfig.status} onValueChange={(value) => setGridConfig({ ...gridConfig, status: value as ParkingMapSlot["adminStatus"] })}>
+                                    <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background border-border text-foreground">
+                                      <SelectItem value="ACTIVE" className="focus:bg-muted font-medium text-xs text-emerald-600">ACTIVE</SelectItem>
+                                      <SelectItem value="RESERVED" className="focus:bg-muted font-medium text-xs text-amber-600">RESERVED</SelectItem>
+                                      <SelectItem value="DISABLED" className="focus:bg-muted font-medium text-xs text-rose-600">DISABLED</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </Field>
+
+                                <div className="flex gap-2 pt-2">
+                                  {!gridPreview ? (
+                                    <>
+                                      <Button
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm h-11 rounded-xl"
+                                        onClick={generateGridPreview}
+                                      >
+                                        <Eye className="mr-1.5 h-4 w-4" /> Xem trước
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => setGridCorners([])}
+                                        className="border-border bg-card hover:bg-muted size-11 p-0"
+                                        title="Xóa các góc đã chọn"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium font-bold text-sm h-11 rounded-xl"
+                                        onClick={commitGridSlots}
+                                      >
+                                        <Check className="mr-1.5 h-4 w-4" /> Tạo {gridPreview.length} ô
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => setGridPreview(null)}
+                                        className="border-border bg-card hover:bg-muted size-11 p-0"
+                                        title="Hủy xem trước"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </Card>
+                      )}
 
                       {/* Selected Slot Inspector */}
-                      {selectedSlot !== null && slots[selectedSlot] && (
+                      {selectedSlots.size === 1 && (() => {
+                        const selectedIndex = Array.from(selectedSlots)[0]
+                        const slot = slots[selectedIndex]
+                        if (!slot) return null
+                        return (
                         <Card className="border border-primary/20 bg-primary/10 rounded-2xl p-4 space-y-4">
                           <div className="border-b border-primary/20 pb-2">
                             <p className="font-medium text-xs font-bold text-primary flex items-center gap-1.5">
@@ -1550,16 +2079,16 @@ export default function ParkingCommissioningPage() {
                           <div className="space-y-3.5">
                             <Field label="Mã ô đỗ">
                               <Input
-                                value={slots[selectedSlot].code}
-                                onChange={(event) => updateSlot(selectedSlot, { code: event.target.value })}
+                                value={slot.code}
+                                onChange={(event) => updateSlot(selectedIndex, { code: event.target.value })}
                                 className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl"
                               />
                             </Field>
 
                             <Field label="Vùng Zone">
                               <Select
-                                value={slots[selectedSlot].zoneId}
-                                onValueChange={(value) => updateSlot(selectedSlot, { zoneId: value })}
+                                value={slot.zoneId}
+                                onValueChange={(value) => updateSlot(selectedIndex, { zoneId: value })}
                               >
                                 <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
                                   <SelectValue />
@@ -1576,8 +2105,8 @@ export default function ParkingCommissioningPage() {
 
                             <Field label="Trạng thái">
                               <Select
-                                value={slots[selectedSlot].adminStatus}
-                                onValueChange={(value) => updateSlot(selectedSlot, { adminStatus: value as ParkingMapSlot["adminStatus"] })}
+                                value={slot.adminStatus}
+                                onValueChange={(value) => updateSlot(selectedIndex, { adminStatus: value as ParkingMapSlot["adminStatus"] })}
                               >
                                 <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
                                   <SelectValue />
@@ -1594,7 +2123,7 @@ export default function ParkingCommissioningPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => copySlot(selectedSlot)}
+                                onClick={() => copySlot(selectedIndex)}
                                 className="border-border bg-card hover:bg-muted text-foreground h-11 font-medium text-xs"
                               >
                                 <Copy className="mr-1 h-3.5 w-3.5" /> Sao chép
@@ -1604,13 +2133,41 @@ export default function ParkingCommissioningPage() {
                                 size="sm"
                                 className="border-border bg-card text-rose-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 h-11 font-medium text-xs ml-auto"
                                 onClick={() => {
-                                  changeSlots(slots.filter((_, index) => index !== selectedSlot))
-                                  setSelectedSlot(null)
+                                  changeSlots(slots.filter((_, index) => index !== selectedIndex))
+                                  setSelectedSlots(new Set())
                                 }}
                               >
                                 <Trash2 className="mr-1 h-3.5 w-3.5" /> Xóa
                               </Button>
                             </div>
+                          </div>
+                        </Card>
+                        )
+                      })()}
+
+                      {/* Multi-Select Actions */}
+                      {selectedSlots.size > 1 && (
+                        <Card className="border border-rose-500/30 bg-rose-50/50 dark:bg-rose-950/20 rounded-2xl p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm text-rose-700 dark:text-rose-400">
+                                Đã chọn {selectedSlots.size} ô
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Nhấn Delete để xóa hàng loạt
+                              </p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-rose-500 bg-white dark:bg-background text-rose-600 hover:bg-rose-50 hover:border-rose-600 hover:text-rose-700 h-11 font-medium text-xs"
+                              onClick={() => {
+                                changeSlots(slots.filter((_, index) => !selectedSlots.has(index)))
+                                setSelectedSlots(new Set())
+                              }}
+                            >
+                              <Trash2 className="mr-1 h-3.5 w-3.5" /> Xóa {selectedSlots.size} ô
+                            </Button>
                           </div>
                         </Card>
                       )}
@@ -1700,6 +2257,17 @@ export default function ParkingCommissioningPage() {
               await rollbackMap(selectedSiteId, selectedCameraId, item, reason)
               await loadHistory()
               setStep("verify")
+            }}
+            onRemove={async (item) => {
+              if (!selectedSiteId || !selectedCameraId) return
+              const confirmed = window.confirm(
+                `Xóa vĩnh viễn phiên bản v${item.versionNumber} (${item.status})?\n\n` +
+                "Hành động này KHÔNG THỂ HOÀN TÁC. Dùng để xóa data cũ tránh conflict 409 khi upload setup mới."
+              )
+              if (!confirmed) return
+              await removeMap(selectedSiteId, selectedCameraId, item)
+              await loadHistory()
+              toast({ title: "Đã xóa", description: `Phiên bản v${item.versionNumber} đã được xóa vĩnh viễn.` })
             }}
           />
         </div>
@@ -1802,7 +2370,7 @@ export default function ParkingCommissioningPage() {
 
       {/* Modern High-Tech Modals / Dialogs */}
       <Dialog open={zoneDialog} onOpenChange={setZoneDialog}>
-        <DialogContent className="bg-background border border-border text-foreground font-medium max-w-md p-6 rounded-2xl relative overflow-hidden">
+        <DialogContent className="bg-background border border-border text-foreground font-medium max-w-md p-6 rounded-2xl">
           <DialogHeader className="pb-4 border-b border-border">
             <DialogTitle className="text-sm font-medium tracking-wider text-primary">
               {editingZone ? "CHỈNH SỬA VÙNG ZONE" : "KÍCH HOẠT VÙNG ZONE MỚI"}
@@ -1839,7 +2407,7 @@ export default function ParkingCommissioningPage() {
       </Dialog>
 
       <Dialog open={cameraDialog} onOpenChange={setCameraDialog}>
-        <DialogContent className="bg-background border border-border text-foreground font-medium sm:max-w-2xl p-6 rounded-2xl relative overflow-hidden">
+        <DialogContent className="bg-background border border-border text-foreground font-medium sm:max-w-2xl p-6 rounded-2xl">
           <DialogHeader className="pb-4 border-b border-border">
             <DialogTitle className="text-sm font-medium tracking-wider text-primary">
               {editingCamera ? "CHỈNH SỬA CAMERA" : "THIẾT LẬP THIẾT BỊ CAMERA"}
@@ -1932,14 +2500,141 @@ export default function ParkingCommissioningPage() {
             )}
             <div className="md:col-span-2">
               <Field label={editingCamera ? "Thay đổi RTSP URL mới (để trống nếu giữ nguyên)" : "Địa chỉ liên kết RTSP"}>
-                <Input
-                  type="password"
-                  autoComplete="off"
-                  value={cameraForm.rtspUrl || ""}
-                  onChange={(event) => setCameraForm((form) => ({ ...form, rtspUrl: event.target.value }))}
-                  placeholder="rtsp://admin:password@192.168.1.100:554/stream1"
-                  className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl focus-visible:ring-primary"
-                />
+                <div className="relative">
+                  <Input
+                    type={showRtspUrl ? "text" : "password"}
+                    autoComplete="off"
+                    value={cameraForm.rtspUrl || ""}
+                    onChange={(event) => setCameraForm((form) => ({ ...form, rtspUrl: event.target.value }))}
+                    placeholder="rtsp://admin:password@192.168.1.100:554/stream1"
+                    className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl focus-visible:ring-primary pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowRtspUrl(!showRtspUrl)}
+                    className="absolute right-0 top-0 h-11 px-3 hover:bg-transparent"
+                  >
+                    {showRtspUrl ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+                <div className="mt-2 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowRtspBuilder(!showRtspBuilder)}
+                    className="text-primary text-xs font-medium h-auto p-0"
+                  >
+                    {showRtspBuilder ? "Ẩn trợ giúp" : "Trợ giúp xây dựng URL"}
+                  </Button>
+                </div>
+                {showRtspBuilder && (
+                  <div className="mt-4 p-4 bg-muted/50 border border-border rounded-xl space-y-4">
+                    <div className="text-xs font-semibold text-foreground mb-3">Tạo RTSP URL tự động</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="md:col-span-2">
+                        <label className="text-xs font-medium text-muted-foreground block mb-1.5">Hãng camera</label>
+                        <Select value={rtspBrand} onValueChange={setRtspBrand}>
+                          <SelectTrigger className="w-full bg-background border-border text-foreground font-medium h-10 rounded-lg">
+                            <SelectValue placeholder="Chọn hãng camera..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background border-border text-foreground">
+                            {Object.entries(RTSP_TEMPLATES).map(([key, template]) => (
+                              <SelectItem key={key} value={key} className="focus:bg-muted font-medium text-xs">
+                                {template.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {rtspBrand && (
+                          <p className="text-xs text-muted-foreground mt-1">{RTSP_TEMPLATES[rtspBrand].description}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block mb-1.5">Username</label>
+                        <Input
+                          type="text"
+                          value={rtspUsername}
+                          onChange={(e) => setRtspUsername(e.target.value)}
+                          placeholder="admin"
+                          className="bg-background border-border text-foreground text-xs font-medium h-10 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block mb-1.5">Password</label>
+                        <Input
+                          type="text"
+                          value={rtspPassword}
+                          onChange={(e) => setRtspPassword(e.target.value)}
+                          placeholder="password123"
+                          className="bg-background border-border text-foreground text-xs font-medium h-10 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block mb-1.5">IP Camera</label>
+                        <Input
+                          type="text"
+                          value={rtspIp}
+                          onChange={(e) => setRtspIp(e.target.value)}
+                          placeholder="192.168.1.100"
+                          className="bg-background border-border text-foreground text-xs font-medium h-10 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block mb-1.5">Port</label>
+                        <Input
+                          type="text"
+                          value={rtspPort}
+                          onChange={(e) => setRtspPort(e.target.value)}
+                          placeholder="554"
+                          className="bg-background border-border text-foreground text-xs font-medium h-10 rounded-lg"
+                        />
+                      </div>
+                      {rtspBrand && !['axis', 'bosch', 'generic'].includes(rtspBrand) && (
+                        <>
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground block mb-1.5">Channel</label>
+                            <Input
+                              type="text"
+                              value={rtspChannel}
+                              onChange={(e) => setRtspChannel(e.target.value)}
+                              placeholder="1"
+                              className="bg-background border-border text-foreground text-xs font-medium h-10 rounded-lg"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground block mb-1.5">Stream</label>
+                            <Select value={rtspStream} onValueChange={setRtspStream}>
+                              <SelectTrigger className="w-full bg-background border-border text-foreground font-medium h-10 rounded-lg">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background border-border text-foreground">
+                                <SelectItem value="main" className="focus:bg-muted font-medium text-xs">Main (chất lượng cao)</SelectItem>
+                                <SelectItem value="sub" className="focus:bg-muted font-medium text-xs">Sub (chất lượng thấp)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        type="button"
+                        onClick={buildRtspUrl}
+                        disabled={!rtspBrand || !rtspUsername || !rtspPassword || !rtspIp}
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs rounded-lg h-9 px-4"
+                      >
+                        Tạo URL
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </Field>
             </div>
           </div>
@@ -1964,7 +2659,7 @@ export default function ParkingCommissioningPage() {
       </Dialog>
 
       <Dialog open={Boolean(credential)} onOpenChange={(open) => !open && setCredential(null)}>
-        <DialogContent className="bg-background border border-border text-foreground font-medium max-w-lg p-6 rounded-2xl relative overflow-hidden">
+        <DialogContent className="bg-background border border-border text-foreground font-medium max-w-lg p-6 rounded-2xl">
           <DialogHeader className="pb-4 border-b border-border">
             <DialogTitle className="text-sm font-medium tracking-wider text-primary flex items-center gap-2">
               <span className="size-1.5 rounded-full bg-primary animate-ping" />
@@ -2129,12 +2824,14 @@ function History({
   onExport,
   onArchive,
   onRollback,
+  onRemove,
 }: {
   history: ParkingMapDraft[]
   onRefresh: () => void
   onExport: (item: ParkingMapDraft) => Promise<void>
   onArchive: (item: ParkingMapDraft) => Promise<void>
   onRollback: (item: ParkingMapDraft) => Promise<void>
+  onRemove: (item: ParkingMapDraft) => Promise<void>
 }) {
   return (
     <Card className="border-border bg-card shadow-sm">
@@ -2232,6 +2929,16 @@ function History({
                             className="h-11 px-2.5 border-border bg-muted/10 hover:bg-muted text-muted-foreground hover:text-foreground font-medium text-xs tracking-wide"
                           >
                             <RotateCw className="mr-1 h-3 w-3" /> Rollback
+                          </Button>
+                        )}
+                        {(item.status === "DRAFT" || item.status === "ARCHIVED") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void onRemove(item)}
+                            className="h-11 px-2.5 border-destructive/50 bg-destructive/5 hover:bg-destructive/10 text-destructive hover:text-destructive font-medium text-xs tracking-wide"
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" /> Remove
                           </Button>
                         )}
                       </div>

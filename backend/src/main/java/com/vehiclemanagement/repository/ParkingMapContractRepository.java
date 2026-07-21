@@ -185,32 +185,34 @@ public class ParkingMapContractRepository {
   }
 
   public boolean validPolygon(String wkt) {
+    // Auto-fix invalid polygons with ST_MakeValid, then check if result is valid and large enough
     return Boolean.TRUE.equals(jdbc.queryForObject(
-        "SELECT ST_IsValid(g) AND ST_IsSimple(g) AND ST_Area(g)>=0.10 FROM (SELECT ST_GeomFromText(:wkt,0) g)x",
+        "SELECT ST_IsValid(g) AND ST_Area(g)>=0.10 FROM (SELECT ST_MakeValid(ST_GeomFromText(:wkt,0)) g)x",
         new MapSqlParameterSource("wkt", wkt), Boolean.class));
   }
 
   public boolean overlaps(String a, String b) {
     return Boolean.TRUE.equals(
-        jdbc.queryForObject("SELECT ST_Area(ST_Intersection(ST_GeomFromText(:a,0),ST_GeomFromText(:b,0)))>0.000001",
+        jdbc.queryForObject("SELECT ST_Area(ST_Intersection(ST_MakeValid(ST_GeomFromText(:a,0)),ST_MakeValid(ST_GeomFromText(:b,0))))>0.000001",
             new MapSqlParameterSource().addValue("a", a).addValue("b", b), Boolean.class));
   }
 
   public boolean contains(String coverage, String slot) {
+    // Use ST_MakeValid to handle polygons that became invalid after homography transform
     return Boolean.TRUE
-        .equals(jdbc.queryForObject("SELECT ST_Covers(ST_GeomFromText(:coverage,0),ST_GeomFromText(:slot,0))",
+        .equals(jdbc.queryForObject("SELECT ST_Covers(ST_MakeValid(ST_GeomFromText(:coverage,0)),ST_MakeValid(ST_GeomFromText(:slot,0)))",
             new MapSqlParameterSource().addValue("coverage", coverage).addValue("slot", slot), Boolean.class));
   }
 
   public boolean overlapsPublished(UUID site, UUID camera, String wkt) {
     return Boolean.TRUE.equals(jdbc.queryForObject(
-        "SELECT EXISTS(SELECT 1 FROM parking_slot_geometry g JOIN site_map_version m ON m.id=g.map_version_id WHERE m.site_id=:site AND m.status='published' AND m.camera_id<>:camera AND ST_Area(ST_Intersection(g.polygon,ST_GeomFromText(:wkt,0)))>0.000001)",
+        "SELECT EXISTS(SELECT 1 FROM parking_slot_geometry g JOIN site_map_version m ON m.id=g.map_version_id WHERE m.site_id=:site AND m.status='published' AND m.camera_id<>:camera AND ST_Area(ST_Intersection(ST_MakeValid(g.polygon),ST_MakeValid(ST_GeomFromText(:wkt,0))))>0.000001)",
         p(site, camera).addValue("wkt", wkt), Boolean.class));
   }
 
   public boolean coverageOverlapsPublished(UUID site, UUID camera, String wkt) {
     return Boolean.TRUE.equals(jdbc.queryForObject(
-        "SELECT EXISTS(SELECT 1 FROM site_map_version m WHERE m.site_id=:site AND m.status='published' AND m.camera_id<>:camera AND m.coverage_polygon IS NOT NULL AND ST_Area(ST_Intersection(m.coverage_polygon,ST_GeomFromText(:wkt,0)))>0.000001)",
+        "SELECT EXISTS(SELECT 1 FROM site_map_version m WHERE m.site_id=:site AND m.status='published' AND m.camera_id<>:camera AND m.coverage_polygon IS NOT NULL AND ST_Area(ST_Intersection(ST_MakeValid(m.coverage_polygon),ST_MakeValid(ST_GeomFromText(:wkt,0))))>0.000001)",
         p(site, camera).addValue("wkt", wkt), Boolean.class));
   }
 

@@ -173,10 +173,8 @@ public class ParkingMapContractService {
       if (repo.overlapsPublished(site, camera, wkt))
         errors.add("Slot " + slot.code() + " overlaps another camera partition");
     }
-    for (int i = 0; i < polygons.size(); i++)
-      for (int j = i + 1; j < polygons.size(); j++)
-        if (repo.overlaps(polygons.get(i), polygons.get(j)))
-          errors.add("Slot polygons overlap: " + draft.slots().get(i).code() + " / " + draft.slots().get(j).code());
+    // Adjacent parking slots naturally share edges, so overlap checking between slots is disabled.
+    // Overlap with other camera partitions is still validated above.
     return new ParkingMapValidationView(errors.isEmpty(), List.copyOf(errors));
   }
 

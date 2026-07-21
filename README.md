@@ -89,6 +89,7 @@ python run_edge.py
 
 ## Documentation
 
+- **[DOCKER.md](DOCKER.md)** — **Docker Compose setup guide** (PostgreSQL, MinIO, Backend, Frontend)
 - `docs/DOCKER_DEPLOYMENT.md` — container build & deployment.
 - `docs/ENVIRONMENT_SETUP.md` — environment variables and local setup.
 - `docs/UPDATED_CREDENTIALS.md` — roles + sample testing accounts.
@@ -107,3 +108,5 @@ python run_edge.py
 | Frontend | 3000 | Next.js |
 | Backend  | 8080 | REST API under `/api`, WebSocket for live updates |
 | Postgres | 5432 | database `vehicle_management` |
+| MinIO    | 9000 | S3-compatible object storage (API) |
+| MinIO Console | 9001 | Web UI for bucket management |
