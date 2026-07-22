@@ -7,6 +7,7 @@ import {
   Archive,
   ArrowLeft,
   ArrowRight,
+  Building2,
   Camera as CameraIcon,
   Check,
   CheckCircle2,
@@ -78,6 +79,7 @@ import {
 } from "@/lib/api/parking-commissioning-api"
 import { generateGridSlots, validateGridConfig, type Point, type GridConfig } from "@/lib/parking-grid-generator"
 import { zoneApi, type Zone } from "@/lib/api/zone-api"
+import { parkingFloorApi, type ParkingFloor } from "@/lib/api/parking-floor-api"
 import { useAuth } from "@/lib/auth-context"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
 import { calibrationInputReady, calibrationPointsToGridCorners, mapPublishReady, offsetSlotCopy, zoneDeletionBlockers } from "@/lib/parking-commissioning-policy.mjs"
@@ -170,6 +172,7 @@ export default function ParkingCommissioningPage() {
   const { sites, selectedSiteId, isLoading: sitesLoading } = useDashboardScope()
   const { toast } = useToast()
   const [step, setStep] = useState<StepKey>("site")
+  const [floors, setFloors] = useState<ParkingFloor[]>([])
   const [zones, setZones] = useState<Zone[]>([])
   const [cameras, setCameras] = useState<Camera[]>([])
   const [selectedCameraId, setSelectedCameraId] = useState("")
@@ -178,6 +181,11 @@ export default function ParkingCommissioningPage() {
   const [zoneDialog, setZoneDialog] = useState(false)
   const [editingZone, setEditingZone] = useState<Zone | null>(null)
   const [zoneName, setZoneName] = useState("")
+  const [zoneFloorId, setZoneFloorId] = useState("")
+  const [floorDialog, setFloorDialog] = useState(false)
+  const [editingFloor, setEditingFloor] = useState<ParkingFloor | null>(null)
+  const [floorName, setFloorName] = useState("")
+  const [floorLevel, setFloorLevel] = useState("0")
   const [cameraDialog, setCameraDialog] = useState(false)
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null)
   const [cameraForm, setCameraForm] = useState<CameraWriteRequest>(EMPTY_CAMERA)
@@ -237,8 +245,13 @@ export default function ParkingCommissioningPage() {
     const cameraRequestId = ++cameraRequestRef.current
     setLoadingScope(true)
     try {
-      const [nextZones, nextCameras] = await Promise.all([zoneApi.list(siteId), cameraApi.list(siteId)])
+      const [nextFloors, nextZones, nextCameras] = await Promise.all([
+        parkingFloorApi.list(siteId),
+        zoneApi.list(siteId),
+        cameraApi.list(siteId),
+      ])
       if (scopeRequestId !== scopeRequestRef.current) return
+      setFloors(nextFloors)
       setZones(nextZones)
       const defaultZoneId = nextZones[0]?.id || ""
       setGridConfig((current) => ({ ...current, zoneId: nextZones.some((zone) => zone.id === current.zoneId) ? current.zoneId : defaultZoneId }))
@@ -262,6 +275,7 @@ export default function ParkingCommissioningPage() {
       ++scopeRequestRef.current
       ++cameraRequestRef.current
       setZones([])
+      setFloors([])
       setCameras([])
       setSelectedCameraId("")
       setLoadingScope(false)
@@ -461,6 +475,7 @@ export default function ParkingCommissioningPage() {
   const openZone = (zone?: Zone) => {
     setEditingZone(zone || null)
     setZoneName(zone?.name || "")
+    setZoneFloorId(zone?.floorId || floors[0]?.id || "")
     setZoneDialog(true)
   }
 
@@ -468,14 +483,56 @@ export default function ParkingCommissioningPage() {
     if (!selectedSiteId || !zoneName.trim()) return
     setBusy(true)
     try {
-      if (editingZone) await zoneApi.update({ ...editingZone, name: zoneName.trim() })
-      else await zoneApi.create(selectedSiteId, zoneName.trim())
+      if (editingZone) await zoneApi.update({ ...editingZone, name: zoneName.trim(), floorId: zoneFloorId || null })
+      else await zoneApi.create(selectedSiteId, zoneName.trim(), zoneFloorId || null)
       setZoneDialog(false)
       await loadScope(selectedSiteId)
       toast({ title: editingZone ? "Đã cập nhật zone" : "Đã tạo zone" })
     } catch (error) {
       toast({ title: "Không lưu được zone", description: errorMessage(error), variant: "destructive" })
     } finally { setBusy(false) }
+  }
+
+  const openFloor = (floor?: ParkingFloor) => {
+    setEditingFloor(floor || null)
+    setFloorName(floor?.name || "")
+    setFloorLevel(String(floor?.levelNumber ?? floors.length))
+    setFloorDialog(true)
+  }
+
+  const saveFloor = async () => {
+    if (!selectedSiteId || !floorName.trim() || !Number.isInteger(Number(floorLevel))) return
+    setBusy(true)
+    try {
+      const request = {
+        siteId: selectedSiteId,
+        name: floorName.trim(),
+        levelNumber: Number(floorLevel),
+        sortOrder: Number(floorLevel),
+      }
+      if (editingFloor) await parkingFloorApi.update(editingFloor.id, request)
+      else await parkingFloorApi.create(request)
+      setFloorDialog(false)
+      await loadScope(selectedSiteId)
+      toast({ title: editingFloor ? "Đã cập nhật tầng" : "Đã tạo tầng" })
+    } catch (error) {
+      toast({ title: "Không lưu được tầng", description: errorMessage(error), variant: "destructive" })
+    } finally { setBusy(false) }
+  }
+
+  const removeFloor = async (floor: ParkingFloor) => {
+    if (zones.some((zone) => zone.floorId === floor.id)) {
+      toast({ title: "Chưa thể xóa tầng", description: "Hãy chuyển toàn bộ zone sang tầng khác trước.", variant: "destructive" })
+      return
+    }
+    if (!window.confirm(`Xóa tầng “${floor.name}”?`)) return
+    try {
+      await parkingFloorApi.delete(floor.id)
+      if (selectedSiteId) await loadScope(selectedSiteId)
+      toast({ title: "Đã xóa tầng" })
+    } catch (error) {
+      toast({ title: "Không thể xóa tầng", description: errorMessage(error), variant: "destructive" })
+    }
   }
 
   const removeZone = async (zone: Zone) => {
@@ -1108,16 +1165,40 @@ export default function ParkingCommissioningPage() {
                 Quản lý các vùng thuộc site đã chọn; hệ thống chặn xóa khi còn camera phụ thuộc.
               </CardDescription>
             </div>
-            <Button
-              size="sm"
-              onClick={() => openZone()}
-              disabled={!selectedSiteId}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium font-bold tracking-wider text-sm h-11 rounded-xl"
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Thêm zone
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => openFloor()} disabled={!selectedSiteId} className="h-11 rounded-xl">
+                <Building2 className="mr-1.5 h-4 w-4" /> Thêm tầng
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => openZone()}
+                disabled={!selectedSiteId || floors.length === 0}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium font-bold tracking-wider text-sm h-11 rounded-xl"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" /> Thêm zone
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="pt-6">
+            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {floors.map((floor) => {
+                const floorZones = zones.filter((zone) => zone.floorId === floor.id)
+                return (
+                  <div key={floor.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-xs">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Building2 className="size-5" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{floor.name}</p>
+                      <p className="text-xs text-muted-foreground">Cấp {floor.levelNumber} · {floorZones.length} zone</p>
+                    </div>
+                    <Button size="icon" variant="ghost" className="size-8" onClick={() => openFloor(floor)} aria-label={`Sửa tầng ${floor.name}`}><Pencil className="size-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="size-8 text-rose-600" onClick={() => void removeFloor(floor)} aria-label={`Xóa tầng ${floor.name}`}><Trash2 className="size-3.5" /></Button>
+                  </div>
+                )
+              })}
+              {floors.length === 0 && (
+                <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground sm:col-span-2 xl:col-span-4">Tạo tầng trước khi thêm zone vào sơ đồ.</div>
+              )}
+            </div>
             {loadingScope ? (
               <Loading />
             ) : zones.length === 0 ? (
@@ -1128,6 +1209,7 @@ export default function ParkingCommissioningPage() {
                   <TableHeader className="bg-card border-b border-border">
                     <TableRow className="border-b border-border hover:bg-transparent">
                       <TableHead className="font-medium text-muted-foreground text-xs tracking-wider h-11">Tên zone</TableHead>
+                      <TableHead className="font-medium text-muted-foreground text-xs tracking-wider h-11">Tầng</TableHead>
                       <TableHead className="font-medium text-muted-foreground text-xs tracking-wider h-11">Camera phụ thuộc</TableHead>
                       <TableHead className="text-right font-medium text-muted-foreground text-xs tracking-wider h-11">Thao tác</TableHead>
                     </TableRow>
@@ -1136,6 +1218,7 @@ export default function ParkingCommissioningPage() {
                     {zones.map((zone) => (
                       <TableRow key={zone.id} className="border-b border-border hover:bg-muted/10">
                         <TableCell className="font-medium font-bold text-foreground py-3">{zone.name}</TableCell>
+                        <TableCell className="py-3 text-sm text-muted-foreground">{floors.find((floor) => floor.id === zone.floorId)?.name || "Chưa phân tầng"}</TableCell>
                         <TableCell className="py-3">
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 py-0.5 text-xs text-foreground font-medium">
                             {cameras.filter((camera) => camera.role !== "OVERVIEW" && camera.zoneId === zone.id).length} cameras
@@ -2496,6 +2579,31 @@ export default function ParkingCommissioningPage() {
       </div>
 
       {/* Modern High-Tech Modals / Dialogs */}
+      <Dialog open={floorDialog} onOpenChange={setFloorDialog}>
+        <DialogContent className="max-w-md rounded-2xl border border-border bg-background p-6 text-foreground">
+          <DialogHeader className="border-b border-border pb-4">
+            <DialogTitle className="text-sm font-medium tracking-wider text-primary">
+              {editingFloor ? "CHỈNH SỬA TẦNG" : "THÊM TẦNG BÃI ĐỖ"}
+            </DialogTitle>
+            <DialogDescription>Mỗi tầng có một mặt bằng và bố trí zone độc lập.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Field label="Tên tầng">
+              <Input value={floorName} onChange={(event) => setFloorName(event.target.value)} placeholder="Ví dụ: B1, B2, Tầng trệt" className="h-11 rounded-xl" />
+            </Field>
+            <Field label="Cấp tầng">
+              <Input type="number" step="1" value={floorLevel} onChange={(event) => setFloorLevel(event.target.value)} placeholder="-1 cho B1, 0 cho tầng trệt" className="h-11 rounded-xl" />
+            </Field>
+          </div>
+          <DialogFooter className="gap-2 border-t border-border pt-4">
+            <Button variant="outline" onClick={() => setFloorDialog(false)}>Hủy bỏ</Button>
+            <Button onClick={() => void saveFloor()} disabled={busy || !floorName.trim() || !Number.isInteger(Number(floorLevel))}>
+              {busy && <Loader2 className="size-4 animate-spin" />} Lưu tầng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={zoneDialog} onOpenChange={setZoneDialog}>
         <DialogContent className="bg-background border border-border text-foreground font-medium max-w-md p-6 rounded-2xl">
           <DialogHeader className="pb-4 border-b border-border">
@@ -2512,6 +2620,14 @@ export default function ParkingCommissioningPage() {
                 className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl focus-visible:ring-primary"
               />
             </Field>
+            <Field label="Thuộc tầng">
+              <Select value={zoneFloorId} onValueChange={setZoneFloorId}>
+                <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Chọn tầng" /></SelectTrigger>
+                <SelectContent>
+                  {floors.map((floor) => <SelectItem key={floor.id} value={floor.id}>{floor.name} · Cấp {floor.levelNumber}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
           </div>
           <DialogFooter className="pt-4 border-t border-border gap-2">
             <Button
@@ -2523,7 +2639,7 @@ export default function ParkingCommissioningPage() {
             </Button>
             <Button
               onClick={() => void saveZone()}
-              disabled={busy || !zoneName.trim()}
+              disabled={busy || !zoneName.trim() || !zoneFloorId}
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium font-bold tracking-wider text-xs rounded-xl h-11 px-4"
             >
               {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}

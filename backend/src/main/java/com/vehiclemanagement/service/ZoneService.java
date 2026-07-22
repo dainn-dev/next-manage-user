@@ -5,6 +5,7 @@ import com.vehiclemanagement.entity.Zone;
 import com.vehiclemanagement.exception.ConflictException;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.SiteRepository;
+import com.vehiclemanagement.repository.ParkingFloorRepository;
 import com.vehiclemanagement.repository.ZoneRepository;
 import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,9 @@ public class ZoneService {
 
     @Autowired
     private SiteRepository siteRepository;
+
+    @Autowired
+    private ParkingFloorRepository floorRepository;
 
     @Autowired
     private SiteAccess siteAccess;
@@ -64,6 +68,7 @@ public class ZoneService {
         }
         Zone zone = Zone.builder()
                 .siteId(request.getSiteId())
+                .floorId(validatedFloorId(request.getSiteId(), request.getFloorId()))
                 .name(request.getName())
                 .build();
         return new ZoneDto(zoneRepository.save(zone));
@@ -80,6 +85,9 @@ public class ZoneService {
                         + "' already exists in this site");
             }
             zone.setName(request.getName());
+        }
+        if (request.getFloorId() != null) {
+            zone.setFloorId(validatedFloorId(zone.getSiteId(), request.getFloorId()));
         }
         return new ZoneDto(zoneRepository.save(zone));
     }
@@ -102,5 +110,13 @@ public class ZoneService {
             throw new ResourceNotFoundException("Site not found with id: " + siteId);
         }
         siteAccess.assertSiteAllowed(siteId);
+    }
+
+    private UUID validatedFloorId(UUID siteId, UUID floorId) {
+        if (floorId == null) return null;
+        return floorRepository.findById(floorId)
+                .filter(floor -> floor.getSiteId().equals(siteId))
+                .map(floor -> floor.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Parking floor not found in this site: " + floorId));
     }
 }

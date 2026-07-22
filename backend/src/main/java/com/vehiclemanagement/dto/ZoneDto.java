@@ -29,6 +29,8 @@ public class ZoneDto {
     @NotBlank(message = "Zone name is required")
     private String name;
 
+    private UUID floorId;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -36,6 +38,7 @@ public class ZoneDto {
         this.id = zone.getId();
         this.siteId = zone.getSiteId();
         this.name = zone.getName();
+        this.floorId = zone.getFloorId();
         this.createdAt = zone.getCreatedAt();
         this.updatedAt = zone.getUpdatedAt();
     }

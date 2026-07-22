@@ -40,7 +40,7 @@ import { ExportDialog } from "@/components/reports/export-dialog"
 import { useAuth } from "@/lib/auth-context"
 import { canViewAllLogs } from "@/lib/types"
 import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
-import { AdminPage, AdminPageHeader, AdminPageHeaderMeta } from "@/components/layout/admin-page"
+import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 
 export default function VehicleEntryExitPage() {
   const { user } = useAuth()
@@ -334,16 +334,27 @@ export default function VehicleEntryExitPage() {
   return (
     <AdminPage className="min-h-dvh space-y-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
       <AdminPageHeader
+        className="gap-3 p-4 sm:gap-4 sm:px-5 sm:py-4"
         eyebrow="Dữ liệu vận hành"
         title="Thông tin ra vào"
         description="Theo dõi lịch sử cổng, thông tin phương tiện và ảnh nhận diện theo từng lượt ra vào."
         actionList={[
           {
             key: "current-time",
-            content: <AdminPageHeaderMeta
-              label="Thời gian hệ thống"
-              value={<time className="tabular-nums">{currentTime || "00:00:00"}</time>}
-            />,
+            content: (
+              <div
+                className="inline-flex min-h-10 items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 text-sm text-primary shadow-xs"
+                aria-label="Thời gian hệ thống"
+              >
+                <Clock3 className="size-4 shrink-0" aria-hidden="true" />
+                <time className="font-semibold tabular-nums text-foreground">
+                  {currentTime || "00:00:00"}
+                </time>
+                <span className="hidden text-xs font-medium text-muted-foreground sm:inline">
+                  Giờ hệ thống
+                </span>
+              </div>
+            ),
           },
         ]}
       />

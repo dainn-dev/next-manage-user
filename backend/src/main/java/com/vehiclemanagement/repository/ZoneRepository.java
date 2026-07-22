@@ -19,4 +19,6 @@ public interface ZoneRepository extends JpaRepository<Zone, UUID> {
     boolean existsBySiteIdAndName(UUID siteId, String name);
 
     boolean existsBySiteIdAndNameAndIdNot(UUID siteId, String name, UUID id);
+
+    boolean existsByFloorId(UUID floorId);
 }

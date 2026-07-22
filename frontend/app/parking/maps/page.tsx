@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { AlertCircle, Car, CircleParking, RefreshCw, SquareParking, Activity, Loader2 } from "lucide-react"
+import { AlertCircle, Car, CircleParking, RefreshCw, SquareParking, Activity, Building2, Loader2 } from "lucide-react"
 
 import { ParkingMap } from "@/components/dashboard/parking-map"
 import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
@@ -11,11 +11,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useDashboardData } from "@/lib/dashboard-data-context"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
+import { parkingFloorApi, type ParkingFloor } from "@/lib/api/parking-floor-api"
 
 export default function ParkingMapPage() {
   const { slots, status, error, refresh, realtime, lastUpdatedAt } = useDashboardData()
-  const { selectedSiteId, selectedZoneId } = useDashboardScope()
+  const { selectedSiteId, selectedZoneId, zones, selectZone } = useDashboardScope()
   const [currentTime, setCurrentTime] = React.useState<string>("")
+  const [floors, setFloors] = React.useState<ParkingFloor[]>([])
+  const [selectedFloorId, setSelectedFloorId] = React.useState<string | null>(null)
+  const [floorsLoading, setFloorsLoading] = React.useState(false)
 
   React.useEffect(() => {
     setCurrentTime(new Date().toLocaleTimeString("vi-VN"))
@@ -23,14 +27,47 @@ export default function ParkingMapPage() {
     return () => window.clearInterval(interval)
   }, [])
 
-  const occupied = slots.filter((slot) => slot.status === "OCCUPIED").length
-  const available = slots.filter((slot) => slot.status === "AVAILABLE").length
+  React.useEffect(() => {
+    if (!selectedSiteId) {
+      setFloors([])
+      setSelectedFloorId(null)
+      return
+    }
+    let cancelled = false
+    setFloorsLoading(true)
+    parkingFloorApi.list(selectedSiteId).then((items) => {
+      if (cancelled) return
+      setFloors(items)
+      const selectedZoneFloor = items.find((floor) => zones.some((zone) => zone.id === selectedZoneId && zone.floorId === floor.id))
+      setSelectedFloorId((current) => selectedZoneFloor?.id || (items.some((floor) => floor.id === current) ? current : items[0]?.id || null))
+    }).catch(() => {
+      if (!cancelled) {
+        setFloors([])
+        setSelectedFloorId(null)
+      }
+    }).finally(() => {
+      if (!cancelled) setFloorsLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [selectedSiteId, selectedZoneId, zones])
+
+  const floorZoneIds = React.useMemo(() => new Set(
+    zones.filter((zone) => !selectedFloorId || zone.floorId === selectedFloorId).map((zone) => zone.id),
+  ), [zones, selectedFloorId])
+  const visibleSlots = React.useMemo(
+    () => selectedFloorId ? slots.filter((slot) => floorZoneIds.has(slot.zoneId)) : slots,
+    [slots, selectedFloorId, floorZoneIds],
+  )
+  const selectedFloor = floors.find((floor) => floor.id === selectedFloorId) || null
+
+  const occupied = visibleSlots.filter((slot) => slot.status === "OCCUPIED").length
+  const available = visibleSlots.filter((slot) => slot.status === "AVAILABLE").length
   const loading = status === "loading" || status === "idle"
-  const scopeLabel = selectedZoneId ? "khu vực đang chọn" : "site đang chọn"
+  const scopeLabel = selectedFloor ? `tầng ${selectedFloor.name}` : selectedZoneId ? "khu vực đang chọn" : "site đang chọn"
   const metrics = [
     {
       label: "Tổng số ô",
-      value: slots.length.toLocaleString("vi-VN"),
+      value: visibleSlots.length.toLocaleString("vi-VN"),
       note: `Trong ${scopeLabel}`,
       icon: SquareParking,
       tone: "primary",
@@ -90,6 +127,48 @@ export default function ParkingMapPage() {
         metrics={metrics}
       />
 
+      {selectedSiteId && (floorsLoading || floors.length > 0) && (
+        <Card className="border-border bg-card shadow-sm">
+          <CardContent className="p-3 sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Chọn tầng bãi đỗ</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Mỗi tầng sử dụng một mặt bằng và bố trí zone độc lập.</p>
+              </div>
+              <Building2 className="size-5 shrink-0 text-primary" aria-hidden="true" />
+            </div>
+            {floorsLoading ? (
+              <div className="flex h-12 items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Đang tải danh sách tầng</div>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Các tầng bãi đỗ">
+                {floors.map((floor) => {
+                  const zoneIds = new Set(zones.filter((zone) => zone.floorId === floor.id).map((zone) => zone.id))
+                  const floorSlots = slots.filter((slot) => zoneIds.has(slot.zoneId))
+                  const free = floorSlots.filter((slot) => slot.status === "AVAILABLE").length
+                  const active = floor.id === selectedFloorId
+                  return (
+                    <button
+                      key={floor.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => {
+                        selectZone(null)
+                        setSelectedFloorId(floor.id)
+                      }}
+                      className={`min-w-36 rounded-xl border px-4 py-3 text-left transition-colors ${active ? "border-primary bg-primary/10 text-foreground shadow-xs" : "border-border bg-background text-muted-foreground hover:bg-muted"}`}
+                    >
+                      <span className="block text-sm font-semibold">{floor.name}</span>
+                      <span className="mt-1 block text-xs">{free}/{floorSlots.length} chỗ trống</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {realtime !== "live" && (
         <Card className="border-primary/20 bg-primary/5 shadow-none">
           <CardContent className="flex flex-col gap-2 p-4 text-sm text-foreground sm:flex-row sm:items-center">
@@ -107,10 +186,10 @@ export default function ParkingMapPage() {
         <AdminEmptyState icon={<SquareParking className="size-6 text-muted-foreground" />} title="Chưa chọn site" description="Chọn một site ở bộ điều phối phía trên để xem sơ đồ và trạng thái từng ô đỗ." />
       ) : loading ? (
         <Card className="border-dashed border-border bg-card shadow-none"><CardContent className="flex min-h-80 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground"><Loader2 className="size-7 animate-spin text-primary" /><span>Đang tải cấu trúc sơ đồ bãi xe</span></CardContent></Card>
-      ) : slots.length === 0 ? (
-        <AdminEmptyState icon={<SquareParking className="size-6 text-muted-foreground" />} title="Sơ đồ chưa có dữ liệu ô đỗ" description="Hãy thiết kế và xuất bản bản đồ từ Map Designer để hiển thị trạng thái tại đây." />
+      ) : visibleSlots.length === 0 ? (
+        <AdminEmptyState icon={<SquareParking className="size-6 text-muted-foreground" />} title={selectedFloor ? `${selectedFloor.name} chưa có dữ liệu ô đỗ` : "Sơ đồ chưa có dữ liệu ô đỗ"} description="Hãy gán zone vào tầng và xuất bản bản đồ từ Map Designer để hiển thị trạng thái tại đây." />
       ) : (
-        <Card className="overflow-hidden border-border bg-card shadow-sm"><CardContent className="p-3 sm:p-5"><ParkingMap slots={slots} /></CardContent></Card>
+        <ParkingMap slots={visibleSlots} layoutScopeId={selectedFloorId} />
       )}
     </AdminPage>
   )

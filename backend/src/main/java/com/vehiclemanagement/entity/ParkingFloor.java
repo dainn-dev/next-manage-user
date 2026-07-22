@@ -10,19 +10,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/**
- * A sub-area within a {@link Site}. Created by V36; carries both tenant_id and
- * site_id denormalized. tenant_id is left unmapped and stamped by the DB session
- * default (V39) / enforced by RLS, same as {@link Site} and the other
- * tenant-scoped entities.
- */
 @Entity
-@Table(name = "zone")
+@Table(name = "parking_floor")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Zone {
+public class ParkingFloor {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -31,12 +25,19 @@ public class Zone {
     @Column(name = "site_id", nullable = false)
     private UUID siteId;
 
-    @Column(name = "floor_id")
-    private UUID floorId;
-
     @Column(name = "name", nullable = false)
-    @NotBlank(message = "Zone name is required")
+    @NotBlank(message = "Floor name is required")
     private String name;
+
+    @Column(name = "level_number", nullable = false)
+    private Integer levelNumber;
+
+    @Column(name = "sort_order", nullable = false)
+    @Builder.Default
+    private Integer sortOrder = 0;
+
+    @Column(name = "background_image_url", length = 1000)
+    private String backgroundImageUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

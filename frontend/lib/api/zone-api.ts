@@ -6,6 +6,7 @@ const API_BASE_URL = getApiUrl()
 export interface Zone {
   id: string
   siteId: string
+  floorId?: string | null
   name: string
   createdAt?: string
   updatedAt?: string
@@ -29,14 +30,14 @@ class ZoneApi {
     return this.request<Zone[]>(`/zones?${new URLSearchParams({ siteId })}`)
   }
 
-  create(siteId: string, name: string): Promise<Zone> {
+  create(siteId: string, name: string, floorId?: string | null): Promise<Zone> {
     return this.request<Zone>('/zones', {
       method: 'POST',
-      body: JSON.stringify({ siteId, name }),
+      body: JSON.stringify({ siteId, name, floorId }),
     })
   }
 
-  update(zone: Pick<Zone, 'id' | 'siteId' | 'name'>): Promise<Zone> {
+  update(zone: Pick<Zone, 'id' | 'siteId' | 'name'> & { floorId?: string | null }): Promise<Zone> {
     return this.request<Zone>(`/zones/${zone.id}`, {
       method: 'PUT',
       body: JSON.stringify(zone),
