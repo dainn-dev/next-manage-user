@@ -57,31 +57,31 @@ public class AgentTokenAuthenticationFilter extends OncePerRequestFilter {
             // Validate token and extract claims
             AgentAuthenticationService.AgentClaims claims = authService.validateAccessToken(token);
 
-            // Verify agent is not revoked
-            SiteAgent agent = agentRepository.findById(claims.agentId())
-                .orElseThrow(() -> new IllegalArgumentException("Agent not found"));
-
-            if (agent.getStatus() == SiteAgent.AgentStatus.revoked) {
-                unauthorized(response, "Agent revoked");
-                return;
-            }
-
-            // Set tenant context for RLS
+            // Bind tenant before any RLS-scoped repository access.
             TenantContext.setTenantId(claims.tenantId());
 
-            // Set authentication principal
-            AgentRuntimeController.AgentPrincipal principal =
-                new AgentRuntimeController.AgentPrincipal(
-                    claims.agentId(),
-                    claims.siteId(),
-                    claims.tenantId()
-                );
-
-            UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(principal, null, null);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
             try {
+                // Verify agent is not revoked
+                SiteAgent agent = agentRepository.findById(claims.agentId())
+                    .orElseThrow(() -> new IllegalArgumentException("Agent not found"));
+
+                if (agent.getStatus() == SiteAgent.AgentStatus.revoked) {
+                    unauthorized(response, "Agent revoked");
+                    return;
+                }
+
+                // Set authentication principal
+                AgentRuntimeController.AgentPrincipal principal =
+                    new AgentRuntimeController.AgentPrincipal(
+                        claims.agentId(),
+                        claims.siteId(),
+                        claims.tenantId()
+                    );
+
+                UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(principal, null, null);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
                 filterChain.doFilter(request, response);
             } finally {
                 TenantContext.clear();

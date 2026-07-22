@@ -26,6 +26,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
     }
+
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        // Agent access tokens have a different audience and subject model. They
+        // are authenticated later by AgentTokenAuthenticationFilter.
+        return request.getRequestURI().startsWith("/api/agent/");
+    }
     
     @Override
     protected void doFilterInternal(

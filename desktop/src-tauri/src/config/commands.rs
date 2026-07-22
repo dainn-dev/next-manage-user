@@ -17,19 +17,27 @@ pub async fn get_config(api_url: String) -> Result<AgentConfig, String> {
         return Err("Failed to fetch config".to_string());
     }
 
-    let config: AgentConfig = response.json().await
+    let config: AgentConfig = response
+        .json()
+        .await
         .map_err(|e| format!("Failed to parse config: {}", e))?;
 
     Ok(config)
 }
 
 #[tauri::command]
-pub async fn sync_config(api_url: String, current_version: i32) -> Result<Option<AgentConfig>, String> {
+pub async fn sync_config(
+    api_url: String,
+    current_version: i32,
+) -> Result<Option<AgentConfig>, String> {
     let token = ""; // TODO: Get from token manager
 
     let client = reqwest::Client::new();
     let response = client
-        .get(format!("{}/api/agent/config?sinceVersion={}", api_url, current_version))
+        .get(format!(
+            "{}/api/agent/config?sinceVersion={}",
+            api_url, current_version
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
@@ -44,7 +52,9 @@ pub async fn sync_config(api_url: String, current_version: i32) -> Result<Option
         return Err("Failed to sync config".to_string());
     }
 
-    let config: AgentConfig = response.json().await
+    let config: AgentConfig = response
+        .json()
+        .await
         .map_err(|e| format!("Failed to parse config: {}", e))?;
 
     Ok(Some(config))

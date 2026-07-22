@@ -30,7 +30,7 @@ export function Topbar({ onMobileMenuClick, mobileMenuOpen = false }: TopbarProp
   const scope = useDashboardScope()
 
   return (
-    <header className="relative z-[var(--z-sticky)] flex min-h-16 shrink-0 items-center gap-2 border-b border-sidebar-border bg-card/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur supports-[backdrop-filter]:bg-card/75 sm:gap-3 sm:px-4">
+    <header className="relative z-[var(--z-sticky)] flex min-h-16 shrink-0 items-center gap-2 border-b border-sidebar-border/70 bg-card/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur supports-[backdrop-filter]:bg-card/75 sm:gap-3 sm:px-4">
       {onMobileMenuClick && (
         <Button
           type="button"

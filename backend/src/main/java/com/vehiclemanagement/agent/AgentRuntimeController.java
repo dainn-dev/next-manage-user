@@ -16,7 +16,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AgentRuntimeController {
 
-    private final AgentAuthenticationService authService;
+    private final AgentPublicAuthenticationCoordinator publicAuthenticationCoordinator;
     private final AgentConfigService configService;
     private final AgentHealthService healthService;
 
@@ -25,11 +25,12 @@ public class AgentRuntimeController {
      */
     @PostMapping("/enroll")
     public ResponseEntity<EnrollmentResponse> enroll(@RequestBody AgentAuthenticationService.EnrollmentRequest request) {
-        var result = authService.enrollAgent(request);
+        var result = publicAuthenticationCoordinator.enroll(request);
 
         return ResponseEntity.ok(new EnrollmentResponse(
             result.agent().getId(),
             result.agent().getSiteId(),
+            result.tenantId(),
             result.accessToken(),
             result.refreshToken()
         ));
@@ -43,7 +44,7 @@ public class AgentRuntimeController {
         @RequestParam UUID agentId,
         @RequestBody TokenRefreshRequest request
     ) {
-        var result = authService.refreshAccessToken(agentId, request.refreshToken);
+        var result = publicAuthenticationCoordinator.refresh(agentId, request.refreshToken);
         return ResponseEntity.ok(new TokenRefreshResponse(result.accessToken()));
     }
 
@@ -95,6 +96,7 @@ public class AgentRuntimeController {
     public record EnrollmentResponse(
         UUID agentId,
         UUID siteId,
+        UUID tenantId,
         String accessToken,
         String refreshToken
     ) {}

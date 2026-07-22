@@ -32,6 +32,8 @@ public class HomographyCalibrationService {
         for (double value : h) matrix.add(value);
         matrix.add(1.0);
 
+        assertWellConditioned(matrix, safe);
+
         double squaredError = 0;
         for (CalibrationControlPoint point : safe) {
             ParkingMapPoint projected = transform(matrix, point.pixelX(), point.pixelY());
@@ -92,6 +94,44 @@ public class HomographyCalibrationService {
         if (point == null || !Double.isFinite(point.pixelX()) || !Double.isFinite(point.pixelY())
                 || !Double.isFinite(point.siteX()) || !Double.isFinite(point.siteY()))
             throw new IllegalArgumentException("Calibration points must contain finite coordinates");
+    }
+
+    /**
+     * Rejects homographies that are unusable across the calibrated region. A
+     * pixel-to-site projective map is only valid where its projective denominator
+     * stays bounded away from zero; if the denominator vanishes or flips sign
+     * where slots will be drawn, every polygon transforms to garbage and publish
+     * validation fails with confusing "lies outside coverage" errors. With only
+     * four control points the reprojection error is always ~0, so an outlier site
+     * coordinate is otherwise undetectable until publish time. The threshold is
+     * absolute because the matrix is normalized with m[8] = 1.
+     */
+    private void assertWellConditioned(List<Double> matrix, List<CalibrationControlPoint> points) {
+        double minX = Double.POSITIVE_INFINITY, maxX = Double.NEGATIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY, maxY = Double.NEGATIVE_INFINITY;
+        for (CalibrationControlPoint p : points) {
+            minX = Math.min(minX, p.pixelX());
+            maxX = Math.max(maxX, p.pixelX());
+            minY = Math.min(minY, p.pixelY());
+            maxY = Math.max(maxY, p.pixelY());
+        }
+        double minAbsDenom = Double.POSITIVE_INFINITY;
+        boolean anyPositive = false, anyNegative = false;
+        for (double[] probe : new double[][]{
+                {minX, minY}, {maxX, minY}, {maxX, maxY}, {minX, maxY}}) {
+            double denom = matrix.get(6) * probe[0] + matrix.get(7) * probe[1] + matrix.get(8);
+            if (!Double.isFinite(denom) || Math.abs(denom) < EPSILON)
+                throw new IllegalArgumentException(
+                        "Calibration is ill-conditioned: the projective singularity crosses the parking area — check for an outlier site coordinate");
+            if (denom > 0) anyPositive = true; else anyNegative = true;
+            minAbsDenom = Math.min(minAbsDenom, Math.abs(denom));
+        }
+        if (anyPositive && anyNegative)
+            throw new IllegalArgumentException(
+                    "Calibration is ill-conditioned: the projective singularity crosses the parking area — check for an outlier site coordinate");
+        if (minAbsDenom < 0.05)
+            throw new IllegalArgumentException(
+                    "Calibration is ill-conditioned over the parking area — check control-point site coordinates for an outlier and ensure the points span the whole image");
     }
 }
 

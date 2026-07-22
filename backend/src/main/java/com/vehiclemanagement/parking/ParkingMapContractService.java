@@ -105,6 +105,9 @@ public class ParkingMapContractService {
     var current = repo.get(map, site, camera);
     if (!"draft".equals(current.status()))
       throw new ConflictException("Only drafts are editable");
+    if (!current.sourceImageId().equals(request.sourceImageId())
+        || !current.calibrationVersionId().equals(request.calibrationVersionId()))
+      throw new ConflictException("Draft source image and calibration binding cannot be changed; create a new draft");
     var image = repo.image(current.sourceImageId(), site, camera);
     List<ParkingMapPoint> coverage = coverage(request.coveragePixelVertices(), image.nativeWidth(),
         image.nativeHeight());

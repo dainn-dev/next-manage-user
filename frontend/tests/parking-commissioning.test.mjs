@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   calibrationInputReady,
+  calibrationPointsToGridCorners,
   mapPublishReady,
   offsetSlotCopy,
   zoneDeletionBlockers,
@@ -28,13 +29,30 @@ test('calibration requires four unique image-to-site control pairs', () => {
   assert.equal(calibrationInputReady([...points.slice(0, 3), points[0]]), false)
 })
 
+test('calibration image points seed grid corners in top-left clockwise order', () => {
+  const points = [
+    { pixelX: 90, pixelY: 90 },
+    { pixelX: 10, pixelY: 10 },
+    { pixelX: 10, pixelY: 90 },
+    { pixelX: 90, pixelY: 10 },
+  ]
+
+  assert.deepEqual(calibrationPointsToGridCorners(points), [
+    { x: 10, y: 10 },
+    { x: 90, y: 10 },
+    { x: 90, y: 90 },
+    { x: 10, y: 90 },
+  ])
+  assert.deepEqual(calibrationPointsToGridCorners(points.slice(0, 3)), [])
+})
+
 test('zone deletion reports dependent cameras for safe reassignment', () => {
   const cameras = [
-    { name: 'Overview B1', zoneId: 'b1' },
-    { name: 'Gate in', zoneId: 'gate' },
-    { name: 'Overview B1 east', zoneId: 'b1' },
+    { name: 'Legacy overview B1', role: 'OVERVIEW', zoneId: 'b1' },
+    { name: 'Gate in', role: 'ANPR_GATE', zoneId: 'gate' },
+    { name: 'Gate B1 east', role: 'ANPR_GATE', zoneId: 'b1' },
   ]
-  assert.deepEqual(zoneDeletionBlockers('b1', cameras), ['Overview B1', 'Overview B1 east'])
+  assert.deepEqual(zoneDeletionBlockers('b1', cameras), ['Gate B1 east'])
   assert.deepEqual(zoneDeletionBlockers('empty', cameras), [])
 })
 

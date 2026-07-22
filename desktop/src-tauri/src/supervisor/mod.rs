@@ -2,10 +2,10 @@ pub mod commands;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::process::{Child, Command, Stdio};
 use std::io::{BufRead, BufReader};
-use tokio::sync::Mutex;
+use std::process::{Child, Command, Stdio};
 use std::thread;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerHandle {
@@ -81,7 +81,11 @@ impl Supervisor {
         }
     }
 
-    pub async fn start_worker(&self, camera_id: String, config: &crate::config::CameraConfig) -> Result<(), String> {
+    pub async fn start_worker(
+        &self,
+        camera_id: String,
+        config: &crate::config::CameraConfig,
+    ) -> Result<(), String> {
         let mut workers = self.workers.lock().await;
 
         // Spawn Python sidecar process
@@ -90,7 +94,7 @@ impl Supervisor {
         let mut child = Command::new(sidecar_path)
             .arg("--run-camera")
             .arg("--config")
-            .arg("-")  // Read config from stdin
+            .arg("-") // Read config from stdin
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -104,7 +108,8 @@ impl Supervisor {
             use std::io::Write;
             let config_json = serde_json::to_string(config)
                 .map_err(|e| format!("Failed to serialize config: {}", e))?;
-            stdin.write_all(config_json.as_bytes())
+            stdin
+                .write_all(config_json.as_bytes())
                 .map_err(|e| format!("Failed to write config: {}", e))?;
         }
 
@@ -192,25 +197,54 @@ fn get_sidecar_path() -> Result<String, String> {
 
 fn handle_ipc_event(event: IPCEvent) {
     match event {
-        IPCEvent::StreamConnected { camera_id, width, height, fps, codec, at } => {
-            println!("Camera {} connected: {}x{} @ {} fps ({})",
-                camera_id, width, height, fps, codec);
+        IPCEvent::StreamConnected {
+            camera_id,
+            width,
+            height,
+            fps,
+            codec,
+            at,
+        } => {
+            println!(
+                "Camera {} connected: {}x{} @ {} fps ({})",
+                camera_id, width, height, fps, codec
+            );
             // TODO: Update camera health in backend
         }
-        IPCEvent::StreamError { camera_id, code, message, at } => {
+        IPCEvent::StreamError {
+            camera_id,
+            code,
+            message,
+            at,
+        } => {
             eprintln!("Camera {} error [{}]: {}", camera_id, code, message);
             // TODO: Report error to backend
         }
-        IPCEvent::FrameObserved { camera_id, frame_number, at } => {
+        IPCEvent::FrameObserved {
+            camera_id,
+            frame_number,
+            at,
+        } => {
             println!("Camera {} frame #{} at {}", camera_id, frame_number, at);
             // TODO: Update last_frame_at in health tracking
         }
-        IPCEvent::QueueDepth { camera_id, depth, at } => {
+        IPCEvent::QueueDepth {
+            camera_id,
+            depth,
+            at,
+        } => {
             println!("Camera {} queue depth: {}", camera_id, depth);
             // TODO: Update queue depth metric
         }
-        IPCEvent::WorkerReady { camera_id, config_revision, at } => {
-            println!("Worker {} ready with config revision {}", camera_id, config_revision);
+        IPCEvent::WorkerReady {
+            camera_id,
+            config_revision,
+            at,
+        } => {
+            println!(
+                "Worker {} ready with config revision {}",
+                camera_id, config_revision
+            );
             // TODO: Mark worker as running
         }
     }

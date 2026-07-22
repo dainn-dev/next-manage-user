@@ -20,7 +20,7 @@ import {
   Activity
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { AdminPage, AdminPageHeader } from '@/components/layout/admin-page'
@@ -168,6 +168,8 @@ export default function VehiclePlateSearchPage() {
     void searchVehicles(query)
   }
 
+  const queryIsValid = validPlateQuery(query)
+
   React.useEffect(() => {
     if (!scannerOpen || !scannerStream) return
 
@@ -268,33 +270,61 @@ export default function VehiclePlateSearchPage() {
         description={`Quét mã QR hoặc nhập biển số để tra cứu phương tiện. Dữ liệu được cập nhật ${realtime === 'live' ? 'trực tiếp' : 'định kỳ'}.`}
       />
 
-      <div className="space-y-6">
-        <Card className="rounded-2xl border-border bg-card text-foreground shadow-[var(--shadow-card)]">
-                    <CardHeader className="border-b border-border pb-4">
-            <CardTitle className="text-base font-semibold text-foreground">
-              Tra cứu phương tiện
-            </CardTitle>
+      <div className="space-y-5 sm:space-y-6">
+        <Card className="gap-0 overflow-hidden rounded-2xl border-border bg-card py-0 text-foreground shadow-[var(--shadow-card)]">
+          <CardHeader className="border-b border-border/80 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                <Search className="size-4.5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <CardTitle className="text-base font-semibold text-foreground">
+                  Tìm theo biển số
+                </CardTitle>
+                <CardDescription className="mt-1 leading-5">
+                  Nhập biển số hoặc quét mã QR định danh của phương tiện.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
 
-          <CardContent className="pt-6">
-            <form onSubmit={submit} className="grid gap-3 sm:flex">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value.toUpperCase())}
-                  placeholder="Nhập biển số, ví dụ 51A-123.45"
-                  className="min-h-11 rounded-xl border-border bg-background pl-10 text-foreground placeholder:text-muted-foreground text-sm focus-visible:ring-primary/20"
-                  aria-label="Biển số xe"
-                />
+          <CardContent className="p-4 sm:p-5">
+            <form onSubmit={submit} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <div className="min-w-0">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value.toUpperCase())}
+                    placeholder="Ví dụ: 51A-123.45"
+                    className="h-12 rounded-xl border-border bg-background pl-11 pr-4 text-base font-medium uppercase tracking-wide text-foreground placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/15 md:h-12 md:text-sm"
+                    aria-label="Biển số xe"
+                    aria-describedby="plate-search-hint"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                <p
+                  id="plate-search-hint"
+                  className={cn(
+                    "mt-2 px-1 text-xs leading-4",
+                    query && !queryIsValid ? "text-amber-700" : "text-muted-foreground",
+                  )}
+                  aria-live="polite"
+                >
+                  {query && !queryIsValid
+                    ? "Biển số chưa đúng định dạng. Kiểm tra lại chữ, số và dấu phân cách."
+                    : "Có thể nhập liền hoặc kèm dấu gạch ngang, dấu chấm."}
+                </p>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:flex">
+
+              <div className="grid grid-cols-2 gap-2 lg:flex">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleScannerToggle}
                   disabled={!selectedSiteId || scannerStatus === 'requesting'}
-                  className="min-h-11 rounded-xl px-4 text-sm"
+                  className="h-12 rounded-xl border-border bg-card px-4 text-sm hover:border-primary/30 hover:bg-primary/5 hover:text-primary lg:min-w-36"
                   aria-expanded={scannerOpen}
                   aria-controls="vehicle-qr-scanner"
                 >
@@ -310,8 +340,8 @@ export default function VehiclePlateSearchPage() {
 
                 <Button
                   type="submit"
-                  disabled={!selectedSiteId || !validPlateQuery(query) || searchStatus === 'loading'}
-                  className="min-h-11 rounded-xl px-5 text-sm font-semibold disabled:opacity-40"
+                  disabled={!selectedSiteId || !queryIsValid || searchStatus === 'loading'}
+                  className="h-12 rounded-xl px-5 text-sm font-semibold lg:min-w-28"
                 >
                   {searchStatus === 'loading' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -578,15 +608,15 @@ function StatePanel({
   action?: React.ReactNode
 }) {
   return (
-    <div className="mx-auto my-4 flex min-h-[260px] max-w-xl flex-col items-center justify-center rounded-2xl border-border bg-card p-8 text-center shadow-[var(--shadow-card)]">
-      <div className="p-4 rounded-full bg-muted/80 border border-border text-primary mb-4">
-        <Icon className="size-6" />
+    <div className="flex min-h-[280px] w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/55 p-6 text-center sm:min-h-[320px] sm:p-10">
+      <div className="mb-4 grid size-12 place-items-center rounded-full border border-primary/15 bg-primary/10 text-primary">
+        <Icon className="size-5" aria-hidden="true" />
       </div>
 
-      <h3 className="text-xs font-bold text-foreground mb-1.5">{title}</h3>
-      <p className="text-xs text-muted-foreground max-w-sm leading-relaxed mb-4">{description}</p>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <p className="mt-1.5 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
       
-      {action && <div className="mt-2">{action}</div>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   )
 }

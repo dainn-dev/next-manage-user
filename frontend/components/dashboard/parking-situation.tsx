@@ -106,12 +106,12 @@ export function ParkingSituation({
           Một phần dữ liệu bãi đỗ chưa thể đồng bộ. Các số liệu hiển thị có thể chưa mới nhất.
         </p>
       )}
-      metricGridClassName="grid-cols-1 sm:grid-cols-2 xl:grid-cols-2"
+      metricGridClassName="grid-cols-2 lg:grid-cols-4"
       loading={loading}
       metrics={cards}
     >
       {hasCapacity ? (
-        <div className="grid gap-2 rounded-[var(--radius-input)] border border-border bg-muted/35 p-3">
+        <div className="grid gap-1 rounded-[var(--radius-input)] border border-border bg-muted/35 p-2">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
             <p className="font-medium text-foreground">Công suất hiện tại</p>
             <p className="tabular-nums text-muted-foreground">{metrics.occupiedSlots}/{metrics.usableSlots} ô đã sử dụng</p>
@@ -122,7 +122,7 @@ export function ParkingSituation({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={fillPercent}
-            className="h-2 overflow-hidden rounded-full bg-background"
+            className="h-1.5 overflow-hidden rounded-full bg-background"
           >
             <div
               className={cn(
@@ -132,7 +132,7 @@ export function ParkingSituation({
               style={{ width: `${fillPercent}%` }}
             />
           </div>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className="text-xs leading-4 text-muted-foreground">
             {metrics.reservedSlots > 0 && `${metrics.reservedSlots} ô đã đặt trước. `}
             {metrics.disabledSlots > 0 && `${metrics.disabledSlots} ô đang tạm ngưng. `}
             {metrics.unknownSlots > 0 && `${metrics.unknownSlots} ô chưa xác định trạng thái.`}

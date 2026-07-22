@@ -80,7 +80,7 @@ import { generateGridSlots, validateGridConfig, type Point, type GridConfig } fr
 import { zoneApi, type Zone } from "@/lib/api/zone-api"
 import { useAuth } from "@/lib/auth-context"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
-import { calibrationInputReady, mapPublishReady, offsetSlotCopy, zoneDeletionBlockers } from "@/lib/parking-commissioning-policy.mjs"
+import { calibrationInputReady, calibrationPointsToGridCorners, mapPublishReady, offsetSlotCopy, zoneDeletionBlockers } from "@/lib/parking-commissioning-policy.mjs"
 import { UserRole } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -95,6 +95,7 @@ const STEPS = [
 
 type StepKey = typeof STEPS[number]["key"]
 type CameraLifecycleAction = "unchanged" | "disable" | "enable"
+type LayoutMode = "grid" | "individual"
 type SlotSnapshot = ParkingMapSlot[]
 
 const RTSP_TEMPLATES: Record<string, { name: string; url: (u: string, p: string, ip: string, port: string, ch: string, st: string) => string; description: string }> = {
@@ -202,10 +203,6 @@ export default function ParkingCommissioningPage() {
   const [unifiedPreview, setUnifiedPreview] = useState<UnifiedMapPreview | null>(null)
   const [draft, setDraft] = useState<ParkingMapDraft | null>(null)
   const [slots, setSlots] = useState<ParkingMapSlot[]>([])
-  const [currentPolygon, setCurrentPolygon] = useState<PixelPoint[]>([])
-  const [slotCode, setSlotCode] = useState("")
-  const [slotZoneId, setSlotZoneId] = useState("")
-  const [slotStatus, setSlotStatus] = useState<ParkingMapSlot["adminStatus"]>("ACTIVE")
   const [selectedSlots, setSelectedSlots] = useState<Set<number>>(new Set())
   const [undoStack, setUndoStack] = useState<SlotSnapshot[]>([])
   const [redoStack, setRedoStack] = useState<SlotSnapshot[]>([])
@@ -216,13 +213,15 @@ export default function ParkingCommissioningPage() {
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState<{ slot: number; vertex: number } | null>(null)
-  const [drawMode, setDrawMode] = useState<'manual' | 'grid'>('manual')
   const [interactionMode, setInteractionMode] = useState<'select' | 'pan'>('select')
   const [isPanning, setIsPanning] = useState(false)
   const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null)
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("grid")
   const [gridCorners, setGridCorners] = useState<Point[]>([])
   const [gridConfig, setGridConfig] = useState<GridConfig>({ rows: 5, cols: 10, prefix: 'A-', zoneId: '', status: 'ACTIVE' })
   const [gridPreview, setGridPreview] = useState<ParkingMapSlot[] | null>(null)
+  const [individualCorners, setIndividualCorners] = useState<Point[]>([])
+  const [individualSlotCode, setIndividualSlotCode] = useState("A-01")
   const autosaveRef = useRef(false)
   const importInputRef = useRef<HTMLInputElement>(null)
   const scopeRequestRef = useRef(0)
@@ -242,7 +241,6 @@ export default function ParkingCommissioningPage() {
       if (scopeRequestId !== scopeRequestRef.current) return
       setZones(nextZones)
       const defaultZoneId = nextZones[0]?.id || ""
-      setSlotZoneId((current) => nextZones.some((zone) => zone.id === current) ? current : defaultZoneId)
       setGridConfig((current) => ({ ...current, zoneId: nextZones.some((zone) => zone.id === current.zoneId) ? current.zoneId : defaultZoneId }))
       if (cameraRequestId === cameraRequestRef.current) {
         setCameras(nextCameras)
@@ -305,6 +303,10 @@ export default function ParkingCommissioningPage() {
   }, [step, selectedSiteId])
 
   const loadHistory = useCallback(async () => {
+    setControlPoints([])
+    setGridCorners([])
+    setGridPreview(null)
+    setIndividualCorners([])
     if (!selectedSiteId || !selectedCameraId) {
       setHistory([])
       setDraft(null)
@@ -515,7 +517,7 @@ export default function ParkingCommissioningPage() {
       rtspUrl: "",
       role: camera.role,
       panelType: camera.panelType,
-    } : { ...EMPTY_CAMERA, siteId: selectedSiteId || "", zoneId: zones[0]?.id || null })
+    } : { ...EMPTY_CAMERA, siteId: selectedSiteId || "" })
     setCameraDialog(true)
   }
 
@@ -535,7 +537,7 @@ export default function ParkingCommissioningPage() {
     const payload: CameraWriteRequest = {
       siteId: selectedSiteId,
       name: cameraForm.name.trim(),
-      zoneId: cameraForm.zoneId || null,
+      zoneId: cameraForm.role === "OVERVIEW" ? null : cameraForm.zoneId || null,
       rtspUrl: cameraForm.rtspUrl?.trim() || null,
       role: cameraForm.role,
       panelType: cameraForm.role === "ANPR_GATE" ? cameraForm.panelType || "entry" : null,
@@ -596,9 +598,9 @@ export default function ParkingCommissioningPage() {
       if (selectedSiteId && selectedCameraId) {
         try {
           const existingMaps = await listMaps(selectedSiteId, selectedCameraId)
-          const existingDrafts = existingMaps.filter(m => m.status === 'draft')
+          const existingDrafts = existingMaps.filter((map) => map.status === "DRAFT")
           for (const draft of existingDrafts) {
-            await deleteMap(selectedSiteId, selectedCameraId, draft)
+            await removeMap(selectedSiteId, selectedCameraId, draft)
           }
         } catch (error) {
           // Ignore errors when deleting drafts - they might not exist
@@ -609,6 +611,9 @@ export default function ParkingCommissioningPage() {
       const image = await uploadStill(selectedSiteId, selectedCameraId, file)
       setSourceImage(image)
       setControlPoints([])
+      setGridCorners([])
+      setGridPreview(null)
+      setIndividualCorners([])
       setCalibrationPreview(null)
       setCalibration(null)
       setDraft(null)
@@ -636,9 +641,9 @@ export default function ParkingCommissioningPage() {
       if (selectedSiteId && selectedCameraId) {
         try {
           const existingMaps = await listMaps(selectedSiteId, selectedCameraId)
-          const existingDrafts = existingMaps.filter(m => m.status === 'draft')
+          const existingDrafts = existingMaps.filter((map) => map.status === "DRAFT")
           for (const draft of existingDrafts) {
-            await deleteMap(selectedSiteId, selectedCameraId, draft)
+            await removeMap(selectedSiteId, selectedCameraId, draft)
           }
         } catch (error) {
           // Ignore errors when deleting drafts - they might not exist
@@ -649,6 +654,9 @@ export default function ParkingCommissioningPage() {
       const image = await captureStill(selectedSiteId, selectedCameraId)
       setSourceImage(image)
       setControlPoints([])
+      setGridCorners([])
+      setGridPreview(null)
+      setIndividualCorners([])
       setCalibrationPreview(null)
       setCalibration(null)
       setDraft(null)
@@ -686,7 +694,29 @@ export default function ParkingCommissioningPage() {
     setBusy(true)
     try {
       const saved = await createCalibration(selectedSiteId, selectedCameraId, sourceImage.id, controlPoints)
+      const calibrationCoverage = calibrationPointsToGridCorners(controlPoints)
+      let replacementDraft: ParkingMapDraft | null = null
+      if (draft?.status === "DRAFT") {
+        replacementDraft = await createMap(selectedSiteId, selectedCameraId, {
+          sourceImageId: sourceImage.id,
+          calibrationVersionId: saved.id,
+          coveragePixelVertices: calibrationCoverage,
+          slots,
+        })
+        await removeMap(selectedSiteId, selectedCameraId, draft)
+      }
       setCalibration(saved)
+      setGridCorners(calibrationCoverage)
+      setGridPreview(null)
+      setIndividualCorners([])
+      if (replacementDraft) {
+        setDraft(replacementDraft)
+        setHistory((items) => [replacementDraft, ...items.filter((item) => item.id !== draft.id)])
+        setDirty(false)
+        setValidation(null)
+        setUndoStack([])
+        setRedoStack([])
+      }
       toast({ title: `Đã tạo calibration v${saved.versionNumber}` })
       setStep("map")
     } catch (error) {
@@ -700,15 +730,15 @@ export default function ParkingCommissioningPage() {
     try {
       // Delete any existing drafts before creating a new one
       const existingMaps = await listMaps(selectedSiteId, selectedCameraId)
-      const existingDrafts = existingMaps.filter(m => m.status === 'draft')
+      const existingDrafts = existingMaps.filter((map) => map.status === "DRAFT")
       for (const draft of existingDrafts) {
-        await deleteMap(selectedSiteId, selectedCameraId, draft)
+        await removeMap(selectedSiteId, selectedCameraId, draft)
       }
 
       const created = await createMap(selectedSiteId, selectedCameraId, {
         sourceImageId: sourceImage.id,
         calibrationVersionId: calibration.id,
-        coveragePixelVertices: [
+        coveragePixelVertices: gridCorners.length === 4 ? gridCorners : [
           { x: 0, y: 0 },
           { x: sourceImage.nativeWidth, y: 0 },
           { x: sourceImage.nativeWidth, y: sourceImage.nativeHeight },
@@ -758,25 +788,20 @@ export default function ParkingCommissioningPage() {
     if (interactionMode === 'pan') return // Don't draw in pan mode
     const point = editorPoint(event as unknown as React.PointerEvent<SVGSVGElement>)
 
-    if (drawMode === 'grid') {
-      if (gridCorners.length < 4) {
-        setGridCorners((prev) => [...prev, point])
-      }
-    } else {
-      setCurrentPolygon((points) => [...points, point])
+    if (layoutMode === "individual" && individualCorners.length < 4) {
+      setIndividualCorners((corners) => [...corners, point])
+    } else if (layoutMode === "grid" && gridCorners.length < 4) {
+      setGridCorners((prev) => [...prev, point])
     }
   }
 
-  const finishPolygon = () => {
-    if (currentPolygon.length < 3 || !slotCode.trim() || !slotZoneId) return
-    changeSlots([...slots, {
-      zoneId: slotZoneId,
-      code: slotCode.trim(),
-      adminStatus: slotStatus,
-      pixelVertices: currentPolygon,
-    }])
-    setCurrentPolygon([])
-    setSlotCode("")
+  const undoLayoutCorner = () => {
+    if (layoutMode === "individual") {
+      setIndividualCorners((corners) => corners.slice(0, -1))
+    } else {
+      setGridCorners((corners) => corners.slice(0, -1))
+    }
+    setGridPreview(null)
   }
 
   const dragVertex = (event: React.PointerEvent<SVGSVGElement>) => {
@@ -855,10 +880,41 @@ export default function ParkingCommissioningPage() {
     changeSlots([...slots, ...gridPreview])
     toast({ title: "Đã tạo lưới", description: `${gridPreview.length} ô đỗ đã được thêm` })
 
-    // Reset grid state and switch back to manual mode
+    // Reset the grid state so another area can be generated immediately.
     setGridCorners([])
     setGridPreview(null)
-    setDrawMode('manual')
+  }
+
+  const nextAvailableSlotCode = (items: ParkingMapSlot[]) => {
+    const existingCodes = new Set(items.map((slot) => slot.code.toLocaleLowerCase()))
+    let number = 1
+    let candidate = ""
+    do {
+      candidate = `${gridConfig.prefix}${number.toString().padStart(2, "0")}`
+      number += 1
+    } while (existingCodes.has(candidate.toLocaleLowerCase()))
+    return candidate
+  }
+
+  const commitIndividualSlot = () => {
+    const zoneId = gridConfig.zoneId || zones[0]?.id || ""
+    const code = individualSlotCode.trim()
+    if (individualCorners.length !== 4 || !zoneId || !code) return
+    if (slots.some((slot) => slot.code.toLocaleLowerCase() === code.toLocaleLowerCase())) {
+      toast({ title: "Mã ô đỗ đã tồn tại", description: `Hãy chọn mã khác cho ${code}.`, variant: "destructive" })
+      return
+    }
+
+    const nextSlots = [...slots, {
+      zoneId,
+      code,
+      adminStatus: gridConfig.status,
+      pixelVertices: individualCorners,
+    }]
+    changeSlots(nextSlots)
+    setIndividualCorners([])
+    setIndividualSlotCode(nextAvailableSlotCode(nextSlots))
+    toast({ title: `Đã thêm ô ${code}` })
   }
 
   const updateSlot = (index: number, patch: Partial<Pick<ParkingMapSlot, "code" | "zoneId" | "adminStatus">>) => {
@@ -1082,7 +1138,7 @@ export default function ParkingCommissioningPage() {
                         <TableCell className="font-medium font-bold text-foreground py-3">{zone.name}</TableCell>
                         <TableCell className="py-3">
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-muted border border-border px-2.5 py-0.5 text-xs text-foreground font-medium">
-                            {cameras.filter((camera) => camera.zoneId === zone.id).length} cameras
+                            {cameras.filter((camera) => camera.role !== "OVERVIEW" && camera.zoneId === zone.id).length} cameras
                           </span>
                         </TableCell>
                         <TableCell className="py-3">
@@ -1147,7 +1203,9 @@ export default function ParkingCommissioningPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {cameras.map((camera) => {
-                    const zoneName = zones.find((zone) => zone.id === camera.zoneId)?.name || "Toàn site"
+                    const coverageLabel = camera.role === "OVERVIEW"
+                      ? "Nhiều zone · theo sơ đồ bãi"
+                      : zones.find((zone) => zone.id === camera.zoneId)?.name || "Toàn site"
                     const heartbeat = camera.lastHeartbeatAt ? new Date(camera.lastHeartbeatAt).toLocaleString("vi-VN") : "chưa có"
                     const isOnline = camera.status === "online"
                     const isOffline = camera.status === "offline"
@@ -1185,7 +1243,7 @@ export default function ParkingCommissioningPage() {
                                 {camera.name}
                               </h3>
                               <p className="text-xs text-muted-foreground mt-1 font-medium">
-                                {zoneName}
+                                {coverageLabel}
                               </p>
                             </div>
                           </div>
@@ -1476,7 +1534,7 @@ export default function ParkingCommissioningPage() {
                     05 // THIẾT KẾ SƠ ĐỒ BÃI ĐỖ
                   </CardTitle>
                   <CardDescription className="text-muted-foreground font-medium text-sm mt-1">
-                    Nhấp trên ảnh để vẽ vùng; kéo các điểm để điều chỉnh.
+                    Dùng lưới tự động hoặc chọn 4 điểm riêng cho từng ô để bám đúng phối cảnh thực tế.
                   </CardDescription>
                 </div>
 
@@ -1613,33 +1671,33 @@ export default function ParkingCommissioningPage() {
                     {/* SVG Interactive Editor Container */}
                     <div className="space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-3 bg-card border border-border p-2.5 rounded-2xl">
-                        {/* Draw Mode Toggle */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-muted-foreground mr-1">Chế độ:</span>
+                        <div className="flex items-center gap-1 rounded-xl border border-border bg-muted p-1">
                           <Button
-                            variant={drawMode === 'manual' ? 'default' : 'outline'}
+                            type="button"
+                            variant={layoutMode === "grid" ? "default" : "ghost"}
                             size="sm"
-                            className="h-9 px-3 gap-1.5"
+                            className="h-9 gap-1.5 px-3 text-xs"
                             onClick={() => {
-                              setDrawMode('manual')
-                              setGridCorners([])
-                              setGridPreview(null)
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="text-xs font-medium">Vẽ tay</span>
-                          </Button>
-                          <Button
-                            variant={drawMode === 'grid' ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-9 px-3 gap-1.5"
-                            onClick={() => {
-                              setDrawMode('grid')
-                              setCurrentPolygon([])
+                              setLayoutMode("grid")
+                              setIndividualCorners([])
                             }}
                           >
                             <Grid3x3 className="h-4 w-4" />
-                            <span className="text-xs font-medium">Lưới tự động</span>
+                            Lưới tự động
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={layoutMode === "individual" ? "default" : "ghost"}
+                            size="sm"
+                            className="h-9 gap-1.5 px-3 text-xs"
+                            onClick={() => {
+                              setLayoutMode("individual")
+                              setGridPreview(null)
+                              setIndividualSlotCode((code) => code || nextAvailableSlotCode(slots))
+                            }}
+                          >
+                            <MousePointer2 className="h-4 w-4" />
+                            Từng ô theo 4 điểm
                           </Button>
                         </div>
 
@@ -1687,7 +1745,7 @@ export default function ParkingCommissioningPage() {
                             size="sm"
                             className="size-9 p-0"
                             onClick={() => setInteractionMode('select')}
-                            title="Chọn / Vẽ (S)"
+                            title="Chọn / đánh dấu điểm (S)"
                           >
                             <MousePointer2 className="h-4 w-4" />
                           </Button>
@@ -1742,6 +1800,7 @@ export default function ParkingCommissioningPage() {
                             <g
                               key={`${slot.code}-${slotIndex}`}
                               onClick={(event) => {
+                                if (layoutMode === "individual") return
                                 event.stopPropagation()
                                 const isMultiSelect = event.ctrlKey || event.metaKey
 
@@ -1761,7 +1820,7 @@ export default function ParkingCommissioningPage() {
                                   setSelectedSlots(new Set([slotIndex]))
                                 }
                               }}
-                              className="cursor-pointer group/slot"
+                              className={cn(layoutMode === "individual" ? "cursor-crosshair" : "cursor-pointer", "group/slot")}
                             >
                               <polygon
                                 points={slot.pixelVertices.map((point) => `${point.x},${point.y}`).join(" ")}
@@ -1770,18 +1829,18 @@ export default function ParkingCommissioningPage() {
                                 strokeWidth={selectedSlots.has(slotIndex) ? 4 / zoom : 2.5 / zoom}
                                 className="transition-colors group-hover/slot:fill-cyan-500/30"
                               />
-                              {slot.pixelVertices.map((point, vertexIndex) => (
+                              {selectedSlots.has(slotIndex) && slot.pixelVertices.map((point, vertexIndex) => (
                                 <circle
                                   key={vertexIndex}
                                   cx={point.x}
                                   cy={point.y}
-                                  r={selectedSlots.has(slotIndex) ? 8 / zoom : 6 / zoom}
-                                  fill={selectedSlots.has(slotIndex) ? "#22d3ee" : "#fff"}
-                                  stroke={selectedSlots.has(slotIndex) ? "#0891b2" : "#10b981"}
+                                  r={8 / zoom}
+                                  fill="#22d3ee"
+                                  stroke="#0891b2"
                                   strokeWidth={2 / zoom}
                                   onPointerDown={(event) => {
                                     event.stopPropagation()
-                                    if (selectedSlots.has(slotIndex)) {
+                                    if (layoutMode !== "individual") {
                                       setUndoStack((stack) => [...stack.slice(-29), cloneSlots(slots)])
                                       setDragging({ slot: slotIndex, vertex: vertexIndex })
                                     }
@@ -1802,15 +1861,7 @@ export default function ParkingCommissioningPage() {
                               </text>
                             </g>
                           ))}
-                          {currentPolygon.length > 0 && (
-                            <polyline
-                              points={currentPolygon.map((point) => `${point.x},${point.y}`).join(" ")}
-                              fill="rgba(245,158,11,0.2)"
-                              stroke="#f59e0b"
-                              strokeWidth={3 / zoom}
-                            />
-                          )}
-                          {drawMode === 'grid' && gridCorners.length > 0 && (
+                          {layoutMode === "grid" && gridCorners.length > 0 && (
                             <>
                               {/* Grid corner markers */}
                               {gridCorners.map((corner, idx) => (
@@ -1837,7 +1888,7 @@ export default function ParkingCommissioningPage() {
                             </>
                           )}
                           {/* Grid preview overlay */}
-                          {gridPreview && gridPreview.map((slot, idx) => (
+                          {layoutMode === "grid" && gridPreview && gridPreview.map((slot, idx) => (
                             <g key={`preview-${idx}`}>
                               <polygon
                                 points={slot.pixelVertices.map((point) => `${point.x},${point.y}`).join(" ")}
@@ -1858,87 +1909,48 @@ export default function ParkingCommissioningPage() {
                               </text>
                             </g>
                           ))}
+                          {layoutMode === "individual" && individualCorners.length > 0 && (
+                            <g>
+                              {individualCorners.length > 1 && (
+                                <polyline
+                                  points={individualCorners.map((point) => `${point.x},${point.y}`).join(" ")}
+                                  fill={individualCorners.length === 4 ? "rgba(168,85,247,0.18)" : "none"}
+                                  stroke="#a855f7"
+                                  strokeWidth={3 / zoom}
+                                  strokeDasharray={`${8 / zoom},${4 / zoom}`}
+                                />
+                              )}
+                              {individualCorners.map((corner, index) => (
+                                <g key={`${corner.x}-${corner.y}-${index}`}>
+                                  <circle
+                                    cx={corner.x}
+                                    cy={corner.y}
+                                    r={10 / zoom}
+                                    fill="#a855f7"
+                                    stroke="#fff"
+                                    strokeWidth={3 / zoom}
+                                  />
+                                  <text
+                                    x={corner.x}
+                                    y={corner.y + 4 / zoom}
+                                    fill="white"
+                                    fontSize={12 / zoom}
+                                    textAnchor="middle"
+                                    className="select-none font-bold"
+                                  >
+                                    {index + 1}
+                                  </text>
+                                </g>
+                              ))}
+                            </g>
+                          )}
                         </svg>
                       </div>
                     </div>
 
                     {/* Editor Action sidebar panels */}
                     <div className="space-y-4">
-                      {/* Active Slot Form (Manual Mode) */}
-                      {drawMode === 'manual' && (
-                        <Card className="border border-border bg-muted/10 rounded-2xl p-4 space-y-4">
-                          <div className="border-b border-border pb-2">
-                            <p className="font-medium text-xs font-bold text-primary flex items-center gap-1.5">
-                              <span className="size-1 rounded-full bg-primary animate-ping" />
-                              Ô ĐANG VẼ
-                            </p>
-                          </div>
-
-                          <div className="space-y-3">
-                            <Field label="Mã ô đỗ">
-                              <Input
-                                value={slotCode}
-                                onChange={(event) => setSlotCode(event.target.value)}
-                                placeholder="Ví dụ: A-01"
-                                className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl"
-                              />
-                            </Field>
-
-                            <Field label="Vùng Zone">
-                              <Select value={slotZoneId} onValueChange={setSlotZoneId}>
-                                <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
-                                  <SelectValue placeholder="Chọn zone" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-background border-border text-foreground">
-                                  {zones.map((zone) => (
-                                    <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted focus:text-foreground font-medium text-xs">
-                                      {zone.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </Field>
-
-                            <Field label="Trạng thái quản trị">
-                              <Select value={slotStatus} onValueChange={(value) => setSlotStatus(value as ParkingMapSlot["adminStatus"])}>
-                                <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-background border-border text-foreground">
-                                  <SelectItem value="ACTIVE" className="focus:bg-muted font-medium text-xs text-emerald-600">ACTIVE</SelectItem>
-                                  <SelectItem value="RESERVED" className="focus:bg-muted font-medium text-xs text-amber-600">RESERVED</SelectItem>
-                                  <SelectItem value="DISABLED" className="focus:bg-muted font-medium text-xs text-rose-600">DISABLED</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </Field>
-
-                            <div className="flex gap-2 pt-2">
-                              <Button
-                                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium font-bold text-sm tracking-wide h-11 rounded-xl"
-                                disabled={currentPolygon.length < 3 || !slotCode.trim() || !slotZoneId}
-                                onClick={finishPolygon}
-                              >
-                                <Check className="mr-1 h-3.5 w-3.5" /> Hoàn tất ô đỗ
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  setCurrentPolygon([])
-                                  setGridCorners([])
-                                  setGridPreview(null)
-                                }}
-                                className="border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground size-11 p-0"
-                                title="Hủy nét vẽ hiện tại"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </Card>
-                      )}
-
-                      {/* Grid Configuration Form (Grid Mode) */}
-                      {drawMode === 'grid' && (
+                      {layoutMode === "grid" && (
                         <Card className="border border-border bg-muted/10 rounded-2xl p-4 space-y-4">
                           <div className="border-b border-border pb-2">
                             <p className="font-medium text-xs font-bold text-primary flex items-center gap-1.5">
@@ -1948,13 +1960,32 @@ export default function ParkingCommissioningPage() {
                           </div>
 
                           <div className="space-y-3">
-                            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3">
-                              <p className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">
-                                📍 Nhấp 4 góc lưới trên ảnh ({gridCorners.length}/4)
-                              </p>
-                              <p className="text-xs text-blue-600/80 dark:text-blue-400/70">
-                                Chọn theo thứ tự: trái-trên → phải-trên → phải-dưới → trái-dưới
-                              </p>
+                            <div className="flex items-start justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/20">
+                              <div>
+                                <p className="mb-1 text-xs font-medium text-blue-700 dark:text-blue-300">
+                                  {gridCorners.length === 4
+                                    ? "Đã dùng 4 điểm ảnh từ bước Calibration"
+                                    : `Nhấp bổ sung các góc còn thiếu trên ảnh (${gridCorners.length}/4)`}
+                                </p>
+                                <p className="text-xs text-blue-600/80 dark:text-blue-400/70">
+                                  {gridCorners.length === 4
+                                    ? "Bạn có thể cấu hình hàng, cột và xem trước lưới ngay."
+                                    : "Chọn theo thứ tự: trái-trên → phải-trên → phải-dưới → trái-dưới"}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={undoLayoutCorner}
+                                disabled={gridCorners.length === 0}
+                                className="h-9 shrink-0 gap-1.5 border-blue-300 bg-background px-2.5 text-blue-700 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900"
+                                title="Hoàn tác điểm vừa chọn"
+                                aria-label="Hoàn tác điểm lưới vừa chọn"
+                              >
+                                <Undo2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Hoàn tác điểm</span>
+                              </Button>
                             </div>
 
                             {gridCorners.length === 4 && (
@@ -2058,6 +2089,102 @@ export default function ParkingCommissioningPage() {
                                 </div>
                               </>
                             )}
+                          </div>
+                        </Card>
+                      )}
+
+                      {layoutMode === "individual" && (
+                        <Card className="space-y-4 rounded-2xl border border-purple-200 bg-purple-50/40 p-4 dark:border-purple-900 dark:bg-purple-950/10">
+                          <div className="border-b border-purple-200 pb-2 dark:border-purple-900">
+                            <p className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300">
+                              <MousePointer2 className="h-3.5 w-3.5" />
+                              TẠO TỪNG Ô THEO 4 ĐIỂM
+                            </p>
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-3 rounded-xl border border-purple-200 bg-background p-3 dark:border-purple-800">
+                              <div>
+                                <p className="mb-1 text-xs font-medium text-purple-700 dark:text-purple-300">
+                                  Đã chọn {individualCorners.length}/4 điểm cho ô hiện tại
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Click lần lượt: trái-trên → phải-trên → phải-dưới → trái-dưới. Mỗi ô có thể là một tứ giác khác nhau.
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={undoLayoutCorner}
+                                disabled={individualCorners.length === 0}
+                                className="h-9 shrink-0 gap-1.5 px-2.5 text-purple-700 dark:text-purple-300"
+                                title="Hoàn tác điểm vừa chọn"
+                                aria-label="Hoàn tác điểm của ô hiện tại"
+                              >
+                                <Undo2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Hoàn tác</span>
+                              </Button>
+                            </div>
+
+                            <Field label="Mã ô đỗ">
+                              <Input
+                                value={individualSlotCode}
+                                onChange={(event) => setIndividualSlotCode(event.target.value)}
+                                placeholder="Ví dụ: A-01"
+                                className="h-11 rounded-xl border-border bg-background text-xs font-medium text-foreground"
+                              />
+                            </Field>
+
+                            <Field label="Vùng Zone">
+                              <Select value={gridConfig.zoneId} onValueChange={(value) => setGridConfig({ ...gridConfig, zoneId: value })}>
+                                <SelectTrigger className="h-11 w-full rounded-xl border-border bg-card font-medium text-foreground">
+                                  <SelectValue placeholder="Chọn zone" />
+                                </SelectTrigger>
+                                <SelectContent className="border-border bg-background text-foreground">
+                                  {zones.map((zone) => (
+                                    <SelectItem key={zone.id} value={zone.id} className="text-xs font-medium focus:bg-muted focus:text-foreground">
+                                      {zone.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </Field>
+
+                            <Field label="Trạng thái">
+                              <Select value={gridConfig.status} onValueChange={(value) => setGridConfig({ ...gridConfig, status: value as ParkingMapSlot["adminStatus"] })}>
+                                <SelectTrigger className="h-11 w-full rounded-xl border-border bg-card font-medium text-foreground">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="border-border bg-background text-foreground">
+                                  <SelectItem value="ACTIVE" className="text-xs font-medium text-emerald-600 focus:bg-muted">ACTIVE</SelectItem>
+                                  <SelectItem value="RESERVED" className="text-xs font-medium text-amber-600 focus:bg-muted">RESERVED</SelectItem>
+                                  <SelectItem value="DISABLED" className="text-xs font-medium text-rose-600 focus:bg-muted">DISABLED</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </Field>
+
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                type="button"
+                                onClick={commitIndividualSlot}
+                                disabled={individualCorners.length !== 4 || !individualSlotCode.trim() || !(gridConfig.zoneId || zones[0]?.id)}
+                                className="h-11 flex-1 rounded-xl bg-purple-600 text-sm font-bold text-white hover:bg-purple-700"
+                              >
+                                <Check className="mr-1.5 h-4 w-4" /> Thêm ô đỗ
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIndividualCorners([])}
+                                disabled={individualCorners.length === 0}
+                                className="size-11 rounded-xl border-border bg-card p-0"
+                                title="Xóa 4 điểm của ô hiện tại"
+                                aria-label="Xóa các điểm của ô hiện tại"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </Card>
                       )}
@@ -2178,8 +2305,8 @@ export default function ParkingCommissioningPage() {
                           <span className="text-primary font-bold">{slots.length} slots</span>
                         </div>
                         <div className="flex justify-between">
-                          <span>ĐỈNH_ĐANG_VẼ:</span>
-                          <span className="text-foreground">{currentPolygon.length} vertexes</span>
+                          <span>{layoutMode === "grid" ? "GÓC_LƯỚI_ĐÃ_CHỌN:" : "ĐIỂM_Ô_ĐANG_CHỌN:"}</span>
+                          <span className="text-foreground">{layoutMode === "grid" ? gridCorners.length : individualCorners.length}/4</span>
                         </div>
                         <div className="flex justify-between">
                           <span>TỰ_ĐỘNG_SẮP_XẾP:</span>
@@ -2424,28 +2551,15 @@ export default function ParkingCommissioningPage() {
                 className="bg-background border-border text-foreground text-xs font-medium h-11 rounded-xl focus-visible:ring-primary"
               />
             </Field>
-            <Field label="Phân vùng Zone">
-              <Select
-                value={cameraForm.zoneId || "site-wide"}
-                onValueChange={(value) => setCameraForm((form) => ({ ...form, zoneId: value === "site-wide" ? null : value }))}
-              >
-                <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-background border-border text-foreground">
-                  <SelectItem value="site-wide" className="focus:bg-muted font-medium text-xs">Toàn bộ site</SelectItem>
-                  {zones.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted font-medium text-xs">
-                      {zone.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
             <Field label="Vai trò nghiệp vụ">
               <Select
                 value={cameraForm.role}
-                onValueChange={(value) => setCameraForm((form) => ({ ...form, role: value as CameraRole, panelType: value === "OVERVIEW" ? null : form.panelType || "entry" }))}
+                onValueChange={(value) => setCameraForm((form) => ({
+                  ...form,
+                  role: value as CameraRole,
+                  zoneId: value === "OVERVIEW" ? null : form.zoneId,
+                  panelType: value === "OVERVIEW" ? null : form.panelType || "entry",
+                }))}
               >
                 <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
                   <SelectValue />
@@ -2456,6 +2570,31 @@ export default function ParkingCommissioningPage() {
                 </SelectContent>
               </Select>
             </Field>
+            {cameraForm.role === "OVERVIEW" ? (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">
+                <p className="font-medium text-foreground">Phạm vi: toàn bộ site</p>
+                <p className="mt-1">Camera OVERVIEW có thể quản lý nhiều zone. Zone được gán cho từng lưới hoặc ô đỗ trong bước Thiết kế sơ đồ.</p>
+              </div>
+            ) : (
+              <Field label="Phân vùng Zone">
+                <Select
+                  value={cameraForm.zoneId || "site-wide"}
+                  onValueChange={(value) => setCameraForm((form) => ({ ...form, zoneId: value === "site-wide" ? null : value }))}
+                >
+                  <SelectTrigger className="w-full bg-card border-border text-foreground font-medium h-11 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border-border text-foreground">
+                    <SelectItem value="site-wide" className="focus:bg-muted font-medium text-xs">Toàn bộ site</SelectItem>
+                    {zones.map((zone) => (
+                      <SelectItem key={zone.id} value={zone.id} className="focus:bg-muted font-medium text-xs">
+                        {zone.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
             {cameraForm.role === "ANPR_GATE" && (
               <Field label="Loại cổng kiểm soát (Panel Type)">
                 <Select
@@ -2691,7 +2830,7 @@ export default function ParkingCommissioningPage() {
       </Dialog>
 
       <Dialog open={publishDialog} onOpenChange={setPublishDialog}>
-        <DialogContent className="bg-background border border-border text-foreground font-medium max-w-md p-6 rounded-2xl relative overflow-hidden">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-md overflow-y-auto rounded-2xl border border-border bg-background p-6 font-medium text-foreground">
           <DialogHeader className="pb-4 border-b border-border">
             <DialogTitle className="text-sm font-medium tracking-wider text-primary">
               XÁC NHẬN PUBLISH SƠ ĐỒ?

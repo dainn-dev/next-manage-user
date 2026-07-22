@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import com.vehiclemanagement.config.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,6 +51,7 @@ public class AgentAuthenticationService {
      */
     @Transactional
     public EnrollmentResult enrollAgent(EnrollmentRequest request) {
+        UUID tenantId = requireTenantContext();
         // Validate enrollment code
         SiteAgentEnrollmentCode enrollmentCode =
             enrollmentService.validateAndConsumeCode(request.enrollmentCode);
@@ -83,12 +85,12 @@ public class AgentAuthenticationService {
 
         credentialRepository.save(credential);
 
-        String accessToken = generateAccessToken(agent, enrollmentCode.getSiteId());
+        String accessToken = generateAccessToken(agent, enrollmentCode.getSiteId(), tenantId);
 
         log.info("Enrolled agent {} for site {} with fingerprint hash {}",
             agent.getId(), agent.getSiteId(), fingerprintHash);
 
-        return new EnrollmentResult(agent, accessToken, refreshToken);
+        return new EnrollmentResult(agent, tenantId, accessToken, refreshToken);
     }
 
     /**
@@ -96,6 +98,7 @@ public class AgentAuthenticationService {
      */
     @Transactional
     public TokenRefreshResult refreshAccessToken(UUID agentId, String refreshToken) {
+        UUID tenantId = requireTenantContext();
         SiteAgent agent = agentRepository.findById(agentId)
             .orElseThrow(() -> new IllegalArgumentException("Agent not found"));
 
@@ -116,7 +119,7 @@ public class AgentAuthenticationService {
         credentialRepository.updateLastUsedAt(matchingCredential.getId(), LocalDateTime.now());
 
         // Generate new access token
-        String accessToken = generateAccessToken(agent, agent.getSiteId());
+        String accessToken = generateAccessToken(agent, agent.getSiteId(), tenantId);
 
         log.debug("Refreshed access token for agent {}", agentId);
 
@@ -165,11 +168,8 @@ public class AgentAuthenticationService {
         }
     }
 
-    private String generateAccessToken(SiteAgent agent, UUID siteId) {
+    private String generateAccessToken(SiteAgent agent, UUID siteId, UUID tenantId) {
         SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-
-        // Get tenant ID from agent's site (would need site lookup, simplified here)
-        // In real implementation, join with site table or pass tenantId
 
         Date now = new Date();
         Date expiry = new Date(now.getTime() + ACCESS_TOKEN_VALIDITY_HOURS * 3600 * 1000L);
@@ -179,11 +179,19 @@ public class AgentAuthenticationService {
             .setAudience(TOKEN_AUDIENCE)
             .claim("siteId", siteId.toString())
             .claim("agentId", agent.getId().toString())
-            // TODO: Add tenantId claim after site lookup
+            .claim("tenantId", tenantId.toString())
             .setIssuedAt(now)
             .setExpiration(expiry)
             .signWith(key, SignatureAlgorithm.HS256)
             .compact();
+    }
+
+    private UUID requireTenantContext() {
+        UUID tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            throw new IllegalStateException("Tenant context is required for agent authentication");
+        }
+        return tenantId;
     }
 
     private String generateRefreshToken() {
@@ -213,6 +221,7 @@ public class AgentAuthenticationService {
 
     public record EnrollmentResult(
         SiteAgent agent,
+        UUID tenantId,
         String accessToken,
         String refreshToken
     ) {}

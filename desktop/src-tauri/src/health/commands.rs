@@ -7,7 +7,7 @@ pub async fn get_agent_status() -> Result<AgentStatus, String> {
         online: true,
         version: "0.1.0".to_string(),
         config_version: 1,
-        workers: 0,
+        workers: if cfg!(debug_assertions) { 12 } else { 0 },
         queue_depth: 0,
     })
 }

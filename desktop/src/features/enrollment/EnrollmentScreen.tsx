@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import Button from '@/components/ui/button'
 import Input from '@/components/ui/input'
 import Label from '@/components/ui/label'
@@ -11,13 +11,15 @@ interface AgentCredentials {
   access_token: string
   refresh_token: string
   expires_at: number
+  api_url: string
 }
 
 interface EnrollmentScreenProps {
   onSuccess: (credentials: AgentCredentials) => void
+  notice?: string
 }
 
-export default function EnrollmentScreen({ onSuccess }: EnrollmentScreenProps) {
+export default function EnrollmentScreen({ onSuccess, notice = '' }: EnrollmentScreenProps) {
   const [enrollmentCode, setEnrollmentCode] = useState('')
   const [agentName, setAgentName] = useState('')
   const [apiUrl, setApiUrl] = useState('http://localhost:8080')
@@ -54,6 +56,11 @@ export default function EnrollmentScreen({ onSuccess }: EnrollmentScreenProps) {
         </div>
 
         <form onSubmit={handleEnroll} className="space-y-6 bg-card p-8 rounded-lg border">
+          {notice && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800" role="alert">
+              {notice}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="apiUrl">Backend URL</Label>
             <Input

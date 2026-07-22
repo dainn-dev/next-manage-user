@@ -18,6 +18,7 @@ import {
   ListTree,
   LogOut,
   Map as MapIcon,
+  MonitorCog,
   PanelLeftClose,
   PanelLeftOpen,
   ScanLine,
@@ -113,6 +114,7 @@ const tenantNavigationGroups: NavigationGroup[] = [
     items: [
       { key: "/parking/maps", label: "Sơ đồ bãi", icon: MapIcon, roles: OPS },
       { key: "/parking/cameras", label: "Camera", icon: Camera, roles: OPS },
+      { key: "/parking/agents", label: "Máy vận hành", icon: MonitorCog, roles: MANAGERS },
       { key: "/parking/commissioning", label: "Thiết lập bãi đỗ", icon: Wrench, roles: MANAGERS },
       { key: "/parking/slots", label: "Ô đỗ xe", icon: LayoutGrid, roles: OPS },
     ],
@@ -339,7 +341,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose, variant = "adaptive
       className={cn(
         "min-w-0 flex-col text-sidebar-foreground",
         variant === "desktop"
-          ? "hidden h-dvh border-r border-sidebar-border bg-sidebar lg:relative lg:flex lg:shadow-sm"
+          ? "hidden h-dvh border-r border-sidebar-border/70 bg-sidebar lg:relative lg:flex lg:shadow-sm"
           : variant === "mobile"
             ? "flex h-full w-full bg-transparent"
             : "fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,calc(100%-2rem))] border-r border-sidebar-border bg-sidebar shadow-[var(--shadow-overlay)] transition-[transform,width] duration-[var(--dur-long)] ease-[var(--ease-out)] lg:relative lg:z-auto lg:translate-x-0 lg:shadow-sm",
@@ -348,8 +350,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose, variant = "adaptive
       )}
       aria-label="Điều hướng chính"
     >
-      <div className={cn("border-b border-sidebar-border", compact ? "p-2" : "p-4")}>
-        <div className={cn("flex items-center", compact ? "flex-col gap-2" : "gap-2")}>
+      <div className={cn("border-b border-sidebar-border/70", compact ? "p-2" : "h-16 px-3 py-2")}>
+        <div className={cn("flex items-center", compact ? "flex-col gap-2" : "h-full gap-1")}>
           <Link
             href={brandHref}
             onClick={onMobileClose}
@@ -357,15 +359,15 @@ export function Sidebar({ mobileOpen = false, onMobileClose, variant = "adaptive
             aria-label={brandAriaLabel}
             className={cn(
               "group flex min-h-11 items-center rounded-xl outline-none transition-colors duration-200 hover:bg-muted focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
-              compact ? "size-11 justify-center" : "min-w-0 flex-1 gap-3 px-1.5"
+              compact ? "size-11 justify-center" : "min-w-0 flex-1 gap-2.5 px-1"
             )}
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sidebar-accent text-sidebar-accent-foreground shadow-sm transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
               <CircleParking className="size-5" aria-hidden="true" />
             </span>
             {!compact && (
-              <span className="min-w-0">
-                <span className="block truncate text-lg leading-tight font-bold tracking-tight text-sidebar-foreground">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[1.125rem] font-bold leading-5 tracking-[-0.02em] text-sidebar-foreground">
                   ParkVision
                 </span>
                 <span className="block truncate text-xs font-medium text-muted-foreground">
@@ -377,7 +379,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose, variant = "adaptive
           <button
             type="button"
             onClick={() => setCollapsed((value) => !value)}
-            className="hidden size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar lg:flex"
+            className="hidden size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors duration-200 hover:bg-muted hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar lg:flex"
             title={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
             aria-label={collapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
           >

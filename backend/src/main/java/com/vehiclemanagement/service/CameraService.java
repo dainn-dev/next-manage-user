@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
  * <ul>
  *   <li>Camera names are unique within a site (409 on violation).</li>
  *   <li>An assigned zone must belong to the same site as the camera (400).</li>
+ *   <li>OVERVIEW cameras are site-scoped; zones are owned by their map slots.</li>
  * </ul>
  * The per-camera credential fields are never touched by this CRUD surface — key
  * issuance/rotation (ADR-0602) is a separate flow.
@@ -107,7 +108,11 @@ public class CameraService {
 
     public CameraDto create(CameraDto request) {
         requireSite(request.getSiteId());
-        validateZone(request.getZoneId(), request.getSiteId());
+        Camera.CameraRole role = request.getRole() == null
+                ? Camera.CameraRole.ANPR_GATE
+                : request.getRole();
+        UUID zoneId = zoneForRole(role, request.getZoneId());
+        validateZone(zoneId, request.getSiteId());
         if (cameraRepository.existsBySiteIdAndName(request.getSiteId(), request.getName())) {
             throw new ConflictException("Camera with name '" + request.getName()
                     + "' already exists in this site");
@@ -116,7 +121,7 @@ public class CameraService {
 
         Camera camera = Camera.builder()
                 .siteId(request.getSiteId())
-                .zoneId(request.getZoneId())
+                .zoneId(zoneId)
                 .name(request.getName())
                 .rtspUrl(request.getRtspUrl())
                 .streamKind(request.getStream() == null ? null : request.getStream().kind())
@@ -125,12 +130,8 @@ public class CameraService {
                 .snapshotUrl(browserUrl(request.getSnapshotUrl(), true))
                 .calibrationJson(request.getCalibrationJson())
                 .build();
-        if (request.getRole() != null) {
-            camera.setRole(request.getRole());
-        }
-        if (request.getPanelType() != null) {
-            camera.setPanelType(request.getPanelType());
-        }
+        camera.setRole(role);
+        camera.setPanelType(panelForRole(role, request.getPanelType()));
         if (request.getStatus() != null) {
             camera.setStatus(request.getStatus());
         }
@@ -144,7 +145,11 @@ public class CameraService {
      */
     public CameraWithKeyDto create(UUID siteId, CameraCreateRequest request) {
         requireSite(siteId);
-        validateZone(request.getZoneId(), siteId);
+        Camera.CameraRole role = request.getRole() == null
+                ? Camera.CameraRole.ANPR_GATE
+                : request.getRole();
+        UUID zoneId = zoneForRole(role, request.getZoneId());
+        validateZone(zoneId, siteId);
         if (cameraRepository.existsBySiteIdAndName(siteId, request.getName())) {
             throw new ConflictException("Camera with name '" + request.getName()
                     + "' already exists in this site");
@@ -154,11 +159,11 @@ public class CameraService {
         String ingestKey = newIngestKey();
         Camera camera = Camera.builder()
                 .siteId(siteId)
-                .zoneId(request.getZoneId())
+                .zoneId(zoneId)
                 .name(request.getName())
                 .rtspUrl(request.getRtspUrl())
-                .role(request.getRole() == null ? Camera.CameraRole.ANPR_GATE : request.getRole())
-                .panelType(request.getPanelType())
+                .role(role)
+                .panelType(panelForRole(role, request.getPanelType()))
                 .status(Camera.CameraStatus.provisioned)
                 .apiKeyHash(passwordEncoder.encode(ingestKey))
                 .build();
@@ -264,9 +269,18 @@ public class CameraService {
                 : configured;
     }
 
+    static UUID zoneForRole(Camera.CameraRole role, UUID requestedZoneId) {
+        return role == Camera.CameraRole.OVERVIEW ? null : requestedZoneId;
+    }
+
+    static Camera.PanelType panelForRole(Camera.CameraRole role, Camera.PanelType requestedPanelType) {
+        return role == Camera.CameraRole.OVERVIEW ? null : requestedPanelType;
+    }
+
     public CameraDto update(UUID id, CameraDto request) {
         Camera camera = findOrThrow(id);
         siteAccess.assertSiteAllowed(camera.getSiteId());
+        Camera.CameraRole effectiveRole = request.getRole() == null ? camera.getRole() : request.getRole();
         // The owning site is immutable; the zone may be re-assigned but must stay
         // within that same site.
         if (request.getName() != null && !request.getName().isBlank()
@@ -277,12 +291,13 @@ public class CameraService {
             }
             camera.setName(request.getName());
         }
-        if (request.getZoneId() != null) {
+        if (effectiveRole == Camera.CameraRole.OVERVIEW) {
+            // Zone ownership belongs to map slots. One OVERVIEW camera may cover
+            // several zones in the same site, so it must remain site-scoped.
+            camera.setZoneId(null);
+        } else if (request.getZoneId() != null) {
             validateZone(request.getZoneId(), camera.getSiteId());
             camera.setZoneId(request.getZoneId());
-        } else if (request.getRole() == Camera.CameraRole.OVERVIEW) {
-            // An OVERVIEW camera may intentionally cover the whole site.
-            camera.setZoneId(null);
         }
         if (request.getRtspUrl() != null) {
             camera.setRtspUrl(request.getRtspUrl());
@@ -298,11 +313,11 @@ public class CameraService {
         if (request.getRole() != null) {
             camera.setRole(request.getRole());
         }
-        if (request.getPanelType() != null) {
-            camera.setPanelType(request.getPanelType());
-        } else if (request.getRole() == Camera.CameraRole.OVERVIEW) {
+        if (effectiveRole == Camera.CameraRole.OVERVIEW) {
             // Clear stale entry/exit semantics when changing a camera to OVERVIEW.
             camera.setPanelType(null);
+        } else if (request.getPanelType() != null) {
+            camera.setPanelType(request.getPanelType());
         }
         if (request.getStatus() != null) {
             camera.setStatus(request.getStatus());

@@ -26,7 +26,7 @@ public class SiteAgentController {
      * List all agents for a site.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<List<AgentSummary>> listAgents(@PathVariable UUID siteId) {
         List<SiteAgent> agents = agentRepository.findBySiteId(siteId);
 
@@ -50,7 +50,7 @@ public class SiteAgentController {
      * Generate a new enrollment code for pairing an agent.
      */
     @PostMapping("/enrollment-codes")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<EnrollmentCodeResponse> createEnrollmentCode(
         @PathVariable UUID siteId,
         @RequestAttribute(value = "userId", required = false) UUID userId
@@ -67,7 +67,7 @@ public class SiteAgentController {
      * Revoke an agent (invalidates all credentials).
      */
     @PostMapping("/{agentId}/revoke")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<Void> revokeAgent(@PathVariable UUID siteId, @PathVariable UUID agentId) {
         // Verify agent belongs to site
         SiteAgent agent = agentRepository.findById(agentId)
@@ -85,7 +85,7 @@ public class SiteAgentController {
      * Get agent details.
      */
     @GetMapping("/{agentId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SITE_MANAGER')")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN', 'SITE_MANAGER')")
     public ResponseEntity<AgentDetail> getAgent(@PathVariable UUID siteId, @PathVariable UUID agentId) {
         SiteAgent agent = agentRepository.findById(agentId)
             .orElseThrow(() -> new IllegalArgumentException("Agent not found"));
