@@ -22,19 +22,19 @@ this git repository using Dokploy's Docker Compose service.
 5. In the **Environment** tab, set at minimum:
 
    ```env
-   VM_DOMAIN=vm.example.com                     # frontend domain
-   API_DOMAIN=api.example.com                   # backend domain
+   VM_DOMAIN=parkingvision.dainn.online         # frontend domain
+   API_DOMAIN=api-pv.dainn.online               # backend domain
    JWT_SECRET=<openssl rand -base64 32>
    PASSWORD_RESET_FINGERPRINT_SECRET=<openssl rand -base64 32>
-   CORS_ALLOWED_ORIGINS=https://vm.example.com
-   NEXT_PUBLIC_API_URL=https://api.example.com
+   CORS_ALLOWED_ORIGINS=https://parkingvision.dainn.online
+   NEXT_PUBLIC_API_URL=https://api-pv.dainn.online
    ```
 
    Optional: `POSTGRES_PASSWORD`, `OBJECT_STORAGE_ACCESS_KEY`,
    `OBJECT_STORAGE_SECRET_KEY`, `GATE_API_KEY`, `NEXT_PUBLIC_GATE_API_KEY`,
    `JWT_EXPIRATION`.
 
-   Point `*.example.com` A/AAAA records (or a wildcard) at the server. Use the
+   Point both domain A/AAAA records at the server. Use the
    Dokploy **Domains** tab instead if you prefer managing Traefik there.
 6. Deploy. Dokploy clones the repo and runs:
 
@@ -50,8 +50,11 @@ this git repository using Dokploy's Docker Compose service.
 
 | Service  | URL                                     |
 |----------|-----------------------------------------|
-| Frontend | `https://vm.example.com`                |
-| Backend  | `https://api.example.com/api`           |
+| Frontend | `https://parkingvision.dainn.online`    |
+| Backend  | `https://api-pv.dainn.online/api`       |
+
+Traefik routes the frontend domain to port `3500` inside the frontend container;
+the backend continues to listen on port `8080`.
 | MinIO    | internal (only reachable on the server) |
 
 Data is persisted in the `postgres_data`, `minio_data`, `file_storage` and
