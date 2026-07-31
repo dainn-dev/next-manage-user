@@ -1,5 +1,5 @@
 # Frontend Dockerfile for Next.js application
-FROM node:18-bookworm-slim AS base
+FROM node:20-bookworm-slim AS base
 
 # Install dependencies only when needed
 FROM base AS deps
