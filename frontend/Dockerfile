@@ -24,6 +24,12 @@ COPY tokens.css /tokens.css
 # Install pnpm
 RUN npm install -g pnpm@9.15.9
 
+# NEXT_PUBLIC_* vars are inlined at build time
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_GATE_API_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_GATE_API_KEY=$NEXT_PUBLIC_GATE_API_KEY
+
 # Build the application
 RUN pnpm build
 

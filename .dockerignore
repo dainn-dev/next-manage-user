@@ -1,0 +1,12 @@
+# Used by the frontend build (context = repo root).
+# Keep only what frontend/Dockerfile needs.
+*
+!frontend/
+!frontend/**
+!tokens.css
+
+frontend/node_modules
+frontend/.next
+frontend/coverage
+frontend/*.log
+frontend/.env*
