@@ -42,6 +42,10 @@ this git repository using Dokploy's Docker Compose service.
    docker compose -f deploy/dokploy/docker-compose.yml up -d --build
    ```
 
+   Build contexts in the Compose file are relative to its location under
+   `deploy/dokploy/`: `../../backend` selects the backend project and `../..`
+   selects the repository root for the frontend build.
+
 ## Result
 
 | Service  | URL                                     |

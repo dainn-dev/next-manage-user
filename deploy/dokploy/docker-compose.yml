@@ -73,7 +73,9 @@ services:
 
   backend:
     build:
-      context: ./backend
+      # Build paths are resolved relative to this Compose file, which lives in
+      # deploy/dokploy/. The backend Dockerfile expects backend/ as its context.
+      context: ../../backend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -115,7 +117,9 @@ services:
 
   frontend:
     build:
-      context: .
+      # The frontend Dockerfile copies both frontend/ and the root tokens.css,
+      # so its build context must be the repository root.
+      context: ../..
       dockerfile: frontend/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.example.com}
