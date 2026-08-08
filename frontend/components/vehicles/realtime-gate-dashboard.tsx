@@ -28,12 +28,14 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
   const refresh = useCallback(async () => {
     setLoading(true)
     try {
+      console.log('[REALTIME] Fetching latest gate data...')
       const [stats, entered, todayLogs] = await Promise.all([
         vehicleLogApi.getTodayStatistics().catch(() => null),
         vehicleApi.getVehiclesByStatus("entered").catch(() => [] as Vehicle[]),
         vehicleLogApi.getTodayLogs(0, 500).catch(() => null),
       ])
       if (stats) {
+        console.log('[REALTIME] Stats fetched:', stats)
         setEntryCount(stats.entryCount)
         setExitCount(stats.exitCount)
         setUniqueVehicles(stats.uniqueVehicles)
@@ -46,8 +48,10 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
       setTodayEntryPlates(plates)
       setError(null)
       setLastUpdated(new Date())
+      console.log('[REALTIME] Gate data refresh completed successfully')
     } catch {
       const message = "Không thể tải dữ liệu cổng realtime"
+      console.error('[REALTIME] Failed to refresh gate data')
       setError(message)
       onError?.(message)
     } finally {
@@ -57,13 +61,23 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
 
   useEffect(() => { void refresh() }, [refresh])
   useEffect(() => {
-    if (pulse !== undefined) void refresh()
+    if (pulse !== undefined) {
+      console.log('[REALTIME] Pulse received, triggering refresh. Pulse value:', pulse)
+      void refresh()
+    }
     // A WebSocket event is the sole trigger for this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pulse])
   useEffect(() => {
-    const id = window.setInterval(() => void refresh(), REFRESH_INTERVAL_MS)
-    return () => window.clearInterval(id)
+    console.log('[REALTIME] Setting up polling fallback interval: 30s')
+    const id = window.setInterval(() => {
+      console.log('[REALTIME] Polling fallback triggered')
+      void refresh()
+    }, REFRESH_INTERVAL_MS)
+    return () => {
+      console.log('[REALTIME] Cleaning up polling fallback interval')
+      window.clearInterval(id)
+    }
   }, [refresh])
 
   const { insideToday, overnight } = useMemo(() => {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,19 +8,19 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Search, 
-  RefreshCw, 
-  Car, 
-  TrendingUp, 
-  ArrowUp, 
-  ArrowDown, 
-  Calendar, 
-  Download, 
-  Plus, 
-  Filter, 
-  Eye, 
-  Edit, 
+import {
+  Search,
+  RefreshCw,
+  Car,
+  TrendingUp,
+  ArrowUp,
+  ArrowDown,
+  Calendar,
+  Download,
+  Plus,
+  Filter,
+  Eye,
+  Edit,
   Trash2,
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -30,7 +30,9 @@ import {
   MapPin,
   UserRound,
   Radio,
-  ShieldAlert
+  ShieldAlert,
+  Wifi,
+  WifiOff
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { vehicleLogApi, VehicleLogPage, VehicleLog, VehicleLogExportFilter } from "@/lib/api/vehicle-log-api"
@@ -41,6 +43,7 @@ import { useAuth } from "@/lib/auth-context"
 import { canViewAllLogs } from "@/lib/types"
 import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
 import { AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
+import { useWebSocket, type VehicleCheckMessage, type EmployeeVehicleCheckMessage } from "@/hooks/use-websocket"
 
 export default function VehicleEntryExitPage() {
   const { user } = useAuth()
@@ -74,6 +77,58 @@ export default function VehicleEntryExitPage() {
       return () => clearInterval(interval)
     }
   }, [])
+
+  // WebSocket handler for realtime updates
+  const handleVehicleCheck = useCallback((message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
+    console.log('[REALTIME] Entry-Exit page received WebSocket message:', message)
+
+    const isEmployee = "employeeId" in message && "vehicleId" in message
+    const employeeMessage = message as EmployeeVehicleCheckMessage
+    const vehicleMessage = message as VehicleCheckMessage
+    const plate = isEmployee ? employeeMessage.licensePlateNumber : vehicleMessage.licensePlateNumber
+    const type = (isEmployee ? employeeMessage.logType : vehicleMessage.type).toLowerCase()
+    const time = isEmployee ? employeeMessage.logTime || new Date().toISOString() : vehicleMessage.timestamp
+
+    const newLog: VehicleLog = {
+      id: `rt-${Date.now()}`,
+      licensePlateNumber: plate,
+      entryExitTime: time,
+      type: type === "exit" ? "exit" : "entry",
+      vehicleType: "internal",
+      employeeName: isEmployee ? employeeMessage.employeeName : undefined,
+      driverName: isEmployee ? employeeMessage.driverName : undefined,
+      gateLocation: isEmployee ? employeeMessage.gateLocation : undefined,
+      vehicleId: isEmployee ? employeeMessage.vehicleId : undefined,
+      vehicleBrand: isEmployee ? employeeMessage.brand : undefined,
+      vehicleModel: isEmployee ? employeeMessage.model : undefined,
+      vehicleColor: isEmployee ? employeeMessage.color : undefined,
+      createdAt: time,
+      updatedAt: time,
+    }
+
+    // Only add to list if we're viewing today's data
+    if (periodFilter === 'daily' && !searchTerm && typeFilter === 'all' && vehicleTypeFilter === 'all') {
+      setLogs((prev) => {
+        const filtered = prev.filter((log) => log.id !== newLog.id)
+        return [newLog, ...filtered].slice(0, pageSize)
+      })
+      setTotalElements((prev) => prev + 1)
+      console.log('[REALTIME] Entry-Exit list updated with new event')
+    }
+
+    // Always trigger a background refresh after a short delay
+    setTimeout(() => {
+      console.log('[REALTIME] Triggering background data refresh')
+      void loadData()
+    }, 2000)
+  }, [periodFilter, searchTerm, typeFilter, vehicleTypeFilter, pageSize])
+
+  const { isConnected, reconnect } = useWebSocket(handleVehicleCheck, {
+    onConnect: () => {
+      console.log('[REALTIME] Entry-Exit page WebSocket connected, refreshing data')
+      void loadData()
+    }
+  })
 
   useEffect(() => {
     loadData()
@@ -356,6 +411,29 @@ export default function VehicleEntryExitPage() {
               </div>
             ),
           },
+          {
+            key: "connection",
+            content: (
+              <button
+                type="button"
+                onClick={!isConnected ? reconnect : undefined}
+                disabled={isConnected}
+                className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-xs font-medium shadow-xs transition-all ${
+                  isConnected
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 cursor-default"
+                    : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 cursor-pointer"
+                }`}
+                aria-label={isConnected ? "Realtime đang kết nối" : "Kết nối lại realtime"}
+              >
+                {isConnected ? (
+                  <Wifi className="size-4 text-emerald-600" />
+                ) : (
+                  <WifiOff className="size-4 text-rose-600 animate-pulse" />
+                )}
+                <span>{isConnected ? "Realtime" : "Kết nối lại"}</span>
+              </button>
+            ),
+          },
         ]}
       />
 
@@ -364,9 +442,13 @@ export default function VehicleEntryExitPage() {
         title="Tổng quan bản ghi"
         description="Tóm tắt khoảng thời gian và lưu lượng của danh sách đang hiển thị."
         badge={(
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-            <Radio className="size-3" aria-hidden="true" />
-            Dữ liệu theo bộ lọc
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${
+            isConnected
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-border bg-muted text-muted-foreground"
+          }`}>
+            <Radio className={`size-3 ${isConnected ? "animate-pulse" : ""}`} aria-hidden="true" />
+            {isConnected ? "Đang nhận realtime" : "Đang chờ kết nối"}
           </span>
         )}
         meta={!loading ? (

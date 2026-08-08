@@ -152,3 +152,46 @@ class PreviewEvents:
             "height": height,
             "at": datetime.utcnow().isoformat() + "Z"
         })
+
+
+class BarrierEvents:
+    """Barrier (auto-gate) lifecycle events"""
+
+    @staticmethod
+    def opened(camera_id: Optional[UUID] = None):
+        """Barrier physically opened for a vehicle"""
+        IPCEvent.emit({
+            "type": "barrier.opened",
+            "cameraId": str(camera_id) if camera_id else None,
+            "at": datetime.utcnow().isoformat() + "Z"
+        })
+
+    @staticmethod
+    def closed(camera_id: Optional[UUID] = None):
+        """Barrier returned to closed position"""
+        IPCEvent.emit({
+            "type": "barrier.closed",
+            "cameraId": str(camera_id) if camera_id else None,
+            "at": datetime.utcnow().isoformat() + "Z"
+        })
+
+    @staticmethod
+    def rejected(camera_id: Optional[UUID] = None, *, license_plate: str = "", reason: str = ""):
+        """Vehicle denied access — barrier stays closed"""
+        IPCEvent.emit({
+            "type": "barrier.rejected",
+            "cameraId": str(camera_id) if camera_id else None,
+            "licensePlate": license_plate,
+            "reason": reason,
+            "at": datetime.utcnow().isoformat() + "Z"
+        })
+
+    @staticmethod
+    def failed(camera_id: Optional[UUID] = None, *, error_safe: str = ""):
+        """Barrier operation failed (hardware or state machine error)"""
+        IPCEvent.emit({
+            "type": "barrier.failed",
+            "cameraId": str(camera_id) if camera_id else None,
+            "message": error_safe,
+            "at": datetime.utcnow().isoformat() + "Z"
+        })

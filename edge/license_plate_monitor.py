@@ -29,6 +29,8 @@ from function.json_handler import LicensePlateManager
 from config_manager import config_manager
 from config_dialog import ConfigDialog
 from tts_manager import tts_manager
+from edge.barrier_controller import BarrierController, SimulatedBarrierController, create_barrier_controller
+from edge.ipc_protocol import BarrierEvents
 
 # Global cache for API requests
 api_cache = {}
@@ -1312,6 +1314,17 @@ class CameraPanel(QGroupBox):
         self.active_dialogs = {}  # Track active popup dialogs to prevent duplicates
         self.last_popup_time = {}  # Track last popup time for each license plate to prevent spam
         self.scan_thread = None
+
+        # Initialize barrier controller (default: simulation, no hardware required)
+        try:
+            barrier_config = {"enabled": True, "backend": "simulation"}
+            self.barrier_controller = create_barrier_controller(barrier_config)
+            self.barrier_controller.ensure_ready()
+            print(f"Barrier controller initialized for {panel_type} panel")
+        except Exception as e:
+            print(f"Warning: Failed to initialize barrier controller: {e}")
+            self.barrier_controller = None
+
         self.setup_ui()
     
     def setup_ui(self):
@@ -1530,9 +1543,25 @@ class CameraPanel(QGroupBox):
     def show_api_response(self, license_plate, panel_type, response_data):
         """Show API response in popup dialog"""
         try:
+            # Barrier control: open if approved
+            if self.barrier_controller and response_data.get("approved", False):
+                try:
+                    if self.barrier_controller.open():
+                        print(f"✅ Barrier opened for approved vehicle: {license_plate}")
+                        BarrierEvents.opened()
+                    else:
+                        print(f"⚠️ Barrier open rejected (cooldown/already open): {license_plate}")
+                except Exception as e:
+                    print(f"❌ Barrier control failed: {e}")
+                    BarrierEvents.failed(error_safe=str(e))
+            elif self.barrier_controller and not response_data.get("approved", False):
+                print(f"🚫 Barrier remains closed (not approved): {license_plate}")
+                BarrierEvents.rejected(license_plate=license_plate,
+                                     reason=response_data.get("message", "Not approved"))
+
             # Check if this is an unregistered vehicle (not approved and contains specific message)
             is_unregistered = (
-                not response_data.get("approved", False) and 
+                not response_data.get("approved", False) and
                 "chưa được đăng ký trong hệ thống" in response_data.get("message", "").lower()
             )
             

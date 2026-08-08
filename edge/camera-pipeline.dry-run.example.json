@@ -96,5 +96,13 @@
   "logging": {
     "level": "INFO",
     "service": "camera-pipeline"
+  },
+  "barrier": {
+    "enabled": true,
+    "backend": "simulation",
+    "open_duration_s": 5.0,
+    "close_cooldown_s": 2.0,
+    "pin_open": null,
+    "pin_close": null
   }
 }

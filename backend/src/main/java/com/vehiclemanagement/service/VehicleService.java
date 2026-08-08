@@ -653,9 +653,19 @@ public class VehicleService {
                     Object monitorInfo = vehicleLogService.getOwnerInfoByLicensePlate(licensePlateNumber, logType,
                             gate);
                     webSocketService.sendVehicleCheckMessage(monitorInfo, gateId(gate));
+                    System.out.println("[REALTIME] WebSocket message sent successfully for plate: " + licensePlateNumber +
+                                     " (type: " + type + ", gate: " + (gate != null ? gate.getId() : "none") + ")");
                 } catch (Exception e) {
+                    System.err.println("[REALTIME] Failed to send rich WebSocket message for plate: " + licensePlateNumber +
+                                     ", error: " + e.getMessage() + ". Falling back to simple message.");
                     // Fallback to simple message if employee info fails
-                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
+                    try {
+                        webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
+                        System.out.println("[REALTIME] Fallback WebSocket message sent for plate: " + licensePlateNumber);
+                    } catch (Exception wsException) {
+                        System.err.println("[REALTIME] CRITICAL: Both WebSocket attempts failed for plate: " + licensePlateNumber +
+                                         ". Error: " + wsException.getMessage());
+                    }
                 }
 
                 recordCheck(gate, "approved");
@@ -666,7 +676,13 @@ public class VehicleService {
                         + " không được phép ra vào (Trạng thái: " + statusText + ")";
 
                 // Send WebSocket message for denied access
-                webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
+                try {
+                    webSocketService.sendVehicleCheckMessage(licensePlateNumber, type, message, gateId(gate));
+                    System.out.println("[REALTIME] WebSocket DENIED message sent for plate: " + licensePlateNumber);
+                } catch (Exception wsException) {
+                    System.err.println("[REALTIME] Failed to send DENIED WebSocket message for plate: " + licensePlateNumber +
+                                     ". Error: " + wsException.getMessage());
+                }
                 recordCheck(gate, "denied");
             }
 
@@ -728,10 +744,14 @@ public class VehicleService {
                     .build();
 
             vehicleLogService.createVehicleLog(logDto);
+            System.out.println("[REALTIME] VehicleLog record created successfully for plate: " + vehicle.getLicensePlate() +
+                             " (type: " + type + ", logId: " + logDto.getId() + ")");
 
         } catch (Exception e) {
             // Log the error but don't fail the vehicle check process
-            System.err.println("Failed to create vehicle log entry: " + e.getMessage());
+            System.err.println("[REALTIME] CRITICAL: Failed to create vehicle log entry for plate: " +
+                             vehicle.getLicensePlate() + ". Error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

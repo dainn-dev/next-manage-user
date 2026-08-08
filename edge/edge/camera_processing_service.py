@@ -58,7 +58,13 @@ from edge.vehicle_tracker import (
 )
 from edge.tracker_state_store import TrackerStateStore
 from edge.prometheus_metrics import EdgeMetrics
-from edge.ipc_protocol import FrameEvents, QueueEvents, WorkerEvents
+from edge.ipc_protocol import BarrierEvents, FrameEvents, QueueEvents, WorkerEvents
+from edge.barrier_controller import (
+    BarrierController,
+    SimulatedBarrierController,
+    create_barrier_controller,
+)
+from edge.plate_access_client import PlateAccessClient
 
 
 STAGES = (
@@ -97,7 +103,9 @@ class CameraProcessingService:
                  track_state_manager: TrackStateManager | None = None,
                  ingest_client: CameraIngestTransport | None = None,
                  tracker_state_store: TrackerStateStore | None = None,
-                 metrics: EdgeMetrics | None = None):
+                 metrics: EdgeMetrics | None = None,
+                 barrier_controller: BarrierController | None = None,
+                 plate_access_client: PlateAccessClient | None = None):
         self.config = config
         self.logger = logger or configure_json_logging(config.logging.level)
         self.run_id = str(uuid4())
@@ -135,6 +143,12 @@ class CameraProcessingService:
         self._last_track_frames: dict[str, RetainedFrame] = {}
         self._latest_track_artifacts: dict[str, PlateCandidateArtifacts] = {}
         self.metrics = metrics or EdgeMetrics(str(config.camera.camera_id))
+        # Barrier controller — defaults to simulated (no hardware required)
+        self.barrier_controller = barrier_controller or create_barrier_controller(
+            config.barrier)
+        # Plate access client — calls check-vehicle for access decisions
+        self.plate_access_client = plate_access_client or PlateAccessClient(
+            config.ingest.url, config.ingest.camera_key, config.ingest.timeout_seconds)
 
     def validate_runtime(self) -> None:
         self._log("configuration", "started", "validating runtime readiness")
@@ -370,6 +384,50 @@ class CameraProcessingService:
         )
         self._send_ingest(outbound, snapshot_paths)
 
+        # --- Barrier control – check vehicle access and open gate if approved ---
+        if self.config.barrier.enabled:
+            camera_id = UUID(self.config.camera.camera_id)
+            try:
+                access = self.plate_access_client.check_vehicle(
+                    license_plate=candidate.plate.normalized_text,
+                )
+                if access.get("success") and access.get("approved"):
+                    opened = self.barrier_controller.open()
+                    self._log(
+                        "barrier", "opened" if opened else "open_rejected",
+                        "barrier opening triggered by approved plate" if opened
+                        else "barrier open rejected (cooldown or already open)",
+                        plate=candidate.plate.normalized_text,
+                        approved=True,
+                    )
+                else:
+                    reason = access.get("message", "Not approved") if access.get("success") \
+                        else access.get("message", "Access check failed")
+                    BarrierEvents.rejected(
+                        camera_id,
+                        license_plate=candidate.plate.normalized_text,
+                        reason=reason,
+                    )
+                    self._log(
+                        "barrier", "rejected",
+                        "vehicle denied access — barrier stays closed",
+                        plate=candidate.plate.normalized_text,
+                        reason=reason,
+                    )
+            except Exception as exc:
+                self._log(
+                    "barrier", "failed",
+                    "barrier access check raised an exception; ingest not affected",
+                    level="ERROR",
+                    plate=candidate.plate.normalized_text,
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                )
+                BarrierEvents.failed(
+                    camera_id,
+                    error_safe=f"PlateAccessClient exception: {type(exc).__name__}",
+                )
+
     def _store_lifecycle_snapshots(self, event: TrackLifecycleEvent,
                                    current_frame: RetainedFrame) -> list[StoredSnapshot]:
         frame = (self._last_track_frames.get(event.track_id)
@@ -429,7 +487,14 @@ class CameraProcessingService:
         close = getattr(self.ingest_client, "close", None)
         if callable(close):
             close()
+        barrier_close = getattr(self.barrier_controller, "close", None)
+        if callable(barrier_close):
+            barrier_close()
+        barrier_cleanup = getattr(self.barrier_controller, "cleanup", None)
+        if callable(barrier_cleanup):
+            barrier_cleanup()
         self.tracker_state_store.close()
+        self.plate_access_client.close()
 
     def _snapshot_paths(self, snapshots: list[StoredSnapshot]) -> dict[str, Path]:
         return {item.descriptor.kind: self.config.snapshot.output_dir / item.storage_reference

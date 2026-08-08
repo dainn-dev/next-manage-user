@@ -145,6 +145,26 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True)
+class BarrierConfig:
+    """Configuration for automatic gate (barrier) control.
+
+    Attributes:
+        enabled: Whether barrier control is active.
+        backend: 'simulation' (default, no hardware) or 'gpio' (Raspberry Pi/Jetson).
+        open_duration_s: How long the barrier stays open before auto-closing.
+        close_cooldown_s: Minimum seconds after closing before a new open is accepted.
+        pin_open: GPIO pin (BCM) used for the open relay pulse (gpio backend only).
+        pin_close: GPIO pin (BCM) used for the close relay pulse (gpio backend only).
+    """
+    enabled: bool = True
+    backend: str = "simulation"
+    open_duration_s: float = 5.0
+    close_cooldown_s: float = 2.0
+    pin_open: int | None = None
+    pin_close: int | None = None
+
+
+@dataclass(frozen=True)
 class CameraPipelineConfig:
     path: Path
     pipeline: PipelineConfig
@@ -155,6 +175,7 @@ class CameraPipelineConfig:
     snapshot: SnapshotConfig
     ingest: IngestConfig
     logging: LoggingConfig
+    barrier: BarrierConfig
     configuration_hash: str
 
     def safe_metadata(self) -> dict[str, str]:
@@ -203,6 +224,7 @@ def load_camera_pipeline_config(path: str | Path,
     snapshot = _mapping(root, "snapshot", "snapshot", issues)
     ingest = _mapping(root, "ingest", "ingest", issues)
     logging = _mapping(root, "logging", "logging", issues)
+    barrier = _mapping(root, "barrier", "barrier", issues) if "barrier" in root else {}
 
     source_type = _string(source, "type", "camera.source.type", issues).lower()
     source_location_key = "path" if source_type == "file" else "url"
@@ -364,6 +386,30 @@ def load_camera_pipeline_config(path: str | Path,
     if logging_config.level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
         issues.append("logging.level must be DEBUG, INFO, WARNING, ERROR, or CRITICAL")
 
+    barrier_backend = _value_or_default(
+        barrier, "backend", "barrier.backend", issues, "simulation", str).lower()
+    if barrier_backend not in {"simulation", "gpio"}:
+        issues.append("barrier.backend must be 'simulation' or 'gpio'")
+    pin_open = None
+    pin_close = None
+    if barrier_backend == "gpio":
+        pin_open = _integer_or_default(barrier, "pin_open", "barrier.pin_open", issues, 17, minimum=0)
+        pin_close = _integer_or_default(barrier, "pin_close", "barrier.pin_close", issues, 27, minimum=0)
+    barrier_config = BarrierConfig(
+        enabled=_value_or_default(barrier, "enabled", "barrier.enabled", issues, True, bool),
+        backend=barrier_backend,
+        open_duration_s=_number_or_default(
+            barrier, "open_duration_s", "barrier.open_duration_s", issues, 5.0, minimum=0),
+        close_cooldown_s=_number_or_default(
+            barrier, "close_cooldown_s", "barrier.close_cooldown_s", issues, 2.0, minimum=0),
+        pin_open=pin_open,
+        pin_close=pin_close,
+    )
+    if barrier_config.enabled and barrier_config.open_duration_s <= 0:
+        issues.append("barrier.open_duration_s must be greater than 0 when barrier is enabled")
+    if barrier_config.enabled and barrier_config.close_cooldown_s <= 0:
+        issues.append("barrier.close_cooldown_s must be greater than 0 when barrier is enabled")
+
     if issues:
         raise ConfigValidationError(issues)
 
@@ -379,7 +425,8 @@ def load_camera_pipeline_config(path: str | Path,
         ),
     )
     configuration_hash = _configuration_hash(
-        pipeline_config, model_config, thresholds_config, ocr_config, snapshot_config)
+        pipeline_config, model_config, thresholds_config, ocr_config, snapshot_config,
+        barrier_config)
     return CameraPipelineConfig(
         path=config_path,
         pipeline=pipeline_config,
@@ -390,6 +437,7 @@ def load_camera_pipeline_config(path: str | Path,
         snapshot=snapshot_config,
         ingest=ingest_config,
         logging=logging_config,
+        barrier=barrier_config,
         configuration_hash=configuration_hash,
     )
 
@@ -569,7 +617,8 @@ def _resolve_path(value: str, base_dir: Path) -> Path:
 
 def _configuration_hash(pipeline: PipelineConfig, models: ModelsConfig,
                         thresholds: ThresholdsConfig, ocr: OcrConfig,
-                        snapshot: SnapshotConfig) -> str:
+                        snapshot: SnapshotConfig,
+                        barrier: BarrierConfig) -> str:
     """Hash only portable pipeline/model settings, never credentials or host paths."""
     payload = {
         "pipeline": asdict(pipeline),
@@ -599,6 +648,12 @@ def _configuration_hash(pipeline: PipelineConfig, models: ModelsConfig,
             "content_type": snapshot.content_type,
             "jpeg_quality": snapshot.jpeg_quality,
             "max_width": snapshot.max_width,
+        },
+        "barrier": {
+            "enabled": barrier.enabled,
+            "backend": barrier.backend,
+            "open_duration_s": barrier.open_duration_s,
+            "close_cooldown_s": barrier.close_cooldown_s,
         },
     }
     digest = sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()

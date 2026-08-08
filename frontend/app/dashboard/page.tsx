@@ -90,6 +90,7 @@ export default function DashboardPage() {
   }, [loadData, refreshScopedDashboard])
 
   const handleVehicleCheck = useCallback((message: VehicleCheckMessage | EmployeeVehicleCheckMessage) => {
+    console.log('[REALTIME] WebSocket message received:', message)
     setRealtimePulse((value) => value + 1)
     const isEmployee = "employeeId" in message && "vehicleId" in message
     const employeeMessage = message as EmployeeVehicleCheckMessage
@@ -108,18 +109,29 @@ export default function DashboardPage() {
       createdAt: time,
       updatedAt: time,
     }
-    setRecentLogs((previous) => [entry, ...previous].slice(0, TIMELINE_PAGE_SIZE))
+    setRecentLogs((previous) => {
+      const updated = [entry, ...previous].slice(0, TIMELINE_PAGE_SIZE)
+      console.log('[REALTIME] Recent logs updated, count:', updated.length)
+      return updated
+    })
     setTodayStats((previous) => {
       if (!previous) return previous
-      return {
+      const updated = {
         ...previous,
         entryCount: previous.entryCount + (type === "entry" ? 1 : 0),
         exitCount: previous.exitCount + (type === "exit" ? 1 : 0),
       }
+      console.log('[REALTIME] Stats updated:', updated)
+      return updated
     })
   }, [])
 
-  const { isConnected, reconnect } = useWebSocket(handleVehicleCheck)
+  const { isConnected, reconnect } = useWebSocket(handleVehicleCheck, {
+    onConnect: () => {
+      console.log('[REALTIME] WebSocket connected, triggering data refresh')
+      void loadData() // Refresh data on reconnect to catch missed events
+    }
+  })
 
   useEffect(() => {
     if (canViewDashboard(user?.role)) void loadData()

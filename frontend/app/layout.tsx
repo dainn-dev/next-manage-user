@@ -6,6 +6,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { QueryProvider } from '@/components/query-provider';
 import { AuthProvider } from '@/lib/auth-context';
+import { DashboardScopeProvider } from '@/lib/dashboard-scope-context';
+import { DashboardDataProvider } from '@/lib/dashboard-data-context';
 import { Header } from '@/components/layout/header';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -37,13 +39,17 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <QueryProvider>
-              <div className="relative flex min-h-screen flex-col">
-                <Header />
-                <main className="flex-1">
-                  {children}
-                </main>
-              </div>
-              <Toaster />
+              <DashboardScopeProvider>
+                <DashboardDataProvider>
+                  <div className="relative flex min-h-screen flex-col">
+                    <Header />
+                    <main className="flex-1">
+                      {children}
+                    </main>
+                  </div>
+                  <Toaster />
+                </DashboardDataProvider>
+              </DashboardScopeProvider>
             </QueryProvider>
           </ThemeProvider>
         </AuthProvider>
