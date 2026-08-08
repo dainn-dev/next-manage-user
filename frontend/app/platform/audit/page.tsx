@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertCircle, RefreshCw, ScrollText } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { platformApi, type PlatformAuditEntry } from "@/lib/api/platform-api"
 
@@ -24,6 +25,16 @@ function formattedDetail(detail?: string | null): string {
   }
 }
 
+/** Read URL params once during initialisation to avoid a double-fetch race. */
+function readInitialParams() {
+  if (typeof window === "undefined") return { resourceType: "all", resourceId: "" }
+  const params = new URLSearchParams(window.location.search)
+  const qResource = params.get("resourceType")
+  const validResource =
+    qResource === "tenant" || qResource === "platform_admin" ? qResource : "all"
+  return { resourceType: validResource, resourceId: params.get("resourceId") ?? "" }
+}
+
 export default function PlatformAuditPage() {
   const { toast } = useToast()
   const [rows, setRows] = useState<PlatformAuditEntry[]>([])
@@ -31,19 +42,15 @@ export default function PlatformAuditPage() {
   const [hasError, setHasError] = useState(false)
   const [action, setAction] = useState("all")
   const [actionInput, setActionInput] = useState("")
-  const [resourceType, setResourceType] = useState("all")
-  const [resourceId, setResourceId] = useState("")
+  // Lazy-initialise from URL params so the first fetch already has the right values
+  const [resourceType, setResourceType] = useState<string>(() => readInitialParams().resourceType)
+  const [resourceId, setResourceId] = useState<string>(() => readInitialParams().resourceId)
+  // Separate "committed" state so resourceId debounces like the action filter
+  const [resourceIdInput, setResourceIdInput] = useState<string>(() => readInitialParams().resourceId)
+  const resourceIdDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const qResource = params.get("resourceType")
-    if (qResource === "tenant" || qResource === "platform_admin") setResourceType(qResource)
-    const qId = params.get("resourceId")
-    if (qId) setResourceId(qId)
-  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -97,8 +104,11 @@ export default function PlatformAuditPage() {
       </p>
 
       <div className="platform-toolbar flex-wrap gap-2">
+        {/* Action filter — sr-only label + visible input, no aria-label to avoid duplication */}
         <div className="flex flex-1 basis-48 gap-2">
+          <Label htmlFor="audit-action-filter" className="sr-only">Lọc theo action</Label>
           <Input
+            id="audit-action-filter"
             placeholder="Lọc theo action…"
             value={actionInput}
             onChange={(e) => setActionInput(e.target.value)}
@@ -107,18 +117,37 @@ export default function PlatformAuditPage() {
           />
           <Button variant="outline" onClick={applyActionFilter}>Áp dụng</Button>
         </div>
-        <Select value={resourceType} onValueChange={(v) => { setPage(0); setResourceType(v) }}>
-          <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Resource type" /></SelectTrigger>
+
+        {/* Resource type — sr-only label paired with SelectTrigger id */}
+        <Label htmlFor="audit-resource-type" className="sr-only">Resource type</Label>
+        <Select
+          value={resourceType}
+          onValueChange={(v) => { setPage(0); setResourceType(v) }}
+        >
+          <SelectTrigger id="audit-resource-type" className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Resource type" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả resource</SelectItem>
             <SelectItem value="tenant">tenant</SelectItem>
             <SelectItem value="platform_admin">platform_admin</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Resource ID — debounced, sr-only label */}
+        <Label htmlFor="audit-resource-id" className="sr-only">Resource ID</Label>
         <Input
+          id="audit-resource-id"
           placeholder="Resource ID (UUID)…"
-          value={resourceId}
-          onChange={(e) => { setPage(0); setResourceId(e.target.value) }}
+          value={resourceIdInput}
+          onChange={(e) => {
+            setResourceIdInput(e.target.value)
+            if (resourceIdDebounceRef.current) clearTimeout(resourceIdDebounceRef.current)
+            resourceIdDebounceRef.current = setTimeout(() => {
+              setPage(0)
+              setResourceId(e.target.value)
+            }, 300)
+          }}
           className="w-full sm:w-[260px] platform-mono text-xs"
         />
       </div>

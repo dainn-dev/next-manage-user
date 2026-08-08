@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { isPlatformAdmin } from "@/lib/types"
+import { isPlatformAdmin, UserRole } from "@/lib/types"
 
 /**
  * Platform console gate: only PLATFORM_ADMIN may view `/platform/*`.
@@ -15,16 +15,30 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const router = useRouter()
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated) return
+    if (isLoading) return
+    if (!isAuthenticated) {
+      router.replace("/login")
+      return
+    }
     if (!isPlatformAdmin(user?.role)) {
-      // MEMBER (USER) goes to the member shell; all operator roles go to dashboard
-      const destination = user?.role === "USER" ? "/me" : "/dashboard"
+      const destination = user?.role === UserRole.USER ? "/me" : "/dashboard"
       router.replace(destination)
     }
   }, [isLoading, isAuthenticated, user?.role, router])
 
-  if (isLoading || !isAuthenticated) {
-    return null
+  // Still checking session — show spinner, don't redirect yet
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+        <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-primary mr-2" aria-hidden="true" />
+        Đang xác thực…
+      </div>
+    )
+  }
+
+  // Session resolved but user is not authenticated — send to login
+  if (!isAuthenticated) {
+    return null // useEffect redirect to /login fires; render nothing meanwhile
   }
 
   if (!isPlatformAdmin(user?.role)) {

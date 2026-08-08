@@ -75,16 +75,17 @@ export default function PlatformTenantsPage() {
 
   const [saving, setSaving] = useState(false)
 
-  // Debounce search
+  // Debounce search — cleared on unmount to avoid stale-state warnings
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const handleSearchChange = (value: string) => {
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
+  const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setPage(0)
       setSearchTerm(value.trim())
     }, 250)
-  }
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -114,9 +115,13 @@ export default function PlatformTenantsPage() {
 
   const submitRename = async () => {
     if (!renameTarget || !renameValue.trim()) return
+    // Snapshot the target id before the await so a stale response for a
+    // different tenant can be detected and discarded
+    const capturedId = renameTarget.id
     setSaving(true)
     try {
-      const res = await tenantApi.rename(renameTarget.id, renameValue.trim())
+      const res = await tenantApi.rename(capturedId, renameValue.trim())
+      if (renameTarget?.id !== capturedId) return // dialog was closed/re-opened
       setRenameAuditRef(res.auditId ?? null)
       await load()
     } catch (error) {
@@ -138,10 +143,13 @@ export default function PlatformTenantsPage() {
       toast({ title: "Lý do là bắt buộc", description: "Nhập lý do trước khi thay đổi trạng thái.", variant: "destructive" })
       return
     }
+    const capturedId = statusTarget.id
     setSaving(true)
     try {
-      const res = await tenantApi.updateStatus(statusTarget.id, nextStatus, statusReason.trim())
+      const res = await tenantApi.updateStatus(capturedId, nextStatus, statusReason.trim())
+      if (statusTarget?.id !== capturedId) return // dialog was closed/re-opened
       setStatusAuditRef(res.auditId ?? null)
+      toast({ title: "Cập nhật trạng thái thành công", description: `Tenant đã chuyển sang ${STATUS_LABEL[nextStatus]}.` })
       await load()
     } catch (error) {
       toast({ title: "Cập nhật trạng thái thất bại", description: error instanceof Error ? error.message : "Lỗi không xác định", variant: "destructive" })
@@ -156,6 +164,12 @@ export default function PlatformTenantsPage() {
   }
 
   const submitCreate = async () => {
+    // Re-validate at submission time — the review step button guards this too,
+    // but state can be stale if something changed between opening review and clicking submit
+    if (!canCreateSubmit) {
+      toast({ title: "Thiếu thông tin bắt buộc", description: "Vui lòng điền đầy đủ các trường có dấu *.", variant: "destructive" })
+      return
+    }
     setSaving(true)
     try {
       const payload: TenantOnboardingRequest = {
@@ -164,7 +178,7 @@ export default function PlatformTenantsPage() {
         facilityLocation: createForm.facilityLocation?.trim() || undefined,
         adminFirstName: createForm.adminFirstName?.trim() || undefined,
         adminLastName: createForm.adminLastName?.trim() || undefined,
-        areaCount: Number(createForm.areaCount) || 1,
+        areaCount: Math.max(1, Number(createForm.areaCount) || 1),
       }
       const created = await tenantApi.create(payload)
       setCreateOpen(false)
@@ -221,12 +235,14 @@ export default function PlatformTenantsPage() {
       {/* Filters */}
       <div className="platform-toolbar">
         <div className="relative min-w-0 flex-1 basis-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Tìm theo tên hoặc slug…"
+          <Label htmlFor="tenant-search" className="sr-only">Tìm tenant</Label>
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input id="tenant-search" className="pl-9" placeholder="Tìm theo tên hoặc slug…"
             value={searchInput} onChange={(e) => handleSearchChange(e.target.value)} />
         </div>
+        <Label htmlFor="tenant-status-filter" className="sr-only">Lọc theo trạng thái</Label>
         <Select value={statusFilter} onValueChange={(v) => { setPage(0); setStatusFilter(v as TenantStatus | "all") }}>
-          <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+          <SelectTrigger id="tenant-status-filter" className="w-full sm:w-[200px]"><SelectValue placeholder="Trạng thái" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả trạng thái</SelectItem>
             <SelectItem value="active">Active</SelectItem>
@@ -418,6 +434,7 @@ export default function PlatformTenantsPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                   rows={3}
                   placeholder="Nhập lý do (bắt buộc)…"
+                  aria-required="true"
                   value={statusReason}
                   onChange={(e) => setStatusReason(e.target.value)}
                 />
@@ -499,7 +516,11 @@ export default function PlatformTenantsPage() {
               <div className="space-y-1">
                 <Label htmlFor="managementModel">Management model</Label>
                 <Select value={createForm.managementModel}
-                  onValueChange={(v) => setCreateForm(f => ({ ...f, managementModel: v }))}>
+                  onValueChange={(v) => {
+                    if (MANAGEMENT_MODELS.some(m => m.value === v)) {
+                      setCreateForm(f => ({ ...f, managementModel: v }))
+                    }
+                  }}>
                   <SelectTrigger id="managementModel"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MANAGEMENT_MODELS.map(m => (
@@ -512,7 +533,7 @@ export default function PlatformTenantsPage() {
                 <Label htmlFor="areaCount">Số khu vực dự kiến</Label>
                 <Input id="areaCount" type="number" min={1}
                   value={createForm.areaCount}
-                  onChange={(e) => setCreateForm(f => ({ ...f, areaCount: Number(e.target.value) || 1 }))} />
+                  onChange={(e) => setCreateForm(f => ({ ...f, areaCount: Math.max(1, Number(e.target.value) || 1) }))} />
               </div>
               <DialogFooter className="pt-2">
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Hủy</Button>

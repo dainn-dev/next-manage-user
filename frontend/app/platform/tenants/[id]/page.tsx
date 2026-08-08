@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { ArrowLeft, PauseCircle, RefreshCw, Trash2 } from "lucide-react"
@@ -31,6 +31,15 @@ function statusVariant(s: TenantStatus): "default" | "secondary" | "destructive"
   return "outline"
 }
 
+function safeJsonFormat(detail?: string | null): string {
+  if (!detail) return "{}"
+  try {
+    return JSON.stringify(JSON.parse(detail), null, 2)
+  } catch {
+    return detail
+  }
+}
+
 export default function PlatformTenantDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
@@ -43,9 +52,11 @@ export default function PlatformTenantDetailPage() {
   const [auditRows, setAuditRows] = useState<PlatformAuditEntry[]>([])
   const [auditLoading, setAuditLoading] = useState(false)
   const [auditLoaded, setAuditLoaded] = useState(false)
+  const [auditError, setAuditError] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
 
-  // Rename dialog
+  // Rename dialog — generation ref guards against stale promise flipping a re-opened dialog
+  const renameGenRef = useRef(0)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renameValue, setRenameValue] = useState("")
   const [renameAuditRef, setRenameAuditRef] = useState<string | null>(null)
@@ -63,6 +74,9 @@ export default function PlatformTenantDetailPage() {
     setLoading(true)
     try {
       setTenant(await tenantApi.get(id))
+      // Tenant metadata changed — invalidate the lazy audit cache so the
+      // tab re-fetches on next visit instead of showing stale rows
+      setAuditLoaded(false)
     } catch {
       toast({ title: "Không tải được tenant", description: "Hãy thử lại.", variant: "destructive" })
     } finally {
@@ -76,23 +90,25 @@ export default function PlatformTenantDetailPage() {
   const loadAudit = useCallback(async () => {
     if (!id) return
     setAuditLoading(true)
+    setAuditError(false)
     try {
       const res = await platformApi.listAudit({ page: 0, size: 30, resourceType: "tenant", resourceId: id })
       setAuditRows(res.content)
       setAuditLoaded(true)
     } catch {
+      setAuditError(true)
       toast({ title: "Không tải được audit log", variant: "destructive" })
     } finally {
       setAuditLoading(false)
     }
   }, [id, toast])
 
-  const handleTabChange = (tab: string) => {
+  const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab)
     if (tab === "audit" && !auditLoaded) {
       void loadAudit()
     }
-  }
+  }, [auditLoaded, loadAudit])
 
   // ─── Rename ───────────────────────────────────────────────────────────────
   const openRename = () => {
@@ -103,9 +119,12 @@ export default function PlatformTenantDetailPage() {
 
   const submitRename = async () => {
     if (!renameValue.trim()) return
+    // Increment generation so a stale response from a previous open/close cycle is ignored
+    const gen = ++renameGenRef.current
     setSaving(true)
     try {
       const res = await tenantApi.rename(id, renameValue.trim())
+      if (gen !== renameGenRef.current) return // stale — dialog was closed/re-opened
       setRenameAuditRef(res.auditId ?? null)
       setTenant(res.tenant)
     } catch (error) {
@@ -180,7 +199,7 @@ export default function PlatformTenantDetailPage() {
           <p className="platform-mono text-xs text-muted-foreground mt-1">{tenant.slug}</p>
         </div>
         <div className="platform-page-actions">
-          <Button variant="outline" onClick={() => void load()} disabled={loading}
+          <Button variant="outline" onClick={() => void load()} disabled={loading || saving}
             data-state={loading ? "loading" : "default"}>
             <RefreshCw className={loading ? "animate-spin" : undefined} aria-hidden="true" />
             Làm mới
@@ -321,6 +340,12 @@ export default function PlatformTenantDetailPage() {
                 Đang tải audit log…
               </div>
             )}
+            {!auditLoading && auditError && (
+              <div className="flex items-center gap-3 px-6 py-8 text-sm text-destructive">
+                <span>Không tải được audit log.</span>
+                <Button variant="ghost" size="sm" onClick={() => void loadAudit()}>Thử lại</Button>
+              </div>
+            )}
             {!auditLoading && auditLoaded && (
               <>
                 <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6">
@@ -358,7 +383,7 @@ export default function PlatformTenantDetailPage() {
                           <details>
                             <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">Xem</summary>
                             <pre className="platform-mono mt-1 max-w-xs overflow-x-auto whitespace-pre-wrap break-all text-xs">
-                              {entry.detail ? JSON.stringify(JSON.parse(entry.detail), null, 2) : "{}"}
+                              {safeJsonFormat(entry.detail)}
                             </pre>
                           </details>
                         </td>
@@ -437,6 +462,7 @@ export default function PlatformTenantDetailPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring"
                   rows={3}
                   placeholder="Nhập lý do (bắt buộc)…"
+                  aria-required="true"
                   value={statusReason}
                   onChange={(e) => setStatusReason(e.target.value)}
                 />
