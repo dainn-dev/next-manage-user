@@ -1,46 +1,53 @@
-import type React from "react"
-import { Noto_Sans } from "next/font/google"
-import "./globals.css"
-import { ToasterWrapper } from "@/components/ui/toaster-wrapper"
-import { AuthProvider } from "@/lib/auth-context"
-import { ProtectedLayout } from "@/components/layout/protected-layout"
-import { ThemeProvider } from "@/components/theme-provider"
-import { DashboardScopeProvider } from "@/lib/dashboard-scope-context"
-import { DashboardDataProvider } from "@/lib/dashboard-data-context"
+import './globals.css';
 
-const notoSans = Noto_Sans({
-  variable: "--font-ui",
-  subsets: ["latin", "vietnamese"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-})
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/toaster';
+import { QueryProvider } from '@/components/query-provider';
+import { AuthProvider } from '@/lib/auth-context';
+import { Header } from '@/components/layout/header';
+
+const inter = Inter({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'Vehicle Management System',
+  description: 'AI-powered vehicle detection and management system',
+  keywords: 'vehicle, parking, license plate, detection, yolo, ai',
+  openGraph: {
+    title: 'Vehicle Management System',
+    description: 'Real-time vehicle monitoring with AI detection',
+    type: 'website',
+  },
+};
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="vi" suppressHydrationWarning className={notoSans.variable}>
-      <body className="antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light" disableTransitionOnChange>
-          <AuthProvider>
-            <DashboardScopeProvider>
-              <DashboardDataProvider>
-                <ProtectedLayout>{children}</ProtectedLayout>
-              </DashboardDataProvider>
-            </DashboardScopeProvider>
-          </AuthProvider>
-          <ToasterWrapper />
-        </ThemeProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className}>
+        <AuthProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <QueryProvider>
+              <div className="relative flex min-h-screen flex-col">
+                <Header />
+                <main className="flex-1">
+                  {children}
+                </main>
+              </div>
+              <Toaster />
+            </QueryProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
-  )
-}
-
-export const metadata = {
-  title: "ParkVision — Smart Parking 4.0",
-  description:
-    "Multi-tenant SaaS smart parking: nhận diện biển số, map ô đỗ, relocation alert, AI chatbot. Một dashboard cho mọi bãi xe.",
-  generator: "v0.app",
+  );
 }

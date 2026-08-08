@@ -4,7 +4,7 @@ server:
 spring:
   application:
     name: vehicle-management-api
-  
+
   servlet:
     multipart:
       max-file-size: 50MB
@@ -13,7 +13,7 @@ spring:
       file-size-threshold: 2KB
       location: ${java.io.tmpdir}
       resolve-lazily: false
-  
+
   # T1 — production RLS enforcement gate. The RUNTIME datasource must connect as a
   # dedicated NOSUPERUSER login that is a member of app_rls + app_auth ONLY (never
   # app_admin — see the separate admin pool). A superuser silently bypasses RLS
@@ -47,194 +47,207 @@ spring:
     # NOSUPERUSER runtime datasource above: DDL (CREATE ROLE, ALTER TABLE, policies)
     # needs privileges the app login must not hold. This split is a DEPLOY-time
     # concern, set purely via env so tests/local dev (which inject only
-    # spring.datasource.*) keep using the datasource connection for Flyway:
+    # spring.datasource.*) keep using the primary datasource for Flyway:
     #   SPRING_FLYWAY_USER=<owner>  SPRING_FLYWAY_PASSWORD=<secret>
     # (Spring Boot relaxed-binding maps those to spring.flyway.user/password; when
     # unset Flyway reuses the primary datasource, so nothing here overrides it.)
     #
     # Fail-closed platform-admin seed (V42). Unset in prod -> resolves to '' ->
     # no admin is created. Provide a bcrypt hash, never a plaintext password.
-    placeholders:
-      platform_admin_email: ${PLATFORM_ADMIN_EMAIL:}
-      platform_admin_password_hash: ${PLATFORM_ADMIN_PASSWORD_HASH:}
-  
+  placeholders:
+    platform_admin_email: ${PLATFORM_ADMIN_EMAIL:}
+    platform_admin_password_hash: ${PLATFORM_ADMIN_PASSWORD_HASH:}
+
   security:
     user:
       name: admin
       password: admin
 
-# JWT Configuration
-jwt:
-  secret: ${JWT_SECRET:lfgQaDjV1GAEBYNNui7Yzk9RgHupcql2VZ0Prrg8NKj}
-  expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
+  # JWT Configuration
+  jwt:
+    secret: ${JWT_SECRET:lfgQaDjV1GAEBYNNui7Yzk9RgHupcql2VZ0Prrg8NKj}
+    expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
 
-registration:
-  rate-limit:
-    enabled: ${REGISTRATION_RATE_LIMIT_ENABLED:true}
-    capacity: ${REGISTRATION_RATE_LIMIT_CAPACITY:5}
-    refill-period: ${REGISTRATION_RATE_LIMIT_REFILL_PERIOD:15m}
-    bucket-expiry: ${REGISTRATION_RATE_LIMIT_BUCKET_EXPIRY:1h}
-    maximum-tracked-ips: ${REGISTRATION_RATE_LIMIT_MAXIMUM_TRACKED_IPS:10000}
-    trust-forwarded-headers: ${REGISTRATION_RATE_LIMIT_TRUST_FORWARDED_HEADERS:false}
-    trusted-proxies: ${REGISTRATION_RATE_LIMIT_TRUSTED_PROXIES:}
+  registration:
+    rate-limit:
+      enabled: ${REGISTRATION_RATE_LIMIT_ENABLED:true}
+      capacity: ${REGISTRATION_RATE_LIMIT_CAPACITY:5}
+      refill-period: ${REGISTRATION_RATE_LIMIT_REFILL_PERIOD:15m}
+      bucket-expiry: ${REGISTRATION_RATE_LIMIT_BUCKET_EXPIRY:1h}
+      maximum-tracked-ips: ${REGISTRATION_RATE_LIMIT_MAXIMUM_TRACKED_IPS:10000}
+      trust-forwarded-headers: ${REGISTRATION_RATE_LIMIT_TRUST_FORWARDED_HEADERS:false}
+      trusted-proxies: ${REGISTRATION_RATE_LIMIT_TRUSTED_PROXIES:}
 
-password-reset:
-  token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
-  rate-limit-window: ${PASSWORD_RESET_RATE_LIMIT_WINDOW:1h}
-  email-limit: ${PASSWORD_RESET_EMAIL_LIMIT:3}
-  ip-limit: ${PASSWORD_RESET_IP_LIMIT:10}
-  fingerprint-secret: ${PASSWORD_RESET_FINGERPRINT_SECRET:local-dev-password-reset-fingerprint-secret-change-me}
-  reset-url: ${PASSWORD_RESET_URL:http://localhost:3000/reset-password}
+  password-reset:
+    token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
+    rate-limit-window: ${PASSWORD_RESET_RATE_LIMIT_WINDOW:1h}
+    email-limit: ${PASSWORD_RESET_EMAIL_LIMIT:3}
+    ip-limit: ${PASSWORD_RESET_IP_LIMIT:10}
+    fingerprint-secret: ${PASSWORD_RESET_FINGERPRINT_SECRET:local-dev-password-reset-fingerprint-secret-change-me}
+    reset-url: ${PASSWORD_RESET_URL:http://localhost:3000/reset-password}
 
-email:
-  resend:
-    api-key: ${RESEND_API_KEY:}
-    from: ${RESEND_FROM:}
-    endpoint: ${RESEND_ENDPOINT:https://api.resend.com/emails}
+  email:
+    resend:
+      api-key: ${RESEND_API_KEY:}
+      from: ${RESEND_FROM:}
+      endpoint: ${RESEND_ENDPOINT:https://api.resend.com/emails}
 
-# Password recovery uses PASSWORD_RESET_FINGERPRINT_SECRET (32+ characters).
-# Local default is for bare mvn spring-boot:run; override in production.
-# No password-reset secret, token, password, or email address is written to logs.
+  # Password recovery uses PASSWORD_RESET_FINGERPRINT_SECRET (32+ characters).
+  # Local default is for bare mvn spring-boot:run; override in production.
+  # No password-reset secret, token, password, or email address is written to logs.
 
-# Multi-tenant foundation (DAI-261).
+  # Multi-tenant foundation (DAI-261).
 
-#   default-tenant-fallback: true  = Deploy 1 (unbound tx -> DEFAULT tenant, RLS not yet forced)
-#                            false = Deploy 2 (unbound tx -> app.tenant_id unset -> RLS fail-closed)
-#   request-db-role: the NOLOGIN role each request transaction SET LOCAL ROLE's into
-#                    so RLS actually applies; blank disables the role switch.
-#   auth-db-role: read-only users lookup role used by loadUserByUsername before
-#                 a tenant can be trusted from a token.
-multitenancy:
-  default-tenant-fallback: ${MULTITENANCY_DEFAULT_TENANT_FALLBACK:true}
-  request-db-role: ${MULTITENANCY_REQUEST_DB_ROLE:app_rls}
-  auth-db-role: ${MULTITENANCY_AUTH_DB_ROLE:app_auth}
+  #   default-tenant-fallback: true  = Deploy 1 (unbound tx -> DEFAULT tenant, RLS not yet forced)
+  #                            false = Deploy 2 (unbound tx -> app.tenant_id unset -> RLS fail-closed)
+  #   request-db-role: the NOLOGIN role each request transaction SET LOCAL ROLE's into
+  #                    so RLS actually applies; blank disables the role switch.
+  #   auth-db-role: read-only users lookup role used by loadUserByUsername before
+  #                 a tenant can be trusted from a token.
+  multitenancy:
+    default-tenant-fallback: ${MULTITENANCY_DEFAULT_TENANT_FALLBACK:true}
+    request-db-role: ${MULTITENANCY_REQUEST_DB_ROLE:app_rls}
+    auth-db-role: ${MULTITENANCY_AUTH_DB_ROLE:app_auth}
 
-# Demo seeder (DataSeederService) — dev only. Set false in prod; the real
-# PLATFORM_ADMIN is seeded fail-closed by Flyway V42. Demo also seeds
-# admin@vehiclemanagement.com as PLATFORM_ADMIN (tenant_id NULL).
-app:
-  seed-demo-users: ${APP_SEED_DEMO_USERS:true}
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
-  admin-datasource:
-    url: ${APP_ADMIN_DATASOURCE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vehicle_management}}
-    # Reuse the primary local-development login unless a dedicated, BYPASSRLS
-    # admin login is configured explicitly for the deployment.
-    username: ${APP_ADMIN_DATASOURCE_USERNAME:${SPRING_DATASOURCE_USERNAME:postgres}}
-    password: ${APP_ADMIN_DATASOURCE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:password}}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      pool-name: platform-admin-pool
-      maximum-pool-size: ${APP_ADMIN_DATASOURCE_MAXIMUM_POOL_SIZE:5}
-      minimum-idle: ${APP_ADMIN_DATASOURCE_MINIMUM_IDLE:1}
+  # Demo seeder (DataSeederService) — dev only. Set false in prod; the real
+  # PLATFORM_ADMIN is seeded fail-closed by Flyway V42. Demo also seeds
+  # admin@vehiclemanagement.com as PLATFORM_ADMIN (tenant_id NULL).
+  app:
+    seed-demo-users: ${APP_SEED_DEMO_USERS:true}
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    admin-datasource:
+      url: ${APP_ADMIN_DATASOURCE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/vehicle_management}}
+      # Reuse the primary local-development login unless a dedicated, BYPASSRLS
+      # admin login is configured explicitly for the deployment.
+      username: ${APP_ADMIN_DATASOURCE_USERNAME:${SPRING_DATASOURCE_USERNAME:postgres}}
+      password: ${APP_ADMIN_DATASOURCE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:password}}
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        pool-name: platform-admin-pool
+        maximum-pool-size: ${APP_ADMIN_DATASOURCE_MAXIMUM_POOL_SIZE:5}
+        minimum-idle: ${APP_ADMIN_DATASOURCE_MINIMUM_IDLE:1}
 
-billing:
-  enabled: ${BILLING_ENABLED:false}
-  dunning:
-    grace-period: ${BILLING_DUNNING_GRACE_PERIOD:7d}
-    check-rate-ms: ${BILLING_DUNNING_CHECK_RATE_MS:60000}
-  stripe:
-    secret-key: ${STRIPE_SECRET_KEY:}
-    webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
-    publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
+  billing:
+    enabled: ${BILLING_ENABLED:false}
+    dunning:
+      grace-period: ${BILLING_DUNNING_GRACE_PERIOD:7d}
+      check-rate-ms: ${BILLING_DUNNING_CHECK_RATE_MS:60000}
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
 
-# Gate (license-plate detection app at the parking gate) API key.
-# Required X-Gate-Key header for the public, side-effecting endpoints
-# (/api/vehicles/check-vehicle and POST /api/vehicle-logs). When empty
-# (e.g. local dev) the gate filter runs open; set GATE_API_KEY in production.
-gate:
-  api-key: ${GATE_API_KEY:}
-  # Local development remains convenient, while docker/deployed profiles override this to false.
-  allow-open: ${GATE_ALLOW_OPEN:true}
+  # Gate (license-plate detection app at the parking gate) API key.
+  # Required X-Gate-Key header for the public, side-effecting endpoints
+  # (/api/vehicles/check-vehicle and POST /api/vehicle-logs). When empty
+  # (e.g. local dev) the gate filter runs open; set GATE_API_KEY in production.
+  gate:
+    api-key: ${GATE_API_KEY:}
+    # Local development remains convenient, while docker/deployed profiles override this to false.
+    allow-open: ${GATE_ALLOW_OPEN:true}
 
-# Per-camera credential rotation (ADR-0602). The previous camera key stays
-# valid only for this overlap window after a tenant admin rotates it.
-camera-credentials:
-  rotation-grace-period: ${CAMERA_KEY_ROTATION_GRACE_PERIOD:24h}
+  # Per-camera credential rotation (ADR-0602). The previous camera key stays
+  # valid only for this overlap window after a tenant admin rotates it.
+  camera-credentials:
+    rotation-grace-period: ${CAMERA_KEY_ROTATION_GRACE_PERIOD:24h}
 
-# Camera liveness. A scheduled platform-admin sweep marks stale online cameras
-# offline after this timeout; heartbeat calls return eligible cameras online.
-camera:
-  heartbeat-timeout-seconds: ${CAMERA_HEARTBEAT_TIMEOUT_SECONDS:60}
-  heartbeat-check-rate-ms: ${CAMERA_HEARTBEAT_CHECK_RATE_MS:30000}
+  # Camera liveness. A scheduled platform-admin sweep marks stale online cameras
+  # offline after this timeout; heartbeat calls return eligible cameras online.
+  camera:
+    heartbeat-timeout-seconds: ${CAMERA_HEARTBEAT_TIMEOUT_SECONDS:60}
+    heartbeat-check-rate-ms: ${CAMERA_HEARTBEAT_CHECK_RATE_MS:30000}
 
-# Evidence snapshots (Phase 4.2): the cropped license-plate image the edge sends
-# with a check-vehicle call is written under snapshot-dir and served by the
-# /uploads/** static handler (see WebConfig). Keep snapshot-dir under ./uploads
-# so snapshot-url-prefix resolves to a served path; if you relocate storage,
-# change both together (and add a matching resource handler).
-storage:
-  snapshot-dir: ${SNAPSHOT_DIR:uploads/snapshots}
-  snapshot-url-prefix: ${SNAPSHOT_URL_PREFIX:/uploads/snapshots}
+  # Evidence snapshots (Phase 4.2): the cropped license-plate image the edge sends
+  # with a check-vehicle call is written under snapshot-dir and served by the
+  # /uploads/** static handler (see WebConfig). Keep snapshot-dir under ./uploads
+  # so snapshot-url-prefix resolves to a served path; if you relocate storage,
+  # change both together (and add a matching resource handler).
+  storage:
+    snapshot-dir: ${SNAPSHOT_DIR:uploads/snapshots}
+    snapshot-url-prefix: ${SNAPSHOT_URL_PREFIX:/uploads/snapshots}
 
-# S3-compatible storage for camera-ingest snapshots. Set credentials through the
-# environment; MinIO is supplied by docker-compose for local development.
-object-storage:
-  endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
-  bucket: ${OBJECT_STORAGE_BUCKET:vehicle-management-snapshots}
-  region: ${OBJECT_STORAGE_REGION:us-east-1}
-  access-key: ${OBJECT_STORAGE_ACCESS_KEY:minioadmin}
-  secret-key: ${OBJECT_STORAGE_SECRET_KEY:minioadmin}
-  path-style-access: ${OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
-  read-url-ttl: ${OBJECT_STORAGE_READ_URL_TTL:5m}
+  # S3-compatible storage for camera-ingest snapshots. Set credentials through the
+  # environment; MinIO is supplied by docker-compose for local development.
+  object-storage:
+    endpoint: ${OBJECT_STORAGE_ENDPOINT:http://localhost:9000}
+    bucket: ${OBJECT_STORAGE_BUCKET:vehicle-management-snapshots}
+    region: ${OBJECT_STORAGE_REGION:us-east-1}
+    access-key: ${OBJECT_STORAGE_ACCESS_KEY:minioadmin}
+    secret-key: ${OBJECT_STORAGE_SECRET_KEY:minioadmin}
+    path-style-access: ${OBJECT_STORAGE_PATH_STYLE_ACCESS:true}
+    read-url-ttl: ${OBJECT_STORAGE_READ_URL_TTL:5m}
 
-# Authoritative tracker confirmation windows. Environment overrides allow tuning
-# against a representative camera feed without changing the event contract.
-parking:
-  occupancy:
-    enter-frames: ${PARKING_OCCUPANCY_ENTER_FRAMES:3}
-    enter-millis: ${PARKING_OCCUPANCY_ENTER_MILLIS:600}
-    relocation-frames: ${PARKING_OCCUPANCY_RELOCATION_FRAMES:5}
-    relocation-millis: ${PARKING_OCCUPANCY_RELOCATION_MILLIS:1000}
-    stale-seconds: ${PARKING_OCCUPANCY_STALE_SECONDS:5}
+  # Authoritative tracker confirmation windows. Environment overrides allow tuning
+  # against a representative camera feed without changing the event contract.
+  parking:
+    occupancy:
+      enter-frames: ${PARKING_OCCUPANCY_ENTER_FRAMES:3}
+      enter-millis: ${PARKING_OCCUPANCY_ENTER_MILLIS:600}
+      relocation-frames: ${PARKING_OCCUPANCY_RELOCATION_FRAMES:5}
+      relocation-millis: ${PARKING_OCCUPANCY_RELOCATION_MILLIS:1000}
+      stale-seconds: ${PARKING_OCCUPANCY_STALE_SECONDS:5}
 
-# DAI-319 is activation-gated by DAI-312. Keep disabled until the release
-# readiness decision is GO; storage and APIs are only registered when enabled.
-notification:
-  enabled: ${NOTIFICATION_ENABLED:false}
-  max-attempts: ${NOTIFICATION_MAX_ATTEMPTS:5}
-  rate-limit-per-minute: ${NOTIFICATION_RATE_LIMIT_PER_MINUTE:20}
-  retry-poll-ms: ${NOTIFICATION_RETRY_POLL_MS:5000}
+  # DAI-319 is activation-gated by DAI-312. Keep disabled until the release
+  # readiness decision is GO; storage and APIs are only registered when enabled.
+  notification:
+    enabled: ${NOTIFICATION_ENABLED:false}
+    max-attempts: ${NOTIFICATION_MAX_ATTEMPTS:5}
+    rate-limit-per-minute: ${NOTIFICATION_RATE_LIMIT_PER_MINUTE:20}
+    retry-poll-ms: ${NOTIFICATION_RETRY_POLL_MS:5000}
+    retry-poll-seconds: ${NOTIFICATION_RETRY_POLL_SECONDS:5}
 
-# DAI-320 activation requires the notification exit gate and a stable DAI-312
-# pilot. The chatbot therefore remains absent from the API unless explicitly enabled.
-chatbot:
-  enabled: ${CHATBOT_ENABLED:false}
-  rate-limit-per-minute: ${CHATBOT_RATE_LIMIT_PER_MINUTE:10}
-  retention-days: ${CHATBOT_RETENTION_DAYS:30}
-  retention-cron: ${CHATBOT_RETENTION_CRON:0 30 2 * * *}
-  estimated-cost-per-thousand-tokens-micros: ${CHATBOT_COST_PER_1K_TOKENS_MICROS:0}
-  ollama:
-    endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
-    model: ${OLLAMA_MODEL:qwen2.5:7b}
+  # DAI-320 activation requires the notification exit gate and a stable DAI-312
+  # pilot. The chatbot therefore remains absent from the API unless explicitly enabled.
+  chatbot:
+    enabled: ${CHATBOT_ENABLED:false}
+    rate-limit-per-minute: ${CHATBOT_RATE_LIMIT_PER_MINUTE:10}
+    retention-days: ${CHATBOT_RETENTION_DAYS:30}
+    retention-cron: ${CHATBOT_RETENTION_CROP:0 30 2 * * *}
+    estimated-cost-per-thousand-tokens-micros: ${CHATBOT_COST_PER_1K_TOKENS_MICROS:0}
+    ollama:
+      endpoint: ${OLLAMA_ENDPOINT:http://localhost:11434}
+      model: ${OLLAMA_MODEL:qwen2.5:7b}
 
-management:
-  endpoints:
-    web:
-      exposure:
-        # `prometheus` exposes /actuator/prometheus for scraping (Phase 4.1).
-        # The actuator surface is permitAll in SecurityConfig (probes + scraping);
-        # the metrics carry no PII (aggregate counts + gate names only). In
-        # production restrict :8080/actuator/** at the network layer so only the
-        # Prometheus server can reach it.
-        include: health,info,metrics,prometheus
-  endpoint:
-    health:
-      show-details: when-authorized
-  prometheus:
-    metrics:
-      export:
-        enabled: true
+  management:
+    endpoints:
+      web:
+        exposure:
+          # `prometheus` exposes /actuator/prometheus for scraping (Phase 4.1).
+          # The actuator surface is permitAll in SecurityConfig (probes + scraping);
+          # the metrics carry no PII (aggregate counts + gate names only). In
+          # production restrict :8080/actuator/** at the network layer so only the
+          # Prometheus server can reach it.
+          include: health,info,metrics,prometheus
+    endpoint:
+      health:
+        show-details: when-authorized
+    prometheus:
+      metrics:
+        export:
+          enabled: true
 
-logging:
-  level:
-    com.vehiclemanagement: DEBUG
-    org.springframework.web: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  logging:
+    level:
+      com.vehiclemanagement: DEBUG
+      org.springframework.web: DEBUG
+      org.hibernate.SQL: DEBUG
+      org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
-springdoc:
-  api-docs:
-    path: /api-docs
-  swagger-ui:
-    path: /swagger-ui.html
+  springdoc:
+    api-docs:
+      path: /api-docs
+    swagger-ui:
+      path: /swagger-ui.html
+
+# === YOLOv11 Configuration ===
+yolo:
+  model-path: "models/yolo11n.pt"
+  model-size: "n"
+  use-cuda: true
+  conf-threshold: 0.45
+  iou-threshold: 0.45
+  max-det: 100
+  python-service-url: "http://localhost:8000/api/yolo11"
+  onnx-ops: 17
+  onnx-half-precision: true

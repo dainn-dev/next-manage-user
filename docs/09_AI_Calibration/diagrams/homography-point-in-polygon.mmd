@@ -1,8 +1,0 @@
-flowchart LR
-    A["Detected vehicle bounding box (image px)"] --> B["Compute base-center point (image px)"]
-    B --> C["Apply homography matrix H from calibration_json"]
-    C --> D["Point in site-local planar coordinates"]
-    D --> E{"Point-in-polygon test vs ParkingSlot.polygon (PostGIS ST_Contains)"}
-    E -- "Match" --> F["Assign vehicle to slot, emit VehicleEntered / VehicleRelocated"]
-    E -- "No match" --> G["Log unmatched detection, slot left unassigned"]
-    H["Calibration wizard: image_points <-> world_points"] -.->|"solves for"| C

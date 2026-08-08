@@ -1,9 +1,0 @@
-flowchart LR
-    CA["Camera A (OVERVIEW) - left half"] -- "homography A" --> PA["Partition A: slots A01-A40"]
-    CB["Camera B (OVERVIEW) - right half"] -- "homography B - same world frame" --> PB["Partition B: slots B01-B40"]
-    NOTE["Both homographies resolve to the SAME site-local plane (meters) - shared ground control points"]
-    NOTE -.-> PA
-    NOTE -.-> PB
-    PA --> UNIFIED["Runtime: query all published ParkingSlot by site_id"]
-    PB --> UNIFIED
-    UNIFIED --> VIEW["One unified site map for point-in-polygon (11_Parking_Slot_Detection S3)"]
