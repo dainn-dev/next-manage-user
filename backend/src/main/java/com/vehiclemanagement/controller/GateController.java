@@ -1,5 +1,6 @@
 package com.vehiclemanagement.controller;
 
+import com.vehiclemanagement.dto.GateCreateRequest;
 import com.vehiclemanagement.dto.GateDto;
 import com.vehiclemanagement.dto.GateHealthDto;
 import com.vehiclemanagement.dto.GateHeartbeatRequest;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -91,6 +93,20 @@ public class GateController {
 
     // ---- Management endpoints (JWT, tenant management roles) ----
 
+    @PostMapping
+    @Operation(summary = "Create a gate",
+            description = "Admin-provisioned gate in the current tenant facility.")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Gate created"),
+        @ApiResponse(responseCode = "400", description = "Invalid gate data"),
+        @ApiResponse(responseCode = "409", description = "Gate name already in use")
+    })
+    public ResponseEntity<GateDto> create(
+            @Parameter(description = "Gate creation data") @Valid @RequestBody GateCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(gateService.create(request));
+    }
+
     @GetMapping
     @Operation(summary = "List all gates")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
@@ -134,6 +150,19 @@ public class GateController {
             @Parameter(description = "Gate ID") @PathVariable UUID id,
             @Parameter(description = "Updated gate configuration") @RequestBody GateDto request) {
         return ResponseEntity.ok(gateService.updateConfig(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a gate")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Gate deleted"),
+        @ApiResponse(responseCode = "404", description = "Gate not found")
+    })
+    public ResponseEntity<Void> delete(
+            @Parameter(description = "Gate ID") @PathVariable UUID id) {
+        gateService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/recent-checks")

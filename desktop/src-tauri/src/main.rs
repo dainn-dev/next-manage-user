@@ -47,6 +47,7 @@ fn main() {
             auth::commands::check_credentials,
             config::commands::get_config,
             config::commands::sync_config,
+            health::commands::start_health_reporter,
             health::commands::get_agent_status,
             health::commands::get_camera_health,
             supervisor::commands::start_camera,

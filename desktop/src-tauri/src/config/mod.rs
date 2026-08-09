@@ -3,6 +3,7 @@ pub mod commands;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentConfig {
     pub version: i32,
     pub site_id: String,
@@ -11,6 +12,7 @@ pub struct AgentConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CameraConfig {
     pub id: String,
     pub name: String,

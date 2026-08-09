@@ -1,23 +1,29 @@
-use super::{AgentStatus, CameraHealth};
+use super::{reporter, AgentStatus, CameraHealth};
+
+#[tauri::command]
+pub async fn start_health_reporter() -> Result<(), String> {
+    reporter::start_health_reporter().await
+}
 
 #[tauri::command]
 pub async fn get_agent_status() -> Result<AgentStatus, String> {
-    // TODO: Get from supervisor
+    let (online, config_version, workers, last_error) = reporter::reporter_snapshot()?;
     Ok(AgentStatus {
-        online: true,
+        online,
         version: "0.1.0".to_string(),
-        config_version: 1,
-        workers: if cfg!(debug_assertions) { 12 } else { 0 },
+        config_version,
+        workers: workers as usize,
         queue_depth: 0,
+        last_error,
     })
 }
 
 #[tauri::command]
 pub async fn get_camera_health(camera_id: String) -> Result<CameraHealth, String> {
-    // TODO: Get from supervisor
+    // Real per-camera runtime still comes from sidecars; reporter only posts connecting.
     Ok(CameraHealth {
         camera_id,
-        state: "offline".to_string(),
+        state: "connecting".to_string(),
         last_frame_at: None,
         fps: 0.0,
         error: None,

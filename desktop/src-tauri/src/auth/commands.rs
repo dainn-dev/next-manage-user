@@ -70,6 +70,8 @@ pub async fn enroll_agent(
     super::credential_store::store_credentials(&credentials)
         .map_err(|e| format!("Failed to store credentials: {}", e))?;
 
+    let _ = crate::health::reporter::start_health_reporter().await;
+
     Ok(credentials)
 }
 
@@ -79,21 +81,26 @@ pub async fn check_credentials() -> Result<AgentCredentials, String> {
         .map_err(|e| format!("NO_CREDENTIALS: {}", e))?;
     let client = reqwest::Client::new();
 
-    match validate_access(&client, &credentials).await? {
-        AccessValidation::Valid => Ok(credentials),
-        AccessValidation::Revoked => revoke_local_credentials(AUTH_REVOKED),
+    let credentials = match validate_access(&client, &credentials).await? {
+        AccessValidation::Valid => credentials,
+        AccessValidation::Revoked => return revoke_local_credentials(AUTH_REVOKED),
         AccessValidation::RefreshRequired => {
             refresh_access_token(&client, &mut credentials).await?;
             match validate_access(&client, &credentials).await? {
                 AccessValidation::Valid => {
                     super::credential_store::store_credentials(&credentials)?;
-                    Ok(credentials)
+                    credentials
                 }
-                AccessValidation::Revoked => revoke_local_credentials(AUTH_REVOKED),
-                AccessValidation::RefreshRequired => revoke_local_credentials(AUTH_INVALID),
+                AccessValidation::Revoked => return revoke_local_credentials(AUTH_REVOKED),
+                AccessValidation::RefreshRequired => {
+                    return revoke_local_credentials(AUTH_INVALID)
+                }
             }
         }
-    }
+    };
+
+    let _ = crate::health::reporter::start_health_reporter().await;
+    Ok(credentials)
 }
 
 enum AccessValidation {

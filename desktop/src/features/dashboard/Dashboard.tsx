@@ -24,6 +24,7 @@ interface AgentStatus {
   config_version: number
   workers: number
   queue_depth: number
+  last_error?: string | null
 }
 
 export default function Dashboard({ credentials, onAuthorizationLost }: DashboardProps) {
@@ -31,6 +32,9 @@ export default function Dashboard({ credentials, onAuthorizationLost }: Dashboar
   const [backendReachable, setBackendReachable] = useState(true)
 
   useEffect(() => {
+    void invoke('start_health_reporter').catch((error) => {
+      console.error('Failed to start health reporter:', error)
+    })
     loadStatus()
     const interval = setInterval(loadStatus, 10000) // Poll every 10s
     return () => clearInterval(interval)
@@ -92,6 +96,11 @@ export default function Dashboard({ credentials, onAuthorizationLost }: Dashboar
                   <div className="text-sm text-muted-foreground">
                     Workers: {status.workers} | Queue: {status.queue_depth}
                   </div>
+                  {status.last_error && (
+                    <div className="max-w-xs truncate text-xs text-red-500" title={status.last_error}>
+                      HB: {status.last_error}
+                    </div>
+                  )}
                 </>
               )}
             </div>

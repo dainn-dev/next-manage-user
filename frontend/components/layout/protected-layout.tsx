@@ -129,7 +129,7 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
   // Per-gate kiosk (/gate/<id>) runs full-screen without the admin sidebar so it
   // reads as a dedicated display. Auth is still enforced above. The gate list
-  // (/gate) and admin pages such as /gate/health keep the normal chrome.
+  // (/gate) keeps the normal chrome.
   if (isGateKioskPath(pathname)) {
     return <ErrorBoundary>{children}</ErrorBoundary>
   }

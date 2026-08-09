@@ -8,6 +8,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import type { DashboardCamera } from "@/lib/api/dashboard-api"
 
+/** Matches agent/edge health report interval (~20s). */
+const HEARTBEAT_WINDOW_SEC = 20
+
 function formatClock(value: string | null): string {
   if (!value) return "—"
   const date = new Date(value)
@@ -15,18 +18,12 @@ function formatClock(value: string | null): string {
   return new Intl.DateTimeFormat("vi-VN", { timeStyle: "medium" }).format(date)
 }
 
-function formatRelative(value: string | null, nowMs: number): string {
-  if (!value) return "Chưa nhận heartbeat"
+function heartbeatCountdownSec(value: string | null, nowMs: number): number | null {
+  if (!value) return null
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Không rõ"
-  const deltaSec = Math.max(0, Math.floor((nowMs - date.getTime()) / 1000))
-  if (deltaSec < 5) return "Vừa xong"
-  if (deltaSec < 60) return `${deltaSec} giây trước`
-  const minutes = Math.floor(deltaSec / 60)
-  if (minutes < 60) return `${minutes} phút trước`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} giờ trước`
-  return `${Math.floor(hours / 24)} ngày trước`
+  if (Number.isNaN(date.getTime())) return null
+  const ageSec = Math.max(0, Math.floor((nowMs - date.getTime()) / 1000))
+  return Math.max(0, HEARTBEAT_WINDOW_SEC - ageSec)
 }
 
 function statusLabel(status: string, online: boolean): string {
@@ -63,6 +60,7 @@ export function CameraTile({
     ? `${camera.snapshotUrl}${camera.snapshotUrl.includes("?") ? "&" : "?"}pv=${snapshotRevision}`
     : null
   const label = statusLabel(camera.status, online)
+  const countdownSec = heartbeatCountdownSec(camera.lastSeenAt, nowMs)
 
   React.useEffect(() => {
     const interval = window.setInterval(() => setNowMs(Date.now()), 1000)
@@ -230,14 +228,43 @@ export function CameraTile({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5",
+              camera.lastSeenAt && online && "text-[var(--color-success)]",
+            )}
+          >
             <Clock className="size-3.5 shrink-0" aria-hidden="true" />
-            <span className={cn(online && "text-[var(--color-success)]")}>
-              {formatRelative(camera.lastSeenAt, nowMs)}
-            </span>
+            {camera.lastSeenAt ? (
+              <>
+                <span>Nhận lúc</span>
+                <time className="font-mono tabular-nums" dateTime={camera.lastSeenAt}>
+                  {formatClock(camera.lastSeenAt)}
+                </time>
+              </>
+            ) : (
+              "Chưa nhận heartbeat"
+            )}
           </span>
-          <span className="tabular-nums">{formatClock(camera.lastSeenAt)}</span>
+          {countdownSec !== null && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums tracking-wide",
+                countdownSec > 0
+                  ? "border-[var(--color-success)]/25 bg-[var(--color-success-surface)] text-[var(--color-success)]"
+                  : "border-destructive/25 bg-destructive/10 text-destructive",
+              )}
+              title={`Chu kỳ heartbeat ${HEARTBEAT_WINDOW_SEC}s`}
+              aria-label={
+                countdownSec > 0
+                  ? `Còn ${countdownSec} giây đến chu kỳ tiếp theo`
+                  : "Đã quá chu kỳ heartbeat"
+              }
+            >
+              {countdownSec > 0 ? `${countdownSec}s` : "0s"}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -1,9 +1,11 @@
 package com.vehiclemanagement.service;
 
+import com.vehiclemanagement.dto.GateCreateRequest;
 import com.vehiclemanagement.dto.GateDto;
 import com.vehiclemanagement.dto.GateHealthDto;
 import com.vehiclemanagement.dto.GateRegisterRequest;
 import com.vehiclemanagement.entity.Gate;
+import com.vehiclemanagement.exception.ConflictException;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
 import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.security.SiteAccess;
@@ -62,12 +64,32 @@ public class GateService {
                 // Guard the unique name when renaming during re-registration.
                 if (!existing.getName().equals(request.getName())
                         && gateRepository.existsByNameAndIdNot(request.getName(), existing.getId())) {
-                    throw new IllegalArgumentException("Gate with name '" + request.getName() + "' already exists");
+                    throw new ConflictException("Gate with name '" + request.getName() + "' already exists");
                 }
                 return existing;
             }
         }
         return gateRepository.findByName(request.getName()).orElseGet(Gate::new);
+    }
+
+    /**
+     * Admin create: always inserts a new gate for the given facility. Name must be unique.
+     */
+    public GateDto create(GateCreateRequest request) {
+        siteAccess.assertSiteAllowed(request.getSiteId());
+        if (gateRepository.existsByName(request.getName().trim())) {
+            throw new ConflictException("Gate with name '" + request.getName() + "' already exists");
+        }
+
+        Gate gate = Gate.builder()
+                .siteId(request.getSiteId())
+                .name(request.getName().trim())
+                .location(request.getLocation())
+                .cameraRtspUrl(request.getCameraRtspUrl())
+                .status(request.getStatus() != null ? request.getStatus() : Gate.GateStatus.offline)
+                .build();
+
+        return new GateDto(gateRepository.save(gate));
     }
 
     /**
@@ -159,11 +181,12 @@ public class GateService {
         }
 
         if (request.getName() != null && !request.getName().isBlank()) {
-            if (!gate.getName().equals(request.getName())
-                    && gateRepository.existsByNameAndIdNot(request.getName(), id)) {
-                throw new IllegalArgumentException("Gate with name '" + request.getName() + "' already exists");
+            String nextName = request.getName().trim();
+            if (!gate.getName().equals(nextName)
+                    && gateRepository.existsByNameAndIdNot(nextName, id)) {
+                throw new ConflictException("Gate with name '" + nextName + "' already exists");
             }
-            gate.setName(request.getName());
+            gate.setName(nextName);
         }
         if (request.getLocation() != null) {
             gate.setLocation(request.getLocation());
@@ -176,6 +199,20 @@ public class GateService {
         }
 
         return new GateDto(gateRepository.save(gate));
+    }
+
+    /**
+     * Admin delete. Related camera / vehicle_log / access_request rows keep their
+     * history via ON DELETE SET NULL FKs.
+     */
+    public void delete(UUID id) {
+        Gate gate = gateRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Gate not found with id: " + id));
+        // Edge-registered gates may lack siteId; still allow tenant-scoped delete.
+        if (gate.getSiteId() != null) {
+            siteAccess.assertSiteAllowed(gate.getSiteId());
+        }
+        gateRepository.delete(gate);
     }
 
     /**

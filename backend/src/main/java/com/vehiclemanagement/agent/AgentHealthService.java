@@ -78,10 +78,36 @@ public class AgentHealthService {
         health.setConfigVersion(request.configVersion);
 
         healthRepository.save(health);
+        touchCameraFromHealth(cameraId, health);
         publishHealth(cameraId, health);
 
         log.debug("Camera {} health: state={}, fps={}, lastFrame={}, error={}",
             cameraId, request.connectionState, request.fps, request.lastFrameAt, request.errorCode);
+    }
+
+    /**
+     * Keep the tenant camera row in sync with agent-reported runtime health so the
+     * dashboard (which reads {@code camera.status}/{@code last_heartbeat_at}) reflects
+     * agent ownership even when the edge camera-key heartbeat path is unused.
+     */
+    private void touchCameraFromHealth(UUID cameraId, CameraRuntimeHealth health) {
+        Camera camera = cameraRepository.findById(cameraId).orElse(null);
+        if (camera == null || camera.getStatus() == Camera.CameraStatus.disabled) {
+            return;
+        }
+        CameraRuntimeHealth.ConnectionState state = health.getConnectionState();
+        if (state == CameraRuntimeHealth.ConnectionState.streaming
+                || state == CameraRuntimeHealth.ConnectionState.connecting) {
+            camera.setLastHeartbeatAt(LocalDateTime.now());
+            camera.setStatus(Camera.CameraStatus.online);
+            cameraRepository.save(camera);
+        } else if (state == CameraRuntimeHealth.ConnectionState.error
+                || state == CameraRuntimeHealth.ConnectionState.stopped) {
+            if (camera.getStatus() == Camera.CameraStatus.online) {
+                camera.setStatus(Camera.CameraStatus.offline);
+                cameraRepository.save(camera);
+            }
+        }
     }
 
     /**

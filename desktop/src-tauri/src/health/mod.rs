@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod reporter;
 
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +10,7 @@ pub struct AgentStatus {
     pub config_version: i32,
     pub workers: usize,
     pub queue_depth: usize,
+    pub last_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

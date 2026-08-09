@@ -19,6 +19,11 @@ public interface GateRepository extends JpaRepository<Gate, UUID> {
     Optional<Gate> findByName(String name);
 
     /**
+     * Check whether a gate already uses the given name.
+     */
+    boolean existsByName(String name);
+
+    /**
      * Check whether another gate (excluding the given id) already uses the name.
      */
     boolean existsByNameAndIdNot(String name, UUID id);

@@ -2,34 +2,56 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { Activity, Clock3, DoorOpen, MapPin, Monitor, Radio, RefreshCw } from "lucide-react"
+import {
+  Activity,
+  Clock3,
+  DoorOpen,
+  MapPin,
+  Monitor,
+  Pencil,
+  Plus,
+  Radio,
+  RefreshCw,
+  Trash2,
+} from "lucide-react"
 
 import { ErrorBoundary } from "@/components/error-boundary"
 import { DashboardMetricsSection } from "@/components/dashboard/dashboard-metrics-section"
-import { AdminEmptyState, AdminPage, AdminPageHeader, AdminPageHeaderMeta } from "@/components/layout/admin-page"
+import { GateFormDialog, type GateFormValues } from "@/components/gates/gate-form-dialog"
+import { AdminEmptyState, AdminPage, AdminPageHeader } from "@/components/layout/admin-page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+import { useDashboardScope } from "@/lib/dashboard-scope-context"
 import { gateApi, isGateOnline, type Gate } from "@/lib/api/gate-api"
 
 const REFRESH_INTERVAL_MS = 30000
 
 function GateList() {
+  const { selectedSiteId } = useDashboardScope()
+  const { toast } = useToast()
   const [gates, setGates] = useState<Gate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
-  const [currentTime, setCurrentTime] = useState<string>("")
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setCurrentTime(new Date().toLocaleTimeString("vi-VN"))
-      const interval = setInterval(() => {
-        setCurrentTime(new Date().toLocaleTimeString("vi-VN"))
-      }, 1000)
-      return () => clearInterval(interval)
-    }
-  }, [])
+  const [formOpen, setFormOpen] = useState(false)
+  const [formMode, setFormMode] = useState<"create" | "edit">("create")
+  const [editingGate, setEditingGate] = useState<Gate | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Gate | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -84,36 +106,128 @@ function GateList() {
     },
   ] as const
 
+  function openCreate() {
+    setFormMode("create")
+    setEditingGate(null)
+    setFormOpen(true)
+  }
+
+  function openEdit(gate: Gate) {
+    setFormMode("edit")
+    setEditingGate(gate)
+    setFormOpen(true)
+  }
+
+  async function handleSubmit(values: GateFormValues) {
+    setSubmitting(true)
+    try {
+      if (formMode === "create") {
+        if (!selectedSiteId) {
+          throw new Error("Chưa chọn cơ sở vận hành.")
+        }
+        await gateApi.createGate({
+          siteId: selectedSiteId,
+          name: values.name,
+          location: values.location,
+          cameraRtspUrl: values.cameraRtspUrl,
+          status: values.status,
+        })
+        toast({
+          title: "Đã tạo cổng",
+          description: `${values.name} đã được thêm vào hệ thống.`,
+        })
+      } else if (editingGate) {
+        await gateApi.updateGate(editingGate.id, {
+          name: values.name,
+          location: values.location,
+          cameraRtspUrl: values.cameraRtspUrl,
+          status: values.status,
+        })
+        toast({
+          title: "Đã cập nhật cổng",
+          description: `${values.name} đã được lưu.`,
+        })
+      }
+      setFormOpen(false)
+      await load()
+    } catch (reason) {
+      toast({
+        title: formMode === "create" ? "Không thể tạo cổng" : "Không thể cập nhật cổng",
+        description: reason instanceof Error ? reason.message : "Vui lòng thử lại.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await gateApi.deleteGate(deleteTarget.id)
+      toast({
+        title: "Đã xoá cổng",
+        description: `${deleteTarget.name} đã được gỡ khỏi hệ thống.`,
+      })
+      setDeleteTarget(null)
+      await load()
+    } catch (reason) {
+      toast({
+        title: "Không thể xoá cổng",
+        description: reason instanceof Error ? reason.message : "Vui lòng thử lại.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <AdminPage className="min-h-dvh space-y-5">
       <AdminPageHeader
         eyebrow="Vận hành bãi xe"
         title="Cổng kiểm soát"
-        description="Chọn một cổng để mở kiosk giám sát và điều phối lượt xe ra vào."
+        description="Quản lý cổng, mở kiosk giám sát và điều phối lượt xe ra vào."
         actionList={[
           {
-            key: "gate-health",
-            content: <Link href="/gate/health" className="w-full sm:w-auto">
-              <Button variant="outline" className="min-h-11 w-full sm:w-auto">
-                <Activity className="size-4 text-primary" />
-                Sức khỏe cổng
+            key: "create",
+            content: (
+              <Button
+                onClick={openCreate}
+                disabled={!selectedSiteId}
+                className="min-h-11 w-full sm:w-auto"
+              >
+                <Plus className="size-4" />
+                Thêm cổng
               </Button>
-            </Link>,
+            ),
           },
           {
             key: "refresh",
-            content: <Button
-              variant="outline"
-              onClick={load}
-              disabled={loading}
-              className="min-h-11 w-full sm:w-auto"
-            >
-              <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-              Làm mới
-            </Button>,
+            content: (
+              <Button
+                variant="outline"
+                onClick={load}
+                disabled={loading}
+                className="min-h-11 w-full sm:w-auto"
+              >
+                <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+                Làm mới
+              </Button>
+            ),
           },
         ]}
       />
+
+      {!selectedSiteId && (
+        <div
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"
+          role="status"
+        >
+          Chưa có cơ sở vận hành để tạo cổng mới. Bạn vẫn có thể xem / sửa / xoá các cổng đã có.
+        </div>
+      )}
 
       <DashboardMetricsSection
         id="gate-overview-title"
@@ -157,6 +271,12 @@ function GateList() {
           icon={<DoorOpen className="size-6" />}
           title="Chưa có cổng kiểm soát"
           description="Chưa có cổng nào được đăng ký vào hệ thống."
+          action={(
+            <Button onClick={openCreate} disabled={!selectedSiteId}>
+              <Plus className="size-4" />
+              Thêm cổng đầu tiên
+            </Button>
+          )}
         />
       )}
 
@@ -213,17 +333,74 @@ function GateList() {
                   </p>
                 </div>
 
-                <Link href={`/gate/${gate.id}`} className="mt-auto block w-full">
-                  <Button className="min-h-11 w-full" variant="outline">
-                    <Monitor className="size-4 text-primary" />
-                    Mở kiosk giám sát
-                  </Button>
-                </Link>
+                <div className="mt-auto grid gap-2">
+                  <Link href={`/gate/${gate.id}`} className="block w-full">
+                    <Button className="min-h-11 w-full" variant="outline">
+                      <Monitor className="size-4 text-primary" />
+                      Mở kiosk giám sát
+                    </Button>
+                  </Link>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => openEdit(gate)}
+                    >
+                      <Pencil className="size-4" />
+                      Sửa
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                      onClick={() => setDeleteTarget(gate)}
+                    >
+                      <Trash2 className="size-4" />
+                      Xoá
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )
         })}
       </section>
+
+      <GateFormDialog
+        open={formOpen}
+        mode={formMode}
+        gate={editingGate}
+        submitting={submitting}
+        onOpenChange={setFormOpen}
+        onSubmit={handleSubmit}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xoá cổng?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `Bạn sắp xoá “${deleteTarget.name}”. Camera và lịch sử kiểm soát gắn cổng này sẽ giữ lại nhưng mất liên kết cổng.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDelete()
+              }}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
+              {deleting ? "Đang xoá…" : "Xoá cổng"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminPage>
   )
 }
