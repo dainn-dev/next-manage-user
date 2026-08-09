@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sơ Đồ Hoạt Động - Xe Vào Cổng Đến Các Service</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --color-paper: oklch(98.5% 0.008 190);
+      --color-paper-2: oklch(96.5% 0.010 190);
+      --color-ink: oklch(20% 0.018 220);
+      --color-ink-2: oklch(31% 0.018 220);
+      --color-accent: oklch(52% 0.110 183);
+      --color-rule: oklch(88% 0.012 200);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Fira Sans', ui-sans-serif, sans-serif;
+      background: var(--color-paper);
+      color: var(--color-ink);
+      padding: 2rem;
+    }
+    h1 {
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      font-weight: 700;
+      color: var(--color-accent);
+      letter-spacing: -0.025em;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: var(--color-ink-2);
+      margin-bottom: 2rem;
+      font-size: 0.95rem;
+    }
+    .diagram-container {
+      background: var(--color-paper-2);
+      border: 1px solid var(--color-rule);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      overflow-x: auto;
+    }
+    .diagram-container h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-ink);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--color-rule);
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 1.5rem 0;
+      font-size: 0.85rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .legend-color {
+      width: 16px; height: 16px;
+      border-radius: 3px;
+    }
+    .notes {
+      background: var(--color-paper-2);
+      border: 1px solid var(--color-rule);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .notes h3 {
+      color: var(--color-accent);
+      margin-bottom: 0.75rem;
+    }
+    .notes ul {
+      padding-left: 1.25rem;
+    }
+    .notes li {
+      margin-bottom: 0.35rem;
+    }
+    code {
+      font-family: 'Fira Code', ui-monospace, monospace;
+      font-size: 0.85em;
+      background: var(--color-paper);
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+      border: 1px solid var(--color-rule);
+    }
+  </style>
+</head>
+<body>
+
+<h1>Sơ Đồ Hoạt Động Chi Tiết</h1>
+<p class="subtitle">Luồng xử lý từ khi xe vào cổng đến các service trong hệ thống ParkVision</p>
+
+<div class="legend">
+  <div class="legend-item"><span class="legend-color" style="background:#FF6B6B"></span> Edge (Python) - Camera + YOLOv5 + OCR</div>
+  <div class="legend-item"><span class="legend-color" style="background:#4ECDC4"></span> Backend Gateway - API tiếp nhận</div>
+  <div class="legend-item"><span class="legend-color" style="background:#FFE66D"></span> Backend Service - Xử lý nghiệp vụ</div>
+  <div class="legend-item"><span class="legend-color" style="background:#A8E6CF"></span> Database / Storage</div>
+  <div class="legend-item"><span class="legend-color" style="background:#FF8B94"></span> WebSocket - Realtime</div>
+  <div class="legend-item"><span class="legend-color" style="background:#C7CEEA"></span> External - SePay / VietQR</div>
+</div>
+
+<!-- ====== DIAGRAM 1: TỔNG QUAN LUỒNG CHÍNH ====== -->
+<div class="diagram-container">
+<h2>1. Tổng Quan Luồng Chính (Xe vào → Xe ra)</h2>
+<pre class="mermaid">
+flowchart TB
+    subgraph EDGE["🟥 EDGE (Python) - Tại cổng"]
+        direction TB
+        CAM["📷 Camera RTSP\nthu hình liên tục"]
+        MOTION["Motion Gate\nphát hiện chuyển động"]
+        YOLO_VEH["YOLOv5 Vehicle Detector\nphát hiện xe trong khung hình"]
+        TRACK["ByteTrack Vehicle Tracker\ntheo dõi xe qua các frame"]
+        YOLO_PLATE["YOLOv5 Plate Detector\nphát hiện vùng biển số"]
+        OCR["OCR Engine\nnhận dạng ký tự biển số"]
+        CONF["Confidence Check\nđạt ngưỡng tin cậy?"]
+        DEBOUNCE["Debounce\nxác nhận qua N frame"]
+        GATE_REG["Gate Registration\nđăng ký cổng + heartbeat"]
+    end
+
+    subgraph BACKEND["🟢 BACKEND (Spring Boot) - Xử lý trung tâm"]
+        direction TB
+        GW["GateController\n/api/gates/register + /heartbeat"]
+        CHECK_API["VehicleController\nPOST /api/vehicles/check"]
+        DEDUP{"GateEventDeduplicator\nIdempotency check\ntheo eventId"}
+        NORM["Normalize biển số\nbỏ ký tự đặc biệt, uppercase"]
+        LOOKUP{"Tra cứu xe\ntrong DB"}
+        TENANT_CHECK{"ADR-0604\nĐã đăng ký\nvới tenant?"}
+        STATUS_CHECK{"Kiểm tra\ntrạng thái xe"}
+        APPROVED["✅ Xe được phép"]
+        DENIED["⛔ Xe bị từ chối"]
+        PENDING["🟡 Chờ phê duyệt"]
+    end
+
+    subgraph SERVICES["🟡 BACKEND SERVICES - Nghiệp vụ"]
+        direction TB
+        CREATE_LOG["VehicleLogService\ntạo bản ghi entry/exit"]
+        UPDATE_STATUS["VehicleService\ncập nhật trạng thái xe\nentered/exited"]
+        ACCESS_REQ["VehicleAccessRequestService\nghi nhận yêu cầu PENDING\ntừ cổng (có dedup 5 phút)"]
+        PARKING["ParkingFeeService\nmở/đóng phiên đỗ xe\ntính phí theo giờ"]
+        OCCUPANCY["TrackingOccupancy\ncập nhật slot occupancy\ntừ camera tracking"]
+        OUTBOX["OutboxBus\npublish event ra outbox"]
+    end
+
+    subgraph WS["🟣 WEBSOCKET - Thời gian thực"]
+        WS_SEND["WebSocketService\ngửi thông tin realtime\nđến Dashboard + Kiosk"]
+    end
+
+    subgraph FRONTEND["🟦 FRONTEND - Next.js 14"]
+        DASHBOARD["Dashboard\nhiển thị thời gian thực"]
+        APPROVAL["Approval Queue\nphê duyệt/ từ chối yêu cầu"]
+    end
+
+    subgraph DB["🟩 DATABASE - PostgreSQL"]
+        VEHICLES[("vehicles")]
+        VEHICLE_LOGS[("vehicle_log")]
+        ACCESS_REQUESTS[("vehicle_access_requests")]
+        PARKING_SESSIONS[("parking_session")]
+        PARKING_PAYMENTS[("parking_payment")]
+        CAMERA_EVENTS[("camera_ingest_events")]
+    end
+
+    subgraph PAY["⚪ THANH TOÁN"]
+        SEPA["SePay / VietQR\nchuyển khoản ngân hàng"]
+    end
+
+    CAM --> MOTION
+    MOTION -->|"có chuyển động"| YOLO_VEH
+    YOLO_VEH --> TRACK
+    TRACK --> YOLO_PLATE
+    YOLO_PLATE --> OCR
+    OCR --> CONF
+    CONF -->|"không đạt"| MOTION
+    CONF -->|"đạt"| DEBOUNCE
+    DEBOUNCE -->|"chưa đủ frame"| TRACK
+    DEBOUNCE -->|"xác nhận"| GATE_REG
+
+    GATE_REG -->|"POST /api/gates/register\nX-Gate-Key"| GW
+    GATE_REG -->|"POST /api/vehicles/check\n{plate, type, gateId, eventId, snapshot}"| CHECK_API
+
+    CHECK_API --> DEDUP
+    DEDUP -->|"eventId mới"| NORM
+    DEDUP -->|"eventId đã xử lý\n(trong 10 phút)"| CHECK_API
+
+    NORM --> LOOKUP
+    LOOKUP -->|"TÌM THẤY"| TENANT_CHECK
+    LOOKUP -->|"KHÔNG TÌM THẤY\nxe chưa đăng ký"| PENDING
+
+    TENANT_CHECK -->|"chưa đăng ký tenant"| PENDING
+    TENANT_CHECK -->|"đã đăng ký"| STATUS_CHECK
+
+    STATUS_CHECK -->|"approved/exited\n(với entry)"| APPROVED
+    STATUS_CHECK -->|"approved/entered\n(với exit)"| APPROVED
+    STATUS_CHECK -->|"trạng thái khác"| DENIED
+
+    APPROVED --> CREATE_LOG
+    APPROVED --> UPDATE_STATUS
+    APPROVED --> PARKING
+    CREATE_LOG --> VEHICLE_LOGS
+    UPDATE_STATUS --> VEHICLES
+    PARKING -->|"entry: mở session"| PARKING_SESSIONS
+    PARKING -->|"exit: đóng session + tính phí"| PARKING_PAYMENTS
+
+    PENDING --> ACCESS_REQ
+    PENDING --> WS_SEND
+    ACCESS_REQ --> ACCESS_REQUESTS
+    WS_SEND --> DASHBOARD
+
+    DENIED --> WS_SEND
+
+    APPROVED --> WS_SEND
+    WS_SEND -->|"owner info +\nvehicle details"| DASHBOARD
+
+    PARKING_PAYMENTS -->|"chờ thanh toán"| SEPA
+    SEPA -->|"webhook xác nhận"| PARKING_PAYMENTS
+
+    ACCESS_REQUESTS -->|"PENDING requests"| APPROVAL
+    APPROVAL -->|"APPROVED/REJECTED"| ACCESS_REQUESTS
+
+    CAM -->|"camera ingest events"| OCCUPANCY
+    OCCUPANCY --> CAMERA_EVENTS
+
+    DEDUP -->|"record kết quả"| OUTBOX
+</pre>
+</div>
+
+<!-- ====== DIAGRAM 2: CHI TIẾT VEHICLE CHECK ====== -->
+<div class="diagram-container">
+<h2>2. Chi Tiết VehicleService.checkVehicleAccess()</h2>
+<pre class="mermaid">
+flowchart TD
+    START(["Edge gửi yêu cầu kiểm tra\nPOST /api/vehicles/check\n{plate, type, gateId, eventId, snapshot}"])
+
+    AUTH["Xác thực: X-Gate-Key header\nGateApiKeyAuthFilter"]
+
+    RESOLVE_GATE["resolveGate(gateId)\nTra cứu gate từ DB"]
+
+    START_TIMER["Bắt đầu Timer\nvehicle_check_latency"]
+
+    NORM["Normalize biển số\nplate.replaceAll('[-._ ]', '').toUpperCase()"]
+
+    FIND_VEHICLE{"vehicleRepository\n.findByLicensePlateNormalized()"}
+
+    NOT_FOUND["❌ XE KHÔNG TỒN TẠI"]
+    FOUND["✅ TÌM THẤY XE"]
+
+    NOT_FOUND_ACTION["1. Lưu snapshot (best-effort)\n2. Gọi accessRequestService.recordGateDetection()\n   - Tạo PENDING request với dedup 5 phút\n3. Gửi WebSocket: 'chờ phê duyệt'\n4. recordCheck(gate, 'pending')\n5. Trả về: {allowed: false, result: PENDING}"]
+
+    TENANT_REG{"tenantVehicleRegistrationService\n.isActivelyRegistered()\nADR-0604: closed whitelist"}
+
+    NOT_REG["❌ CHƯA ĐĂNG KÝ TENANT"]
+    NOT_REG_ACTION["Xử lý giống NOT_FOUND\n→ Tạo PENDING request\n→ WebSocket 'chờ phê duyệt'"]
+
+    REGISTERED["✅ ĐÃ ĐĂNG KÝ"]
+
+    CHECK_STATUS{"Kiểm tra trạng thái xe\napproved?\nhoặc exited+entry?\nhoặc entered+exit?"}
+
+    APPROVED_FLOW["🟢 CHO PHÉP"]
+    APPROVED_ENTRY["entry:<br/>vehicle.status = ENTERED<br/>vehicle.currentSiteId = gate.siteId"]
+    APPROVED_EXIT["exit:<br/>vehicle.status = EXITED"]
+
+    CREATE_LOG["Tạo VehicleLog:<br/>- licensePlate, type, time<br/>- gateId, gateLocation<br/>- owner, driver<br/>- imagePath (snapshot)<br/>- vehicleCategory: internal"]
+
+    SEND_WS_RICH["Gửi WebSocket (giàu thông tin):<br/>- ownerId, ownerName, email<br/>- vehicleId, brand, model, color<br/>- logId, logType, logTime<br/>- gateId, gateName<br/>Fallback: simple message nếu lỗi"]
+
+    RECORD_METRICS["recordCheck(gate, 'approved')\nbump counter: vehicle_check_total{gate,result}"]
+
+    RETURN_OK["Trả về:\n{allowed: true, message, plate, type}"]
+
+    DENIED_FLOW["🔴 TỪ CHỐI"]
+    DENIED_MSG["Thông báo lý do từ chối\ntheo trạng thái hiện tại"]
+    DENIED_WS["Gửi WebSocket: thông báo từ chối"]
+    RECORD_DENIED["recordCheck(gate, 'denied')"]
+    RETURN_DENIED["Trả về:\n{allowed: false, message, plate, type}"]
+
+    ERROR_FLOW["⚠️ LỖI"]
+    ERROR_WS["Gửi WebSocket: thông báo lỗi"]
+    RECORD_ERROR["recordCheck(gate, 'error')"]
+    RETURN_ERROR["Trả về:\n{allowed: false, errorMessage, plate, type}"]
+
+    START --> AUTH
+    AUTH --> RESOLVE_GATE
+    RESOLVE_GATE --> START_TIMER
+    START_TIMER --> NORM
+    NORM --> FIND_VEHICLE
+    FIND_VEHICLE -->|"null"| NOT_FOUND
+    FIND_VEHICLE -->|"vehicle"| FOUND
+
+    NOT_FOUND --> NOT_FOUND_ACTION
+
+    FOUND --> TENANT_REG
+    TENANT_REG -->|"false"| NOT_REG
+    TENANT_REG -->|"true"| REGISTERED
+    NOT_REG --> NOT_REG_ACTION
+
+    REGISTERED --> CHECK_STATUS
+    CHECK_STATUS -->|"đủ điều kiện"| APPROVED_FLOW
+    CHECK_STATUS -->|"không đủ"| DENIED_FLOW
+
+    APPROVED_FLOW --> APPROVED_ENTRY
+    APPROVED_FLOW --> APPROVED_EXIT
+    APPROVED_ENTRY --> CREATE_LOG
+    APPROVED_EXIT --> CREATE_LOG
+    CREATE_LOG --> SEND_WS_RICH
+    SEND_WS_RICH --> RECORD_METRICS
+    RECORD_METRICS --> RETURN_OK
+
+    DENIED_FLOW --> DENIED_MSG
+    DENIED_MSG --> DENIED_WS
+    DENIED_WS --> RECORD_DENIED
+    RECORD_DENIED --> RETURN_DENIED
+
+    CHECK_STATUS -->|"exception"| ERROR_FLOW
+    ERROR_FLOW --> ERROR_WS
+    ERROR_WS --> RECORD_ERROR
+    RECORD_ERROR --> RETURN_ERROR
+
+    style NOT_FOUND_ACTION fill:#FFF3CD,stroke:#FFC107
+    style NOT_REG_ACTION fill:#FFF3CD,stroke:#FFC107
+    style APPROVED_FLOW fill:#D4EDDA,stroke:#28A745
+    style DENIED_FLOW fill:#F8D7DA,stroke:#DC3545
+    style ERROR_FLOW fill:#F8D7DA,stroke:#DC3545
+</pre>
+</div>
+
+<!-- ====== DIAGRAM 3: CAMERA INGEST + OCCUPANCY ====== -->
+<div class="diagram-container">
+<h2>3. Camera Ingest &amp; Parking Occupancy Tracking</h2>
+<pre class="mermaid">
+flowchart TD
+    subgraph EDGE_CAM["Edge Camera Service"]
+        CAM_FRAME["📷 Camera Frame"]
+        VEH_DETECT["YOLOv5 Vehicle Detection\n→ VehicleDetected event"]
+        PLATE_RECOG["OCR Plate Recognition\n→ PlateRecognized event"]
+        CAM_CLIENT["CameraIngestClient\nPOST /api/v1/parking-events"]
+    end
+
+    subgraph BACKEND_INGEST["Backend Camera Ingest"]
+        AUTH_CAM["CameraKeyAuthFilter\nX-Camera-Id + X-Camera-Key"]
+        VALIDATE["Validate:\n- cameraId match\n- snapshot size ≤ 5MB"]
+        IDEMPOTENT{"repository.insertIfAbsent\n(camera_id, event_id)"}
+        DUPLICATE["Duplicate → 202 Accepted\nkhông xử lý lại"]
+        STORE["Lưu event vào DB\ncamera_ingest_events"]
+        SNAPSHOTS["Lưu snapshots:\n- original_frame\n- plate_crop\n- snapshot"]
+        OUTBOX_MSG["Ghi outbox message\n'camera.ingest.{eventType}'"]
+    end
+
+    subgraph OCCUPANCY["Tracking → Parking Slot Occupancy"]
+        TRACK_PROJ["TrackingOccupancyIntegrationService.project()"]
+        CHECK_TRACK{"Có tracker identity?\nsessionId + trackId"}
+        FIND_CAMERA["Tìm camera → lấy siteId"]
+        FIND_CURRENT["Tìm slot hiện tại\ntheo track hoặc plate"]
+        EXPIRE["Xóa observation cũ\n(stale > 5s)"]
+        MAP_POINT{"Có tọa độ\nmapping point?"}
+        SLOT_MAP["ParkingSlotMappingService.map()\nánh xạ tọa độ → slot"]
+        DEBOUNCE{"Debounce\n≥ 3 frames + 600ms (enter)\n≥ 5 frames + 1000ms (relocation)"}
+        STILL_DEBOUNCE["Chưa đủ → bỏ qua\nchờ frame tiếp theo"]
+        PROCESS["SlotOccupancyService.process()\ntạo/cập nhật occupancy"]
+    end
+
+    CAM_FRAME --> VEH_DETECT
+    VEH_DETECT --> PLATE_RECOG
+    VEH_DETECT --> CAM_CLIENT
+    PLATE_RECOG --> CAM_CLIENT
+
+    CAM_CLIENT --> AUTH_CAM
+    AUTH_CAM --> VALIDATE
+    VALIDATE --> IDEMPOTENT
+    IDEMPOTENT -->|"đã tồn tại"| DUPLICATE
+    IDEMPOTENT -->|"mới"| STORE
+    STORE --> SNAPSHOTS
+    STORE --> OUTBOX_MSG
+    STORE --> TRACK_PROJ
+
+    TRACK_PROJ --> CHECK_TRACK
+    CHECK_TRACK -->|"có"| FIND_CAMERA
+    CHECK_TRACK -->|"không"| DUPLICATE
+    FIND_CAMERA --> FIND_CURRENT
+    FIND_CURRENT --> EXPIRE
+    EXPIRE --> MAP_POINT
+    MAP_POINT -->|"có"| SLOT_MAP
+    MAP_POINT -->|"không\n(chỉ PlateRecognized)"| FIND_CURRENT
+    SLOT_MAP -->|"MATCHED"| DEBOUNCE
+    SLOT_MAP -->|"AMBIGUOUS/NO_SLOT"| DUPLICATE
+    DEBOUNCE -->|"đủ"| PROCESS
+    DEBOUNCE -->|"chưa đủ"| STILL_DEBOUNCE
+</pre>
+</div>
+
+<!-- ====== DIAGRAM 4: PARKING SESSION ====== -->
+<div class="diagram-container">
+<h2>4. Quy Trình Đỗ Xe &amp; Thanh Toán</h2>
+<pre class="mermaid">
+flowchart TD
+    ENTRY_CHECK["Xe vào cổng\nVehicleCheck: approved + entry"]
+
+    OPEN_SESSION["ParkingFeeService.openSession()\nsiteId, licensePlate, gateInId\nstatus = OPEN, qrTokenJti"]
+
+    PARKING["Xe đỗ trong bãi\ntheo dõi qua Occupancy Tracking"]
+
+    EXIT_CHECK["Xe ra cổng\nVehicleCheck: approved + exit"]
+
+    CLOSE_SESSION["ParkingFeeService.closeSession()\ngateOutId, endedAt\nstatus = CLOSED"]
+
+    CALC_FEE["Tính phí:\nquoteAmountVnd()\nsố giờ × 5,000 VND/h (min 5,000)"]
+
+    CREATE_PAYMENT["Tạo ParkingPayment\namountVnd, transferContent='PV...'\nprovider='SEPAY', AWAITING_TRANSFER"]
+
+    GEN_QR["BankTransferInstructions\nmã ngân hàng, STK, tên TK\nnội dung chuyển khoản"]
+
+    USER_PAY["Người dùng chuyển khoản\nqua SePay / VietQR"]
+
+    SEPA_WEBHOOK["SePay webhook\nPOST /api/parking/sepay-webhook\ntransfer_content + amount"]
+
+    MATCH{"Khớp transfer_content\nvới parking_payment?"}
+
+    MARK_PAID["markPaidByTransferContent()\nstatus = PAID, paidAt\n@PlatformAdminOperation"]
+
+    COMPLETE["✅ Hoàn thành\nXe rời bãi"]
+
+    ENTRY_CHECK --> OPEN_SESSION
+    OPEN_SESSION --> PARKING
+    PARKING --> EXIT_CHECK
+    EXIT_CHECK --> CLOSE_SESSION
+    CLOSE_SESSION --> CALC_FEE
+    CALC_FEE --> CREATE_PAYMENT
+    CREATE_PAYMENT --> GEN_QR
+    GEN_QR --> USER_PAY
+    USER_PAY --> SEPA_WEBHOOK
+    SEPA_WEBHOOK --> MATCH
+    MATCH -->|"khớp"| MARK_PAID
+    MATCH -->|"không khớp"| SEPA_WEBHOOK
+    MARK_PAID --> COMPLETE
+
+    style OPEN_SESSION fill:#D4EDDA,stroke:#28A745
+    style CLOSE_SESSION fill:#FFF3CD,stroke:#FFC107
+    style MARK_PAID fill:#D4EDDA,stroke:#28A745
+    style COMPLETE fill:#D4EDDA,stroke:#28A745
+</pre>
+</div>
+
+<!-- ====== DIAGRAM 5: ACCESS REQUEST APPROVAL ====== -->
+<div class="diagram-container">
+<h2>5. Quy Trình Phê Duyệt Xe Chưa Đăng Ký (Access Request)</h2>
+<pre class="mermaid">
+flowchart TD
+    GATE_DETECT["Cổng phát hiện xe lạ\nbiển số chưa đăng ký"]
+
+    DEDUP{"Dedup 5 phút\ncùng plate + gate\ncùng PENDING?"}
+
+    SKIP["Bỏ qua\nkhông tạo duplicate"]
+
+    CREATE_REQ["VehicleAccessRequestService\n.recordGateDetection()\nsource=GATE, status=PENDING\nreason='Xe chưa đăng ký\n- phát hiện tại cổng {name}'"]
+
+    SAVE["Lưu vehicle_access_requests\nkèm gate, siteId, imagePath"]
+
+    WS_NOTIFY["WebSocket: thông báo\n'chờ phê duyệt' → Dashboard"]
+
+    QUEUE["Hiển thị trong\nApproval Queue (frontend)"]
+
+    REVIEW["Admin / Site Manager\nxem xét yêu cầu"]
+
+    DECISION{"Quyết định"}
+
+    APPROVE["APPROVED\napprover ghi nhận\n→ có vehicle: flip status approved\n→ không vehicle: chỉ audit"]
+
+    REJECT["REJECTED\napprover + rejectionReason\n(bắt buộc nhập lý do)"]
+
+    SAVE_DECISION["Cập nhật DB\nvehicle_access_requests"]
+
+    NOTIFY_RESULT["Thông báo kết quả\nqua WebSocket / Dashboard"]
+
+    GATE_DETECT --> DEDUP
+    DEDUP -->|"trùng lặp"| SKIP
+    DEDUP -->|"mới"| CREATE_REQ
+    CREATE_REQ --> SAVE
+    SAVE --> WS_NOTIFY
+    WS_NOTIFY --> QUEUE
+    QUEUE --> REVIEW
+    REVIEW --> DECISION
+    DECISION -->|"Phê duyệt"| APPROVE
+    DECISION -->|"Từ chối"| REJECT
+    APPROVE --> SAVE_DECISION
+    REJECT --> SAVE_DECISION
+    SAVE_DECISION --> NOTIFY_RESULT
+
+    style CREATE_REQ fill:#FFF3CD,stroke:#FFC107
+    style APPROVE fill:#D4EDDA,stroke:#28A745
+    style REJECT fill:#F8D7DA,stroke:#DC3545
+</pre>
+</div>
+
+<!-- ====== DIAGRAM 6: HỆ THỐNG TỔNG THỂ ====== -->
+<div class="diagram-container">
+<h2>6. Kiến Trúc Tổng Thể Hệ Thống</h2>
+<pre class="mermaid">
+graph TB
+    subgraph EDGE_LAYER["🔴 EDGE LAYER - Tại mỗi cổng"]
+        CAM1["📷 Camera 1\nRTSP Stream"]
+        CAM2["📷 Camera 2\nRTSP Stream"]
+        EDGE1["Edge Service 1\nYOLOv5 + OCR\nGate Client"]
+        EDGE2["Edge Service 2\nYOLOv5 + OCR\nGate Client"]
+        BARRIER["🚧 Barrier Controller\nđiều khiển rào chắn"]
+    end
+
+    subgraph BACKEND_LAYER["🟢 BACKEND LAYER - Spring Boot :8080"]
+        subgraph API["API Layer"]
+            GATE_API["/api/gates/**\nGateController"]
+            CHECK_API2["/api/vehicles/check\nVehicleController"]
+            CAM_INGEST["/api/v1/parking-events\nCameraIngestController"]
+            PARKING_API["/api/parking/**\nParkingFeeController"]
+            SLOT_API["/api/parking-slots/**\nParkingSlotController"]
+        end
+        subgraph SVC["Service Layer"]
+            GATE_SVC["GateService\nCRUD + heartbeat + health"]
+            VEHICLE_SVC["VehicleService\ncheckVehicleAccess()"]
+            CAM_INGEST_SVC["CameraIngestService\nidempotent + snapshot + outbox"]
+            PARKING_SVC["ParkingFeeService\nsession + payment"]
+            ACCESS_SVC["VehicleAccessRequestService\nPENDING request + dedup"]
+            OCCUPANCY_SVC["TrackingOccupancyIntegration\nslot mapping + occupancy"]
+            SLOT_SVC["SlotOccupancyService"]
+            LOG_SVC["VehicleLogService\nentry/exit logs"]
+            WS_SVC["WebSocketService\nrealtime events"]
+        end
+        subgraph SECURITY["Security"]
+            GATE_KEY["GateApiKeyAuthFilter\nX-Gate-Key"]
+            CAM_KEY["CameraKeyAuthFilter\nX-Camera-Id + X-Camera-Key"]
+            JWT["JwtAuthenticationFilter\nBearer Token"]
+        end
+    end
+
+    subgraph DB_LAYER["🟩 DATA LAYER - PostgreSQL"]
+        PG[("PostgreSQL\nvehicle_management")]
+        FLYWAY["Flyway Migrations\nV1...V48+"]
+        MINIO["MinIO :9000\nObject Storage\nsnapshots + images"]
+    end
+
+    subgraph FRONTEND_LAYER["🟦 FRONTEND - Next.js 14 :3000"]
+        DASH["Dashboard\nReal-time monitoring"]
+        GATE_MGMT["Gate Management\ncấu hình + health"]
+        VEHICLE_MGMT["Vehicle Management\nCRUD + import/export"]
+        APPROVAL_QUEUE["Approval Queue\nphê duyệt xe lạ"]
+        PARKING_MGMT["Parking Map\nquản lý slot + occupancy"]
+        ANALYTICS["Analytics\nthống kê + báo cáo"]
+    end
+
+    subgraph EXTERNAL["⚪ EXTERNAL"]
+        SEPA2["SePay/VietQR\nThanh toán"]
+        STRIPE["Stripe\nBilling SaaS"]
+    end
+
+    CAM1 -->|"RTSP"| EDGE1
+    CAM2 -->|"RTSP"| EDGE2
+    EDGE1 -->|"X-Gate-Key"| GATE_API
+    EDGE2 -->|"X-Gate-Key"| GATE_API
+    EDGE1 -->|"X-Gate-Key"| CHECK_API2
+    EDGE2 -->|"X-Gate-Key"| CHECK_API2
+    EDGE1 -->|"X-Camera-Key"| CAM_INGEST
+    EDGE2 -->|"X-Camera-Key"| CAM_INGEST
+    EDGE1 -.->|"điều khiển"| BARRIER
+    EDGE2 -.->|"điều khiển"| BARRIER
+
+    GATE_API --> GATE_KEY
+    CHECK_API2 --> GATE_KEY
+    CAM_INGEST --> CAM_KEY
+    PARKING_API --> JWT
+    SLOT_API --> JWT
+
+    GATE_KEY --> GATE_SVC
+    CAM_KEY --> CAM_INGEST_SVC
+    JWT --> VEHICLE_SVC
+    JWT --> PARKING_SVC
+    JWT --> ACCESS_SVC
+    JWT --> SLOT_SVC
+
+    GATE_SVC --> PG
+    VEHICLE_SVC --> PG
+    VEHICLE_SVC --> LOG_SVC
+    VEHICLE_SVC --> WS_SVC
+    VEHICLE_SVC --> ACCESS_SVC
+    CAM_INGEST_SVC --> PG
+    CAM_INGEST_SVC --> MINIO
+    CAM_INGEST_SVC --> OCCUPANCY_SVC
+    OCCUPANCY_SVC --> SLOT_SVC
+    PARKING_SVC --> PG
+    PARKING_SVC --> SEPA2
+    LOG_SVC --> PG
+    WS_SVC -.->|"WebSocket"| DASH
+    WS_SVC -.->|"WebSocket"| APPROVAL_QUEUE
+
+    FRONTEND_LAYER -->|"REST API + JWT"| API
+    DASH --> ANALYTICS
+    STRIPE --> SVC
+
+    PG --- FLYWAY
+</pre>
+</div>
+
+<!-- ====== NOTES ====== -->
+<div class="notes">
+<h3>📝 Ghi Chú Chi Tiết Các Thành Phần</h3>
+
+<h4>🔴 Edge Layer (Python)</h4>
+<ul>
+  <li><strong>Motion Gate</strong> (<code>edge/edge/motion_gate.py</code>): Phát hiện chuyển động để kích hoạt pipeline, giảm tải xử lý.</li>
+  <li><strong>Vehicle Detector</strong> (<code>edge/edge/vehicle_detector.py</code>): YOLOv5 phát hiện xe trong khung hình.</li>
+  <li><strong>Vehicle Tracker</strong> (<code>edge/edge/vehicle_tracker.py</code>): ByteTrack theo dõi xe qua các frame liên tiếp.</li>
+  <li><strong>Plate Detector</strong> (<code>edge/edge/plate_detector.py</code>): YOLOv5 phát hiện vùng biển số.</li>
+  <li><strong>OCR Engine</strong> (<code>edge/edge/ocr_engine.py</code>): Nhận dạng ký tự biển số từ ảnh đã crop.</li>
+  <li><strong>Gate Client</strong> (<code>edge/edge/gate_client.py</code>): Gọi API backend để kiểm tra xe.</li>
+  <li><strong>Plate Access Client</strong> (<code>edge/edge/plate_access_client.py</code>): Client chuyên biệt cho check-vehicle.</li>
+  <li><strong>Barrier Controller</strong> (<code>edge/edge/barrier_controller.py</code>): Điều khiển rào chắn vật lý.</li>
+  <li><strong>Camera Ingest Client</strong> (<code>edge/edge/camera_ingest_client.py</code>): Gửi event tracking/occupancy.</li>
+  <li><strong>Event Queue</strong> (<code>edge/edge/event_queue.py</code>): Store-and-forward queue, gửi lại khi backend unreachable.</li>
+  <li><strong>Snapshot Store</strong> (<code>edge/edge/snapshot_store.py</code>): Lưu ảnh chụp biển số.</li>
+</ul>
+
+<h4>🟢 Backend Services (Spring Boot)</h4>
+<ul>
+  <li><strong>GateEventDeduplicator</strong>: In-memory LRU cache (20K entries, TTL 10 phút), dedup theo <code>eventId</code> từ edge.</li>
+  <li><strong>VehicleService.checkVehicleAccess()</strong>: Logic chính kiểm tra quyền vào cổng:
+    <ul>
+      <li>Normalize biển số → tra cứu DB → kiểm tra tenant registration (ADR-0604) → kiểm tra trạng thái.</li>
+      <li>Xe không tồn tại: tạo <code>VehicleAccessRequest</code> PENDING + WebSocket "chờ phê duyệt".</li>
+      <li>Xe tồn tại nhưng không đăng ký tenant: xử lý tương tự như không tồn tại.</li>
+      <li>Xe approved: cập nhật status (entered/exited), tạo <code>VehicleLog</code>, gửi WebSocket.</li>
+    </ul>
+  </li>
+  <li><strong>VehicleAccessRequestService.recordGateDetection()</strong>: Tạo PENDING request với dedup 5 phút (cùng plate + gate).</li>
+  <li><strong>CameraIngestService</strong>: Idempotent insert theo (camera_id, event_id), lưu snapshot lên MinIO, publish outbox.</li>
+  <li><strong>TrackingOccupancyIntegrationService</strong>: Nhận event VehicleDetected/PlateRecognized, ánh xạ tọa độ → parking slot, debounce trước khi cập nhật occupancy.</li>
+  <li><strong>ParkingFeeService</strong>: Mở/đóng parking session, tính phí 5,000 VND/giờ (min 5,000), tích hợp SePay webhook.</li>
+  <li><strong>WebSocketService</strong>: Gửi real-time events đến Dashboard (thông tin owner, vehicle, gate).</li>
+  <li><strong>OutboxBus</strong>: Pattern outbox để đảm bảo event delivery.</li>
+</ul>
+
+<h4>🟦 Frontend (Next.js 14)</h4>
+<ul>
+  <li><strong>Dashboard</strong>: Hiển thị real-time vehicle check events qua WebSocket.</li>
+  <li><strong>Gate Management</strong>: Cấu hình gate, xem health status, heartbeat.</li>
+  <li><strong>Approval Queue</strong>: Phê duyệt/từ chối xe chưa đăng ký được phát hiện tại cổng.</li>
+  <li><strong>Parking Map</strong>: Bản đồ slot, occupancy status.</li>
+</ul>
+
+<h4>🔑 Authentication</h4>
+<ul>
+  <li><strong>X-Gate-Key</strong>: API key cho edge gate (register, heartbeat, check vehicle).</li>
+  <li><strong>X-Camera-Id + X-Camera-Key</strong>: API key cho từng camera (ingest events).</li>
+  <li><strong>JWT Bearer Token</strong>: Cho frontend/admin users.</li>
+  <li><strong>TenantContext</strong>: Multi-tenant isolation qua RLS (Row-Level Security) trong PostgreSQL.</li>
+</ul>
+
+<h4>🔄 Vehicle Status State Machine</h4>
+<ul>
+  <li><code>approved</code> → <code>entered</code> (khi check entry thành công)</li>
+  <li><code>entered</code> → <code>exited</code> (khi check exit thành công)</li>
+  <li><code>exited</code> → <code>entered</code> (cho phép entry lại)</li>
+  <li><code>rejected</code> → cần admin phê duyệt → <code>approved</code></li>
+</ul>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#A8E6CF',
+      primaryTextColor: '#1a2e2e',
+      primaryBorderColor: '#4ECDC4',
+      lineColor: '#4ECDC4',
+      secondaryColor: '#FFE66D',
+      tertiaryColor: '#FF8B94',
+      fontSize: '14px',
+      fontFamily: 'Fira Sans, ui-sans-serif, sans-serif',
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis',
+    },
+  });
+</script>
+
+</body>
+</html>

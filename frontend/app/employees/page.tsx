@@ -1,6 +1,5 @@
 "use client"
-
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { Department, Employee } from "@/lib/types"
 import { dataService } from "@/lib/data-service"
@@ -31,7 +30,7 @@ import {
   Users,
 } from "lucide-react"
 
-export default function EmployeesPage() {
+function EmployeesContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -501,6 +500,15 @@ export default function EmployeesPage() {
         onSave={handleSave}
       />
     </AdminPage>
+  )
+}
+
+
+export default function EmployeesPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <EmployeesContent />
+    </Suspense>
   )
 }
 

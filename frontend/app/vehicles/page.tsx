@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { Vehicle, Employee } from '@/lib/types';
 import { UserRole, canApprove, canManageVehicles } from '@/lib/types';
@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth-context';
 import { DashboardMetricsSection } from '@/components/dashboard/dashboard-metrics-section';
 import { AdminPage, AdminPageHeader } from '@/components/layout/admin-page';
 
-export default function VehiclesPage() {
+function VehiclesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -426,4 +426,12 @@ export default function VehiclesPage() {
       </Dialog>
     </div>
   );
+}
+
+export default function VehiclesPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <VehiclesContent />
+    </Suspense>
+  )
 }

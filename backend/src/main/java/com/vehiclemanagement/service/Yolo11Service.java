@@ -17,6 +17,20 @@ public class Yolo11Service {
     private final YoloConfig yoloConfig;
     private final RestTemplate restTemplate;
 
+    public byte[] downloadImage(String imageUrl) {
+        log.info("Downloading image from: {}", imageUrl);
+        try {
+            return restTemplate.getForObject(imageUrl, byte[].class);
+        } catch (Exception e) {
+            log.error("Failed to download image from: {}", imageUrl, e);
+            return null;
+        }
+    }
+
+    public byte[] preprocessImage(byte[] imageBytes) {
+        return imageBytes;
+    }
+
     public List<DetectResponse.Detection> detect(byte[] imageBytes) {
         log.info("Running YOLOv11 detect (placeholder - integrate with Python service)");
         return List.of(

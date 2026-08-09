@@ -63,10 +63,10 @@ spring:
       name: admin
       password: admin
 
-  # JWT Configuration
-  jwt:
-    secret: ${JWT_SECRET:lfgQaDjV1GAEBYNNui7Yzk9RgHupcql2VZ0Prrg8NKj}
-    expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:lfgQaDjV1GAEBYNNui7Yzk9RgHupcql2VZ0Prrg8NKj}
+  expiration: ${JWT_EXPIRATION:86400} # 24 hours in seconds
 
   registration:
     rate-limit:

@@ -93,7 +93,7 @@ public class YoloController {
     ) {
         log.info("YOLO export ONNX request received: opset={}", request.getOpset());
         try {
-            boolean success = yolo11Service.exportOnnx(request.getOpset(), request.isHalfPrecision());
+            boolean success = yolo11Service.exportOnnx(request.getOpset(), request.getHalfPrecision());
 
             ExportResponse response = ExportResponse.builder()
                     .success(success)
