@@ -3,9 +3,11 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.GateCreateRequest;
 import com.vehiclemanagement.dto.GateDto;
 import com.vehiclemanagement.dto.GateRegisterRequest;
+import com.vehiclemanagement.entity.Camera;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.exception.ConflictException;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
+import com.vehiclemanagement.repository.CameraRepository;
 import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.security.SiteAccess;
 import org.junit.jupiter.api.Test;
@@ -15,11 +17,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +31,9 @@ class GateServiceTest {
 
     @Mock
     private GateRepository gateRepository;
+
+    @Mock
+    private CameraRepository cameraRepository;
 
     @Mock
     private SiteAccess siteAccess;
@@ -43,7 +50,14 @@ class GateServiceTest {
                 .build();
 
         when(gateRepository.findByName("Cổng chính")).thenReturn(Optional.empty());
-        when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> {
+            Gate gate = inv.getArgument(0);
+            if (gate.getId() == null) {
+                gate.setId(UUID.randomUUID());
+            }
+            return gate;
+        });
+        when(cameraRepository.findByGateId(any())).thenReturn(List.of());
 
         GateDto result = gateService.register(request);
 
@@ -70,6 +84,7 @@ class GateServiceTest {
 
         when(gateRepository.findByName("Cổng chính")).thenReturn(Optional.of(existing));
         when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(cameraRepository.findByGateId(existing.getId())).thenReturn(List.of());
 
         GateDto result = gateService.register(request);
 
@@ -90,6 +105,7 @@ class GateServiceTest {
 
         when(gateRepository.findByName("Cổng phụ")).thenReturn(Optional.of(disabled));
         when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(cameraRepository.findByGateId(disabled.getId())).thenReturn(List.of());
 
         GateDto result = gateService.register(request);
 
@@ -108,6 +124,7 @@ class GateServiceTest {
 
         when(gateRepository.findById(id)).thenReturn(Optional.of(gate));
         when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(cameraRepository.findByGateId(id)).thenReturn(List.of());
 
         GateDto result = gateService.heartbeat(id);
 
@@ -126,6 +143,7 @@ class GateServiceTest {
 
         when(gateRepository.findById(id)).thenReturn(Optional.of(gate));
         when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(cameraRepository.findByGateId(id)).thenReturn(List.of());
 
         GateDto result = gateService.heartbeat(id);
 
@@ -148,6 +166,7 @@ class GateServiceTest {
         GateCreateRequest request = GateCreateRequest.builder()
                 .siteId(siteId)
                 .name(" Cổng mới ")
+                .gateType(Gate.GateType.ENTRANCE)
                 .location("Lối A")
                 .build();
 
@@ -157,14 +176,75 @@ class GateServiceTest {
             gate.setId(UUID.randomUUID());
             return gate;
         });
+        when(cameraRepository.findByGateId(any())).thenReturn(List.of());
 
         GateDto result = gateService.create(request);
 
         assertEquals("Cổng mới", result.getName());
         assertEquals(siteId, result.getSiteId());
+        assertEquals(Gate.GateType.ENTRANCE, result.getGateType());
         assertEquals("Lối A", result.getLocation());
         assertEquals(Gate.GateStatus.offline, result.getStatus());
         verify(siteAccess).assertSiteAllowed(siteId);
+    }
+
+    @Test
+    void create_assignsLaneCamerasAndPanelType() {
+        UUID siteId = UUID.randomUUID();
+        UUID camId = UUID.randomUUID();
+        UUID gateId = UUID.randomUUID();
+        Camera camera = Camera.builder()
+                .id(camId)
+                .siteId(siteId)
+                .name("Cam A")
+                .role(Camera.CameraRole.ANPR_GATE)
+                .status(Camera.CameraStatus.provisioned)
+                .build();
+
+        GateCreateRequest request = GateCreateRequest.builder()
+                .siteId(siteId)
+                .name("Cổng vào 1")
+                .gateType(Gate.GateType.ENTRANCE)
+                .cameraIds(List.of(camId))
+                .build();
+
+        when(gateRepository.existsByName("Cổng vào 1")).thenReturn(false);
+        when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> {
+            Gate gate = inv.getArgument(0);
+            gate.setId(gateId);
+            return gate;
+        });
+        when(cameraRepository.findByGateId(gateId)).thenReturn(List.of(), List.of(camera));
+        when(cameraRepository.findAllById(List.of(camId))).thenReturn(List.of(camera));
+        when(cameraRepository.saveAll(anyCollection())).thenAnswer(inv -> inv.getArgument(0));
+
+        GateDto result = gateService.create(request);
+
+        assertEquals(1, result.getLanes().size());
+        assertEquals(camId, result.getLanes().get(0).getCameraId());
+        assertEquals(gateId, camera.getGateId());
+        assertEquals(Camera.PanelType.entry, camera.getPanelType());
+    }
+
+    @Test
+    void create_duplicateCameraInLanes_throws() {
+        UUID siteId = UUID.randomUUID();
+        UUID camId = UUID.randomUUID();
+        GateCreateRequest request = GateCreateRequest.builder()
+                .siteId(siteId)
+                .name("Cổng")
+                .gateType(Gate.GateType.EXIT)
+                .cameraIds(List.of(camId, camId))
+                .build();
+
+        when(gateRepository.existsByName("Cổng")).thenReturn(false);
+        when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> {
+            Gate gate = inv.getArgument(0);
+            gate.setId(UUID.randomUUID());
+            return gate;
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> gateService.create(request));
     }
 
     @Test
@@ -173,6 +253,7 @@ class GateServiceTest {
         GateCreateRequest request = GateCreateRequest.builder()
                 .siteId(siteId)
                 .name("Cổng chính")
+                .gateType(Gate.GateType.EXIT)
                 .build();
 
         when(gateRepository.existsByName("Cổng chính")).thenReturn(true);
@@ -189,12 +270,14 @@ class GateServiceTest {
                 .id(id)
                 .siteId(siteId)
                 .name("Cũ")
+                .gateType(Gate.GateType.ENTRANCE)
                 .status(Gate.GateStatus.offline)
                 .build();
 
         when(gateRepository.findById(id)).thenReturn(Optional.of(gate));
         when(gateRepository.existsByNameAndIdNot("Mới", id)).thenReturn(false);
         when(gateRepository.save(any(Gate.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(cameraRepository.findByGateId(id)).thenReturn(List.of());
 
         GateDto result = gateService.updateConfig(id, GateDto.builder().name("Mới").build());
 
@@ -203,16 +286,20 @@ class GateServiceTest {
     }
 
     @Test
-    void delete_removesGate() {
+    void delete_removesGateAndClearsLanes() {
         UUID id = UUID.randomUUID();
         UUID siteId = UUID.randomUUID();
         Gate gate = Gate.builder().id(id).siteId(siteId).name("Xóa").build();
+        Camera camera = Camera.builder().id(UUID.randomUUID()).siteId(siteId).gateId(id).name("Cam").build();
 
         when(gateRepository.findById(id)).thenReturn(Optional.of(gate));
+        when(cameraRepository.findByGateId(id)).thenReturn(List.of(camera));
 
         gateService.delete(id);
 
+        assertNull(camera.getGateId());
         verify(siteAccess).assertSiteAllowed(siteId);
+        verify(cameraRepository).saveAll(List.of(camera));
         verify(gateRepository).delete(gate);
     }
 

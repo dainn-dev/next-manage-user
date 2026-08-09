@@ -40,6 +40,10 @@ public class Gate {
     @Column(name = "location")
     private String location;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gate_type")
+    private GateType gateType;
+
     @Column(name = "camera_rtsp_url")
     private String cameraRtspUrl;
 
@@ -62,6 +66,11 @@ public class Gate {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    /** Direction of the physical gate; all lanes on this gate share it. */
+    public enum GateType {
+        ENTRANCE, EXIT
     }
 
     public enum GateStatus {

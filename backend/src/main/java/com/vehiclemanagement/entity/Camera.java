@@ -38,6 +38,10 @@ public class Camera {
     @Column(name = "zone_id")
     private UUID zoneId;
 
+    /** Owning gate when this camera is a gate lane (ANPR). Null for overview cameras. */
+    @Column(name = "gate_id")
+    private UUID gateId;
+
     @Column(name = "name", nullable = false)
     @NotBlank(message = "Camera name is required")
     private String name;

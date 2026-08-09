@@ -4,6 +4,18 @@ import type { VehicleLog } from "./vehicle-log-api"
 
 const API_BASE_URL = getApiUrl()
 
+export type GateType = "ENTRANCE" | "EXIT"
+export type GateStatus = "online" | "offline" | "disabled"
+export type CameraPanelType = "entry" | "exit"
+export type CameraStatus = "provisioned" | "online" | "offline" | "disabled"
+
+export interface GateLane {
+  cameraId: string
+  name: string
+  status?: CameraStatus
+  panelType?: CameraPanelType | null
+}
+
 // Mirrors the backend GateDto (com.vehiclemanagement.dto.GateDto). `status` is the
 // value persisted by the backend; the freshness of `lastHeartbeatAt` is what a UI
 // should trust for a real online/offline decision (see isGateOnline below).
@@ -12,24 +24,25 @@ export interface Gate {
   siteId?: string | null
   name: string
   location?: string
+  gateType?: GateType | null
   cameraRtspUrl?: string
-  status: "online" | "offline" | "disabled"
+  status: GateStatus
   lastHeartbeatAt?: string
   createdAt?: string
   updatedAt?: string
+  lanes?: GateLane[]
 }
 
 export interface GateWriteRequest {
   siteId?: string
   name: string
+  gateType: GateType
   location?: string | null
-  cameraRtspUrl?: string | null
-  status?: Gate["status"]
+  status?: GateStatus
+  /** Ordered lane cameras — one camera per lane. */
+  cameraIds?: string[]
 }
 
-// A gate is considered live only when it reported a heartbeat recently. The edge
-// client (Phase 3.3) pings roughly once a minute, so a 2-minute window tolerates a
-// missed beat without flapping. `disabled` gates are never shown as online.
 export const GATE_HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000
 
 export function isGateOnline(gate: Gate, now: number = Date.now()): boolean {
@@ -38,6 +51,12 @@ export function isGateOnline(gate: Gate, now: number = Date.now()): boolean {
   const last = new Date(gate.lastHeartbeatAt).getTime()
   if (Number.isNaN(last)) return false
   return now - last <= GATE_HEARTBEAT_TIMEOUT_MS
+}
+
+export function gateTypeLabel(type?: GateType | null): string {
+  if (type === "ENTRANCE") return "Vào"
+  if (type === "EXIT") return "Ra"
+  return "Chưa đặt"
 }
 
 async function requestJson<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -62,17 +81,14 @@ async function requestJson<T>(path: string, options: RequestInit = {}): Promise<
 }
 
 export const gateApi = {
-  // GET /api/gates — admin gate registry. Requires an ADMIN JWT.
   getGates: async (): Promise<Gate[]> => {
     return requestJson<Gate[]>("/gates")
   },
 
-  // GET /api/gates/{id}
   getGate: async (id: string): Promise<Gate> => {
     return requestJson<Gate>(`/gates/${id}`)
   },
 
-  // POST /api/gates
   createGate: async (body: GateWriteRequest & { siteId: string }): Promise<Gate> => {
     return requestJson<Gate>("/gates", {
       method: "POST",
@@ -80,7 +96,6 @@ export const gateApi = {
     })
   },
 
-  // PUT /api/gates/{id}
   updateGate: async (id: string, body: GateWriteRequest): Promise<Gate> => {
     return requestJson<Gate>(`/gates/${id}`, {
       method: "PUT",
@@ -88,15 +103,10 @@ export const gateApi = {
     })
   },
 
-  // DELETE /api/gates/{id}
   deleteGate: async (id: string): Promise<void> => {
     await requestJson<void>(`/gates/${id}`, { method: "DELETE" })
   },
 
-  // GET /api/gates/{id}/recent-checks?since=<ISO> — reliable-delivery replay
-  // (Phase 3.2). Returns the check logs created for this gate after `since`,
-  // newest first. `since` is an ISO-8601 LOCAL date-time (no timezone suffix) to
-  // match the backend @DateTimeFormat(ISO.DATE_TIME) LocalDateTime binding.
   getRecentChecks: async (id: string, since?: string): Promise<VehicleLog[]> => {
     const qs = since ? `?since=${encodeURIComponent(since)}` : ""
     return requestJson<VehicleLog[]>(`/gates/${id}/recent-checks${qs}`)

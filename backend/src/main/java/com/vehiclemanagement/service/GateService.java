@@ -3,10 +3,13 @@ package com.vehiclemanagement.service;
 import com.vehiclemanagement.dto.GateCreateRequest;
 import com.vehiclemanagement.dto.GateDto;
 import com.vehiclemanagement.dto.GateHealthDto;
+import com.vehiclemanagement.dto.GateLaneDto;
 import com.vehiclemanagement.dto.GateRegisterRequest;
+import com.vehiclemanagement.entity.Camera;
 import com.vehiclemanagement.entity.Gate;
 import com.vehiclemanagement.exception.ConflictException;
 import com.vehiclemanagement.exception.ResourceNotFoundException;
+import com.vehiclemanagement.repository.CameraRepository;
 import com.vehiclemanagement.repository.GateRepository;
 import com.vehiclemanagement.security.SiteAccess;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +21,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +37,9 @@ public class GateService {
 
     @Autowired
     private GateRepository gateRepository;
+
+    @Autowired
+    private CameraRepository cameraRepository;
 
     @Autowired
     private SiteAccess siteAccess;
@@ -54,7 +66,7 @@ public class GateService {
         }
         gate.setLastHeartbeatAt(LocalDateTime.now());
 
-        return new GateDto(gateRepository.save(gate));
+        return toDto(gateRepository.save(gate));
     }
 
     private Gate resolveForRegister(GateRegisterRequest request) {
@@ -84,12 +96,15 @@ public class GateService {
         Gate gate = Gate.builder()
                 .siteId(request.getSiteId())
                 .name(request.getName().trim())
+                .gateType(request.getGateType())
                 .location(request.getLocation())
                 .cameraRtspUrl(request.getCameraRtspUrl())
                 .status(request.getStatus() != null ? request.getStatus() : Gate.GateStatus.offline)
                 .build();
 
-        return new GateDto(gateRepository.save(gate));
+        gate = gateRepository.save(gate);
+        syncLanes(gate, request.getCameraIds());
+        return toDto(gate);
     }
 
     /**
@@ -104,7 +119,7 @@ public class GateService {
         if (gate.getStatus() != Gate.GateStatus.disabled) {
             gate.setStatus(Gate.GateStatus.online);
         }
-        return new GateDto(gateRepository.save(gate));
+        return toDto(gateRepository.save(gate));
     }
 
     /**
@@ -116,7 +131,7 @@ public class GateService {
         List<Gate> gates = siteAccess.isRestricted()
                 ? gateRepository.findBySiteIdIn(siteAccess.allowedSiteIds(), sort)
                 : gateRepository.findAll(sort);
-        return gates.stream().map(GateDto::new).collect(Collectors.toList());
+        return gates.stream().map(this::toDto).collect(Collectors.toList());
     }
 
     /**
@@ -163,12 +178,13 @@ public class GateService {
         Gate gate = gateRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Gate not found with id: " + id));
         siteAccess.assertSiteAllowed(gate.getSiteId());
-        return new GateDto(gate);
+        return toDto(gate);
     }
 
     /**
-     * Admin config update: name, location, camera URL and status. Heartbeat
-     * timestamp is left untouched.
+     * Admin config update: name, location, type, status and lane cameras.
+     * Heartbeat timestamp is left untouched. When {@code cameraIds} is null, lanes
+     * are left unchanged; an empty list clears all lanes.
      */
     public GateDto updateConfig(UUID id, GateDto request) {
         Gate gate = gateRepository.findById(id)
@@ -191,6 +207,9 @@ public class GateService {
         if (request.getLocation() != null) {
             gate.setLocation(request.getLocation());
         }
+        if (request.getGateType() != null) {
+            gate.setGateType(request.getGateType());
+        }
         if (request.getCameraRtspUrl() != null) {
             gate.setCameraRtspUrl(request.getCameraRtspUrl());
         }
@@ -198,7 +217,16 @@ public class GateService {
             gate.setStatus(request.getStatus());
         }
 
-        return new GateDto(gateRepository.save(gate));
+        gate = gateRepository.save(gate);
+        if (request.getCameraIds() != null) {
+            syncLanes(gate, request.getCameraIds());
+        } else if (request.getGateType() != null) {
+            // Direction changed without lane list: refresh panel_type on existing lanes.
+            syncLanes(gate, cameraRepository.findByGateId(gate.getId()).stream()
+                    .map(Camera::getId)
+                    .collect(Collectors.toList()));
+        }
+        return toDto(gate);
     }
 
     /**
@@ -212,7 +240,101 @@ public class GateService {
         if (gate.getSiteId() != null) {
             siteAccess.assertSiteAllowed(gate.getSiteId());
         }
+        List<Camera> lanes = cameraRepository.findByGateId(id);
+        for (Camera camera : lanes) {
+            camera.setGateId(null);
+        }
+        if (!lanes.isEmpty()) {
+            cameraRepository.saveAll(lanes);
+        }
         gateRepository.delete(gate);
+    }
+
+    /**
+     * Assign exactly one camera per lane. {@code cameraIds} order is preserved in
+     * the response; duplicates are rejected. Cameras must belong to the gate site.
+     */
+    private void syncLanes(Gate gate, List<UUID> cameraIds) {
+        List<UUID> desired = normalizeCameraIds(cameraIds);
+        Camera.PanelType panelType = panelForGate(gate.getGateType());
+
+        List<Camera> current = cameraRepository.findByGateId(gate.getId());
+        Set<UUID> desiredSet = new HashSet<>(desired);
+
+        for (Camera camera : current) {
+            if (!desiredSet.contains(camera.getId())) {
+                camera.setGateId(null);
+            }
+        }
+        cameraRepository.saveAll(current);
+
+        if (desired.isEmpty()) {
+            return;
+        }
+
+        Map<UUID, Camera> byId = cameraRepository.findAllById(desired).stream()
+                .collect(Collectors.toMap(Camera::getId, Function.identity()));
+        if (byId.size() != desired.size()) {
+            throw new ResourceNotFoundException("One or more cameras were not found");
+        }
+
+        List<Camera> toSave = new ArrayList<>();
+        for (UUID cameraId : desired) {
+            Camera camera = byId.get(cameraId);
+            if (gate.getSiteId() != null && !gate.getSiteId().equals(camera.getSiteId())) {
+                throw new IllegalArgumentException(
+                        "Camera '" + camera.getName() + "' does not belong to this gate's site");
+            }
+            camera.setGateId(gate.getId());
+            if (panelType != null) {
+                camera.setPanelType(panelType);
+                if (camera.getRole() == null) {
+                    camera.setRole(Camera.CameraRole.ANPR_GATE);
+                }
+            }
+            toSave.add(camera);
+        }
+        cameraRepository.saveAll(toSave);
+    }
+
+    private static List<UUID> normalizeCameraIds(List<UUID> cameraIds) {
+        if (cameraIds == null || cameraIds.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<UUID> unique = new LinkedHashSet<>();
+        for (UUID id : cameraIds) {
+            if (id == null) {
+                continue;
+            }
+            if (!unique.add(id)) {
+                throw new IllegalArgumentException("Each lane must use a different camera");
+            }
+        }
+        return new ArrayList<>(unique);
+    }
+
+    private static Camera.PanelType panelForGate(Gate.GateType gateType) {
+        if (gateType == Gate.GateType.ENTRANCE) {
+            return Camera.PanelType.entry;
+        }
+        if (gateType == Gate.GateType.EXIT) {
+            return Camera.PanelType.exit;
+        }
+        return null;
+    }
+
+    private GateDto toDto(Gate gate) {
+        GateDto dto = new GateDto(gate);
+        List<Camera> cameras = cameraRepository.findByGateId(gate.getId());
+        dto.setLanes(cameras.stream()
+                .map(camera -> GateLaneDto.builder()
+                        .cameraId(camera.getId())
+                        .name(camera.getName())
+                        .status(camera.getStatus())
+                        .panelType(camera.getPanelType())
+                        .build())
+                .collect(Collectors.toList()));
+        return dto;
     }
 
     /**

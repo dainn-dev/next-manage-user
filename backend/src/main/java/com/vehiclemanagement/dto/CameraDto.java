@@ -31,6 +31,9 @@ public class CameraDto {
     /** Optional: an OVERVIEW camera may watch a whole site with no zone. */
     private UUID zoneId;
 
+    /** Gate this camera is assigned to as a lane; null when unassigned. */
+    private UUID gateId;
+
     @NotBlank(message = "Camera name is required")
     private String name;
 
@@ -57,6 +60,7 @@ public class CameraDto {
         this.id = camera.getId();
         this.siteId = camera.getSiteId();
         this.zoneId = camera.getZoneId();
+        this.gateId = camera.getGateId();
         this.name = camera.getName();
         this.rtspUrl = camera.getRtspUrl();
         this.sourceType = camera.getSourceType() == null ? Camera.SourceType.rtsp : camera.getSourceType();

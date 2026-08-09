@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import {
-  Activity,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Camera,
   Clock3,
   DoorOpen,
   MapPin,
@@ -34,7 +36,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useDashboardScope } from "@/lib/dashboard-scope-context"
-import { gateApi, isGateOnline, type Gate } from "@/lib/api/gate-api"
+import { cameraApi, type Camera as CameraRecord } from "@/lib/api/camera-api"
+import { gateApi, gateTypeLabel, isGateOnline, type Gate } from "@/lib/api/gate-api"
 
 const REFRESH_INTERVAL_MS = 30000
 
@@ -42,6 +45,7 @@ function GateList() {
   const { selectedSiteId } = useDashboardScope()
   const { toast } = useToast()
   const [gates, setGates] = useState<Gate[]>([])
+  const [cameras, setCameras] = useState<CameraRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
@@ -56,8 +60,12 @@ function GateList() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await gateApi.getGates()
-      setGates(data)
+      const [gateData, cameraData] = await Promise.all([
+        gateApi.getGates(),
+        selectedSiteId ? cameraApi.list(selectedSiteId).catch(() => [] as CameraRecord[]) : Promise.resolve([] as CameraRecord[]),
+      ])
+      setGates(gateData)
+      setCameras(cameraData)
       setError(null)
     } catch {
       setError(
@@ -67,7 +75,7 @@ function GateList() {
       setLoading(false)
       setNow(Date.now())
     }
-  }, [])
+  }, [selectedSiteId])
 
   useEffect(() => {
     load()
@@ -81,28 +89,30 @@ function GateList() {
     }
   }, [load])
 
+  const entranceCount = gates.filter((gate) => gate.gateType === "ENTRANCE").length
+  const exitCount = gates.filter((gate) => gate.gateType === "EXIT").length
   const onlineCount = gates.filter((gate) => isGateOnline(gate, now)).length
   const gateOverviewMetrics = [
     {
-      label: "Tổng số cổng",
-      value: gates.length.toLocaleString("vi-VN"),
-      note: "Đã đăng ký trong hệ thống",
-      icon: DoorOpen,
+      label: "Cổng vào",
+      value: entranceCount.toLocaleString("vi-VN"),
+      note: "ENTRANCE",
+      icon: ArrowDownToLine,
       tone: "primary",
     },
     {
-      label: "Cổng trực tuyến",
+      label: "Cổng ra",
+      value: exitCount.toLocaleString("vi-VN"),
+      note: "EXIT",
+      icon: ArrowUpFromLine,
+      tone: "primary",
+    },
+    {
+      label: "Trực tuyến",
       value: onlineCount.toLocaleString("vi-VN"),
       note: "Có nhịp tim gần đây",
       icon: Radio,
       tone: "success",
-    },
-    {
-      label: "Cần chú ý",
-      value: (gates.length - onlineCount).toLocaleString("vi-VN"),
-      note: "Ngoại tuyến hoặc vô hiệu",
-      icon: Activity,
-      tone: "critical",
     },
   ] as const
 
@@ -128,20 +138,22 @@ function GateList() {
         await gateApi.createGate({
           siteId: selectedSiteId,
           name: values.name,
+          gateType: values.gateType,
           location: values.location,
-          cameraRtspUrl: values.cameraRtspUrl,
           status: values.status,
+          cameraIds: values.laneCameraIds,
         })
         toast({
           title: "Đã tạo cổng",
-          description: `${values.name} đã được thêm vào hệ thống.`,
+          description: `${values.name} · ${gateTypeLabel(values.gateType)} · ${values.laneCameraIds.length} lối đi`,
         })
       } else if (editingGate) {
         await gateApi.updateGate(editingGate.id, {
           name: values.name,
+          gateType: values.gateType,
           location: values.location,
-          cameraRtspUrl: values.cameraRtspUrl,
           status: values.status,
+          cameraIds: values.laneCameraIds,
         })
         toast({
           title: "Đã cập nhật cổng",
@@ -188,7 +200,7 @@ function GateList() {
       <AdminPageHeader
         eyebrow="Vận hành bãi xe"
         title="Cổng kiểm soát"
-        description="Quản lý cổng, mở kiosk giám sát và điều phối lượt xe ra vào."
+        description="Quản lý cổng vào/ra, lối đi và camera gắn từng lối."
         actionList={[
           {
             key: "create",
@@ -232,7 +244,7 @@ function GateList() {
       <DashboardMetricsSection
         id="gate-overview-title"
         title="Tổng quan cổng"
-        description="Theo dõi số lượng cổng, trạng thái trực tuyến và các kiosk cần xử lý."
+        description="Số cổng vào, cổng ra và trạng thái trực tuyến."
         badge={(
           <Badge variant="outline" className="gap-1.5 border-primary/30 bg-primary-container text-on-primary-container">
             <Radio className="size-3" aria-hidden="true" />
@@ -294,6 +306,12 @@ function GateList() {
             : gate.status === "disabled"
               ? "bg-slate-100 text-slate-600"
               : "bg-rose-100 text-rose-700"
+          const typeClasses = gate.gateType === "EXIT"
+            ? "border-sky-200 bg-sky-50 text-sky-800"
+            : gate.gateType === "ENTRANCE"
+              ? "border-violet-200 bg-violet-50 text-violet-800"
+              : "border-slate-200 bg-slate-50 text-slate-600"
+          const lanes = gate.lanes ?? []
 
           return (
             <Card key={gate.id} className="border-border bg-card shadow-none transition-shadow hover:shadow-[var(--shadow-card)]">
@@ -315,22 +333,33 @@ function GateList() {
                       )}
                     </div>
                   </div>
-                  <Badge variant="outline" className={`shrink-0 ${statusClasses}`}>
-                    <span className={`mr-1.5 size-1.5 rounded-full ${online ? "bg-emerald-500" : gate.status === "disabled" ? "bg-slate-400" : "bg-rose-500"}`} />
-                    {statusLabel}
-                  </Badge>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <Badge variant="outline" className={typeClasses}>
+                      {gateTypeLabel(gate.gateType)}
+                    </Badge>
+                    <Badge variant="outline" className={statusClasses}>
+                      <span className={`mr-1.5 size-1.5 rounded-full ${online ? "bg-emerald-500" : gate.status === "disabled" ? "bg-slate-400" : "bg-rose-500"}`} />
+                      {statusLabel}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-border bg-muted/50 p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Clock3 className="size-4 text-primary" aria-hidden="true" />
-                    Lần đồng bộ gần nhất
+                    <Camera className="size-4 text-primary" aria-hidden="true" />
+                    Lối đi ({lanes.length})
                   </div>
-                  <p className="mt-1.5 break-words text-sm text-foreground">
-                    {gate.lastHeartbeatAt
-                      ? new Date(gate.lastHeartbeatAt).toLocaleString("vi-VN")
-                      : "Chưa nhận được nhịp tim"}
-                  </p>
+                  {lanes.length === 0 ? (
+                    <p className="mt-1.5 text-sm text-muted-foreground">Chưa gắn camera</p>
+                  ) : (
+                    <ul className="mt-2 space-y-1">
+                      {lanes.map((lane, index) => (
+                        <li key={lane.cameraId} className="truncate text-sm text-foreground">
+                          Lối {index + 1}: {lane.name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
                 <div className="mt-auto grid gap-2">
@@ -371,6 +400,7 @@ function GateList() {
         open={formOpen}
         mode={formMode}
         gate={editingGate}
+        cameras={cameras}
         submitting={submitting}
         onOpenChange={setFormOpen}
         onSubmit={handleSubmit}

@@ -31,6 +31,7 @@ export interface Camera {
   id: string
   siteId: string
   zoneId?: string | null
+  gateId?: string | null
   name: string
   rtspUrl?: string
   sourceType?: CameraSourceType

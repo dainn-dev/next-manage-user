@@ -23,6 +23,8 @@ public interface CameraRepository extends JpaRepository<Camera, UUID> {
 
     List<Camera> findBySiteId(UUID siteId);
 
+    List<Camera> findByGateId(UUID gateId);
+
     long countBySiteId(UUID siteId);
 
     boolean existsBySiteIdAndName(UUID siteId, String name);

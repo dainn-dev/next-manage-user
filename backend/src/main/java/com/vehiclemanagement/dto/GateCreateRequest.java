@@ -9,6 +9,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -28,6 +30,9 @@ public class GateCreateRequest {
     @Size(max = 100, message = "Gate name cannot exceed 100 characters")
     private String name;
 
+    @NotNull(message = "Gate type is required")
+    private Gate.GateType gateType;
+
     @Size(max = 255, message = "Location cannot exceed 255 characters")
     private String location;
 
@@ -36,4 +41,8 @@ public class GateCreateRequest {
 
     /** Optional; defaults to {@code offline} when omitted. */
     private Gate.GateStatus status;
+
+    /** Ordered lane cameras (one camera per lane). Duplicates are rejected. */
+    @Builder.Default
+    private List<UUID> cameraIds = new ArrayList<>();
 }
