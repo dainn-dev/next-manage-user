@@ -4,6 +4,7 @@ import { calculateOccupancyMetrics, formatDuration } from '../lib/dashboard-metr
 import { canonicalPlate, validPlateQuery } from '../lib/plate-search.mjs'
 import {
   canAccessOperatorRouteValue,
+  needsDashboardLiveData,
   resolveTenantFacilityId,
 } from '../lib/dashboard-policy.mjs'
 
@@ -26,6 +27,26 @@ test('tenant scope uses one operating facility without a stored preference', () 
   const facilities = [{ id: 'a' }]
   assert.equal(resolveTenantFacilityId(facilities), 'a')
   assert.equal(resolveTenantFacilityId([]), null)
+})
+
+test('dashboard live data only runs on routes that consume cameras/slots/events', () => {
+  assert.equal(needsDashboardLiveData('/dashboard'), true)
+  assert.equal(needsDashboardLiveData('/events'), true)
+  assert.equal(needsDashboardLiveData('/parking/maps'), true)
+  assert.equal(needsDashboardLiveData('/parking/cameras'), true)
+  assert.equal(needsDashboardLiveData('/parking/slots'), true)
+  assert.equal(needsDashboardLiveData('/statistics'), true)
+  assert.equal(needsDashboardLiveData('/vehicles/search'), false)
+  assert.equal(needsDashboardLiveData('/vehicles'), false)
+  assert.equal(needsDashboardLiveData('/vehicles/monitoring'), false)
+  assert.equal(needsDashboardLiveData('/gate'), false)
+  assert.equal(needsDashboardLiveData('/gate/abc'), false)
+  assert.equal(needsDashboardLiveData('/parking/agents'), false)
+  assert.equal(needsDashboardLiveData('/parking/commissioning'), false)
+  assert.equal(needsDashboardLiveData('/users'), false)
+  assert.equal(needsDashboardLiveData('/billing'), false)
+  assert.equal(needsDashboardLiveData('/settings/organization'), false)
+  assert.equal(needsDashboardLiveData(null), false)
 })
 
 test('occupancy metrics react to slot state changes', () => {

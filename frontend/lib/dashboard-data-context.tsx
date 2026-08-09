@@ -1,12 +1,14 @@
 "use client"
 
 import * as React from 'react'
+import { usePathname } from 'next/navigation'
 import { useDashboardScope } from './dashboard-scope-context'
 import {
   dashboardApi, normalizeRealtimeEvent, normalizeRealtimeSlot,
   type DashboardAnalytics, type DashboardCamera, type DashboardEvent,
   type DashboardSlot, type DashboardVehicleSearchResult,
 } from './api/dashboard-api'
+import { needsDashboardLiveData } from './dashboard-policy.mjs'
 import { useDashboardRealtime, type RealtimeState } from '@/hooks/use-dashboard-realtime'
 
 export type DataStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
@@ -36,6 +38,8 @@ interface DashboardDataContextValue {
 const DashboardDataContext = React.createContext<DashboardDataContextValue | undefined>(undefined)
 
 export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const live = needsDashboardLiveData(pathname)
   const { selectedSiteId, selectedZoneId } = useDashboardScope()
   const [cameras, setCameras] = React.useState<DashboardCamera[]>([])
   const [slots, setSlots] = React.useState<DashboardSlot[]>([])
@@ -53,6 +57,8 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   const [error, setError] = React.useState<string | null>(null)
   const [lastUpdatedAt, setLastUpdatedAt] = React.useState<string | null>(null)
   const searchRequest = React.useRef(0)
+  const liveRef = React.useRef(live)
+  liveRef.current = live
 
   const refresh = React.useCallback(async () => {
     if (!selectedSiteId) {
@@ -67,6 +73,8 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       dashboardApi.events(selectedSiteId, selectedZoneId, 0, eventFilter),
       dashboardApi.analytics(selectedSiteId),
     ])
+    // Drop late responses after navigating away from live-data routes.
+    if (!liveRef.current) return
     const failures: string[] = []
     if (results[0].status === 'fulfilled') setCameras(results[0].value); else failures.push('cameras')
     if (results[1].status === 'fulfilled') setSlots(results[1].value); else failures.push('slots')
@@ -95,9 +103,13 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     }
   }, [selectedSiteId, selectedZoneId, eventsPage, eventFilter, eventsHasMore, eventsLoadingMore])
 
-  React.useEffect(() => { void refresh() }, [refresh])
+  React.useEffect(() => {
+    if (!live) return
+    void refresh()
+  }, [live, refresh])
 
   const onSlot = React.useCallback((payload: unknown) => {
+    if (!liveRef.current) return
     const update = normalizeRealtimeSlot(payload)
     if (!update.id || update.siteId !== selectedSiteId) return
     if (selectedZoneId && update.zoneId !== selectedZoneId) return
@@ -123,6 +135,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   }, [selectedSiteId, selectedZoneId])
 
   const onEvent = React.useCallback((payload: unknown) => {
+    if (!liveRef.current) return
     const event = normalizeRealtimeEvent(payload)
     if (!event.id || event.siteId !== selectedSiteId) return
     if (selectedZoneId && event.zoneId && event.zoneId !== selectedZoneId) return
@@ -152,6 +165,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     lastFrameAt?: string
     occurredAt: string
   }) => {
+    if (!liveRef.current) return
     if (event.siteId !== selectedSiteId) return
     setCameras((current) => current.map((camera) => {
       if (camera.id !== event.cameraId) return camera
@@ -169,12 +183,17 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     setLastUpdatedAt(new Date().toISOString())
   }, [selectedSiteId])
 
+  // Disconnect STOMP while on idle sidebar routes (gate, vehicles list, users, …).
   const { state: realtime, error: realtimeError } = useDashboardRealtime(
-    selectedSiteId, onSlot, onEvent, refresh, onCameraHealth,
+    live ? selectedSiteId : null,
+    onSlot,
+    onEvent,
+    refresh,
+    onCameraHealth,
   )
 
   React.useEffect(() => {
-    if (!selectedSiteId || realtime === 'live') return
+    if (!live || !selectedSiteId || realtime === 'live') return
     let interval: number
     const schedule = () => {
       window.clearInterval(interval)
@@ -190,7 +209,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [selectedSiteId, realtime, refresh])
+  }, [live, selectedSiteId, realtime, refresh])
 
   const searchVehicles = React.useCallback(async (query: string) => {
     const normalized = query.trim().toUpperCase()

@@ -31,7 +31,7 @@ export function RealtimeGateDashboard({ pulse, onError }: RealtimeGateDashboardP
       const [stats, entered, todayLogs] = await Promise.all([
         vehicleLogApi.getTodayStatistics().catch(() => null),
         vehicleApi.getVehiclesByStatus("entered").catch(() => [] as Vehicle[]),
-        vehicleLogApi.getTodayLogs(0, 500).catch(() => null),
+        vehicleLogApi.getTodayLogs(0, 100).catch(() => null),
       ])
       if (stats) {
         setEntryCount(stats.entryCount)

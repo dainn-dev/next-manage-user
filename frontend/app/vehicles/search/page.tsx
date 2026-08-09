@@ -3,7 +3,6 @@
 import * as React from 'react'
 import {
   AlertCircle,
-  AlertTriangle,
   Camera,
   Car,
   Clock,
@@ -14,18 +13,17 @@ import {
   Search,
   WifiOff,
   X,
-  RefreshCw,
-  Cpu,
-  Terminal,
-  Activity
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { AdminPage, AdminPageHeader } from '@/components/layout/admin-page'
-import { useDashboardData } from '@/lib/dashboard-data-context'
 import { useDashboardScope } from '@/lib/dashboard-scope-context'
+import {
+  dashboardApi,
+  type DashboardVehicleSearchResult,
+} from '@/lib/api/dashboard-api'
 import { validPlateQuery } from '@/lib/plate-search.mjs'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +31,7 @@ type DetectedBarcode = { rawValue?: string }
 type BarcodeDetectorInstance = { detect: (source: HTMLVideoElement) => Promise<DetectedBarcode[]> }
 type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorInstance
 type ScannerStatus = 'idle' | 'requesting' | 'granted' | 'scanning' | 'denied' | 'unavailable' | 'error'
+type SearchStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
 
 const CAMERA_CONSTRAINTS: MediaStreamConstraints = {
   video: { facingMode: { ideal: 'environment' } },
@@ -100,15 +99,59 @@ export default function VehiclePlateSearchPage() {
   const [scannerError, setScannerError] = React.useState<string | null>(null)
   const [scannerStatus, setScannerStatus] = React.useState<ScannerStatus>('idle')
   const [scannerStream, setScannerStream] = React.useState<MediaStream | null>(null)
+  const [vehicles, setVehicles] = React.useState<DashboardVehicleSearchResult[]>([])
+  const [searchStatus, setSearchStatus] = React.useState<SearchStatus>('idle')
+  const [searchError, setSearchError] = React.useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = React.useState('')
   const videoRef = React.useRef<HTMLVideoElement>(null)
   const scannerStreamRef = React.useRef<MediaStream | null>(null)
-  const { vehicles, searchVehicles, searchStatus, searchError, searchQuery, realtime } = useDashboardData()
+  const searchRequest = React.useRef(0)
   const { selectedSiteId } = useDashboardScope()
+
+  const searchVehicles = React.useCallback(async (rawQuery: string) => {
+    const normalized = rawQuery.trim().toUpperCase()
+    const requestId = ++searchRequest.current
+    setSearchQuery(normalized)
+    setSearchError(null)
+    if (!normalized) {
+      setVehicles([])
+      setSearchStatus('idle')
+      return
+    }
+    if (!selectedSiteId) {
+      setVehicles([])
+      setSearchStatus('error')
+      setSearchError('Vui lòng chọn site trước khi tìm kiếm')
+      return
+    }
+    try {
+      setSearchStatus('loading')
+      const result = await dashboardApi.searchVehicles(normalized, selectedSiteId)
+      if (requestId !== searchRequest.current) return
+      const scoped = result.filter((vehicle) => vehicle.siteId === selectedSiteId)
+      setVehicles(scoped)
+      setSearchStatus(scoped.length ? 'ready' : 'empty')
+    } catch (reason) {
+      if (requestId !== searchRequest.current) return
+      setVehicles([])
+      setSearchStatus('error')
+      setSearchError(reason instanceof Error ? reason.message : 'Không thể tìm phương tiện')
+    }
+  }, [selectedSiteId])
+
   const searchVehiclesRef = React.useRef(searchVehicles)
 
   React.useEffect(() => {
     searchVehiclesRef.current = searchVehicles
   }, [searchVehicles])
+
+  React.useEffect(() => {
+    searchRequest.current += 1
+    setVehicles([])
+    setSearchStatus('idle')
+    setSearchError(null)
+    setSearchQuery('')
+  }, [selectedSiteId])
 
   const stopScannerStream = React.useCallback(() => {
     scannerStreamRef.current?.getTracks().forEach((track) => track.stop())
@@ -267,7 +310,7 @@ export default function VehiclePlateSearchPage() {
       <AdminPageHeader
         eyebrow="Phương tiện"
         title="Tra cứu phương tiện"
-        description={`Quét mã QR hoặc nhập biển số để tra cứu phương tiện. Dữ liệu được cập nhật ${realtime === 'live' ? 'trực tiếp' : 'định kỳ'}.`}
+        description="Quét mã QR hoặc nhập biển số để tra cứu phương tiện trong cơ sở đang chọn."
       />
 
       <div className="space-y-5 sm:space-y-6">
@@ -513,7 +556,7 @@ export default function VehiclePlateSearchPage() {
   )
 }
 
-function VehicleResult({ vehicle }: { vehicle: ReturnType<typeof useDashboardData>['vehicles'][number] }) {
+function VehicleResult({ vehicle }: { vehicle: DashboardVehicleSearchResult }) {
   const [snapshotFailed, setSnapshotFailed] = React.useState(false)
   React.useEffect(() => setSnapshotFailed(false), [vehicle.snapshotUrl])
   const snapshot = vehicle.snapshotUrl && !snapshotFailed ? vehicle.snapshotUrl : null
