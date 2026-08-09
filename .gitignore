@@ -56,3 +56,10 @@ deploy/staging/evidence/
 deploy/staging/alertmanager/alertmanager.generated.yml
 # Controlled-pilot generated evidence (site profiles/templates remain tracked)
 pilot/evidence/
+edge/LP_detection/images/*
+edge/LP_detection/labels/*
+edge/OCR/images/train/*
+edge/camera-snapshots/*
+edge/OCR/images/val/*
+edge/OCR/labels/train/*
+edge/OCR/labels/val/*

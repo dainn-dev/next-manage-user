@@ -81,6 +81,16 @@ export function VehicleTable({
   const [showImagePreview, setShowImagePreview] = useState(false)
   const [previewVehicle, setPreviewVehicle] = useState<Vehicle | null>(null)
 
+  const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 10
+  const safeTotalElements = Number.isFinite(totalElements) && totalElements >= 0 ? totalElements : 0
+  const safeTotalPages = Number.isFinite(totalPages) && totalPages >= 0 ? totalPages : 0
+  const safeCurrentPage = safeTotalPages > 0 ? Math.min(currentPage, safeTotalPages - 1) : 0
+  const visibleStart = safeTotalElements === 0 ? 0 : safeCurrentPage * safePageSize + 1
+  const visibleEnd = Math.min((safeCurrentPage + 1) * safePageSize, safeTotalElements)
+  const isTrulyEmpty = !hasActiveFilters && safeTotalElements === 0
+  const hasNoFilteredResults = hasActiveFilters && safeTotalElements === 0
+  const filterUnavailable = isFiltering || filterLoadError
+
   useEffect(() => {
     if (!userCanManage && selectedVehicles.length > 0) {
       setSelectedVehicles([])
@@ -88,10 +98,10 @@ export function VehicleTable({
   }, [userCanManage, selectedVehicles])
 
   useEffect(() => {
-    if (totalPages > 0 && currentPage >= totalPages) {
-      onPageChange(totalPages - 1)
+    if (safeTotalPages > 0 && currentPage >= safeTotalPages) {
+      onPageChange(safeTotalPages - 1)
     }
-  }, [currentPage, onPageChange, totalPages])
+  }, [currentPage, onPageChange, safeTotalPages])
 
   const handleSelectAll = (checked: boolean) => {
     if (!userCanManage) return
@@ -172,13 +182,6 @@ export function VehicleTable({
         return "🚗"
     }
   }
-
-  const safeCurrentPage = totalPages > 0 ? Math.min(currentPage, totalPages - 1) : 0
-  const visibleStart = totalElements === 0 ? 0 : safeCurrentPage * pageSize + 1
-  const visibleEnd = Math.min((safeCurrentPage + 1) * pageSize, totalElements)
-  const isTrulyEmpty = !hasActiveFilters && totalElements === 0
-  const hasNoFilteredResults = hasActiveFilters && totalElements === 0
-  const filterUnavailable = isFiltering || filterLoadError
 
   return (
     <div className="space-y-3 md:space-y-4">
@@ -403,7 +406,7 @@ export function VehicleTable({
       {/* Pagination */}
       <div className={`${filterUnavailable ? "hidden" : "grid"} grid-cols-[auto_1fr_auto] items-center gap-2 md:hidden`}>
         <select
-          value={pageSize}
+          value={safePageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
           className="h-11 rounded-md border bg-background px-2 text-xs"
           aria-label="Số xe trên mỗi trang"
@@ -414,7 +417,7 @@ export function VehicleTable({
           <option value={50}>50 / trang</option>
         </select>
         <span className="min-w-0 truncate whitespace-nowrap text-center text-xs text-muted-foreground">
-          {hasActiveFilters ? `${filteredVehicles.length} kết quả trên trang này` : `${visibleStart}–${visibleEnd} / ${totalElements}`}
+          {hasActiveFilters ? `${filteredVehicles.length} kết quả trên trang này` : `${visibleStart}–${visibleEnd} / ${safeTotalElements}`}
         </span>
         <div className="flex gap-1">
           <Button
@@ -431,7 +434,7 @@ export function VehicleTable({
             variant="outline"
             size="sm"
             className="size-11 p-0"
-            disabled={totalPages === 0 || currentPage >= totalPages - 1}
+            disabled={safeTotalPages === 0 || currentPage >= safeTotalPages - 1}
             onClick={() => onPageChange(currentPage + 1)}
             aria-label="Trang sau"
           >
@@ -459,12 +462,12 @@ export function VehicleTable({
             {"<"}
           </Button>
           <span className="text-sm">
-            {visibleStart}-{visibleEnd} / {totalElements}
+            {visibleStart}-{visibleEnd} / {safeTotalElements}
           </span>
           <Button
             variant="outline"
             size="sm"
-            disabled={currentPage >= totalPages - 1}
+            disabled={currentPage >= safeTotalPages - 1}
             onClick={() => onPageChange(currentPage + 1)}
           >
             {">"}
@@ -472,17 +475,17 @@ export function VehicleTable({
           <Button
             variant="outline"
             size="sm"
-            disabled={currentPage >= totalPages - 1}
-            onClick={() => onPageChange(totalPages - 1)}
+            disabled={currentPage >= safeTotalPages - 1}
+            onClick={() => onPageChange(safeTotalPages - 1)}
           >
             {">>"}
           </Button>
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <span>{pageSize} hàng trên mỗi trang</span>
+          <span>{safePageSize} hàng trên mỗi trang</span>
           <select
-            value={pageSize}
+            value={safePageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className="px-2 py-1 border rounded text-sm"
           >
@@ -491,8 +494,8 @@ export function VehicleTable({
             <option value={20}>20</option>
             <option value={50}>50</option>
           </select>
-          <span>Trang {totalPages === 0 ? 0 : safeCurrentPage + 1} / {totalPages}</span>
-          <span>Tổng số xe {totalElements}</span>
+          <span>Trang {safeTotalPages === 0 ? 0 : safeCurrentPage + 1} / {safeTotalPages}</span>
+          <span>Tổng số xe {safeTotalElements}</span>
         </div>
       </div>
 

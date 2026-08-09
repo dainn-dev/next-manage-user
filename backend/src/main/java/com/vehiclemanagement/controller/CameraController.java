@@ -1,8 +1,11 @@
 package com.vehiclemanagement.controller;
 
 import com.vehiclemanagement.dto.CameraDto;
+import com.vehiclemanagement.dto.CameraProbeRequest;
+import com.vehiclemanagement.dto.CameraProbeResult;
 import com.vehiclemanagement.dto.CameraWithKeyDto;
 import com.vehiclemanagement.service.CameraService;
+import com.vehiclemanagement.service.RtspProbeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,6 +34,9 @@ public class CameraController {
     @Autowired
     private CameraService cameraService;
 
+    @Autowired
+    private RtspProbeService rtspProbeService;
+
     @GetMapping
     @Operation(summary = "List cameras, optionally filtered by site")
     @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER','SECURITY_GUARD')")
@@ -38,6 +44,22 @@ public class CameraController {
     public ResponseEntity<List<CameraDto>> list(
             @Parameter(description = "Optional site filter") @RequestParam(required = false) UUID siteId) {
         return ResponseEntity.ok(cameraService.list(siteId));
+    }
+
+    @PostMapping("/probe")
+    @Operation(summary = "Probe an RTSP URL for reachability and stream details")
+    @PreAuthorize("hasAnyRole('TENANT_ADMIN','SITE_MANAGER')")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Probe completed (reachable or not)"),
+        @ApiResponse(responseCode = "400", description = "Invalid RTSP URL")
+    })
+    public ResponseEntity<CameraProbeResult> probe(
+            @Parameter(description = "Source URL to probe") @Valid @RequestBody CameraProbeRequest request) {
+        String url = request.resolvedUrl();
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("url (or rtspUrl) is required");
+        }
+        return ResponseEntity.ok(rtspProbeService.probe(url, request.getSourceType()));
     }
 
     @GetMapping("/{id}")

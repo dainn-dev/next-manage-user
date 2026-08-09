@@ -145,8 +145,32 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     setLastUpdatedAt(new Date().toISOString())
   }, [selectedSiteId, selectedZoneId, eventFilter])
 
+  const onCameraHealth = React.useCallback((event: {
+    cameraId: string
+    siteId: string
+    status: string
+    lastFrameAt?: string
+    occurredAt: string
+  }) => {
+    if (event.siteId !== selectedSiteId) return
+    setCameras((current) => current.map((camera) => {
+      if (camera.id !== event.cameraId) return camera
+      const status = event.status === 'online'
+        ? 'ONLINE'
+        : event.status === 'error'
+          ? 'ERROR'
+          : 'OFFLINE'
+      return {
+        ...camera,
+        status,
+        lastSeenAt: event.lastFrameAt || event.occurredAt || camera.lastSeenAt,
+      }
+    }))
+    setLastUpdatedAt(new Date().toISOString())
+  }, [selectedSiteId])
+
   const { state: realtime, error: realtimeError } = useDashboardRealtime(
-    selectedSiteId, onSlot, onEvent, refresh,
+    selectedSiteId, onSlot, onEvent, refresh, onCameraHealth,
   )
 
   React.useEffect(() => {

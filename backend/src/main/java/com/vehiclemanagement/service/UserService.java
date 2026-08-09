@@ -84,6 +84,23 @@ public class UserService implements UserDetailsService {
         return toDto(user);
     }
 
+    /**
+     * Resolve the current principal for {@code GET /api/auth/me}.
+     * Must use the pre-tenant {@code app_auth} lookup path — same as login —
+     * otherwise RLS hides PLATFORM_ADMIN / MEMBER rows (tenant_id NULL) and
+     * the client clears the session on every hard refresh.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public UserDto getCurrentUserForAuth(String usernameOrEmail) {
+        return AuthDataSourceContext.callWithAuthLookup(() -> {
+            User user = userRepository.findByUsernameIgnoreCase(usernameOrEmail)
+                    .or(() -> userRepository.findByEmailIgnoreCase(usernameOrEmail))
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "User not found with username: " + usernameOrEmail));
+            return toDto(user);
+        });
+    }
+
     public Page<UserDto> searchUsers(String searchTerm, Pageable pageable) {
         return userRepository.findBySearchTerm(searchTerm, pageable).map(this::toDto);
     }

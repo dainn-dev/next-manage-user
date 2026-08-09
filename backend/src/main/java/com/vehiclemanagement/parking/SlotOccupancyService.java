@@ -42,11 +42,14 @@ public class SlotOccupancyService {
                 repository.occupy(event.slotId(), event.siteId(), event.zoneId(), event.trackId(),
                         event.plate() == null || event.plate().isBlank() ? oldOccupancy.plate() : event.plate(),
                         event.occurredAt(), event.snapshotReference());
-                relocationEventStore.append(oldOccupancy, event);
+                RelocationEvent relocatedEvent = relocationEventStore.append(oldOccupancy, event);
                 SlotOccupancyView relocated = current(event.siteId(), event.zoneId(), event.slotId());
                 SlotOccupancyView freed = current(event.siteId(), oldOccupancy.zoneId(), oldOccupancy.slotId());
                 realtimePublisher.publishAfterCommit(freed, event.occurredAt());
                 realtimePublisher.publishAfterCommit(relocated, event.occurredAt());
+                realtimePublisher.publishEventAfterCommit(
+                        relocatedEvent.eventId(), event.siteId(), "VEHICLE_RELOCATED", event.occurredAt(),
+                        relocated.plate(), relocated.slotId(), relocated.zoneId(), event.snapshotReference());
                 return relocated;
             }
             if (current == null || "free".equals(current.status()) || (currentTrack && newer)) {
@@ -56,6 +59,12 @@ public class SlotOccupancyService {
                 if (entering) relocationEventStore.appendEntered(event);
                 SlotOccupancyView occupied = current(event.siteId(), event.zoneId(), event.slotId());
                 realtimePublisher.publishAfterCommit(occupied, event.occurredAt());
+                if (entering) {
+                    realtimePublisher.publishEventAfterCommit(
+                            event.observationId() == null ? UUID.randomUUID() : event.observationId(),
+                            event.siteId(), "VEHICLE_ENTERED", event.occurredAt(),
+                            occupied.plate(), occupied.slotId(), occupied.zoneId(), event.snapshotReference());
+                }
                 return occupied;
             }
             return current;
@@ -65,6 +74,10 @@ public class SlotOccupancyService {
             repository.free(event.slotId());
             SlotOccupancyView freed = current(event.siteId(), event.zoneId(), event.slotId());
             realtimePublisher.publishAfterCommit(freed, event.occurredAt());
+            realtimePublisher.publishEventAfterCommit(
+                    event.observationId() == null ? UUID.randomUUID() : event.observationId(),
+                    event.siteId(), "VEHICLE_EXITED", event.occurredAt(),
+                    current.plate(), current.slotId(), current.zoneId(), event.snapshotReference());
             return freed;
         }
         return current;

@@ -24,7 +24,8 @@ import java.util.regex.Pattern;
 /** Authenticates STOMP CONNECT and authorizes subscriptions to the tenant facility dashboard topics. */
 @Component
 public class DashboardWebSocketAuthorizationInterceptor implements ChannelInterceptor {
-    private static final Pattern SITE_TOPIC = Pattern.compile("^/topic/site/([0-9a-fA-F-]{36})/(slots|events)$");
+    private static final Pattern SITE_TOPIC = Pattern.compile(
+            "^/topic/site/([0-9a-fA-F-]{36})/(slots|events|cameras/health|agents)$");
     private static final String USER_NOTIFICATIONS = "/user/queue/notifications";
     private static final String TOKEN = "dashboard.jwt";
     private final JwtUtil jwtUtil;

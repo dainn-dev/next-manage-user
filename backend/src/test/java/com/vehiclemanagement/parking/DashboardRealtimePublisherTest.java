@@ -34,4 +34,25 @@ class DashboardRealtimePublisherTest {
         assertThat(((Map<?, ?>) envelope.get("data")).get("slotId")).isEqualTo(slotId);
         assertThat(((Map<?, ?>) envelope.get("data")).get("status")).isEqualTo("occupied");
     }
+
+    @Test
+    void publishesSiteScopedParkingEventEnvelope() {
+        SimpMessagingTemplate messaging = mock(SimpMessagingTemplate.class);
+        DashboardRealtimePublisher publisher = new DashboardRealtimePublisher(messaging);
+        UUID siteId = UUID.randomUUID();
+        UUID eventId = UUID.randomUUID();
+        UUID slotId = UUID.randomUUID();
+        OffsetDateTime observedAt = OffsetDateTime.parse("2026-07-14T04:00:00Z");
+
+        publisher.publishEventAfterCommit(eventId, siteId, "VEHICLE_ENTERED", observedAt,
+                "30A12345", slotId, UUID.randomUUID(), null);
+
+        ArgumentCaptor<Object> payload = ArgumentCaptor.forClass(Object.class);
+        verify(messaging).convertAndSend(eq("/topic/site/" + siteId + "/events"), payload.capture());
+        Map<?, ?> envelope = (Map<?, ?>) payload.getValue();
+        assertThat(envelope.get("type")).isEqualTo("VEHICLE_ENTERED");
+        assertThat(envelope.get("eventId")).isEqualTo(eventId);
+        assertThat(((Map<?, ?>) envelope.get("data")).get("slotId")).isEqualTo(slotId);
+        assertThat(((Map<?, ?>) envelope.get("data")).get("plate")).isEqualTo("30A12345");
+    }
 }

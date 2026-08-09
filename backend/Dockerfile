@@ -21,8 +21,9 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-# Install wget for health checks
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+# wget for health checks; ffmpeg provides ffprobe for RTSP camera setup probes
+RUN apt-get update && apt-get install -y --no-install-recommends wget ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the built JAR file from builder stage
 COPY --from=builder /app/target/vehicle-management-api-0.0.1-SNAPSHOT.jar app.jar

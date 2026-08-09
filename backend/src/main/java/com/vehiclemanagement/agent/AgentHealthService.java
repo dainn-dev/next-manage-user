@@ -1,11 +1,15 @@
 package com.vehiclemanagement.agent;
 
+import com.vehiclemanagement.entity.Camera;
+import com.vehiclemanagement.parking.CameraRealtimePublisher;
+import com.vehiclemanagement.repository.CameraRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
@@ -21,6 +25,8 @@ public class AgentHealthService {
 
     private final SiteAgentRepository agentRepository;
     private final CameraRuntimeHealthRepository healthRepository;
+    private final CameraRepository cameraRepository;
+    private final CameraRealtimePublisher cameraRealtimePublisher;
 
     /**
      * Process agent heartbeat and update status.
@@ -72,6 +78,7 @@ public class AgentHealthService {
         health.setConfigVersion(request.configVersion);
 
         healthRepository.save(health);
+        publishHealth(cameraId, health);
 
         log.debug("Camera {} health: state={}, fps={}, lastFrame={}, error={}",
             cameraId, request.connectionState, request.fps, request.lastFrameAt, request.errorCode);
@@ -106,9 +113,38 @@ public class AgentHealthService {
             health.setErrorCode("FRAME_TIMEOUT");
             health.setErrorMessageSafe("No frames received in " + CAMERA_FRAME_TIMEOUT_SECONDS + "s");
             healthRepository.save(health);
+            publishHealth(health.getCameraId(), health);
             log.info("Camera {} marked error due to stale frames (last frame: {})",
                 health.getCameraId(), health.getLastFrameAt());
         }
+    }
+
+    private void publishHealth(UUID cameraId, CameraRuntimeHealth health) {
+        Camera camera = cameraRepository.findById(cameraId).orElse(null);
+        if (camera == null) {
+            return;
+        }
+        String connectionState = health.getConnectionState() == null
+                ? "stopped"
+                : health.getConnectionState().name();
+        String status = switch (health.getConnectionState() == null
+                ? CameraRuntimeHealth.ConnectionState.stopped
+                : health.getConnectionState()) {
+            case streaming, connecting -> "online";
+            case error -> "error";
+            case unassigned, assigned, stopped -> "offline";
+        };
+        Double fps = health.getFps() == null ? null : health.getFps().doubleValue();
+        cameraRealtimePublisher.publishHealthAfterCommit(
+                camera.getSiteId(),
+                cameraId,
+                health.getAgentId(),
+                status,
+                connectionState,
+                health.getLastFrameAt() == null ? null : health.getLastFrameAt().atOffset(ZoneOffset.UTC),
+                fps,
+                health.getErrorCode(),
+                java.time.OffsetDateTime.now(ZoneOffset.UTC));
     }
 
     // DTOs

@@ -45,6 +45,18 @@ public class Camera {
     @Column(name = "rtsp_url")
     private String rtspUrl;
 
+    /**
+     * Edge capture protocol. {@link SourceType#http} covers DroidCam / IP Webcam MJPEG.
+     * {@link #sourceUrl} is the canonical location delivered to site agents.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", nullable = false)
+    @Builder.Default
+    private SourceType sourceType = SourceType.rtsp;
+
+    @Column(name = "source_url")
+    private String sourceUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "stream_kind")
     private StreamKind streamKind;
@@ -124,5 +136,11 @@ public class Camera {
 
     public enum StreamKind {
         HLS, WEBRTC, MJPEG, MP4
+    }
+
+    /** Edge/agent capture source kind. */
+    public enum SourceType {
+        rtsp,
+        http
     }
 }

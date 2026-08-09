@@ -157,6 +157,10 @@ camera-credentials:
 camera:
   heartbeat-timeout-seconds: ${CAMERA_HEARTBEAT_TIMEOUT_SECONDS:60}
   heartbeat-check-rate-ms: ${CAMERA_HEARTBEAT_CHECK_RATE_MS:30000}
+  rtsp-probe:
+    timeout-ms: ${CAMERA_RTSP_PROBE_TIMEOUT_MS:8000}
+    connect-timeout-ms: ${CAMERA_RTSP_PROBE_CONNECT_TIMEOUT_MS:3000}
+    ffprobe-path: ${CAMERA_FFPROBE_PATH:ffprobe}
 
 # Evidence snapshots (Phase 4.2): the cropped license-plate image the edge sends
 # with a check-vehicle call is written under snapshot-dir and served by the

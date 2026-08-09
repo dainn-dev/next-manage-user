@@ -19,6 +19,11 @@ public class CameraCreateRequest {
     @Size(max = 500, message = "RTSP URL cannot exceed 500 characters")
     private String rtspUrl;
 
+    private Camera.SourceType sourceType = Camera.SourceType.rtsp;
+
+    @Size(max = 500, message = "Source URL cannot exceed 500 characters")
+    private String sourceUrl;
+
     private Camera.CameraRole role = Camera.CameraRole.ANPR_GATE;
 
     private Camera.PanelType panelType;

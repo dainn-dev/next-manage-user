@@ -6,6 +6,7 @@ const API_BASE_URL = getApiUrl()
 export type CameraRole = 'ANPR_GATE' | 'OVERVIEW'
 export type CameraPanelType = 'entry' | 'exit'
 export type CameraStatus = 'provisioned' | 'online' | 'offline' | 'disabled'
+export type CameraSourceType = 'rtsp' | 'http'
 export type CameraConnectionState = 'assigned' | 'connecting' | 'streaming' | 'online' | 'error' | 'stopped' | 'agent_offline'
 
 export interface CameraRuntimeHealth {
@@ -32,6 +33,8 @@ export interface Camera {
   zoneId?: string | null
   name: string
   rtspUrl?: string
+  sourceType?: CameraSourceType
+  sourceUrl?: string | null
   snapshotUrl?: string | null
   role: CameraRole
   panelType?: CameraPanelType | null
@@ -49,9 +52,27 @@ export interface CameraWriteRequest {
   zoneId?: string | null
   name: string
   rtspUrl?: string | null
+  sourceType?: CameraSourceType
+  sourceUrl?: string | null
   role: CameraRole
   panelType?: CameraPanelType | null
   status?: CameraStatus
+}
+
+export interface CameraProbeResult {
+  reachable: boolean
+  tcpOpen: boolean
+  streamOk: boolean
+  host?: string | null
+  port?: number | null
+  codec?: string | null
+  width?: number | null
+  height?: number | null
+  fps?: number | null
+  probeMethod?: string | null
+  errorCode?: string | null
+  errorMessage?: string | null
+  probedAt?: string | null
 }
 
 export interface CameraCredential extends Camera {
@@ -75,12 +96,23 @@ class CameraApi {
     return this.request<Camera[]>(`/cameras?${new URLSearchParams({ siteId })}`)
   }
 
+  get(id: string): Promise<Camera> {
+    return this.request<Camera>(`/cameras/${id}`)
+  }
+
   create(body: CameraWriteRequest): Promise<Camera> {
     return this.request<Camera>('/cameras', { method: 'POST', body: JSON.stringify(body) })
   }
 
   update(id: string, body: CameraWriteRequest): Promise<Camera> {
     return this.request<Camera>(`/cameras/${id}`, { method: 'PUT', body: JSON.stringify(body) })
+  }
+
+  probe(url: string, sourceType?: CameraSourceType): Promise<CameraProbeResult> {
+    return this.request<CameraProbeResult>('/cameras/probe', {
+      method: 'POST',
+      body: JSON.stringify({ url, sourceType, rtspUrl: url }),
+    })
   }
 
   delete(id: string): Promise<void> {

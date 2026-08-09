@@ -7,18 +7,26 @@
 // Override via NEXT_PUBLIC_API_URL env var (see .env.example). Defaults to the
 // backend's local Jetty port (8080) so a fresh checkout works without a .env
 // file and without a hard-coded LAN IP that breaks off-network.
+// Accept either origin (`http://localhost:8080`) or origin+/api — both normalize
+// so callers never hit `/api/api/...`.
 const DEFAULT_BASE_URL = 'http://localhost:8080'
+
+function normalizeApiOrigin(raw: string): string {
+  return raw.trim().replace(/\/+$/, '').replace(/\/api$/i, '')
+}
+
+const API_ORIGIN = normalizeApiOrigin(process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL)
 
 const API_CONFIG = {
   // Base URL for the backend API (without /api suffix)
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL,
-  
+  BASE_URL: API_ORIGIN,
+
   // Full API URL (with /api suffix)
-  API_URL: (process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL) + '/api',
-  
+  API_URL: `${API_ORIGIN}/api`,
+
   // WebSocket URL
-  WS_URL: process.env.NEXT_PUBLIC_API_URL || DEFAULT_BASE_URL,
-  
+  WS_URL: API_ORIGIN,
+
   // Timeout for API requests
   TIMEOUT: 10000,
 }

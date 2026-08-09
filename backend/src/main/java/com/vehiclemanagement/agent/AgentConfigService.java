@@ -65,15 +65,14 @@ public class AgentConfigService {
                 camera.getRole(),
                 camera.getPanelType(),
                 true, // enabled
-                new CameraSource(
-                    "rtsp",
-                    camera.getRtspUrl(),
-                    null, // username extracted from URL
-                    null  // password - TODO: decrypt and deliver securely
-                ),
+                resolveSource(camera),
                 "lpr-default-v1", // pipeline profile
                 camera.getConfigVersion()
             );
+            if (config.source() == null || config.source().url() == null || config.source().url().isBlank()) {
+                log.warn("Skipping camera {} — no usable source URL for agent {}", camera.getId(), agentId);
+                continue;
+            }
             cameraConfigs.add(config);
         }
 
@@ -86,6 +85,26 @@ public class AgentConfigService {
             java.time.LocalDateTime.now(),
             cameraConfigs
         );
+    }
+
+    static CameraSource resolveSource(Camera camera) {
+        Camera.SourceType type = camera.getSourceType() == null
+                ? Camera.SourceType.rtsp
+                : camera.getSourceType();
+        String url = camera.getSourceUrl();
+        if (url == null || url.isBlank()) {
+            url = camera.getRtspUrl();
+        }
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        // Infer http when operators stored an HTTP URL under legacy rtsp_url only.
+        if (type == Camera.SourceType.rtsp
+                && (url.regionMatches(true, 0, "http://", 0, 7)
+                || url.regionMatches(true, 0, "https://", 0, 8))) {
+            type = Camera.SourceType.http;
+        }
+        return new CameraSource(type.name(), url, null, null);
     }
 
     // DTOs

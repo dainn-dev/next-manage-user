@@ -79,6 +79,6 @@ public class AuthService {
     }
     
     public UserDto getCurrentUser(String username) {
-        return userService.getUserByUsername(username);
+        return userService.getCurrentUserForAuth(username);
     }
 }

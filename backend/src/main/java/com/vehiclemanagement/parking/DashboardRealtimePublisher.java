@@ -20,7 +20,41 @@ public class DashboardRealtimePublisher {
     }
 
     public void publishAfterCommit(SlotOccupancyView occupancy, OffsetDateTime occurredAt) {
-        Runnable publish = () -> messaging.convertAndSend(slotTopic(occupancy.siteId()), envelope(occupancy, occurredAt));
+        afterCommit(() -> messaging.convertAndSend(slotTopic(occupancy.siteId()), envelope(occupancy, occurredAt)));
+    }
+
+    public void publishEventAfterCommit(UUID eventId, UUID siteId, String type, OffsetDateTime occurredAt,
+                                        String plate, UUID slotId, UUID zoneId, String snapshotUrl) {
+        if (siteId == null || eventId == null || type == null || type.isBlank()) {
+            return;
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("id", eventId);
+        data.put("siteId", siteId);
+        data.put("type", type);
+        data.put("plate", plate);
+        data.put("slotId", slotId);
+        data.put("zoneId", zoneId);
+        data.put("snapshotUrl", snapshotUrl);
+        data.put("version", 1);
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("eventId", eventId);
+        envelope.put("siteId", siteId);
+        envelope.put("type", type);
+        envelope.put("occurredAt", occurredAt);
+        envelope.put("data", data);
+        afterCommit(() -> messaging.convertAndSend(eventTopic(siteId), envelope));
+    }
+
+    public static String slotTopic(UUID siteId) {
+        return "/topic/site/" + siteId + "/slots";
+    }
+
+    public static String eventTopic(UUID siteId) {
+        return "/topic/site/" + siteId + "/events";
+    }
+
+    private void afterCommit(Runnable publish) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override public void afterCommit() { publish.run(); }
@@ -28,10 +62,6 @@ public class DashboardRealtimePublisher {
         } else {
             publish.run();
         }
-    }
-
-    public static String slotTopic(UUID siteId) {
-        return "/topic/site/" + siteId + "/slots";
     }
 
     private Map<String, Object> envelope(SlotOccupancyView occupancy, OffsetDateTime occurredAt) {

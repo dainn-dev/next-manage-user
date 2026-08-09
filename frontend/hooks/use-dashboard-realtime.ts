@@ -5,6 +5,7 @@ import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { authApi } from '@/lib/api/auth-api'
 import { getWsUrl } from '@/lib/api/config'
+import type { CameraHealthEvent } from '@/hooks/use-camera-health-subscription'
 
 export type RealtimeState = 'connecting' | 'live' | 'polling' | 'disconnected'
 
@@ -13,11 +14,12 @@ export function useDashboardRealtime(
   onSlot: (payload: unknown) => void,
   onEvent: (payload: unknown) => void,
   onReconnect: () => void,
+  onCameraHealth?: (event: CameraHealthEvent) => void,
 ) {
   const [state, setState] = useState<RealtimeState>('disconnected')
   const [error, setError] = useState<string | null>(null)
-  const callbacks = useRef({ onSlot, onEvent, onReconnect })
-  callbacks.current = { onSlot, onEvent, onReconnect }
+  const callbacks = useRef({ onSlot, onEvent, onReconnect, onCameraHealth })
+  callbacks.current = { onSlot, onEvent, onReconnect, onCameraHealth }
 
   useEffect(() => {
     if (!siteId) {
@@ -40,6 +42,12 @@ export function useDashboardRealtime(
       })
       client.subscribe(`/topic/site/${siteId}/events`, (message) => {
         try { callbacks.current.onEvent(JSON.parse(message.body)) } catch { /* malformed event ignored */ }
+      })
+      client.subscribe(`/topic/site/${siteId}/cameras/health`, (message) => {
+        try {
+          const event = JSON.parse(message.body) as CameraHealthEvent
+          callbacks.current.onCameraHealth?.(event)
+        } catch { /* malformed event ignored */ }
       })
       callbacks.current.onReconnect()
     }

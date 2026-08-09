@@ -1,7 +1,6 @@
 package com.vehiclemanagement.dto;
 
 import com.vehiclemanagement.entity.Camera;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -35,8 +34,15 @@ public class CameraDto {
     @NotBlank(message = "Camera name is required")
     private String name;
 
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    /** Source RTSP URL. Kept for legacy clients; prefer sourceUrl + sourceType. */
     private String rtspUrl;
+
+    /** Edge capture protocol: rtsp or http (DroidCam). */
+    private Camera.SourceType sourceType;
+
+    /** Canonical edge source URL (RTSP or HTTP/MJPEG). */
+    private String sourceUrl;
+
     private StreamDto stream;
     private String snapshotUrl;
     private Camera.CameraRole role;
@@ -53,6 +59,13 @@ public class CameraDto {
         this.zoneId = camera.getZoneId();
         this.name = camera.getName();
         this.rtspUrl = camera.getRtspUrl();
+        this.sourceType = camera.getSourceType() == null ? Camera.SourceType.rtsp : camera.getSourceType();
+        String canonical = firstNonBlank(camera.getSourceUrl(), camera.getRtspUrl());
+        this.sourceUrl = canonical;
+        // Operators editing legacy RTSP-only rows still see the URL in rtspUrl.
+        if (this.rtspUrl == null && this.sourceType == Camera.SourceType.rtsp) {
+            this.rtspUrl = canonical;
+        }
         this.stream = camera.getStreamKind() == null ? null : new StreamDto(
                 camera.getStreamKind(), camera.getStreamUrl(), camera.getStreamExpiresAt());
         this.snapshotUrl = camera.getSnapshotUrl();
@@ -63,6 +76,16 @@ public class CameraDto {
         this.lastHeartbeatAt = camera.getLastHeartbeatAt();
         this.createdAt = camera.getCreatedAt();
         this.updatedAt = camera.getUpdatedAt();
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        if (primary != null && !primary.isBlank()) {
+            return primary;
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        return null;
     }
 
     public record StreamDto(Camera.StreamKind kind, String url, LocalDateTime expiresAt) { }
